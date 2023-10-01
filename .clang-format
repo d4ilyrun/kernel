@@ -1,0 +1,31 @@
+BasedOnStyle: LLVM
+Language: Cpp
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+AlignOperands: AlignAfterOperator
+AlignEscapedNewlines: Left
+AlignTrailingComments: true
+AlwaysBreakBeforeMultilineStrings: false
+BinPackArguments: true
+
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+
+BreakBeforeBraces: Linux
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesInParentheses: false
+
+IncludeBlocks: Regroup
+IncludeCategories:
+    - Regex: '<.*>'
+      Priority: 1
+    - Regex: '.*'
+      Priority: 2

@@ -1,0 +1,27 @@
+default_stages: [ commit, prepare-commit-msg ]
+
+repos:
+  - repo: "https://github.com/pre-commit/pre-commit-hooks"
+    rev: "v4.3.0"
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+      - id: check-shebang-scripts-are-executable
+      - id: check-merge-conflict
+        stages: [ merge-commit ]
+
+  - repo: "https://github.com/d4ilyrun/pre-commit-hooks"
+    rev: "v1.0.6"
+    hooks:
+      - id: check-clang-format
+      - id: check-clang-tidy
+      - id: shellcheck
+      - id: apply-nixpkgs-fmt
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: "v2.1.1"
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: []

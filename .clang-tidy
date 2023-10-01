@@ -1,0 +1,45 @@
+Checks: >
+    cert-*,
+    clang-analyzer-*
+    misc-*,
+    modernize-*
+    bugprone-*,
+
+    readability-redundant-*,
+    readability-simplify-*,
+    readability-identifier-naming,
+    readability-else-after-return,
+    readability-function-cognitive-complexity,
+    readability-function-size,
+    readability-isolate-declaration,
+    readability-magic-numbers,
+    readability-misleading-indentation,
+    readability-named-parameter,
+    readability-non-const-parameter,
+    readability-suspicious-call-argument,
+    readability-uppercase-literal-suffix,
+
+    performance-no-int-to-ptr,
+    performance-duplicate-include,
+
+WarningsAsErrors: >
+    bugprone-*,
+    cert-*,
+    clang-analyzer-*,
+    readability-redundant-*,
+    readability-simplify-*,
+    readability-identifier-naming,
+    readability-suspicious-call-argument,
+
+CheckOptions:
+    # CASE
+    - {key: readability-identifier-naming.FunctionCase,         value: lower_case   }
+    - {key: readability-identifier-naming.VariableCase,         value: lower_case   }
+    - {key: readability-identifier-naming.GlobalVariableCase,   value: lower_case   }
+    - {key: readability-identifier-naming.GlobalConstantCase,   value: UPPER_CASE   }
+    - {key: readability-identifier-naming.EnumConstantCase,     value: UPPER_CASE   }
+    - {key: readability-identifier-naming.MacroDefinitionCase,  value: UPPER_CASE   }
+
+    # PREFIX/SUFFIX
+    - {key: readability-identifier-naming.GlobalVariablePrefix, value: g_           }
+    - {key: readability-identifier-naming.LocalPointerSuffix,   value: _ptr         }
