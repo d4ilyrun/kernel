@@ -28,8 +28,9 @@
         devShells = rec {
           default = kernel;
           kernel = pkgs.mkShell.override { inherit (pkgs-i686) stdenv; } {
-            buildInputs = with pkgs; [
+            nativeBuildInputs = with pkgs; [
               gnumake
+              grub2
               bear
             ];
           };
