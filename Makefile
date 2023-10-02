@@ -8,11 +8,12 @@ LDFLAGS 	= -nostdlib
 ROOT 		= .
 K_ROOT 		= $(ROOT)/kernel
 LIB_ROOT 	= $(ROOT)/lib
+SCRIPTS_ROOT= $(ROOT)/scripts
 
 MAKE = make --no-print-directory
 
 # Files to be remove by the target 'clean'
-CLEAN_FILES =
+CLEAN_FILES = *.iso
 # Directories to call 'make clean' inside
 CLEAN_RECURSIVE =
 
@@ -24,10 +25,17 @@ all: iso
 include $(LIB_ROOT)/lib.mk
 include $(K_ROOT)/kernel.mk
 
-iso: $(K_TARGET) # TODO: build an actual iso file
+K_ISO = kernel.iso
+
+iso: $(K_ISO)
+$(K_ISO): $(K_TARGET)
+	$(SCRIPTS_ROOT)/generate_iso.sh $< $@
+
+qemu: $(K_ISO)
+	qemu-system-i386 -cdrom $^ $(QEMU_PARAMS)
 
 clean:
-	$(RM) $(CLEAN_TARGETS)
+	$(RM) $(CLEAN_FILES)
 	@for dir in $(CLEAN_RECURSIVE); do \
 		$(MAKE) -C $${dir} clean; \
 	done

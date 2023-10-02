@@ -32,6 +32,8 @@
               gnumake
               grub2
               bear
+              libisoburn
+              shellcheck
             ];
           };
         };

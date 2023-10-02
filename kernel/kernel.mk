@@ -21,7 +21,7 @@ K_OBJS = $(addprefix $(K_ROOT)/src/, \
 # Add architecture specific object files to kernel object files
 K_OBJS += $(addprefix $(K_ARCH_ROOT)/,$(K_ARCH_OBJS))
 
-CLEAN_TARGETS += $(K_OBJS) $(K_TARGET)
+CLEAN_FILES += $(K_OBJS) $(K_TARGET)
 
 $(K_TARGET): libc
 $(K_TARGET): LDFLAGS += -L$(LIBC_ROOT)
