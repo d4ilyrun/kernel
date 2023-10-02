@@ -3,7 +3,7 @@ CC ?= i686-elf-gcc
 
 CFLAGS 		= -std=c99 -Wall -Werror -Wextra -pedantic -ffreestanding
 CPPFLAGS 	=
-LDFLAGS 	=
+LDFLAGS 	= -nostdlib
 
 ROOT 		= .
 K_ROOT 		= $(ROOT)/kernel
