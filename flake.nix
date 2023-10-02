@@ -27,7 +27,12 @@
       {
         devShells = rec {
           default = kernel;
-          kernel = pkgs.mkShell.override { inherit (pkgs-i686) stdenv; } { };
+          kernel = pkgs.mkShell.override { inherit (pkgs-i686) stdenv; } {
+            buildInputs = with pkgs; [
+              gnumake
+              bear
+            ];
+          };
         };
       }
     );
