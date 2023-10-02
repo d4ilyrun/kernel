@@ -1,5 +1,6 @@
 .cache
 build
+compile_commands.json
 
 # qemu
 *.iso
@@ -47,12 +48,14 @@ result
 *.i*86
 *.x86_64
 *.hex
+*.bin
 
 # Debug files
 *.dSYM/
 *.su
 *.idb
 *.pdb
+*.sym
 
 # Kernel Module Compile Results
 *.mod*

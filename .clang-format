@@ -25,7 +25,9 @@ SpacesInParentheses: false
 
 IncludeBlocks: Regroup
 IncludeCategories:
-    - Regex: '<.*>'
+    - Regex: '<kernel/.*>'
       Priority: 1
-    - Regex: '.*'
+    - Regex: '<.*>'
       Priority: 2
+    - Regex: '.*'
+      Priority: 3
