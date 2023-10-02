@@ -55,6 +55,7 @@ result
 *.su
 *.idb
 *.pdb
+*.sym
 
 # Kernel Module Compile Results
 *.mod*

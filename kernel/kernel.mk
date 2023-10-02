@@ -2,7 +2,11 @@
 #
 # Defines the variables and targets related to building the kernel.
 
-K_TARGET = kernel.bin
+K_ELF = kernel.elf
+K_BIN = kernel.bin
+K_SYM = kernel.sym
+
+K_TARGET = $(K_BIN)
 kernel: $(K_TARGET)
 
 # Kernel configuration
@@ -21,11 +25,17 @@ K_OBJS = $(addprefix $(K_ROOT)/src/, \
 # Add architecture specific object files to kernel object files
 K_OBJS += $(addprefix $(K_ARCH_ROOT)/,$(K_ARCH_OBJS))
 
-CLEAN_FILES += $(K_OBJS) $(K_TARGET)
+CLEAN_FILES += $(K_OBJS) $(K_ELF) $(K_BIN) $(K_SYM)
 
 $(K_TARGET): libc
 $(K_TARGET): LDFLAGS += -L$(LIBC_ROOT)
 $(K_TARGET): CPPFLAGS += -I$(K_ROOT)/include -I$(LIBC_ROOT)/include
 $(K_TARGET): CPPFLAGS += $(addprefix -D,$(K_CONFIG))
 $(K_TARGET): $(K_OBJS)
-	$(CC) -T $(K_ARCH_ROOT)/linker.ld -o $@ $(CPPFLAGS) $(CFLAGS) $(K_OBJS) $(LDFLAGS) -lgcc -lc
+ifeq ($(DEBUG),y)
+	$(CC) -T $(K_ARCH_ROOT)/linker.ld -o $(K_BIN) $(CPPFLAGS) $(CFLAGS) $(K_OBJS) $(LDFLAGS) -lgcc -lc
+	objcopy --only-keep-debug $(K_BIN) $(K_SYM)
+	objcopy --strip-unneeded $(K_BIN)
+else
+	$(CC) -T $(K_ARCH_ROOT)/linker.ld -o $(K_BIN) $(CPPFLAGS) $(CFLAGS) $(K_OBJS) $(LDFLAGS) -lgcc -lc
+endif

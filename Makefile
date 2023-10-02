@@ -18,7 +18,12 @@ CLEAN_FILES = *.iso
 CLEAN_RECURSIVE =
 
 # Opitmization flags
+ifeq ($(DEBUG),y)
+CFLAGS += -O0 -g3
+QEMU_PARAMS += -s -S
+else
 CFLAGS += -O2
+endif
 
 all: iso
 
@@ -32,7 +37,12 @@ $(K_ISO): $(K_TARGET)
 	$(SCRIPTS_ROOT)/generate_iso.sh $< $@
 
 qemu: $(K_ISO)
-	qemu-system-i386 -cdrom $^ $(QEMU_PARAMS)
+	qemu-system-i386 -cdrom $^ $(QEMU_PARAMS) -daemonize
+
+ifeq ($(DEBUG),y)
+gdb: .gdbinit qemu
+	gdb -x .gdbinit $(K_SYM)
+endif
 
 clean:
 	$(RM) $(CLEAN_FILES)
@@ -43,4 +53,4 @@ clean:
 bear:
 	bear -- make -B
 
-.PHONY: clean iso kernel all
+.PHONY: clean iso kernel all qemu gdb bear

@@ -34,6 +34,7 @@
               bear
               libisoburn
               shellcheck
+              binutils
             ];
           };
         };
