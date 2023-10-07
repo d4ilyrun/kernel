@@ -20,6 +20,7 @@ include $(K_ARCH_ROOT)/arch.mk
 K_OBJS = $(addprefix $(K_ROOT)/src/, \
 		 crt0.o \
 		 main.o \
+		 devices/pic.o \
 		 )
 
 # Add architecture specific object files to kernel object files
