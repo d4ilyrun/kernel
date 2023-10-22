@@ -27,6 +27,14 @@ static inline void tty_putchar_at(char c, size_t x, size_t y)
     g_terminal.buffer[index] = vga_entry(c, g_terminal.color);
 }
 
+static inline void tty_newline()
+{
+    // Fill the whole line with a ' ' character
+    for (size_t x = g_terminal.column; x < TTY_MAX_WIDTH; ++x) {
+        tty_putchar(' ');
+    }
+}
+
 void tty_init(void)
 {
     g_terminal = (struct terminal_info){
@@ -46,6 +54,11 @@ void tty_init(void)
 
 void tty_putchar(char c)
 {
+    if (c == '\n' || c == '\r') {
+        tty_newline();
+        return;
+    }
+
     tty_putchar_at(c, g_terminal.column, g_terminal.row);
 
     // Advance 1 character, but stay within boudarie
