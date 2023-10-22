@@ -36,6 +36,9 @@
               shellcheck
               binutils
             ];
+            buildInputs = with pkgs.pkgsi686Linux; [
+              glibc
+            ];
           };
         };
       }
