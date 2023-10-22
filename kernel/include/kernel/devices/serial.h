@@ -1,8 +1,8 @@
 #ifndef KERNEL_DEVICES_SERIAL_H
 #define KERNEL_DEVICES_SERIAL_H
 
-#include <compiler.h>
 #include <stdint.h>
+#include <utils/compiler.h>
 
 /* Write a single byte at a given I/O port address. */
 static inline void outb(uint16_t port, uint8_t val)

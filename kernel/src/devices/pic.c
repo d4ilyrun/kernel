@@ -1,6 +1,7 @@
 #include <kernel/devices/pic.h>
-#include "kernel/devices/serial.h"
+#include <kernel/devices/serial.h>
 
+#include <utils/macro.h>
 
 /* Number of IRQs in a single PIC */
 #define PIC_SIZE 8
@@ -22,7 +23,7 @@
  *
  * They are set to 0x20 and 0x28 to not conflict with CPU exceptions
  * in protected mode.
-*/
+ */
 #define PIC_MASTER_VECTOR 0x20
 #define PIC_SLAVE_VECTOR 0x28
 
@@ -41,8 +42,8 @@ void pic_reset()
     outb(PIC_DATA(PIC_SLAVE), PIC_SLAVE_VECTOR);
 
     // ICW3: Setup master/slave relation
-    outb(PIC_DATA(PIC_MASTER), 4);  // master has a slave on IR 2
-    outb(PIC_DATA(PIC_SLAVE), 2); // slave is connected through pin 2
+    outb(PIC_DATA(PIC_MASTER), 4); // master has a slave on IR 2
+    outb(PIC_DATA(PIC_SLAVE), 2);  // slave is connected through pin 2
 
     // ICW4: Specify 8086 environment
     outb(PIC_DATA(PIC_MASTER), PIC_ICW4_8086);
