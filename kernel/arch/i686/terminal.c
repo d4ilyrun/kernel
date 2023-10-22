@@ -78,3 +78,8 @@ void tty_puts(const char *buffer)
 {
     tty_write(buffer, strlen(buffer));
 }
+
+void tty_set_color(uint8_t color)
+{
+    g_terminal.color = color;
+}

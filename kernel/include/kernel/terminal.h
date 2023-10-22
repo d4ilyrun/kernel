@@ -48,4 +48,11 @@ void tty_putchar(char c);
 void tty_write(const char *buffer, size_t size);
 void tty_puts(const char *buffer);
 
+/**
+ * Set the active terminal color.
+ *
+ * \param color The new color, as returned by \c vga_entry_color
+ */
+void tty_set_color(uint8_t color);
+
 #endif /* KERNEL_TERMINAL_H */
