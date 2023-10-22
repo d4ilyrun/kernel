@@ -1,5 +1,6 @@
 #include <kernel/devices/pic.h>
 #include <kernel/devices/uart.h>
+#include <kernel/syscalls.h>
 #include <kernel/terminal.h>
 
 void kernel_main(void)
@@ -9,5 +10,5 @@ void kernel_main(void)
 
     tty_init();
     tty_puts("Hello, World");
-    uart_write("Hello, UART!", sizeof("Hello, UART!"));
+    write("Hello, UART!", sizeof("Hello, UART!"));
 }
