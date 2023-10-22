@@ -22,7 +22,7 @@ static inline void outl(uint16_t port, uint32_t val)
     ASM("out %0,%1" : : "a"(val), "Nd"(port) : "memory");
 }
 
-/* Write a single byte at a given I/O port address. */
+/* Read a single byte from a given I/O port address. */
 static inline uint8_t inb(uint16_t port)
 {
     uint8_t val;
@@ -30,7 +30,7 @@ static inline uint8_t inb(uint16_t port)
     return val;
 }
 
-/* Write 2 bytes at a given I/O port address. */
+/* Read 2 bytes from a given I/O port address. */
 static inline uint16_t inw(uint16_t port)
 {
     uint16_t val;
@@ -38,7 +38,7 @@ static inline uint16_t inw(uint16_t port)
     return val;
 }
 
-/* Write 4 bytes at a given I/O port address. */
+/* Read 4 bytes from a given I/O port address. */
 static inline uint32_t inl(uint16_t port)
 {
     uint32_t val;
