@@ -20,4 +20,7 @@
             /* wait */;  \
     } while (0)
 
+/* Check if x is strictly between l and h (l < x < h). */
+#define BETWEEN(_x, _l, _h) ((_l) < (_x) && (_x) < (_h))
+
 #endif /* UTILS_MACRO_H */
