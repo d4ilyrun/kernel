@@ -17,7 +17,7 @@ arch_source_files = {
     'arch/i686/setup.c',
     'arch/i686/gdt.c',
     'arch/i686/asm/gdt.S',
-    'arch/i686/interrupt.c',
+    'arch/i686/interrupts.c',
     'arch/i686/terminal.c',
   ]),
 }

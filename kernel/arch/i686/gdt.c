@@ -1,11 +1,10 @@
 #include <kernel/i686/gdt.h>
-#include <kernel/interrupt.h>
+#include <kernel/interrupts.h>
 #include <kernel/logger.h>
 
 #include <string.h>
+#include <utils/compiler.h>
 #include <utils/macro.h>
-
-#include "utils/compiler.h"
 
 // Assembly functions defined inside 'asm/gdt.S'
 void reload_segment_registers(void);
@@ -25,7 +24,7 @@ static gdt_descriptor g_global_segments[] = {
 
 void gdt_init(void)
 {
-    interrupt_disable();
+    interrupts_disable();
 
     /**
      * Initialize the content of the GDTR register.
