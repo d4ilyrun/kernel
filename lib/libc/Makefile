@@ -6,9 +6,8 @@ LDFLAGS 	=
 
 LIB = libc.a
 
-OBJS = $(addprefix src/, \
-	   strlen.o \
-	   )
+FUNCS = strlen memcpy memset
+OBJS = $(addsuffix .o, $(addprefix src/, $(FUNCS)))
 
 all: library
 library: $(LIB)
