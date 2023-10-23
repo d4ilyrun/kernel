@@ -1,0 +1,47 @@
+/**
+ * x86 specific interrupt interface.
+ *
+ * @ref https://wiki.osdev.org/Interrupt_Descriptor_Table IDT
+ */
+
+#ifndef KERNEL_I686_INTERRUPTS_H
+#define KERNEL_I686_INTERRUPTS_H
+
+#include <utils/compiler.h>
+#include <utils/types.h>
+
+#define IDT_LENGTH 256
+#define IDT_SIZE (IDT_LENGTH * sizeof(idt_descriptor))
+#define IDT_BASE_ADDRESS 0x00000000UL
+
+typedef enum idt_gate_type {
+    TASK_GATE = 0x5,
+    INTERRUPT_GATE = 0x6,
+    TRAP_GATE = 0x7,
+    INTERRUPT_GATE_32B = 0xE,
+    TRAP_GATE_32B = 0xF,
+} idt_gate_type;
+
+/**
+ * @struct IDT Register
+ * The location of the IDT is kept in the IDTR (IDT register).
+ */
+typedef struct idtr idtr;
+struct PACKED idtr {
+    u16 size;
+    u32 offset;
+};
+
+/**
+ * @struct Single entry inside the IDT
+ */
+typedef struct idt_descriptor idt_descriptor;
+struct PACKED idt_descriptor {
+    u16 offset_low; ///< 16 LSB fo the 32-bit offset
+    u16 segment;
+    u8 _reserved;
+    u8 access;
+    u16 offset_high; ///< 16 MSB fo the 32-bit offset
+};
+
+#endif /* KERNEL_I686_INTERRUPTS_H */
