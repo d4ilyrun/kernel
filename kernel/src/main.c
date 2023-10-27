@@ -17,6 +17,7 @@ void kernel_main(void)
     interrupts_init();
     arch_setup();
 
+    pic_disable_irq(IRQ_TIMER);
     pic_disable_irq(IRQ_COM1);
     pic_disable_irq(IRQ_COM2);
 
