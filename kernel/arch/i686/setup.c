@@ -1,4 +1,4 @@
-#include <kernel/gdt.h>
+#include <kernel/i686/gdt.h>
 
 void arch_setup(void)
 {

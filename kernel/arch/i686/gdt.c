@@ -1,4 +1,4 @@
-#include <kernel/gdt.h>
+#include <kernel/i686/gdt.h>
 #include <kernel/interrupt.h>
 #include <kernel/logger.h>
 
