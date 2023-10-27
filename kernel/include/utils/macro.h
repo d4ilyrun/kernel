@@ -12,7 +12,7 @@
 
 /* Most/Less significant byte from 16bit integer */
 #define MSB(_x) ((_x) >> 8)
-#define LSB(_x) ((_x)&0x0F)
+#define LSB(_x) ((_x)&0xFF)
 
 #define WAIT_FOR(_cond)  \
     do {                 \
