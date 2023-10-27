@@ -9,6 +9,9 @@
 
 static volatile idt_descriptor *const IDT = IDT_BASE_ADDRESS;
 
+// IDT entry flag: gate is present
+#define IDT_PRESENT 0x80
+
 void interrupts_disable(void)
 {
     ASM("cli");
@@ -19,21 +22,23 @@ void interrupts_enable(void)
     ASM("sti");
 }
 
-static inline idt_descriptor interrupt(idt_gate_type type, u32 address)
+static inline idt_descriptor idt_entry(idt_gate_type type, u32 address)
 {
     if (type == TASK_GATE) {
         return (idt_descriptor){
             .offset_low = 0,
-            .segment = GDT_ENTRY_TSS,
-            .access = TASK_GATE | 0x80,
+            // segment selector: TSS from GDT, level=0
+            .segment = GDT_ENTRY_TSS << 3,
+            .access = TASK_GATE | IDT_PRESENT,
             .offset_high = 0,
         };
     }
 
     return (idt_descriptor){
         .offset_low = address & 0xFFFF,
-        .segment = GDT_ENTRY_KERNEL_CODE,
-        .access = type | 0x80,
+        // segment selector: kernel code from GDT, level=0
+        .segment = GDT_ENTRY_KERNEL_CODE << 3,
+        .access = type | IDT_PRESENT,
         .offset_high = address >> 16,
     };
 }
@@ -47,7 +52,7 @@ static inline void interrupts_set(size_t nr, idt_gate_type type,
         return;
     }
 
-    idt_descriptor entry = interrupt(type, (u32)handler);
+    idt_descriptor entry = idt_entry(type, (u32)handler);
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
