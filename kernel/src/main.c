@@ -14,4 +14,8 @@ void kernel_main(void)
     tty_init();
     interrupts_init();
     arch_setup();
+
+    interrupts_enable();
+
+    ASM("int $0");
 }

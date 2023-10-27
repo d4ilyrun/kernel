@@ -5,6 +5,7 @@
 
 #include <string.h>
 #include <utils/compiler.h>
+#include <utils/macro.h>
 
 static volatile idt_descriptor *const IDT = IDT_BASE_ADDRESS;
 
@@ -54,6 +55,10 @@ static inline void interrupts_set(size_t nr, idt_gate_type type,
 #pragma GCC diagnostic pop
 }
 
+static DEFINE_INTERRUPT_HANDLER(division_error);
+static DEFINE_INTERRUPT_HANDLER(invalid_opcode);
+static DEFINE_INTERRUPT_HANDLER(general_protection);
+
 void interrupts_init(void)
 {
     interrupts_disable();
@@ -68,4 +73,29 @@ void interrupts_init(void)
     memset(IDT_BASE_ADDRESS, 0, IDT_SIZE); // NOLINT
 
     // Setup all known interrupts
+    interrupts_set(0x0, TRAP_GATE_32B, INTERRUPT_HANDLER(division_error));
+    interrupts_set(0x6, TRAP_GATE_32B, INTERRUPT_HANDLER(invalid_opcode));
+    interrupts_set(0xD, TRAP_GATE_32B, INTERRUPT_HANDLER(general_protection));
+}
+
+DEFINE_INTERRUPT_HANDLER(division_error)
+{
+    UNUSED(frame);
+    log_info("trap", "division error");
+}
+
+DEFINE_INTERRUPT_HANDLER(invalid_opcode)
+{
+    UNUSED(frame);
+    log_info("trap", "invalid_opcode");
+}
+
+DEFINE_INTERRUPT_HANDLER(general_protection)
+{
+    register u32 error_code;
+
+    UNUSED(frame);
+    log_info("trap", "general protection fault");
+
+    ASM("pop %0" : "=r"(error_code)::);
 }

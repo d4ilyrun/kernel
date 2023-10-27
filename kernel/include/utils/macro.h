@@ -23,4 +23,7 @@
 /* Check if x is strictly between l and h (l < x < h). */
 #define BETWEEN(_x, _l, _h) ((_l) < (_x) && (_x) < (_h))
 
+/* Avoid compiler warning when not using a symbol */
+#define UNUSED(_x) (void)(_x);
+
 #endif /* UTILS_MACRO_H */
