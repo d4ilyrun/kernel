@@ -24,4 +24,4 @@ repos:
     hooks:
       - id: conventional-pre-commit
         stages: [commit-msg]
-        args: []
+        args: [feat, fix, ci, chore, test, docs, fixup, merge]
