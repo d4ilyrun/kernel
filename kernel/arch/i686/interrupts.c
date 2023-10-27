@@ -37,9 +37,10 @@ static inline idt_descriptor interrupt(idt_gate_type type, u32 address)
     };
 }
 
-static inline void interrupts_set_idt_entry(size_t index, idt_descriptor entry)
+static inline void interrupts_set(size_t nr, idt_gate_type type,
+                                  interrupt_handler handler)
 {
-    if (index >= IDT_LENGTH) {
+    if (nr >= IDT_LENGTH) {
         // TODO: Print index in log message
         log_err("IDT", "Invalid index");
         return;

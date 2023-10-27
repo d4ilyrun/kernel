@@ -44,4 +44,13 @@ struct PACKED idt_descriptor {
     u16 offset_high; ///< 16 MSB fo the 32-bit offset
 };
 
+/** Frame passed onto the interrupt handlers by GCC */
+struct interrupt_frame {
+    u16 ip;
+    u16 cs;
+    u16 flags;
+    u16 sp;
+    u16 ss;
+};
+
 #endif /* KERNEL_I686_INTERRUPTS_H */
