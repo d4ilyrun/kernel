@@ -3,4 +3,6 @@
 
 #define ASM __asm__ volatile
 
+#define PACKED __attribute__((__packed__))
+
 #endif /* UTILS_COMPILER_H */
