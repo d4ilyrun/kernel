@@ -23,12 +23,40 @@ if compiler.has_header('string.h')
   warning('Headers from the glibc are still accessible')
 endif
 
+### Build targets: build kernel and required libraries
+
+if get_option('buildtype') == 'debug'
+  add_project_arguments('-g3', '-DNDEBUG', language : 'c')
+endif
+
 subdir('lib/libc')
 subdir('kernel')
 
-iso = alias_target('iso',
-  run_target('kernel.iso',
-    command: [ 'scripts/generate_iso.sh', kernel, '@OUTPUT@' ],
-    depends: kernel
-  )
+iso = custom_target('iso',
+  output: 'kernel.iso',
+  command: [ 'scripts/generate_iso.sh', kernel, '@OUTPUT@' ],
+  depends: kernel
 )
+
+alias_target('iso', iso)
+
+### Run targets: run the kernel using qemu
+
+qemu = find_program('qemu-system-i386')
+
+run_target('qemu',
+  command: [qemu, '-cdrom', iso, '-serial', 'stdio']
+)
+
+if get_option('buildtype') == 'debug'
+
+gdb = find_program('gdb')
+
+# We need to use a custom target to be able to daemonize appropriately
+custom_target('qemu-server',
+  input: [],
+  output: ['qemu-server'],
+  command: [qemu, '-cdrom', iso, '-daemonize', '-s', '-S'],
+)
+
+endif

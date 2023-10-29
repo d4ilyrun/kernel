@@ -36,10 +36,4 @@ $(K_TARGET): LDFLAGS += -L$(LIBC_ROOT)
 $(K_TARGET): CPPFLAGS += -I$(K_ROOT)/include -I$(LIBC_ROOT)/include
 $(K_TARGET): CPPFLAGS += $(addprefix -D,$(K_CONFIG))
 $(K_TARGET): $(K_OBJS)
-ifeq ($(DEBUG),y)
 	$(CC) -T $(K_ARCH_ROOT)/linker.ld -o $(K_BIN) $(CPPFLAGS) $(CFLAGS) $(K_OBJS) $(LDFLAGS) -lgcc -lc
-	objcopy --only-keep-debug $(K_BIN) $(K_SYM)
-	objcopy --strip-unneeded $(K_BIN)
-else
-	$(CC) -T $(K_ARCH_ROOT)/linker.ld -o $(K_BIN) $(CPPFLAGS) $(CFLAGS) $(K_OBJS) $(LDFLAGS) -lgcc -lc
-endif

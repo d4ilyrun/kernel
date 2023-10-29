@@ -29,17 +29,37 @@ function generate_iso()
 
     # Create a minimal boot partition for grub to be able to generate an iso file
     mkdir -p "$iso_dir/boot/grub"
-    cp "$KERNEL_BIN" "$iso_dir/boot/$KERNEL_BIN"
+    cp "$KERNEL_BIN" "$iso_dir/boot/$(basename "$KERNEL_BIN")"
 
     # Add a custom multiboot entry for grub to be able to boot our kernel
     cat <<EOF > "$iso_dir/boot/grub/grub.cfg"
 menuentry "Kernel - ${KERNEL_BIN%.*}" {
-    multiboot /boot/$KERNEL_BIN
+    multiboot /boot/$(basename "$KERNEL_BIN")
 }
 EOF
 
     grub-mkrescue -o "$KERNEL_ISO" "$iso_dir"
 }
 
+# Split the binary file into two separate parts:
+# - The raw binary, stripped from any unneeded debug symbol
+# - The symbol definitions, used by GDB
+#
+# This step is necessary, as unneeded symbols would make the
+# resulting binary not multiboot compliant.
+function split_debug_symbols()
+{
+    local symbols
+    local kernel
+
+    kernel="$1"
+    symbols="${kernel%.*}.sym"
+
+    echo "Moving debug symbols into $symbols"
+	objcopy --only-keep-debug "$kernel" "$symbols"
+	objcopy --strip-unneeded "$kernel"
+}
+
+split_debug_symbols "$KERNEL_BIN"
 check_multiboot "$KERNEL_BIN"
 generate_iso
