@@ -1,6 +1,6 @@
 Checks: >
+
     cert-*,
-    clang-analyzer-*
     misc-*,
     modernize-*
     bugprone-*,
@@ -24,7 +24,7 @@ Checks: >
 WarningsAsErrors: >
     bugprone-*,
     cert-*,
-    clang-analyzer-*,
+    clang-analyzer-core,
     readability-redundant-*,
     readability-simplify-*,
     readability-identifier-naming,

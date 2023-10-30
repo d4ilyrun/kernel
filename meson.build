@@ -1,7 +1,7 @@
 project('kernel', ['c'],
   default_options : [
     'warning_level=3',
-    'c_std=c99',
+    'c_std=c11',
     'c_args=-ffreestanding',
     'c_link_args=-nostdlib -lgcc',
     'default_library=static',
