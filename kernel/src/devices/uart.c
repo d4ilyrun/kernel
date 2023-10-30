@@ -2,6 +2,7 @@
 #include <kernel/devices/uart.h>
 
 #include <stdint.h>
+#include <utils/compiler.h>
 #include <utils/macro.h>
 
 #define UART_BAUDRATE 38400
@@ -33,7 +34,7 @@
 /* Register addres from offset */
 #define UART_REG(_reg) ((UART_PORT) + (_reg))
 
-static inline uint16_t uart_div_latch_value(const uint16_t baudrate)
+static ALWAYS_INLINE uint16_t uart_div_latch_value(const uint16_t baudrate)
 {
     return (UART_CLOCK_HZ / baudrate);
 }

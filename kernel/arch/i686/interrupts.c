@@ -1,3 +1,4 @@
+#include <kernel/devices/pic.h>
 #include <kernel/devices/uart.h>
 #include <kernel/i686/gdt.h>
 #include <kernel/i686/interrupts.h>
@@ -7,8 +8,6 @@
 #include <string.h>
 #include <utils/compiler.h>
 #include <utils/macro.h>
-
-#include "kernel/devices/pic.h"
 
 static volatile idt_descriptor *const IDT = IDT_BASE_ADDRESS;
 
@@ -25,7 +24,7 @@ void interrupts_enable(void)
     ASM("sti");
 }
 
-static inline idt_descriptor idt_entry(idt_gate_type type, u32 address)
+static ALWAYS_INLINE idt_descriptor idt_entry(idt_gate_type type, u32 address)
 {
     if (type == TASK_GATE) {
         return (idt_descriptor){

@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <utils/compiler.h>
 
 /* Hardware text mode color constants. */
 enum vga_color {
@@ -28,7 +29,8 @@ enum vga_color {
  * Generate a valid vga color combination from the given forgeroung and
  * background.
  */
-static inline uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg)
+static ALWAYS_INLINE uint8_t vga_entry_color(enum vga_color fg,
+                                             enum vga_color bg)
 {
     return fg | bg << 4;
 }
@@ -37,7 +39,7 @@ static inline uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg)
  * Generate a valid vga entry, displaying a character with the given color
  * combo.
  */
-static inline uint16_t vga_entry(unsigned char uc, uint8_t color)
+static ALWAYS_INLINE uint16_t vga_entry(unsigned char uc, uint8_t color)
 {
     // NOLINTNEXTLINE(readability-magic-numbers)
     return (uint16_t)uc | (uint16_t)color << 8;
