@@ -27,6 +27,7 @@ endif
 
 if get_option('buildtype') == 'debug'
   add_project_arguments('-g3', '-DNDEBUG', language : 'c')
+  add_project_link_arguments('-g3', language : 'c')
 endif
 
 subdir('lib/libc')
