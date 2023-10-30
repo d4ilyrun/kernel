@@ -14,7 +14,6 @@ repos:
   - repo: "https://github.com/d4ilyrun/pre-commit-hooks"
     rev: "v1.0.6"
     hooks:
-      - id: check-clang-format
       - id: check-clang-tidy
       - id: shellcheck
       - id: apply-nixpkgs-fmt
@@ -24,4 +23,13 @@ repos:
     hooks:
       - id: conventional-pre-commit
         stages: [commit-msg]
-        args: [feat, fix, ci, chore, test, docs, fixup, merge]
+        args: [feat, fix, ci, chore, test, docs, fixup, merge, refacto]
+
+  - repo: local
+    hooks:
+      - id: check-clang-format
+        name: Formatting C source files
+        entry: meson --internal clangformat . ./build
+        language: system
+        types: ['c']
+        pass_filenames: false

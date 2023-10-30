@@ -30,6 +30,8 @@
           kernel = pkgs.mkShell.override { inherit (pkgs-i686) stdenv; } {
             nativeBuildInputs = with pkgs; [
               gnumake
+              meson
+              ninja
               grub2
               bear
               libisoburn
