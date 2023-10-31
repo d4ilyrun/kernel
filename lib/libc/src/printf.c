@@ -52,7 +52,7 @@ static void printf_utoa_base(register unsigned long long x,
                              register unsigned int base, int *written)
 {
     static const char digits[] = "0123456789abcdef";
-    char buf[MAXBUF - 1];
+    char buf[MAXBUF];
 
     register char *c = &buf[MAXBUF - 1];
 
@@ -61,7 +61,7 @@ static void printf_utoa_base(register unsigned long long x,
         x /= base;
     } while (x != 0);
 
-    while (++c <= &buf[MAXBUF - 1])
+    while (++c != &buf[MAXBUF])
         printf_char(*c, written);
 }
 
@@ -126,8 +126,8 @@ static printf_ctx printf_length_modifiers(const char *format, int *index)
     return ctx;
 }
 
-static void print_unsigned(register int base, va_list *parameters,
-                           const printf_ctx *ctx, int *written)
+static void printf_unsigned(register int base, va_list *parameters,
+                            const printf_ctx *ctx, int *written)
 {
     // Here we know that sizeof(int) == sizeof(long) anyway and skip the
     // case were we only have a single 'l' modifier (cf. static_assert)
@@ -167,19 +167,19 @@ static int printf_step(char c, int *written, va_list *parameters,
         break;
 
     case TOK_UNSIGNED:
-        print_unsigned(10, parameters, ctx, written);
+        printf_unsigned(10, parameters, ctx, written);
         break;
 
     case TOK_OCTAL:
-        print_unsigned(8, parameters, ctx, written);
+        printf_unsigned(8, parameters, ctx, written);
         break;
 
     case TOK_HEX:
-        print_unsigned(16, parameters, ctx, written);
+        printf_unsigned(16, parameters, ctx, written);
         break;
 
     case TOK_BINARY:
-        print_unsigned(2, parameters, ctx, written);
+        printf_unsigned(2, parameters, ctx, written);
         break;
 
     case TOK_POINTER:
