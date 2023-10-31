@@ -17,11 +17,17 @@
 #define LOG_FMT_32 "0x%x"
 #define LOG_FMT_64 "0x%llx"
 
-#define ANSI_RED "\033[31"
-#define ANSI_YELLOW "\033[33"
-#define ANSI_CYAN "\033[36"
-#define ANSI_DEFAULT "\033[39"
+#define ANSI_ERR "\033[31;1;4m"
+#define ANSI_WARN "\033[33;1m"
+#define ANSI_DBG "\033[36m"
+#define ANSI_INFO "\033[39m"
 #define ANSI_RESET "\033[0m"
+
+#ifndef xSTR
+#define xSTR(_x) #_x
+#endif
+
+#include <stdio.h>
 
 /**
  * \brief Print a log message onto the terminal.
@@ -36,9 +42,22 @@
  */
 void log(const char *type, const char *domain, const char *msg, ...);
 
-#define log_err(...) log(ANSI_RED ";1;4mERROR" ANSI_RESET " ", __VA_ARGS__)
-#define log_warn(...) log(ANSI_YELLOW ";1mWARN" ANSI_RESET "  ", __VA_ARGS__)
-#define log_dbg(...) log(ANSI_CYAN "mDEBUG" ANSI_RESET " ", __VA_ARGS__)
-#define log_info(...) log(ANSI_DEFAULT "mINFO" ANSI_RESET "  ", __VA_ARGS__)
+#define log_err(domain, ...) \
+    log(ANSI_ERR "ERROR" ANSI_RESET " ", domain, __VA_ARGS__)
+#define log_warn(domain, ...) \
+    log(ANSI_WARN "WARN" ANSI_RESET "  ", domain, __VA_ARGS__)
+#define log_dbg(domain, ...) \
+    log(ANSI_DBG "DEBUG" ANSI_RESET " ", domain, __VA_ARGS__)
+#define log_info(domain, ...) \
+    log(ANSI_INFO "INFO" ANSI_RESET "  ", domain, __VA_ARGS__)
+
+#define log_variable(_var) \
+    log_dbg("variable", "%s=" LOG_FMT_32, xSTR(_var), _var)
+#define log_variable_8(_var) \
+    log_dbg("variable", "%s=" LOG_FMT_8, xSTR(_var), _var)
+#define log_variable_16(_var) \
+    log_dbg("variable", "%s=" LOG_FMT_16, xSTR(_var), _var)
+#define log_variable_64(_var) \
+    log_dbg("variable", "%s=" LOG_FMT_64, xSTR(_var), _var)
 
 #endif /* KERNEL_LOGGER_H */
