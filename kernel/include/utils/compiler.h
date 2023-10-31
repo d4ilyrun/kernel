@@ -5,4 +5,6 @@
 
 #define PACKED __attribute__((__packed__))
 
+#define static_assert _Static_assert // NOLINT
+
 #endif /* UTILS_COMPILER_H */

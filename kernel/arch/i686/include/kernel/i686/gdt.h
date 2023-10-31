@@ -110,4 +110,7 @@ void gdt_init(void);
  */
 void gdt_load_segment(gdt_descriptor, u16 index);
 
+/** Print the content of the GDT and GDTR. */
+void gdt_log(void);
+
 #endif /* KERNEL_ARCH_I686_GDT_H */

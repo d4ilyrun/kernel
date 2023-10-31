@@ -12,10 +12,4 @@ void kernel_main(void)
     uart_reset();
     tty_init();
     arch_setup();
-
-    log_err("main", "Hello");
-    log_warn("main", "Hello");
-    log_dbg("main", "Hello");
-    log_info("main", "Hello");
-    write("Hello, UART!", sizeof("Hello, UART!"));
 }

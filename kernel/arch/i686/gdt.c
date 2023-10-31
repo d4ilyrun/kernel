@@ -68,3 +68,34 @@ void gdt_load_segment(gdt_descriptor segment, u16 index)
     gdt[6] = ((segment.limit >> 16) & 0xF) | (segment.flags << 4);
     gdt[7] = MSB(segment.base >> 16);
 }
+
+void gdt_log(void)
+{
+    // Print the content of the GDTR
+    gdtr gdtr;
+    ASM("sgdt %0" : "=m"(gdtr) : : "memory");
+    log_info("GDT", "GDTR = { size: " LOG_FMT_16 ", offset: " LOG_FMT_32 "}",
+             gdtr.size, gdtr.offset);
+
+    // Print each global segment
+    // We don't support adding sectors manually for now so we are good
+    // printing those only.
+    log_info("GDT", "Global segment descriptors");
+
+    for (u16 index = 0;
+         index < sizeof(g_global_segments) / sizeof(gdt_descriptor); ++index) {
+
+        // Load segment from index
+        u8 *segment = (u8 *)(GDT_BASE_ADDRESS + (index * GDT_ENTRY_SIZE));
+
+        printf("%hd = { base: " LOG_FMT_32 ", limit: " LOG_FMT_32
+               ", access: " LOG_FMT_8 ", flags: " LOG_FMT_8 " }\n",
+               index,
+               /* base */
+               segment[2] | segment[3] << 8 | segment[4] << 16 |
+                   segment[7] << 24,
+               /* limit */
+               segment[0] | (segment[1] << 8) | (segment[6] & 0xF) << 16,
+               segment[5], (segment[6] & 0xF0) >> 4);
+    }
+}

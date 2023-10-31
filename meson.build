@@ -1,7 +1,7 @@
 project('kernel', ['c'],
   default_options : [
     'warning_level=3',
-    'c_std=c99',
+    'c_std=c11',
     'c_args=-ffreestanding',
     'c_link_args=-nostdlib -lgcc',
     'default_library=static',
@@ -13,6 +13,14 @@ project('kernel', ['c'],
 project_description = 'My very own x86 kernel from scratch'
 
 compiler = meson.get_compiler('c')
+
+compiler.sizeof('char')
+compiler.sizeof('short')
+compiler.sizeof('int')
+compiler.sizeof('long')
+compiler.sizeof('long long')
+compiler.sizeof('float')
+compiler.sizeof('double')
 
 # Make sure that we we have the necessary headers, should always be the case
 foreach header: [ 'stddef.h', 'stdint.h', 'stdarg.h' ]
