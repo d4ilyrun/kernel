@@ -13,9 +13,8 @@ void kernel_main(void)
     tty_init();
     arch_setup();
 
-    log_err("main", "Hello");
-    log_warn("main", "Hello");
-    log_dbg("main", "Hello");
-    log_info("main", "Hello");
-    write("Hello, UART!", sizeof("Hello, UART!"));
+    log_err("main", "coucou: " LOG_FMT_16, (unsigned short)-1);
+    log_warn("main", "coucou");
+    log_dbg("main", "coucou");
+    log_info("main", "coucou");
 }

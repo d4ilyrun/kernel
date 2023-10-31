@@ -206,13 +206,10 @@ static int printf_step(char c, int *written, va_list *parameters,
     return 0;
 }
 
-int printf(const char *format, ...)
+int vprintf(const char *format, va_list parameters)
 {
-    va_list parameters;
     int written = 0;
     int error = 0;
-
-    va_start(parameters, format);
 
     int i = 0;
     while (format[i] != '\0') {
@@ -240,7 +237,14 @@ int printf(const char *format, ...)
         i += 1;
     }
 
-    va_end(parameters);
-
     return error ? -1 : written;
+}
+
+int printf(const char *format, ...)
+{
+    va_list parameters;
+    va_start(parameters, format);
+    int res = vprintf(format, parameters);
+    va_end(parameters);
+    return res;
 }

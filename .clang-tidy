@@ -27,7 +27,6 @@ WarningsAsErrors: >
     clang-analyzer-core,
     readability-redundant-*,
     readability-simplify-*,
-    readability-identifier-naming,
     readability-suspicious-call-argument,
 
 CheckOptions:
