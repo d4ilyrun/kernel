@@ -87,6 +87,32 @@ void interrupts_init(void)
     // Setup PIC IRQs
     interrupts_set(PIC_MASTER_VECTOR + IRQ_KEYBOARD, TRAP_GATE_32B,
                    INTERRUPT_HANDLER(irq_keyboard));
+
+    log_dbg("IDT", "Finished setting up the IDT");
+
+    idt_log();
+}
+
+void idt_log(void)
+{
+    idtr idtr;
+    ASM("sidt %0" : "=m"(idtr) : : "memory");
+    log_info("IDT", "IDTR = { size: " LOG_FMT_16 ", offset:" LOG_FMT_32 " }",
+             idtr.size, idtr.offset);
+
+    log_info("IDT", "Interrupt descriptors");
+    idt_descriptor *idt = (idt_descriptor *)idtr.offset;
+
+    for (size_t i = 0; i < IDT_LENGTH; ++i) {
+        idt_descriptor interrupt = idt[i];
+        if (interrupt.segment == 0)
+            continue; // Uninitialized
+
+        printf(LOG_FMT_8 " = { offset: " LOG_FMT_32 ", segment: " LOG_FMT_16
+                         ", access: " LOG_FMT_8 " }\n",
+               i, interrupt.offset_low | (interrupt.offset_high << 16),
+               interrupt.segment, interrupt.access);
+    }
 }
 
 DEFINE_INTERRUPT_HANDLER(division_error)

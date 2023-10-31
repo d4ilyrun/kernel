@@ -53,4 +53,7 @@ struct interrupt_frame {
     u16 ss;
 };
 
+/** Print the content of the IDT and IDTR */
+void idt_log(void);
+
 #endif /* KERNEL_I686_INTERRUPTS_H */
