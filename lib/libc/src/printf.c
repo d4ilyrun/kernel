@@ -132,7 +132,8 @@ static void printf_unsigned(register int base, va_list *parameters,
     // Here we know that sizeof(int) == sizeof(long) anyway and skip the
     // case were we only have a single 'l' modifier (cf. static_assert)
     if (ctx->ell >= 2)
-        printf_utoa_base(va_arg(*parameters, unsigned int), base, written);
+        printf_utoa_base(va_arg(*parameters, unsigned long long), base,
+                         written);
     else if (ctx->h == 1)
         printf_utoa_base((unsigned short)va_arg(*parameters, unsigned int),
                          base, written);
@@ -144,8 +145,7 @@ static void printf_unsigned(register int base, va_list *parameters,
     else if (ctx->t)
         printf_utoa_base(va_arg(*parameters, ptrdiff_t), base, written);
     else
-        printf_utoa_base(va_arg(*parameters, unsigned long long), base,
-                         written);
+        printf_utoa_base(va_arg(*parameters, unsigned int), base, written);
 }
 
 static int printf_step(char c, int *written, va_list *parameters,
