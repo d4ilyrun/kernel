@@ -14,6 +14,14 @@ project_description = 'My very own x86 kernel from scratch'
 
 compiler = meson.get_compiler('c')
 
+compiler.sizeof('char')
+compiler.sizeof('short')
+compiler.sizeof('int')
+compiler.sizeof('long')
+compiler.sizeof('long long')
+compiler.sizeof('float')
+compiler.sizeof('double')
+
 # Make sure that we we have the necessary headers, should always be the case
 foreach header: [ 'stddef.h', 'stdint.h', 'stdarg.h' ]
   compiler.has_header(header, required: true)
