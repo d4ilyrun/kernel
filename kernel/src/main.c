@@ -4,6 +4,8 @@
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
 
+#include "utils/types.h"
+
 void arch_setup(void);
 
 void kernel_main(void)
@@ -21,6 +23,10 @@ void kernel_main(void)
     log_dbg("main", "coucou");
     log_info("main", "coucou");
 
-    log_variable(a);
+    log_variable_8(a);
     log_variable(test);
+    log_variable_64(test);
+
+    u32 arr[32] = {0x1, 0x2, 0x3, 0x1, 0x4};
+    log_array("main", arr, 32);
 }

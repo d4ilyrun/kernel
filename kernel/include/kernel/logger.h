@@ -60,4 +60,22 @@ void log(const char *type, const char *domain, const char *msg, ...);
 #define log_variable_64(_var) \
     log_dbg("variable", "%s=" LOG_FMT_64, xSTR(_var), _var)
 
+#define log_array_fmt(_domain, _arr, _len, _fmt) \
+    {                                            \
+        log_dbg(_domain, xSTR(_arr));            \
+        printf("{ ");                            \
+        for (size_t i = 0; i < (_len); ++i)      \
+            printf("" _fmt ", ", (_arr)[i]);     \
+        printf("}\n");                           \
+    }
+
+#define log_array(_domain, _arr, _len) \
+    log_array_fmt(_domain, _arr, _len, LOG_FMT_32)
+#define log_array_8(_domain, _arr, _len) \
+    log_array_fmt(_domain, _arr, _len, LOG_FMT_8)
+#define log_array_16(_domain, _arr, _len) \
+    log_array_fmt(_domain, _arr, _len, LOG_FMT_16)
+#define log_array_64(_domain, _arr, _len) \
+    log_array_fmt(_domain, _arr, _len, LOG_FMT_64)
+
 #endif /* KERNEL_LOGGER_H */
