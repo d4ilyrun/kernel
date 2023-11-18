@@ -79,6 +79,7 @@ static const char *interrupt_names[] = {
 // IDT entry flag: gate is present
 #define IDT_PRESENT 0x80
 
+// TODO: Find a way to inline this ...
 void interrupts_disable(void)
 {
     ASM("cli");

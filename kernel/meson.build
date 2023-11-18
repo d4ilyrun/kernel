@@ -12,6 +12,7 @@ kernel_source_files = files([
   'src/logger.c',
   'src/devices/pic.c',
   'src/devices/uart.c',
+  'src/devices/timer.c',
 ])
 
 kernel_nasm_files = files([

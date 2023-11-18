@@ -55,6 +55,7 @@ void pic_reset()
     interrupts_set_handler(PIC_MASTER_VECTOR + IRQ_KEYBOARD,
                            INTERRUPT_HANDLER(irq_keyboard));
     pic_enable_irq(IRQ_KEYBOARD);
+    pic_enable_irq(IRQ_TIMER);
 }
 
 void pic_eoi(pic_irq irq)

@@ -5,6 +5,7 @@
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
 
+#include "kernel/devices/timer.h"
 #include "utils/compiler.h"
 
 void arch_setup(void);
@@ -32,6 +33,8 @@ void kernel_main(void)
     pic_reset();
     // IRQs are setup, we can safely enable interrupts
     interrupts_enable();
+
+    timer_start(1); // 1 interrupt per second
 
     ASM("int $0");
 
