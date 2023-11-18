@@ -9,7 +9,7 @@
 #include <utils/compiler.h>
 #include <utils/macro.h>
 
-static volatile idt_descriptor *const IDT = IDT_BASE_ADDRESS;
+static volatile idt_descriptor idt[IDT_LENGTH];
 
 // Global addressable interrupt handler stub tables
 extern interrupt_handler interrupt_handler_stubs[];
@@ -42,7 +42,8 @@ void interrupts_set_handler(u8 nr, interrupt_handler handler)
     custom_interrupt_handlers[nr] = handler;
 }
 
-static ALWAYS_INLINE idt_descriptor idt_entry(idt_gate_type type, u32 address)
+static ALWAYS_INLINE idt_descriptor new_idt_entry(idt_gate_type type,
+                                                  u32 address)
 {
     if (type == TASK_GATE) {
         return (idt_descriptor){
@@ -72,12 +73,9 @@ static inline void interrupts_set(size_t nr, idt_gate_type type,
         return;
     }
 
-    idt_descriptor entry = idt_entry(type, (u32)handler);
+    idt_descriptor entry = new_idt_entry(type, (u32)handler);
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Warray-bounds"
-    IDT[nr] = entry; // NOLINT
-#pragma GCC diagnostic pop
+    idt[nr] = entry; // NOLINT
 }
 
 void interrupts_init(void)
@@ -85,13 +83,12 @@ void interrupts_init(void)
     interrupts_disable();
 
     // Load up the IDTR
-    static volatile idtr idtr = {.size = IDT_SIZE - 1,
-                                 .offset = IDT_BASE_ADDRESS};
+    static volatile idtr idtr = {.size = IDT_SIZE - 1, .offset = (size_t)idt};
     ASM("lidt (%0)" : : "m"(idtr) : "memory");
 
     // Empty descriptor slots in the IDT should have the present flag set to 0.
     // Fill the whole IDT with null descriptors
-    memset(IDT_BASE_ADDRESS, 0, IDT_SIZE); // NOLINT
+    memset((void *)idt, 0, IDT_SIZE); // NOLINT
 
     // Empty the list of custom ISRs
     memset(custom_interrupt_handlers, 0, sizeof(custom_interrupt_handlers));
@@ -117,7 +114,6 @@ void idt_log(void)
              idtr.size, idtr.offset);
 
     log_info("IDT", "Interrupt descriptors");
-    idt_descriptor *idt = (idt_descriptor *)idtr.offset;
 
     for (size_t i = 0; i < IDT_LENGTH; ++i) {
         idt_descriptor interrupt = idt[i];
