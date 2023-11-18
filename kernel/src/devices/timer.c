@@ -182,3 +182,8 @@ void timer_wait_ms(u64 ms)
 
     WAIT_FOR(timer_ticks_counter >= end);
 }
+
+u64 timer_to_ms(u64 ticks)
+{
+    return (1000 * ticks) / timer_kernel_frequency;
+}

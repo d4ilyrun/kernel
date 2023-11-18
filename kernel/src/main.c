@@ -1,12 +1,10 @@
 #include <kernel/devices/pic.h>
+#include <kernel/devices/timer.h>
 #include <kernel/devices/uart.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
-
-#include "kernel/devices/timer.h"
-#include "utils/compiler.h"
 
 void arch_setup(void);
 
@@ -40,6 +38,6 @@ void kernel_main(void)
 
     while (1) {
         timer_wait_ms(1000);
-        log_info("MAIN", "Elapsed kernel ticks: %d", timer_gettick());
+        log_info("MAIN", "Elapsed miliseconds: %d", gettime());
     }
 }

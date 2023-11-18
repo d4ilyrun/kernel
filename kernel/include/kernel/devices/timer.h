@@ -67,6 +67,9 @@ u64 timer_gettick(void);
  */
 void timer_wait_ms(u64);
 
+/** Convert a number of ticks to a time in miliseconds */
+u64 timer_to_ms(u64 ticks);
+
 DEFINE_INTERRUPT_HANDLER(irq_timer);
 
 #endif /* KERNEL_DEVICES_TIMER_H */
