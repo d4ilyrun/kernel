@@ -1,4 +1,5 @@
-#include <kernel/gdt.h>
+#include <kernel/devices/uart.h>
+#include <kernel/i686/gdt.h>
 #include <kernel/i686/interrupts.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
@@ -6,6 +7,8 @@
 #include <string.h>
 #include <utils/compiler.h>
 #include <utils/macro.h>
+
+#include "kernel/devices/pic.h"
 
 static volatile idt_descriptor *const IDT = IDT_BASE_ADDRESS;
 
@@ -81,6 +84,10 @@ void interrupts_init(void)
     interrupts_set(0x0, TRAP_GATE_32B, INTERRUPT_HANDLER(division_error));
     interrupts_set(0x6, TRAP_GATE_32B, INTERRUPT_HANDLER(invalid_opcode));
     interrupts_set(0xD, TRAP_GATE_32B, INTERRUPT_HANDLER(general_protection));
+
+    // Setup PIC IRQs
+    interrupts_set(PIC_MASTER_VECTOR + IRQ_KEYBOARD, TRAP_GATE_32B,
+                   INTERRUPT_HANDLER(irq_keyboard));
 }
 
 DEFINE_INTERRUPT_HANDLER(division_error)

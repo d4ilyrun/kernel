@@ -20,8 +20,12 @@ void kernel_main(void)
     pic_disable_irq(IRQ_TIMER);
     pic_disable_irq(IRQ_COM1);
     pic_disable_irq(IRQ_COM2);
+    pic_enable_irq(IRQ_KEYBOARD);
 
     interrupts_enable();
 
     ASM("int $0");
+
+    while (1)
+        ;
 }

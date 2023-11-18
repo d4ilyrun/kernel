@@ -6,12 +6,17 @@
  * Any interaction done with the PIC should be done through
  * the functions defined inside this header.
  *
+ * This also includes the defition of the interrupt handlers for the IRQs
+ * raised by the PIC.
+ *
  * Reference manual can be found here:
  *  https://pdos.csail.mit.edu/6.828/2005/readings/hardware/8259A.pdf
  */
 
 #ifndef KERNEL_DEVICES_PIC_H
 #define KERNEL_DEVICES_PIC_H
+
+#include <kernel/interrupts.h>
 
 #include <stdint.h>
 
@@ -64,5 +69,9 @@ void pic_disable_irq(pic_irq);
 
 /* Enable the given IRQ */
 void pic_enable_irq(pic_irq);
+
+/** INTERRUPT HANDLERS */
+
+DEFINE_INTERRUPT_HANDLER(irq_keyboard);
 
 #endif /* end of include guard: KERNEL_DEVICES_PIC_H */
