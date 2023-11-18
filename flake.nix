@@ -24,7 +24,24 @@
         pkgs = import nixpkgs { inherit system; };
         pkgs-i686 = pkgs.pkgsCross.i686-embedded;
       in
-      {
+      rec {
+        packages = rec {
+          kernel = pkgs-i686.stdenv.mkDerivation {
+            name = "kernel";
+            src = self;
+            version = "0.1.0";
+            inherit (devShells.kernel) nativeBuildInputs;
+
+            # FIXME: cannot execute ISO from target script inside nix derivation
+            installPhase = ''
+              mkdir -p $out
+              cp -v kernel/kernel.bin $out
+            '';
+          };
+
+          default = kernel;
+        };
+
         devShells = rec {
           default = kernel;
           kernel = pkgs.mkShell.override { inherit (pkgs-i686) stdenv; } {
