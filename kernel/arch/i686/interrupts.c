@@ -23,6 +23,59 @@ extern interrupt_handler pic_interrupt_handler_stubs[PIC_IRQ_COUNT];
  */
 static interrupt_handler custom_interrupt_handlers[IDT_LENGTH];
 
+static const char *interrupt_names[] = {
+    // Protected mode Interrupts and Exceptions (Table 6-1, Intel vol.3)
+    "Division By Zero",
+    "Debug",
+    "Non Maskable Interrupt",
+    "Breakpoint",
+    "Detected Overflow",
+    "Out of Bounds",
+    "Invalid Opcode",
+    "No Math Coprocessor",
+    "Double Fault",
+    "Coprocessor Segment Overrun",
+    "Invalid TSS",
+    "Segment Not Present",
+    "Stack Segment Fault",
+    "General Protection Fault",
+    "Page Fault",
+    "Reserved",
+    "x87 FPU Error",
+    "Alignment Check",
+    "Machine Check",
+    "SIMD Floating Point Exception",
+    "Virtualization Exception",
+    "Control Protection Exception",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    "Reserved",
+    // IRQs
+    "IRQ_TIMER",
+    "IRQ_KEYBOARD",
+    "IRQ_CASCADE",
+    "IRQ_COM2",
+    "IRQ_COM1",
+    "IRQ_LPT2",
+    "IRQ_FLOPPY",
+    "IRQ_LPT1",
+    "IRQ_CMOS",
+    "IRQ_FREE1",
+    "IRQ_FREE2",
+    "IRQ_FREE3",
+    "IRQ_PS2",
+    "IRQ_FPU",
+    "IRQ_ATA_PRIMARY",
+    "IRQ_ATA_SECONDARY",
+};
+
 // IDT entry flag: gate is present
 #define IDT_PRESENT 0x80
 
@@ -36,9 +89,20 @@ void interrupts_enable(void)
     ASM("sti");
 }
 
+const char *interrupts_to_str(u8 nr)
+{
+    static const char *unknown = "Unknown Interrupt";
+
+    if (nr < (sizeof interrupt_names / sizeof interrupt_names[0]))
+        return interrupt_names[nr];
+
+    return unknown;
+}
+
 void interrupts_set_handler(u8 nr, interrupt_handler handler)
 {
-    log_info("IDT", "Setting custom handler for: " LOG_FMT_8, nr);
+    log_info("IDT", "Setting custom handler for '%s' (" LOG_FMT_8 ")",
+             interrupts_to_str(nr), nr);
     custom_interrupt_handlers[nr] = handler;
 }
 
@@ -64,12 +128,11 @@ static ALWAYS_INLINE idt_descriptor new_idt_entry(idt_gate_type type,
     };
 }
 
-static inline void interrupts_set(size_t nr, idt_gate_type type,
+static inline void interrupts_set(u16 nr, idt_gate_type type,
                                   interrupt_handler handler)
 {
     if (nr >= IDT_LENGTH) {
-        // TODO: Print index in log message
-        log_err("IDT", "Invalid index");
+        log_err("IDT", "interrupts_set: invalid index: " LOG_FMT_8, nr);
         return;
     }
 
@@ -133,7 +196,8 @@ DEFINE_INTERRUPT_HANDLER(default_interrupt)
     // if it exists. Else, we consider this interrupt as 'unsupported'.
 
     if (custom_interrupt_handlers[frame.nr] == 0) {
-        log_err("interrupt", "Unsupported interrupt: " LOG_FMT_32, frame.nr);
+        log_err("interrupt", "Unsupported interrupt: %s (" LOG_FMT_32 ")",
+                interrupts_to_str(frame.nr), frame.nr);
         log_dbg("interrupt", "ERROR=" LOG_FMT_32, frame.error);
         log_dbg("interrupt", "FLAGS=" LOG_FMT_32, frame.flags);
         log_dbg("interrupt", "CS=" LOG_FMT_32 ", SS=" LOG_FMT_32, frame.cs,

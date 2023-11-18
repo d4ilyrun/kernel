@@ -28,6 +28,9 @@ typedef void (*interrupt_handler)(interrupt_frame);
 /** Dynamically set an interrupt handler */
 void interrupts_set_handler(u8, interrupt_handler);
 
+/** Return the name of an interrupt from its vector number */
+const char *interrupts_to_str(u8 nr);
+
 /** Compute the interrupt's handler's name */
 #define INTERRUPT_HANDLER(_interrupt) _interrupt##_handler
 
