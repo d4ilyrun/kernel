@@ -62,6 +62,11 @@ u16 timer_read(void);
 /** Return the number of intervals that passed since the timer started */
 u64 timer_gettick(void);
 
+/** Wait a certain amount of miliseconds
+ *  @warning Calls to this function are blocking
+ */
+void timer_wait_ms(u64);
+
 DEFINE_INTERRUPT_HANDLER(irq_timer);
 
 #endif /* KERNEL_DEVICES_TIMER_H */

@@ -16,7 +16,13 @@
  *
  * This MUST be incremented EACH time we recieve an interrupt of type IRQ_TIMER.
  */
-static volatile u64 internal_timer_counter = 0;
+static volatile u64 timer_ticks_counter = 0;
+
+/**
+ * The current frequency of the timer.
+ * This value is updated each time we call \c timer_set_divider.
+ */
+static volatile u32 timer_kernel_frequency = 0;
 
 /// PIT's control register IO port
 #define PIT_CONTROL_REGISTER (0x43)
@@ -69,15 +75,25 @@ static void timer_set_divider(u32 value)
         break;
     case TIMER_RW_LSB:
         outb(counter, LSB(value));
+        timer_kernel_frequency = TIMER_INTERNAL_FREQUENCY / LSB(value);
         break;
     case TIMER_RW_MSB:
         outb(counter, MSB(value));
+        timer_kernel_frequency = TIMER_INTERNAL_FREQUENCY / (MSB(value) << 8);
         break;
     case TIMER_RW:
         outb(counter, LSB(value));
         outb(counter, MSB(value));
+        timer_kernel_frequency = TIMER_INTERNAL_FREQUENCY / (value & 0xFFFF);
         break;
     }
+
+    // Round up frequency if needed
+    if (TIMER_INTERNAL_FREQUENCY % value > value / 2)
+        timer_kernel_frequency += 1;
+
+    log_dbg("TIMER", "New frequency divisor value: %d (%d Hz)", value,
+            timer_kernel_frequency);
 }
 
 void timer_start(u32 frequency)
@@ -144,19 +160,25 @@ DEFINE_INTERRUPT_HANDLER(irq_timer)
 {
     UNUSED(frame);
 
-    if (internal_timer_counter == UINT64_MAX) {
+    if (timer_ticks_counter == UINT64_MAX) {
         log_warn("TIMER", "The internal timer has reached its max capacity.");
         log_warn("TIMER", "THIS WILL CAUSE AN OVERFLOW!");
     }
 
-    // TODO: Calculate ms intervals
-    // https://wiki.osdev.org/Programmable_Interval_Timer
-    internal_timer_counter += 1;
+    timer_ticks_counter += 1;
 
     pic_eoi(IRQ_TIMER);
 }
 
 u64 timer_gettick(void)
 {
-    return internal_timer_counter;
+    return timer_ticks_counter;
+}
+
+void timer_wait_ms(u64 ms)
+{
+    const u64 start = timer_ticks_counter;
+    const u64 end = start + (1000 * timer_kernel_frequency) / ms;
+
+    WAIT_FOR(timer_ticks_counter >= end);
 }

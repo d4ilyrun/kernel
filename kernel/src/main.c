@@ -34,10 +34,12 @@ void kernel_main(void)
     // IRQs are setup, we can safely enable interrupts
     interrupts_enable();
 
-    timer_start(1); // 1 interrupt per second
+    timer_start(TIMER_TICK_FREQUENCY);
 
     ASM("int $0");
 
-    while (1)
-        ;
+    while (1) {
+        timer_wait_ms(1000);
+        log_info("MAIN", "Elapsed kernel ticks: %d", timer_gettick());
+    }
 }
