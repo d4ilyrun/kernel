@@ -7,4 +7,6 @@
 
 #define static_assert _Static_assert // NOLINT
 
+#define ALWAYS_INLINE inline __attribute__((always_inline))
+
 #endif /* UTILS_COMPILER_H */

@@ -1,7 +1,12 @@
 #include <kernel/devices/pic.h>
 #include <kernel/devices/serial.h>
+#include <kernel/i686/interrupts.h>
+#include <kernel/interrupts.h>
+#include <kernel/logger.h>
+#include <kernel/terminal.h>
 
 #include <utils/macro.h>
+#include <utils/types.h>
 
 /* Number of IRQs in a single PIC */
 #define PIC_SIZE 8
@@ -19,20 +24,12 @@
 
 #define PIC_ICW4_8086 0x01
 
-/* Offset vectors
- *
- * They are set to 0x20 and 0x28 to not conflict with CPU exceptions
- * in protected mode.
- */
-#define PIC_MASTER_VECTOR 0x20
-#define PIC_SLAVE_VECTOR 0x28
+/** INTERRUPT HANDLERS */
+
+static DEFINE_INTERRUPT_HANDLER(irq_keyboard);
 
 void pic_reset()
 {
-    // Save masks, overwritten when sending ICWs
-    uint8_t mask_master = inb(PIC_DATA(PIC_MASTER));
-    uint8_t mask_slave = inb(PIC_DATA(PIC_SLAVE));
-
     // ICW1: Start init process
     outb(PIC_COMMAND(PIC_MASTER), PIC_CMD_INIT);
     outb(PIC_COMMAND(PIC_SLAVE), PIC_CMD_INIT);
@@ -49,12 +46,18 @@ void pic_reset()
     outb(PIC_DATA(PIC_MASTER), PIC_ICW4_8086);
     outb(PIC_DATA(PIC_SLAVE), PIC_ICW4_8086);
 
-    // Restore master
-    outb(PIC_DATA(PIC_MASTER), mask_master);
-    outb(PIC_DATA(PIC_SLAVE), mask_slave);
+    // Disable all interrupts
+    outb(PIC_DATA(PIC_MASTER), 0xFF);
+    outb(PIC_DATA(PIC_SLAVE), 0xFF);
+
+    // Set and enable custom interrupts
+    log_info("PIC", "Setting up custom IRQs handlers");
+    interrupts_set_handler(PIC_MASTER_VECTOR + IRQ_KEYBOARD,
+                           INTERRUPT_HANDLER(irq_keyboard));
+    pic_enable_irq(IRQ_KEYBOARD);
 }
 
-void pic_eoi(uint8_t irq)
+void pic_eoi(pic_irq irq)
 {
     /* Operating in cascade mode, must also inform the slave PIC */
     if (irq >= PIC_SIZE)
@@ -63,18 +66,40 @@ void pic_eoi(uint8_t irq)
     outb(PIC_COMMAND(PIC_MASTER), PIC_CMD_EOI);
 }
 
-void pic_enable_irq(uint8_t irq)
+void pic_enable_irq(pic_irq irq)
 {
-    const uint16_t pic = (irq >= PIC_SIZE) ? PIC_SLAVE : PIC_MASTER;
-    const uint8_t mask = inb(PIC_DATA(pic));
+    const u16 pic = (irq >= PIC_SIZE) ? PIC_SLAVE : PIC_MASTER;
+    const u8 mask = inb(PIC_DATA(pic));
 
     outb(PIC_DATA(pic), BIT_MASK(mask, irq % PIC_SIZE));
 }
 
-void pic_disable_irq(uint8_t irq)
+void pic_disable_irq(pic_irq irq)
 {
-    const uint16_t pic = (irq >= PIC_SIZE) ? PIC_SLAVE : PIC_MASTER;
-    const uint8_t mask = inb(PIC_DATA(pic));
+    const u16 pic = (irq >= PIC_SIZE) ? PIC_SLAVE : PIC_MASTER;
+    const u8 mask = inb(PIC_DATA(pic));
 
     outb(PIC_DATA(pic), BIT_SET(mask, irq % PIC_SIZE));
+}
+
+static DEFINE_INTERRUPT_HANDLER(irq_keyboard)
+{
+    UNUSED(frame);
+
+    u8 ascii[128] = {
+        0x0,  0x0,  '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-',  '=',
+        0x0,  0x0,  'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[',  ']',
+        '\n', 0x0,  'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`',
+        0x0,  '\\', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 0x0,  '*',
+        0x0,  ' ',  0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,  0x0,
+        0x0,  '7',  '8', '9', '-', '4', '5', '6', '+', '1', '2', '3', '0',  '.',
+    };
+
+    const u8 scan_code = inb(0x60);
+
+    // If not key release;  write character
+    if (!BIT(scan_code, 7) && ascii[scan_code])
+        tty_putchar(ascii[scan_code]);
+
+    pic_eoi(IRQ_KEYBOARD);
 }

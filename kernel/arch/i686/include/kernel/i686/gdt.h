@@ -17,6 +17,14 @@
 // Hard coded constant linear base 32-bits address for the TSS
 #define GDT_TSS_BASE_ADDRESS 0x00000000UL
 
+///< Known fixed indexes inside the GDT
+#define GDT_ENTRY_NULL 0
+#define GDT_ENTRY_KERNEL_CODE 1
+#define GDT_ENTRY_KERNEL_DATA 2
+#define GDT_ENTRY_USER_CODE 3
+#define GDT_ENTRY_USER_DATA 4
+#define GDT_ENTRY_TSS 5
+
 /**
  * \struct GDT register
  * The GDT is pointed to by the value in the GDTR register.
@@ -92,6 +100,19 @@ struct PACKED gdt_tss {
     u16 iopb;
     u32 ssp;
 };
+
+/**
+ * Identifies a segment inside the GDT or LDT.
+ * @link https://wiki.osdev.org/Segment_Selector
+ */
+typedef union {
+    u16 raw;
+    struct {
+        u8 rpl : 2;
+        u8 ti : 1;
+        u16 index : 13;
+    } PACKED;
+} segment_selector;
 
 /**
  * \brief Initialize the GDTR and GDT.

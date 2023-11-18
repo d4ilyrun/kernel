@@ -37,6 +37,8 @@
               libisoburn
               shellcheck
               binutils
+              qemu
+              nasm
             ];
             buildInputs = with pkgs.pkgsi686Linux; [
               glibc

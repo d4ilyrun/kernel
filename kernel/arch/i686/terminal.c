@@ -21,13 +21,13 @@ static struct terminal_info g_terminal;
 
 #define INDEX(_x, _y) ((_y)*TTY_MAX_WIDTH + (_x))
 
-static inline void tty_putchar_at(char c, size_t x, size_t y)
+static ALWAYS_INLINE void tty_putchar_at(char c, size_t x, size_t y)
 {
     size_t index = y * TTY_MAX_WIDTH + x;
     g_terminal.buffer[index] = vga_entry(c, g_terminal.color);
 }
 
-static inline void tty_newline()
+static ALWAYS_INLINE void tty_newline()
 {
     // Fill the whole line with a ' ' character
     for (size_t x = g_terminal.column; x < TTY_MAX_WIDTH; ++x) {
