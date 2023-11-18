@@ -2,7 +2,6 @@ arch = target_machine.cpu()
 
 kernel_compile_flags = [
   '-DSTACK_SIZE=16384',
-  '-mgeneral-regs-only',
   '-fomit-frame-pointer',
 ]
 
