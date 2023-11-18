@@ -11,6 +11,18 @@
 
 static volatile idt_descriptor *const IDT = IDT_BASE_ADDRESS;
 
+// Global addressable interrupt handler stub tables
+extern interrupt_handler interrupt_handler_stubs[];
+extern interrupt_handler pic_interrupt_handler_stubs[PIC_IRQ_COUNT];
+
+/*
+ * Custom ISRs, defined at runtime and called by __stub_interrupt_handler
+ * using the interrupt number (if set).
+ *
+ * These are set using \c interrupts_set_handler
+ */
+static interrupt_handler custom_interrupt_handlers[IDT_LENGTH];
+
 // IDT entry flag: gate is present
 #define IDT_PRESENT 0x80
 
@@ -22,6 +34,12 @@ void interrupts_disable(void)
 void interrupts_enable(void)
 {
     ASM("sti");
+}
+
+void interrupts_set_handler(u8 nr, interrupt_handler handler)
+{
+    log_info("IDT", "Setting custom handler for: " LOG_FMT_8, nr);
+    custom_interrupt_handlers[nr] = handler;
 }
 
 static ALWAYS_INLINE idt_descriptor idt_entry(idt_gate_type type, u32 address)
@@ -62,10 +80,6 @@ static inline void interrupts_set(size_t nr, idt_gate_type type,
 #pragma GCC diagnostic pop
 }
 
-static DEFINE_INTERRUPT_HANDLER(division_error);
-static DEFINE_INTERRUPT_HANDLER(invalid_opcode);
-static DEFINE_INTERRUPT_HANDLER(general_protection);
-
 void interrupts_init(void)
 {
     interrupts_disable();
@@ -79,18 +93,20 @@ void interrupts_init(void)
     // Fill the whole IDT with null descriptors
     memset(IDT_BASE_ADDRESS, 0, IDT_SIZE); // NOLINT
 
-    // Setup all known interrupts
-    interrupts_set(0x0, TRAP_GATE_32B, INTERRUPT_HANDLER(division_error));
-    interrupts_set(0x6, TRAP_GATE_32B, INTERRUPT_HANDLER(invalid_opcode));
-    interrupts_set(0xD, TRAP_GATE_32B, INTERRUPT_HANDLER(general_protection));
+    // Empty the list of custom ISRs
+    memset(custom_interrupt_handlers, 0, sizeof(custom_interrupt_handlers));
 
-    // Setup PIC IRQs
-    interrupts_set(PIC_MASTER_VECTOR + IRQ_KEYBOARD, TRAP_GATE_32B,
-                   INTERRUPT_HANDLER(irq_keyboard));
+    // Setup all known interrupts
+    log_info("IDT", "Setting up interrupt handler stubs");
+    for (u8 i = 0; i <= 21; ++i)
+        interrupts_set(i, INTERRUPT_GATE_32B, interrupt_handler_stubs[i]);
+
+    log_info("IDT", "Setting up IRQ handler stubs");
+    for (pic_irq irq = IRQ_TIMER; irq <= IRQ_ATA_SECONDARY; ++irq)
+        interrupts_set(PIC_MASTER_VECTOR + irq, INTERRUPT_GATE_32B,
+                       pic_interrupt_handler_stubs[irq]);
 
     log_dbg("IDT", "Finished setting up the IDT");
-
-    idt_log();
 }
 
 void idt_log(void)
@@ -115,24 +131,21 @@ void idt_log(void)
     }
 }
 
-DEFINE_INTERRUPT_HANDLER(division_error)
+DEFINE_INTERRUPT_HANDLER(default_interrupt)
 {
-    UNUSED(frame);
-    log_info("trap", "division error");
-}
+    // Call the custom handler, defined inside custom_interrupt_handlers,
+    // if it exists. Else, we consider this interrupt as 'unsupported'.
 
-DEFINE_INTERRUPT_HANDLER(invalid_opcode)
-{
-    UNUSED(frame);
-    log_info("trap", "invalid_opcode");
-}
+    if (custom_interrupt_handlers[frame.nr] == 0) {
+        log_err("interrupt", "Unsupported interrupt: " LOG_FMT_32, frame.nr);
+        log_dbg("interrupt", "ERROR=" LOG_FMT_32, frame.error);
+        log_dbg("interrupt", "FLAGS=" LOG_FMT_32, frame.flags);
+        log_dbg("interrupt", "CS=" LOG_FMT_32 ", SS=" LOG_FMT_32, frame.cs,
+                frame.ss);
+        log_dbg("interrupt", "EIP=" LOG_FMT_32 ", ESP=" LOG_FMT_32, frame.eip,
+                frame.esp);
+        return;
+    }
 
-DEFINE_INTERRUPT_HANDLER(general_protection)
-{
-    register u32 error_code;
-
-    UNUSED(frame);
-    log_info("trap", "general protection fault");
-
-    ASM("pop %0" : "=r"(error_code)::);
+    custom_interrupt_handlers[frame.nr](frame);
 }

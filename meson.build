@@ -31,6 +31,15 @@ if compiler.has_header('string.h')
   warning('Headers from the glibc are still accessible')
 endif
 
+nasm = find_program('nasm', required: true)
+nasm_gen = generator(nasm,
+  output : '@BASENAME@.o',
+  arguments : [
+    '-f', 'elf32',
+    '@INPUT@',
+    '-o', '@OUTPUT@']
+)
+
 ### Build targets: build kernel and required libraries
 
 if get_option('buildtype') == 'debug'

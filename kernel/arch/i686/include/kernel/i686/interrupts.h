@@ -44,13 +44,21 @@ struct PACKED idt_descriptor {
     u16 offset_high; ///< 16 MSB fo the 32-bit offset
 };
 
-/** Frame passed onto the interrupt handlers by GCC */
+/** Frame passed onto the interrupt handlers by GCC
+ *
+ * See Intel developper manual, figure 6-4
+ */
 struct interrupt_frame {
-    u16 ip;
-    u16 cs;
-    u16 flags;
-    u16 sp;
-    u16 ss;
+
+    // Pushed by our interrupts stubs
+    u32 nr;
+    u32 error;
+
+    u32 eip;
+    u32 cs;
+    u32 flags;
+    u32 esp;
+    u32 ss;
 };
 
 /** Print the content of the IDT and IDTR */

@@ -1,6 +1,8 @@
 #ifndef KERNEL_INTERRUPTS_H
 #define KERNEL_INTERRUPTS_H
 
+#include <utils/types.h>
+
 /**\brief Disable CPU interrupts */
 void interrupts_disable(void);
 
@@ -21,18 +23,20 @@ void interrupts_init(void);
 typedef struct interrupt_frame interrupt_frame;
 
 /** Function pointer to an interrupt handler */
-typedef void (*interrupt_handler)(interrupt_frame *);
+typedef void (*interrupt_handler)(interrupt_frame);
+
+/** Dynamically set an interrupt handler */
+void interrupts_set_handler(u8, interrupt_handler);
 
 /** Compute the interrupt's handler's name */
-#define INTERRUPT_HANDLER(_interrupt) __##_interrupt##_handler
+#define INTERRUPT_HANDLER(_interrupt) _interrupt##_handler
 
 /**
  * \brief Define an interrupt handler function given a name
  *
  * You must always use this function when defining an interrupt handler.
  */
-#define DEFINE_INTERRUPT_HANDLER(_interrupt)                       \
-    __attribute__((interrupt)) void INTERRUPT_HANDLER(_interrupt)( \
-        struct interrupt_frame * frame)
+#define DEFINE_INTERRUPT_HANDLER(_interrupt) \
+    void INTERRUPT_HANDLER(_interrupt)(struct interrupt_frame frame)
 
 #endif /* KERNEL_INTERRUPTS_H */

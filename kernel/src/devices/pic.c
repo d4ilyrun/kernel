@@ -1,5 +1,8 @@
 #include <kernel/devices/pic.h>
 #include <kernel/devices/serial.h>
+#include <kernel/i686/interrupts.h>
+#include <kernel/interrupts.h>
+#include <kernel/logger.h>
 #include <kernel/terminal.h>
 
 #include <utils/macro.h>
@@ -21,12 +24,12 @@
 
 #define PIC_ICW4_8086 0x01
 
+/** INTERRUPT HANDLERS */
+
+static DEFINE_INTERRUPT_HANDLER(irq_keyboard);
+
 void pic_reset()
 {
-    // Save masks, overwritten when sending ICWs
-    uint8_t mask_master = inb(PIC_DATA(PIC_MASTER));
-    uint8_t mask_slave = inb(PIC_DATA(PIC_SLAVE));
-
     // ICW1: Start init process
     outb(PIC_COMMAND(PIC_MASTER), PIC_CMD_INIT);
     outb(PIC_COMMAND(PIC_SLAVE), PIC_CMD_INIT);
@@ -43,9 +46,15 @@ void pic_reset()
     outb(PIC_DATA(PIC_MASTER), PIC_ICW4_8086);
     outb(PIC_DATA(PIC_SLAVE), PIC_ICW4_8086);
 
-    // Restore master
-    outb(PIC_DATA(PIC_MASTER), mask_master);
-    outb(PIC_DATA(PIC_SLAVE), mask_slave);
+    // Disable all interrupts
+    outb(PIC_DATA(PIC_MASTER), 0xFF);
+    outb(PIC_DATA(PIC_SLAVE), 0xFF);
+
+    // Set and enable custom interrupts
+    log_info("PIC", "Setting up custom IRQs handlers");
+    interrupts_set_handler(PIC_MASTER_VECTOR + IRQ_KEYBOARD,
+                           INTERRUPT_HANDLER(irq_keyboard));
+    pic_enable_irq(IRQ_KEYBOARD);
 }
 
 void pic_eoi(pic_irq irq)
@@ -73,7 +82,7 @@ void pic_disable_irq(pic_irq irq)
     outb(PIC_DATA(pic), BIT_SET(mask, irq % PIC_SIZE));
 }
 
-DEFINE_INTERRUPT_HANDLER(irq_keyboard)
+static DEFINE_INTERRUPT_HANDLER(irq_keyboard)
 {
     UNUSED(frame);
 

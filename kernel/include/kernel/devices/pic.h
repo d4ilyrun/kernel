@@ -50,6 +50,8 @@ typedef enum pic_irq {
     IRQ_ATA_SECONDARY
 } pic_irq;
 
+#define PIC_IRQ_COUNT (IRQ_ATA_SECONDARY + 1)
+
 /** Reset the PIC.
  *
  * Should be called when entering protected mode.
@@ -69,9 +71,5 @@ void pic_disable_irq(pic_irq);
 
 /* Enable the given IRQ */
 void pic_enable_irq(pic_irq);
-
-/** INTERRUPT HANDLERS */
-
-DEFINE_INTERRUPT_HANDLER(irq_keyboard);
 
 #endif /* end of include guard: KERNEL_DEVICES_PIC_H */
