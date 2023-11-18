@@ -45,3 +45,4 @@ $ gdb -x .gdbinit build/kernel/kernel.sym
 - GDT segments
 - Interrupts
 - Logging
+- PIT & Timer
