@@ -5,6 +5,8 @@
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
 
+#include "utils/compiler.h"
+
 void arch_setup(void);
 
 void kernel_main(void)
@@ -14,6 +16,9 @@ void kernel_main(void)
     tty_init();
     interrupts_init();
     arch_setup();
+
+    pic_disable_irq(IRQ_COM1);
+    pic_disable_irq(IRQ_COM2);
 
     interrupts_enable();
 

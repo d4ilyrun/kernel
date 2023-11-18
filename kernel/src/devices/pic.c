@@ -19,14 +19,6 @@
 
 #define PIC_ICW4_8086 0x01
 
-/* Offset vectors
- *
- * They are set to 0x20 and 0x28 to not conflict with CPU exceptions
- * in protected mode.
- */
-#define PIC_MASTER_VECTOR 0x20
-#define PIC_SLAVE_VECTOR 0x28
-
 void pic_reset()
 {
     // Save masks, overwritten when sending ICWs
@@ -54,7 +46,7 @@ void pic_reset()
     outb(PIC_DATA(PIC_SLAVE), mask_slave);
 }
 
-void pic_eoi(uint8_t irq)
+void pic_eoi(pic_irq irq)
 {
     /* Operating in cascade mode, must also inform the slave PIC */
     if (irq >= PIC_SIZE)
@@ -63,7 +55,7 @@ void pic_eoi(uint8_t irq)
     outb(PIC_COMMAND(PIC_MASTER), PIC_CMD_EOI);
 }
 
-void pic_enable_irq(uint8_t irq)
+void pic_enable_irq(pic_irq irq)
 {
     const uint16_t pic = (irq >= PIC_SIZE) ? PIC_SLAVE : PIC_MASTER;
     const uint8_t mask = inb(PIC_DATA(pic));
@@ -71,7 +63,7 @@ void pic_enable_irq(uint8_t irq)
     outb(PIC_DATA(pic), BIT_MASK(mask, irq % PIC_SIZE));
 }
 
-void pic_disable_irq(uint8_t irq)
+void pic_disable_irq(pic_irq irq)
 {
     const uint16_t pic = (irq >= PIC_SIZE) ? PIC_SLAVE : PIC_MASTER;
     const uint8_t mask = inb(PIC_DATA(pic));

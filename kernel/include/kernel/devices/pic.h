@@ -15,6 +15,36 @@
 
 #include <stdint.h>
 
+/* Offset vectors
+ *
+ * They are set to 0x20 and 0x28 to not conflict with CPU exceptions
+ * in protected mode.
+ */
+#define PIC_MASTER_VECTOR 0x20
+#define PIC_SLAVE_VECTOR 0x28
+
+/**
+ * All available PIC irqs, by vector index
+ */
+typedef enum pic_irq {
+    IRQ_TIMER = 0,
+    IRQ_KEYBOARD,
+    IRQ_CASCADE,
+    IRQ_COM2,
+    IRQ_COM1,
+    IRQ_LPT2,
+    IRQ_FLOPPY,
+    IRQ_LPT1,
+    IRQ_CMOS,
+    IRQ_FREE1,
+    IRQ_FREE2,
+    IRQ_FREE3,
+    IRQ_PS2,
+    IRQ_FPU,
+    IRQ_ATA_PRIMARY,
+    IRQ_ATA_SECONDARY
+} pic_irq;
+
 /** Reset the PIC.
  *
  * Should be called when entering protected mode.
@@ -27,12 +57,12 @@ void pic_reset();
  *
  * @param interrupt The interrupt request we finished treating
  */
-void pic_eoi(uint8_t irq);
+void pic_eoi(pic_irq);
 
 /* Disable the given IRQ */
-void pic_disable_irq(uint8_t irq);
+void pic_disable_irq(pic_irq);
 
 /* Enable the given IRQ */
-void pic_enable_irq(uint8_t irq);
+void pic_enable_irq(pic_irq);
 
 #endif /* end of include guard: KERNEL_DEVICES_PIC_H */
