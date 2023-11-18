@@ -13,6 +13,9 @@ typedef int16_t s16;
 typedef int32_t s32;
 typedef int64_t s64;
 
+typedef float f32;  //< 32b floating point value
+typedef double f64; //< 64b floating point value
+
 typedef int32_t ssize_t;
 
 #endif /* UTILS_TYPES_H */
