@@ -8,7 +8,7 @@
 #define BIT_SET(_x, _n) ((_x) | (1 << (_n)))
 
 /* Read the nth bit */
-#define BIT(_x, _n) ((_x) | (1 << (_n)))
+#define BIT(_x, _n) ((_x) & (1 << (_n)))
 
 /* Most/Less significant byte from 16bit integer */
 #define MSB(_x) ((_x) >> 8)
