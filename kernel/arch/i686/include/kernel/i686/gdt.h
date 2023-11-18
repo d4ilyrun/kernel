@@ -102,6 +102,19 @@ struct PACKED gdt_tss {
 };
 
 /**
+ * Identifies a segment inside the GDT or LDT.
+ * @link https://wiki.osdev.org/Segment_Selector
+ */
+typedef union {
+    u16 raw;
+    struct {
+        u8 rpl : 2;
+        u8 ti : 1;
+        u16 index : 13;
+    } PACKED;
+} segment_selector;
+
+/**
  * \brief Initialize the GDTR and GDT.
  *
  * - Load the GDT's base address int GDTR

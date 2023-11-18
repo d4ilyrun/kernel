@@ -7,6 +7,8 @@
 #ifndef KERNEL_I686_INTERRUPTS_H
 #define KERNEL_I686_INTERRUPTS_H
 
+#include <kernel/i686/gdt.h>
+
 #include <utils/compiler.h>
 #include <utils/types.h>
 
@@ -38,7 +40,7 @@ struct PACKED idtr {
 typedef struct idt_descriptor idt_descriptor;
 struct PACKED idt_descriptor {
     u16 offset_low; ///< 16 LSB fo the 32-bit offset
-    u16 segment;
+    segment_selector segment;
     u8 _reserved;
     u8 access;
     u16 offset_high; ///< 16 MSB fo the 32-bit offset

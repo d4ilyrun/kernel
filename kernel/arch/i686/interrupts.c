@@ -48,7 +48,7 @@ static ALWAYS_INLINE idt_descriptor idt_entry(idt_gate_type type, u32 address)
         return (idt_descriptor){
             .offset_low = 0,
             // segment selector: TSS from GDT, level=0
-            .segment = GDT_ENTRY_TSS << 3,
+            .segment.index = GDT_ENTRY_TSS,
             .access = TASK_GATE | IDT_PRESENT,
             .offset_high = 0,
         };
@@ -57,7 +57,7 @@ static ALWAYS_INLINE idt_descriptor idt_entry(idt_gate_type type, u32 address)
     return (idt_descriptor){
         .offset_low = address & 0xFFFF,
         // segment selector: kernel code from GDT, level=0
-        .segment = GDT_ENTRY_KERNEL_CODE << 3,
+        .segment.index = GDT_ENTRY_KERNEL_CODE,
         .access = type | IDT_PRESENT,
         .offset_high = address >> 16,
     };
@@ -121,7 +121,7 @@ void idt_log(void)
 
     for (size_t i = 0; i < IDT_LENGTH; ++i) {
         idt_descriptor interrupt = idt[i];
-        if (interrupt.segment == 0)
+        if (interrupt.segment.raw == 0)
             continue; // Uninitialized
 
         printf(LOG_FMT_8 " = { offset: " LOG_FMT_32 ", segment: " LOG_FMT_16
