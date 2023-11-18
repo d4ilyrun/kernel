@@ -20,7 +20,7 @@ $ nix develop .#kernel
 
 > [!WARNING]
 >
-> This require flakes support
+> This requires flakes support
 
 ## Building
 
