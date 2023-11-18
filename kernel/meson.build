@@ -10,6 +10,7 @@ kernel_source_files = files([
   'src/syscalls.c',
   'src/logger.c',
   'src/devices/pic.c',
+  'src/devices/pit.c',
   'src/devices/uart.c',
   'src/devices/timer.c',
 ])
