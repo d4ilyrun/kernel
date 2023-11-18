@@ -1,12 +1,23 @@
-/*
- * Interface with the i8254 PIT.
+/** \header timer.h
+ *
+ * \brief Interface with the i8254 PIT.
  *
  * Programmable Interval Counter.
  *
  * Any interaction done with the timer should be done through
  * the functions defined inside this header.
  *
- * Note:
+ * The i8254 PIT has an internal frequency of 1.19 MHz, and 3 separate
+ * counters. Each counter must be configured with one of 7 modes, and a
+ * frequency. To be more precise we can only specify the divider, which applied
+ * to the internal PIT frequency (1.9MHz) to obtain the actual final counter
+ * frequency. Each time the counter reaches the computed limit, it triggers a
+ * \link IRQ_TIMER.
+ *
+ * We keep track of the number of IRQ_TIMER recieved, each one representing a
+ * kernel timer 'tick'.
+ *
+ * Warning:
  *
  *   For now, we do not allow for dynamically re-configuring the timer.
  *   We forcefully set it to mode 2 (1 interrupt per tick), and only allow
@@ -35,6 +46,9 @@
  * At each interval, the timer will trigger an IRQ_TIMER
  * interrupt, which MUST be handled to update our internal
  * timer tick value.
+ *
+ * @warn The frequency must be between 19 and 1.9MhZ
+ *       Any other value will be adjusted back into this range.
  *
  * @param frequency The timer's frequency (Hz)
  *

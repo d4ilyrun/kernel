@@ -46,9 +46,23 @@ static const timer_config TIMER = {
     .counter = 0,
 };
 
-static void timer_set_interval(u16 value)
+static void timer_set_divider(u32 value)
 {
     int counter = PIT_COUNTER(TIMER.counter);
+
+    // If the desired frequency is too low (say 1Hz), the resulting divider may
+    // be higher than 65536 (1.9M for 1Hz). But the value we write to the
+    // divider register is a 16bits one.
+    //
+    // We explicitely limit it to UINT16_MAX to avoid weird behaviours because
+    // of this overflow (a frequency of 1Hz being faster than 1MHz for example).
+
+    if (value > UINT16_MAX) {
+        log_warn("TIMER",
+                 "Divider value does not fit into 16 bits: " LOG_FMT_32, value);
+        log_warn("TIMER", "Using divider of UINT16_MAX (18.2Hz)");
+        value = UINT16_MAX;
+    }
 
     switch (TIMER.policy) {
     case TIMER_RO:
@@ -95,7 +109,7 @@ void timer_start(u32 frequency)
     u8 *raw_config = (u8 *)&TIMER;
 
     outb(PIT_CONTROL_REGISTER, *raw_config);
-    timer_set_interval(TIMER_INTERNAL_FREQUENCY / frequency);
+    timer_set_divider(TIMER_INTERNAL_FREQUENCY / frequency);
 
     // Setup the timer's IRQ handler
     // It is responsible for updating our internal timer representation
