@@ -2,7 +2,6 @@ arch = target_machine.cpu()
 
 kernel_compile_flags = [
   '-DSTACK_SIZE=16384',
-  '-mgeneral-regs-only',
   '-fomit-frame-pointer',
 ]
 
@@ -11,7 +10,9 @@ kernel_source_files = files([
   'src/syscalls.c',
   'src/logger.c',
   'src/devices/pic.c',
+  'src/devices/pit.c',
   'src/devices/uart.c',
+  'src/devices/timer.c',
 ])
 
 kernel_nasm_files = files([

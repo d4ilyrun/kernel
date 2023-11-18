@@ -1,5 +1,6 @@
 #include <kernel/devices/pic.h>
 #include <kernel/devices/serial.h>
+#include <kernel/devices/timer.h>
 #include <kernel/i686/interrupts.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
@@ -52,9 +53,9 @@ void pic_reset()
 
     // Set and enable custom interrupts
     log_info("PIC", "Setting up custom IRQs handlers");
+    pic_enable_irq(IRQ_KEYBOARD);
     interrupts_set_handler(PIC_MASTER_VECTOR + IRQ_KEYBOARD,
                            INTERRUPT_HANDLER(irq_keyboard));
-    pic_enable_irq(IRQ_KEYBOARD);
 }
 
 void pic_eoi(pic_irq irq)

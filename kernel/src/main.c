@@ -1,11 +1,10 @@
 #include <kernel/devices/pic.h>
+#include <kernel/devices/timer.h>
 #include <kernel/devices/uart.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
-
-#include "utils/compiler.h"
 
 void arch_setup(void);
 
@@ -33,8 +32,12 @@ void kernel_main(void)
     // IRQs are setup, we can safely enable interrupts
     interrupts_enable();
 
+    timer_start(TIMER_TICK_FREQUENCY);
+
     ASM("int $0");
 
-    while (1)
-        ;
+    while (1) {
+        timer_wait_ms(1000);
+        log_info("MAIN", "Elapsed miliseconds: %d", gettime());
+    }
 }
