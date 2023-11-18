@@ -3,6 +3,20 @@
 #include <kernel/logger.h>
 
 #include <utils/macro.h>
+#include <utils/types.h>
+
+#include "kernel/devices/pic.h"
+
+// FIXME: Include the ARCH/interrupts.h automatically inside kernel/interrupts.h
+//        This defeats the idea of separting kernel from architercture specific
+#include <kernel/i686/interrupts.h>
+
+/**
+ * This is where we keep track of the number of intervals reported by the timer.
+ *
+ * This MUST be incremented EACH time we recieve an interrupt of type IRQ_TIMER.
+ */
+static volatile u64 internal_timer_counter = 0;
 
 /// PIT's control register IO port
 #define PIT_CONTROL_REGISTER (0x43)
@@ -82,6 +96,12 @@ void timer_start(u32 frequency)
 
     outb(PIT_CONTROL_REGISTER, *raw_config);
     timer_set_interval(TIMER_INTERNAL_FREQUENCY / frequency);
+
+    // Setup the timer's IRQ handler
+    // It is responsible for updating our internal timer representation
+    interrupts_set_handler(PIC_MASTER_VECTOR + IRQ_TIMER,
+                           INTERRUPT_HANDLER(irq_timer));
+    pic_enable_irq(IRQ_TIMER);
 }
 
 u16 timer_read(void)
@@ -104,4 +124,25 @@ u16 timer_read(void)
         value |= inb(PIT_CONTROL_REGISTER) << 8;
         return value;
     }
+}
+
+DEFINE_INTERRUPT_HANDLER(irq_timer)
+{
+    UNUSED(frame);
+
+    if (internal_timer_counter == UINT64_MAX) {
+        log_warn("TIMER", "The internal timer has reached its max capacity.");
+        log_warn("TIMER", "THIS WILL CAUSE AN OVERFLOW!");
+    }
+
+    // TODO: Calculate ms intervals
+    // https://wiki.osdev.org/Programmable_Interval_Timer
+    internal_timer_counter += 1;
+
+    pic_eoi(IRQ_TIMER);
+}
+
+u64 timer_gettick(void)
+{
+    return internal_timer_counter;
 }

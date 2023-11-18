@@ -21,6 +21,8 @@
 #ifndef KERNEL_DEVICES_TIMER_H
 #define KERNEL_DEVICES_TIMER_H
 
+#include <kernel/interrupts.h>
+
 #include <utils/types.h>
 
 #define TIMER_INTERNAL_FREQUENCY (1193182)
@@ -42,5 +44,10 @@ void timer_start(u32 frequency);
 
 /** Read the current value inside the timer's counter */
 u16 timer_read(void);
+
+/** Return the number of intervals that passed since the timer started */
+u64 timer_gettick(void);
+
+DEFINE_INTERRUPT_HANDLER(irq_timer);
 
 #endif /* KERNEL_DEVICES_TIMER_H */
