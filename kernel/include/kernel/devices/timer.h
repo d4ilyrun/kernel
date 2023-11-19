@@ -14,7 +14,6 @@
 #ifndef KERNEL_DEVICES_TIMER_H
 #define KERNEL_DEVICES_TIMER_H
 
-#include <kernel/devices/pit.h>
 #include <kernel/interrupts.h>
 
 #include <utils/types.h>
