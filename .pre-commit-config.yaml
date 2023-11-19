@@ -14,7 +14,6 @@ repos:
   - repo: "https://github.com/d4ilyrun/pre-commit-hooks"
     rev: "v1.0.6"
     hooks:
-      - id: check-clang-tidy
       - id: shellcheck
       - id: apply-nixpkgs-fmt
 
@@ -23,7 +22,7 @@ repos:
     hooks:
       - id: conventional-pre-commit
         stages: [commit-msg]
-        args: [feat, fix, ci, chore, test, docs, fixup, merge, refacto]
+        args: [feat, fix, ci, chore, test, docs, fixup!, merge, refacto]
 
   - repo: local
     hooks:
