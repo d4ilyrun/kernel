@@ -2,7 +2,8 @@
 
 This is a mere hobby kernel for 32-bit x86, to learn about OS/Kernel development.
 
-I'm learning from [osdev](www.osdev.org), following a roadmap from my school's [kernel project](https://k.lse.epita.fr/getting_started/dependencies.html).
+I'm learning from [osdev](www.osdev.org), adding features in no particular order, just implementing
+stuff I want to learn more about.
 
 ## Dependencies
 
@@ -46,3 +47,21 @@ $ gdb -x .gdbinit build/kernel/kernel.sym
 - Interrupts
 - Logging
 - PIT & Timer
+
+## Things I'd like to learn/implement
+
+- [X] Interrupts
+- Memory management
+    - [ ] Paging
+    - [ ] PMM (physical)
+    - [ ] VMM (virtual)
+- [ ] Scheduler
+- [ ] Filesystem
+- [ ] Syscalls
+- User interaction
+    - [X] Keyboard
+    - [ ] Mouse
+    - [ ] Screen
+- [ ] Porting an already existing program (Can it run DOOM?)
+- [ ] Multitasking
+- [ ] Semaphores
