@@ -33,4 +33,6 @@ SECTIONS
         *(COMMON)
         *(.bss)
     }
+
+    kernel_code_end_address = .;
 }

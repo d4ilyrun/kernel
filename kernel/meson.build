@@ -13,6 +13,7 @@ kernel_source_files = files([
   'src/devices/pit.c',
   'src/devices/uart.c',
   'src/devices/timer.c',
+  'src/memory/pmm.c',
 ])
 
 kernel_nasm_files = files([

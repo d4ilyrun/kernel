@@ -3,6 +3,7 @@
 #include <kernel/devices/uart.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
+#include <kernel/pmm.h>
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
 
@@ -33,6 +34,8 @@ void kernel_main(void)
     interrupts_enable();
 
     timer_start(TIMER_TICK_FREQUENCY);
+
+    pmm_init();
 
     ASM("int $0");
 
