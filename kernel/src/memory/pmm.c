@@ -228,6 +228,39 @@ static void pmm_identity_map(uint32_t start, uint32_t end)
     }
 }
 
+/// Structure of the page fault's error code
+/// @link https://wiki.osdev.org/Exceptions#Page_Fault
+typedef struct PACKED {
+    u8 present : 1;
+    u8 write : 1;
+    u8 user : 1;
+    u8 reserved_write : 1;
+    u8 fetch : 1;
+    u8 protection_key : 1;
+    u8 ss : 1;
+    u16 _unused1 : 8;
+    u8 sgx : 1;
+    u16 _unused2 : 15;
+} page_fault_error;
+
+static DEFINE_INTERRUPT_HANDLER(page_fault)
+{
+    log_warn("interrupt", "Interrupt recieved: Page fault");
+    page_fault_error error = *(page_fault_error *)frame.error;
+
+    log_dbg("[PF] source", "%s access on a %s page %s",
+            error.write ? "write" : "read",
+            error.present ? "protected" : "non-present",
+            error.user ? "whie in user-mode" : "");
+
+    // The CR2 register holds the virtual address which caused the Page Fault
+    u32 faulty_address;
+    ASM("movl %%cr2, %0" : "=r"(faulty_address));
+
+    log_dbg("[PF] error", LOG_FMT_32, frame.error);
+    log_dbg("[PF] address", LOG_FMT_32, faulty_address);
+}
+
 void pmm_init(struct multiboot_info *mbt)
 {
     log_info("PMM", "Initializing pageframe allocator");
@@ -246,6 +279,8 @@ void pmm_init(struct multiboot_info *mbt)
     // We also map the first 1M of physical memory, it will be reserved for
     // hardware structs.
     pmm_identity_map(0x0, 0x100000);
+
+    interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault));
 
     // FIXME: Do not set the content of CR3 inside this function
     //
