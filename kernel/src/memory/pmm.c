@@ -1,3 +1,5 @@
+#include <kernel/i686/interrupts.h> // FIXME: Automatically import this file
+#include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/pmm.h>
 
@@ -6,6 +8,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
+#include <utils/align.h>
 #include <utils/compiler.h>
 #include <utils/macro.h>
 #include <utils/types.h>
@@ -58,6 +61,8 @@ static inline bool pmm_bitmap_read(u32 page)
 
 // Number of entries inside the page directory
 #define PMM_PDE_COUNT (1024)
+// Number of entries inside a single page table
+#define PMM_PTE_COUNT (1024)
 
 /// Page Directory entry
 /// @see Table 4-5
@@ -94,6 +99,11 @@ typedef struct PACKED {
 // The kernel's very own page directory
 static __attribute__((__aligned__(PAGE_SIZE)))
 pmm_pde_entry kernel_page_directory[PMM_PDE_COUNT];
+
+// TODO: Dynamically allocate page table using frame allocator (1:1)
+// The kernel's very own page tables
+static __attribute__((__aligned__(PAGE_SIZE)))
+pmm_pte_entry kernel_page_tables[PMM_PDE_COUNT][PMM_PTE_COUNT];
 
 /// Enable paging and set the current page page directory inside CR3
 static void pmm_enable_paging(pmm_pde_entry *page_directory)
@@ -169,6 +179,55 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
     return true;
 }
 
+/// Map a virtual address to a physical pageframe
+/// This includes:
+/// - Adding the page frame inside the page table
+/// - Linking the page table inside the page directory (if needed)
+/// - Making sure that it was not previously allocated
+static void pmm_mmap(u32 virtual, u32 pageframe)
+{
+    u16 pde_index = virtual >> 22;                     // bits 31-22
+    u16 pte_index = (virtual >> 12) & ((1 << 10) - 1); // bits 21 - 12
+
+    // TODO: Hard-coded to work with kernel page tables only
+    //       This should take the pagedir./pagetables as input later on
+    //
+    // We also hardcode the pde/pte to be un-accessible when in user mode.
+    // This will also cause an issue when reaching userspace later.
+
+    if (!kernel_page_directory[pde_index].present) {
+        kernel_page_directory[pde_index].page_table =
+            (u32)&kernel_page_tables[pde_index] >> 12;
+        kernel_page_directory[pde_index].present = 1;
+    }
+
+    if (kernel_page_tables[pde_index][pte_index].present) {
+        log_err("PMM",
+                "Allocating already allocated virtual address: " LOG_FMT_32,
+                virtual);
+        return;
+    }
+
+    // Link the page table entry (virtual address) to the pageframe
+    kernel_page_tables[pde_index][pte_index] = (pmm_pte_entry){
+        .present = 1,
+        .page_frame = pageframe >> 12,
+        // TODO: hard-coded values
+        .writable = 1,
+        .user = 0,
+    };
+}
+
+/// Identity map addresses inside a given range.
+/// This means that, for each virtual address inside this range, their physical
+/// equivalent will be identical to the virtual address.
+static void pmm_identity_map(uint32_t start, uint32_t end)
+{
+    for (; start < end; start += PAGE_SIZE) {
+        pmm_mmap(start, start);
+    }
+}
+
 void pmm_init(struct multiboot_info *mbt)
 {
     log_info("PMM", "Initializing pageframe allocator");
@@ -178,7 +237,15 @@ void pmm_init(struct multiboot_info *mbt)
         kernel_page_directory[entry] = (pmm_pde_entry){.writable = 1};
     }
 
-    pmm_initialize_bitmap(mbt);
+    if (!pmm_initialize_bitmap(mbt)) {
+        // TODO: propagate error
+    }
+
+    // For more simplicity, we identity map the content of our kernel.
+    pmm_identity_map(align(KERNEL_CODE_START(), PAGE_SIZE), KERNEL_CODE_END());
+    // We also map the first 1M of physical memory, it will be reserved for
+    // hardware structs.
+    pmm_identity_map(0x0, 0x100000);
 
     // FIXME: Do not set the content of CR3 inside this function
     //

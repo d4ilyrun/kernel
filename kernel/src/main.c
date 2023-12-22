@@ -45,6 +45,10 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     ASM("int $0");
 
+    // Intetionnaly provoke a PageFault exception
+    u8 a = *(u8 *)0xFFFF1234;
+    UNUSED(a);
+
     while (1) {
         timer_wait_ms(1000);
         log_info("MAIN", "Elapsed miliseconds: %d", gettime());
