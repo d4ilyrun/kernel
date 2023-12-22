@@ -9,6 +9,8 @@ SECTIONS
     /* We place our kernel at 1MiB, it's a conventional place for it to be here. */
     . = 1M;
 
+    kernel_code_start_address = .;
+
     .text BLOCK(4K) : ALIGN(4K)
     {
         *(.multiboot)

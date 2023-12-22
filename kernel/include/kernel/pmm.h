@@ -17,15 +17,25 @@
 #ifndef KERNEL_PMM_H
 #define KERNEL_PMM_H
 
+#include <multiboot.h>
 #include <utils/types.h>
 
 // The size of a single page
-#define PAGE_SIZE 4096
+#define PAGE_SIZE (4096)
 
-typedef __attribute__((__aligned__(PAGE_SIZE))) void *ppm_page_frame;
+// 32-bit address bus -> 4GiB of addressable memory
+#define ADDRESS_SPACE_SIZE (0x100000000UL)
 
-// TODO: Use variables passed from the bootloader to determine the first
-// available page frame.
+// This is the theorical total number of pageframes available inside the whole
+// address space.
+//
+// BUT, not all pageframes are necessarily available (usable for memory
+// allocation). Some are reserved, used for ACPI, plus RAM is not guaranteed to
+// be contiugous.
+//
+// This constant should ONLY be used as a compile-time known theoretical
+// reference value (e.g. the physical memory manager's bit map size).
+#define TOTAL_PAGEFRAMES_COUNT (ADDRESS_SPACE_SIZE / PAGE_SIZE)
 
 /// @brief Address of the byte located just after the end of the kernel's code
 ///
@@ -34,21 +44,37 @@ typedef __attribute__((__aligned__(PAGE_SIZE))) void *ppm_page_frame;
 ///
 /// @info this address is defined inside the kernel's linker scrpit.
 extern u32 kernel_code_end_address;
-#define KERNEL_CODE_END() &kernel_code_end_address;
+#define KERNEL_CODE_END() ((u32)&kernel_code_end_address)
+
+/// @brief Address of the byte located just before the end of the kernel's code
+///
+/// Any byte written after this address **WILL** overwrite our kernel's
+/// executable binary.
+///
+/// @info this address is defined inside the kernel's linker scrpit.
+extern u32 kernel_code_start_address;
+#define KERNEL_CODE_START() ((u32)&kernel_code_start_address)
 
 /**
- * @brief Initialize the Pshydical Memory Pager
+ * @brief Initialize the Physical Memory Mapper
  *
- * * Locate the first addressable page frame
+ * * Identify all the available page frames
+ * * Locate the first page frame
  * * Initialize the page directory and page tables.
  * * Set the content of the CR3 register
  *
- * @todo Should this function be responsible for setting the content of the CR3
+ * The list of available page frames is retrieved from the memory map
+ * passed by our multiboot compliant bootloader.
+ *
+ * @param multiboot_info The information struct passed by the
+ * multiboot-compliant bootloader to our entry function
+ *
+ * @TODO: Should this function be responsible for setting the content of the CR3
  * register?
  *
  * @warning This function should be called only once when starting the kernel.
  * Otherwise it will overwrite the content of the underlying structures.
  */
-void pmm_init(void);
+void pmm_init(struct multiboot_info *);
 
 #endif /* KERNEL_PMM_H */

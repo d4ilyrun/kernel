@@ -1,10 +1,60 @@
+#include <kernel/logger.h>
 #include <kernel/pmm.h>
 
+#include <assert.h>
+#include <multiboot.h>
+#include <stdbool.h>
 #include <stddef.h>
+#include <string.h>
 #include <utils/compiler.h>
+#include <utils/macro.h>
+#include <utils/types.h>
 
-#include "utils/macro.h"
-#include "utils/types.h"
+/// @brief The Physical Memory Allocator
+///
+/// This allocator is responsible for keeping track of available
+/// framepages, returning them for memory allocations and free unused ones.
+///
+/// For simplicity's sake, we use a bitmap allocator.
+/// It keeps track of the available pageframe's index inside a static array.
+///
+/// @TODO: Implement a buddy Allocator
+///        The buddy allocator is less memory efficient, but way faster when it
+///        comes to retrieving available pages.
+///
+/// @info The bitmap's size is hardcoded to be able to fit each and every
+/// pageframes (even though only part of them will be available at runtime).
+typedef struct {
+    u32 free_bitmap[TOTAL_PAGEFRAMES_COUNT / (8 * sizeof(u32))];
+    u32 first_available; // Address of the first available pageframe
+} pmm_frame_allocator;
+
+static pmm_frame_allocator g_pmm_allocator;
+
+// Wether a pageframe is marked available or not inside the allocator's bitmap
+#define PMM_AVAILABLE (1)
+#define PMM_UNAVAILABLE (0)
+
+#define BITMAP_INDEX(address) ((address / PAGE_SIZE) / 32)
+
+/// Mark a pageframe as PMM_AVAILABLE or PMM_UNAVAILABLE
+static inline void pmm_bitmap_set(u32 page, u8 availability)
+{
+    u32 value = g_pmm_allocator.free_bitmap[BITMAP_INDEX(page)];
+    if (availability == PMM_AVAILABLE)
+        g_pmm_allocator.free_bitmap[BITMAP_INDEX(page)] =
+            BIT_SET(value, page % 32);
+    else
+        g_pmm_allocator.free_bitmap[BITMAP_INDEX(page)] =
+            BIT_MASK(value, page % 32);
+}
+
+/// @return whether a page is marked as PMM_AVAILABLE
+static inline bool pmm_bitmap_read(u32 page)
+{
+    return BIT(g_pmm_allocator.free_bitmap[BITMAP_INDEX(page)], page % 32) ==
+           PMM_AVAILABLE;
+}
 
 // Number of entries inside the page directory
 #define PMM_PDE_COUNT (1024)
@@ -64,12 +114,71 @@ static void pmm_enable_paging(pmm_pde_entry *page_directory)
     ASM("movl %0, %%cr0" : : "r"(cr0));
 }
 
-void pmm_init(void)
+static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
 {
+    // If bit 6 in the flags uint16_t is set, then the mmap_* fields are valid
+    if (!BIT(mbt->flags, 6)) {
+        log_err("PMM", "Multiboot structure does not support memory map.");
+        return false;
+    }
+
+    // Mark all pages as UNAVAILABLE
+    memset(g_pmm_allocator.free_bitmap, PMM_UNAVAILABLE,
+           sizeof(g_pmm_allocator.free_bitmap));
+
+    log_info("PMM", "Looking for available pageframes");
+
+    // Count the number of availabe pageframes
+    u32 available_pageframes = 0;
+
+    multiboot_uint32_t i;
+    for (i = 0; i < mbt->mmap_length; i += sizeof(multiboot_memory_map_t)) {
+        multiboot_memory_map_t *ram =
+            (multiboot_memory_map_t *)(mbt->mmap_addr + i);
+
+        log_dbg("PMM",
+                "Start Addr: " LOG_FMT_64 " | Length: " LOG_FMT_64
+                " | Size: " LOG_FMT_32 " | Type: %s",
+                ram->addr, ram->len, ram->size,
+                (ram->type == 0x1) ? "AVAILABLE" : "UNAVAILABLE");
+
+        // If the RAM range is marked as available, we can use the pages it
+        // contains for memory allocation.
+        if (ram->type == MULTIBOOT_MEMORY_AVAILABLE) {
+            for (u32 addr = ram->addr; addr < ram->addr + ram->len;
+                 addr += PAGE_SIZE) {
+                // We still need to check whether the pages are located inside
+                // our kernel's code, or we would be succeptible to overwrite
+                // its code.
+                if (IN_RANGE(addr, KERNEL_CODE_START(), KERNEL_CODE_END()))
+                    continue;
+                pmm_bitmap_set(addr, PMM_AVAILABLE);
+                if (available_pageframes++ == 0)
+                    g_pmm_allocator.first_available = addr;
+            }
+        }
+    }
+
+    log_info("PMM", "Found %ld available pageframes (~%ldMiB)",
+             available_pageframes,
+             (available_pageframes * PAGE_SIZE) / (2 << 19));
+    log_dbg("PMM", "Total pageframes: %ld", TOTAL_PAGEFRAMES_COUNT);
+    log_dbg("PMM", "First available pageframe: " LOG_FMT_32,
+            g_pmm_allocator.first_available);
+
+    return true;
+}
+
+void pmm_init(struct multiboot_info *mbt)
+{
+    log_info("PMM", "Initializing pageframe allocator");
+
     // Mark all PDEs as "absent" (present = 0), and writable
     for (size_t entry = 0; entry < PMM_PDE_COUNT; entry++) {
         kernel_page_directory[entry] = (pmm_pde_entry){.writable = 1};
     }
+
+    pmm_initialize_bitmap(mbt);
 
     // FIXME: Do not set the content of CR3 inside this function
     //

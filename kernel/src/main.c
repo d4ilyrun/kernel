@@ -7,10 +7,16 @@
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
 
+#include <multiboot.h>
+#include <utils/macro.h>
+
 void arch_setup(void);
 
-void kernel_main(void)
+void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 {
+    // TODO: panic if bootlodaer magic is invalid
+    UNUSED(magic);
+
     // FIXME: Find how to clear pending keyboard IRQs inherited from bootloader
     //
     // At this stage we still might have pending IRQs waiting to be processed.
@@ -35,7 +41,7 @@ void kernel_main(void)
 
     timer_start(TIMER_TICK_FREQUENCY);
 
-    pmm_init();
+    pmm_init(mbt);
 
     ASM("int $0");
 
