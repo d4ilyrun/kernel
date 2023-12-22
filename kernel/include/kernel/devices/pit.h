@@ -8,10 +8,10 @@
  *
  * The i8254 PIT has an internal frequency of 1.19 MHz, and 3 separate
  * counters. Each counter must be configured with one of 7 modes, and a
- * frequency. To be more precise we can only specify the divider, which applied
- * to the internal PIT frequency (1.9MHz) to obtain the actual final counter
- * frequency. Each time the counter reaches the computed limit, it triggers a
- * \link IRQ_TIMER.
+ * frequency. To be more accurate we can only specify the divider, which applied
+ * to the internal PIT frequency (1.9MHz), computes the actual frequency fo the
+ * timer. Each time the counter reaches the computed limit, it triggers an \link
+ * IRQ_TIMER.
  *
  * Reference manual can be found here:
  *   * https://k.lse.epita.fr/data/8254.pdf
