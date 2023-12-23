@@ -27,6 +27,7 @@ arch_source_files = {
     'arch/i686/asm/gdt.S',
     'arch/i686/interrupts.c',
     'arch/i686/terminal.c',
+    'arch/i686/memory/mmu.c',
   ]),
 }
 
