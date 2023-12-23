@@ -29,6 +29,7 @@
 typedef struct {
     u32 free_bitmap[TOTAL_PAGEFRAMES_COUNT / (8 * sizeof(u32))];
     u32 first_available; // Address of the first available pageframe
+    bool initialized;
 } pmm_frame_allocator;
 
 static pmm_frame_allocator g_pmm_allocator;
@@ -109,6 +110,8 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
     log_dbg("PMM", "First available pageframe: " LOG_FMT_32,
             g_pmm_allocator.first_available);
 
+    g_pmm_allocator.initialized = true;
+
     return true;
 }
 
@@ -160,4 +163,39 @@ bool pmm_init(struct multiboot_info *mbt)
     interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault));
 
     return true;
+}
+
+u32 pmm_allocate(void)
+{
+    if (!g_pmm_allocator.initialized) {
+        log_err("PMM", "Trying to allocate using an uninitialized allocator");
+        return PMM_INVALID_PAGEFRAME; // EINVAL
+    }
+
+    u64 address = g_pmm_allocator.first_available;
+
+    if (address > 0xFFFFFFFF)
+        return PMM_INVALID_PAGEFRAME; // ENOMEM
+
+    pmm_bitmap_set(address, PMM_UNAVAILABLE);
+
+    // Compute the next available pageframe
+    g_pmm_allocator.first_available = address;
+    while (g_pmm_allocator.first_available <= 0xFFFFFFFF &&
+           pmm_bitmap_read(g_pmm_allocator.first_available) != PMM_AVAILABLE)
+        g_pmm_allocator.first_available += PAGE_SIZE;
+
+    return (u32)address;
+}
+
+void pmm_free(u32 pageframe)
+{
+    if (IN_RANGE(pageframe, KERNEL_CODE_END, KERNEL_CODE_START)) {
+        log_err("PMM", "Trying to free kernel pages: " LOG_FMT_32, pageframe);
+    }
+
+    pmm_bitmap_set(pageframe, PMM_AVAILABLE);
+
+    if (pageframe < g_pmm_allocator.first_available)
+        g_pmm_allocator.first_available = pageframe;
 }

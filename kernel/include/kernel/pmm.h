@@ -73,4 +73,24 @@ extern u32 kernel_code_start_address;
  */
 bool pmm_init(struct multiboot_info *);
 
+/**
+ * \brief Allocate a previously unused pageframe
+ *
+ * TODO: Allow for multiple page allocations (8092, 16384, ...)
+ * TODO: Take pagetable settings as parameter (writable, user, ...)
+ *
+ * @return The pageframe's **physical** address, PMM_INVALID_PAGEFRAME on error
+ */
+u32 pmm_allocate(void);
+
+/**
+ * \brief Allocate a previously unused pageframe
+ *
+ * TODO: Allow for multiple pages (8092, 16384, ...)
+ * TODO: Take pagetable settings as parameter (writable, user, ...)
+ *
+ * @return The pageframe's **physical** address
+ */
+void pmm_free(u32 pageframe);
+
 #endif /* KERNEL_PMM_H */
