@@ -19,6 +19,7 @@
 
 #include <multiboot.h>
 #include <utils/types.h>
+#include <stdbool.h>
 
 // The size of a single page
 #define PAGE_SIZE (4096)
@@ -75,6 +76,6 @@ extern u32 kernel_code_start_address;
  * @warning This function should be called only once when starting the kernel.
  * Otherwise it will overwrite the content of the underlying structures.
  */
-void pmm_init(struct multiboot_info *);
+bool pmm_init(struct multiboot_info *);
 
 #endif /* KERNEL_PMM_H */

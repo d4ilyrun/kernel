@@ -5,7 +5,6 @@
 
 #include <assert.h>
 #include <multiboot.h>
-#include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
 #include <utils/align.h>
@@ -261,7 +260,7 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
     log_dbg("[PF] address", LOG_FMT_32, faulty_address);
 }
 
-void pmm_init(struct multiboot_info *mbt)
+bool pmm_init(struct multiboot_info *mbt)
 {
     log_info("PMM", "Initializing pageframe allocator");
 
@@ -271,7 +270,7 @@ void pmm_init(struct multiboot_info *mbt)
     }
 
     if (!pmm_initialize_bitmap(mbt)) {
-        // TODO: propagate error
+        return false;
     }
 
     // For more simplicity, we identity map the content of our kernel.
@@ -290,4 +289,6 @@ void pmm_init(struct multiboot_info *mbt)
     // we are able to execute multiple tasks at once, we should find another
     // way to set its contentt obe that of the currently running process.
     pmm_enable_paging(kernel_page_directory);
+
+    return true;
 }

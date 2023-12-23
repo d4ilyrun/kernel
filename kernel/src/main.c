@@ -14,8 +14,11 @@ void arch_setup(void);
 
 void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 {
-    // TODO: panic if bootlodaer magic is invalid
-    UNUSED(magic);
+    if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
+        panic("Invalid magic number recieved from multiboot "
+              "bootloader: " LOG_FMT_32,
+              magic);
+    }
 
     // FIXME: Find how to clear pending keyboard IRQs inherited from bootloader
     //
@@ -36,12 +39,14 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     arch_setup();
     pic_reset();
+
     // IRQs are setup, we can safely enable interrupts
     interrupts_enable();
 
     timer_start(TIMER_TICK_FREQUENCY);
 
-    pmm_init(mbt);
+    if (!pmm_init(mbt))
+        panic("Could not initialize the physical memory manager");
 
     ASM("int $0");
 
