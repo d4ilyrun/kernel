@@ -42,6 +42,20 @@
  */
 void log(const char *type, const char *domain, const char *msg, ...);
 
+/**
+ * \brief Completely stop the kernel's execution
+ *
+ * This function writes a BOLD RED message to the screen, and completely
+ * halts the kernel's execution.
+ *
+ * This should only be called in case of unrecoverable errors, or asserts
+ * that should never be false and would prevent the kernel from functioning
+ * as expected.
+ *
+ * TODO: Dump the kernel's internal state (registers, ...)
+ */
+void panic(const char *msg, ...) __attribute__((__noreturn__));
+
 #define log_err(domain, ...) \
     log(ANSI_ERR "ERROR" ANSI_RESET " ", domain, __VA_ARGS__)
 #define log_warn(domain, ...) \
