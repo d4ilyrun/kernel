@@ -59,6 +59,11 @@ mmu_pde_entry kernel_page_directory[MMU_PDE_COUNT];
 static __attribute__((__aligned__(PAGE_SIZE)))
 mmu_pte_entry kernel_page_tables[MMU_PDE_COUNT][MMU_PTE_COUNT];
 
+static inline void mmu_flush_tlb(u32 tlb_entry)
+{
+    ASM("invlpg (%0)" ::"r"(tlb_entry) : "memory");
+}
+
 // TODO: Do not hard-code the content of CR3 to kernel's PD
 //
 // We set CR3 to be the kernel's page directory, AT ALL TIMES.
@@ -155,6 +160,8 @@ void mmu_unmap(u32 virtual)
 
     // Erase the content of the page table entry
     *((volatile u32 *)&kernel_page_tables[pde_index][pte_index]) = 0x0;
+
+    mmu_flush_tlb(virtual);
 }
 
 void mmu_identity_map(uint32_t start, uint32_t end)
