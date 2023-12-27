@@ -23,6 +23,7 @@
 
 // 32-bit address bus -> 4GiB of addressable memory
 #define ADDRESS_SPACE_SIZE (0x100000000UL)
+#define ADDRESS_SPACE_END (ADDRESS_SPACE_SIZE - 1)
 
 // Error value returned by the PMM in case of errors
 #define PMM_INVALID_PAGEFRAME (0xFFFFFFFFUL)
@@ -56,6 +57,20 @@ extern u32 kernel_code_end_address;
 extern u32 kernel_code_start_address;
 #define KERNEL_CODE_START ((u32)&kernel_code_start_address)
 
+/// \defgroup pmm_allocation_flags
+///
+/// Flags used when allocating a page frame to specify that the allocation must
+/// respect certain constraints. Constraints can be specific addresses, rules,
+/// etc...
+///
+/// @{
+
+/// The pageframe should be located inside the kernel's physical address space.
+#define PMM_MAP_KERNEL_BIT 0x1
+#define PMM_MAP_KERNEL (1 << PMM_MAP_KERNEL_BIT) // TODO: BIT macro
+
+/// @}
+
 /**
  * @brief Initialize the Physical Memory Mapper
  *
@@ -76,17 +91,13 @@ bool pmm_init(struct multiboot_info *);
 /**
  * \brief Allocate a previously unused pageframe
  *
- * TODO: Allow for multiple page allocations (8092, 16384, ...)
- * TODO: Take pagetable settings as parameter (writable, user, ...)
- *
  * @return The pageframe's **physical** address, PMM_INVALID_PAGEFRAME on error
  */
-u32 pmm_allocate(void);
+u32 pmm_allocate(int flags);
 
 /**
  * \brief Allocate a previously unused pageframe
  *
- * TODO: Allow for multiple pages (8092, 16384, ...)
  * TODO: Take pagetable settings as parameter (writable, user, ...)
  *
  * @return The pageframe's **physical** address

@@ -26,13 +26,28 @@
 ///
 /// @info The bitmap's size is hardcoded to be able to fit each and every
 /// pageframes (even though only part of them will be available at runtime).
+static u32 g_pmm_free_bitmap[TOTAL_PAGEFRAMES_COUNT / (8 * sizeof(u32))];
+
 typedef struct {
-    u32 free_bitmap[TOTAL_PAGEFRAMES_COUNT / (8 * sizeof(u32))];
     u32 first_available; // Address of the first available pageframe
+    u32 start;
+    u32 end;
     bool initialized;
 } pmm_frame_allocator;
 
-static pmm_frame_allocator g_pmm_allocator;
+static pmm_frame_allocator g_pmm_user_allocator = {
+    .start = 0,
+    .end = (u32)&kernel_code_start_address,
+    .first_available = PMM_INVALID_PAGEFRAME,
+    .initialized = false,
+};
+
+static pmm_frame_allocator g_pmm_kernel_allocator = {
+    .start = (u32)&kernel_code_start_address,
+    .end = ADDRESS_SPACE_END,
+    .first_available = PMM_INVALID_PAGEFRAME,
+    .initialized = false,
+};
 
 // Wether a pageframe is marked available or not inside the allocator's bitmap
 #define PMM_AVAILABLE (1)
@@ -43,19 +58,17 @@ static pmm_frame_allocator g_pmm_allocator;
 /// Mark a pageframe as PMM_AVAILABLE or PMM_UNAVAILABLE
 static inline void pmm_bitmap_set(u32 page, u8 availability)
 {
-    u32 value = g_pmm_allocator.free_bitmap[BITMAP_INDEX(page)];
+    u32 value = g_pmm_free_bitmap[BITMAP_INDEX(page)];
     if (availability == PMM_AVAILABLE)
-        g_pmm_allocator.free_bitmap[BITMAP_INDEX(page)] =
-            BIT_SET(value, page % 32);
+        g_pmm_free_bitmap[BITMAP_INDEX(page)] = BIT_SET(value, page % 32);
     else
-        g_pmm_allocator.free_bitmap[BITMAP_INDEX(page)] =
-            BIT_MASK(value, page % 32);
+        g_pmm_free_bitmap[BITMAP_INDEX(page)] = BIT_MASK(value, page % 32);
 }
 
 /// @return a pageframe's state according to the allocator's bitmap
 static inline int pmm_bitmap_read(u32 page)
 {
-    return BIT(g_pmm_allocator.free_bitmap[BITMAP_INDEX(page)], page % 32);
+    return BIT(g_pmm_free_bitmap[BITMAP_INDEX(page)], page % 32);
 }
 
 static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
@@ -67,8 +80,7 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
     }
 
     // Mark all pages as UNAVAILABLE
-    memset(g_pmm_allocator.free_bitmap, PMM_UNAVAILABLE,
-           sizeof(g_pmm_allocator.free_bitmap));
+    memset(g_pmm_free_bitmap, PMM_UNAVAILABLE, sizeof(g_pmm_free_bitmap));
 
     log_info("PMM", "Looking for available pageframes");
 
@@ -91,14 +103,23 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
         if (ram->type == MULTIBOOT_MEMORY_AVAILABLE) {
             for (u32 addr = ram->addr; addr < ram->addr + ram->len;
                  addr += PAGE_SIZE) {
+
                 // We still need to check whether the pages are located inside
                 // our kernel's code, or we would be succeptible to overwrite
                 // its code.
                 if (IN_RANGE(addr, KERNEL_CODE_START, KERNEL_CODE_END))
                     continue;
                 pmm_bitmap_set(addr, PMM_AVAILABLE);
-                if (available_pageframes++ == 0)
-                    g_pmm_allocator.first_available = addr;
+                available_pageframes += 1;
+
+                pmm_frame_allocator *allocator = (addr >= KERNEL_CODE_START)
+                                                   ? &g_pmm_kernel_allocator
+                                                   : &g_pmm_user_allocator;
+
+                if (allocator->first_available == PMM_INVALID_PAGEFRAME) {
+                    allocator->first_available = addr;
+                    allocator->initialized = true;
+                }
             }
         }
     }
@@ -108,9 +129,7 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
              (available_pageframes * PAGE_SIZE) / (2 << 19));
     log_dbg("PMM", "Total pageframes: %ld", TOTAL_PAGEFRAMES_COUNT);
     log_dbg("PMM", "First available pageframe: " LOG_FMT_32,
-            g_pmm_allocator.first_available);
-
-    g_pmm_allocator.initialized = true;
+            g_pmm_user_allocator.first_available);
 
     return true;
 }
@@ -165,25 +184,28 @@ bool pmm_init(struct multiboot_info *mbt)
     return true;
 }
 
-u32 pmm_allocate(void)
+u32 pmm_allocate(int flags)
 {
-    if (!g_pmm_allocator.initialized) {
+    pmm_frame_allocator *allocator = BIT(flags, PMM_MAP_KERNEL_BIT)
+                                       ? &g_pmm_kernel_allocator
+                                       : &g_pmm_user_allocator;
+
+    if (!allocator->initialized) {
         log_err("PMM", "Trying to allocate using an uninitialized allocator");
         return PMM_INVALID_PAGEFRAME; // EINVAL
     }
 
-    u64 address = g_pmm_allocator.first_available;
-
+    u64 address = allocator->first_available;
     if (address > 0xFFFFFFFF)
         return PMM_INVALID_PAGEFRAME; // ENOMEM
 
     pmm_bitmap_set(address, PMM_UNAVAILABLE);
 
     // Compute the next available pageframe
-    g_pmm_allocator.first_available = address;
-    while (g_pmm_allocator.first_available <= 0xFFFFFFFF &&
-           pmm_bitmap_read(g_pmm_allocator.first_available) != PMM_AVAILABLE)
-        g_pmm_allocator.first_available += PAGE_SIZE;
+    allocator->first_available = address;
+    while (allocator->first_available <= 0xFFFFFFFF &&
+           pmm_bitmap_read(allocator->first_available) != PMM_AVAILABLE)
+        allocator->first_available += PAGE_SIZE;
 
     return (u32)address;
 }
@@ -191,11 +213,16 @@ u32 pmm_allocate(void)
 void pmm_free(u32 pageframe)
 {
     if (IN_RANGE(pageframe, KERNEL_CODE_END, KERNEL_CODE_START)) {
-        log_err("PMM", "Trying to free kernel pages: " LOG_FMT_32, pageframe);
+        log_err("PMM", "Trying to free kernel code pages: " LOG_FMT_32,
+                pageframe);
     }
+
+    pmm_frame_allocator *allocator = (pageframe >= KERNEL_CODE_START)
+                                       ? &g_pmm_kernel_allocator
+                                       : &g_pmm_user_allocator;
 
     pmm_bitmap_set(pageframe, PMM_AVAILABLE);
 
-    if (pageframe < g_pmm_allocator.first_available)
-        g_pmm_allocator.first_available = pageframe;
+    if (pageframe < allocator->first_available)
+        allocator->first_available = pageframe;
 }
