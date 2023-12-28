@@ -215,6 +215,15 @@ void pmm_free(u32 pageframe)
     if (IN_RANGE(pageframe, KERNEL_CODE_END, KERNEL_CODE_START)) {
         log_err("PMM", "Trying to free kernel code pages: " LOG_FMT_32,
                 pageframe);
+        return;
+    }
+
+    if (pageframe % PAGE_SIZE) {
+        log_err("PMM",
+                "free: pageframe physical address is not aligned on "
+                "pagesize: " LOG_FMT_32,
+                pageframe);
+        return;
     }
 
     pmm_frame_allocator *allocator = (pageframe >= KERNEL_CODE_START)
