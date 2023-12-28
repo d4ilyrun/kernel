@@ -13,6 +13,7 @@ kernel_source_files = files([
   'src/devices/pit.c',
   'src/devices/uart.c',
   'src/devices/timer.c',
+  'src/memory/pmm.c',
 ])
 
 kernel_nasm_files = files([
@@ -26,6 +27,7 @@ arch_source_files = {
     'arch/i686/asm/gdt.S',
     'arch/i686/interrupts.c',
     'arch/i686/terminal.c',
+    'arch/i686/memory/mmu.c',
   ]),
 }
 
