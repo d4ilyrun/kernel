@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <utils/align.h>
 #include <utils/compiler.h>
+#include <utils/cpu_ops.h>
 #include <utils/macro.h>
 #include <utils/types.h>
 
@@ -77,19 +78,16 @@ bool mmu_start_paging(void)
     static void *page_directory = kernel_page_directory;
 
     // Set CR3 to point to our page directory
-    ASM("movl %0, %%cr3" : : "r"(page_directory));
+    write_cr3((u32)page_directory);
 
     // According to 4.3, to activate 32-bit mode paging we must:
     // 1. set CR4.PAE to 0 (de-activate PAE)
-    u32 cr4;
-    ASM("movl %%cr4, %0" : "=r"(cr4));
-    cr4 = BIT_MASK(cr4, 5); // PAE = bit 5
-    ASM("movl %0, %%cr4" : : "r"(cr4));
+    u32 cr4 = read_cr4();
+    write_cr4(BIT_MASK(cr4, 5)); // PAE = bit 6
+
     // 2. set CR0.PG to 1  (activate paging)
-    u32 cr0;
-    ASM("movl %%cr0, %0" : "=r"(cr0));
-    cr0 = BIT_SET(cr0, 31); // PG = bit 32
-    ASM("movl %0, %%cr0" : : "r"(cr0));
+    u32 cr0 = read_cr0();
+    write_cr0(BIT_SET(cr0, 31)); // PG = bit 32
 
     return true;
 }
@@ -136,11 +134,8 @@ bool mmu_map(u32 virtual, u32 pageframe)
         kernel_page_directory[pde_index].present = 1;
     }
 
-    u32 cr0;
-    ASM("movl %%cr0, %0" : "=r"(cr0));
-    bool paging_enabled = BIT(cr0, 31);
-
     // Virtual address of the corresponding page table (physical if CR0.PG=0)
+    bool paging_enabled = BIT(read_cr0(), 31);
     mmu_pte_entry *page_table =
         (mmu_pte_entry *)(paging_enabled
                               ? MMU_RECURSIVE_PAGE_TABLE_ADDRESS(pde_index)

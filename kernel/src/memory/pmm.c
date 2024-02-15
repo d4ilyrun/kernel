@@ -9,6 +9,7 @@
 #include <string.h>
 #include <utils/align.h>
 #include <utils/compiler.h>
+#include <utils/cpu_ops.h>
 #include <utils/macro.h>
 #include <utils/types.h>
 
@@ -164,8 +165,7 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
             error.user ? "whie in user-mode" : "");
 
     // The CR2 register holds the virtual address which caused the Page Fault
-    u32 faulty_address;
-    ASM("movl %%cr2, %0" : "=r"(faulty_address));
+    u32 faulty_address = read_cr2();
 
     log_dbg("[PF] error", LOG_FMT_32, frame.error);
     log_dbg("[PF] address", LOG_FMT_32, faulty_address);
