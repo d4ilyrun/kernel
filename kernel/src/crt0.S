@@ -52,6 +52,12 @@ _kernel_start:
     // Initialize stack pointer
     mov $stack_top, %esp
 
+    // The bootloader stores information about our system (memory map, ...)
+    // inside these registers. We push them onto the stack to be able to access them
+    // as arguments of our main function.
+    push %eax
+    push %ebx
+
     // Enter the higher-level kernel code
     call kernel_main
 
