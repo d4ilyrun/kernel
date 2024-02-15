@@ -13,6 +13,10 @@
 // Number of entries inside a single page table
 #define MMU_PTE_COUNT (1024)
 
+// Compute the virtual address of a page table when using recursive paging
+// @link https://medium.com/@connorstack/recursive-page-tables-ad1e03b20a85
+#define MMU_RECURSIVE_PAGE_TABLE_ADDRESS(_index) ((0xFFC00 + (_index)) << 12)
+
 /// Page Directory entry
 /// @see Table 4-5
 typedef struct PACKED {
@@ -49,15 +53,12 @@ typedef struct PACKED {
     u32 page_frame : 20;
 } mmu_pte_entry;
 
+/// Compute the 12 higher bits of a page's address (i.e. address / PAGE_SIZE)
+#define MMU_PAGE_ADDRESS(_page) (((u32)_page) >> 12)
+
 // The kernel's very own page directory
 static __attribute__((__aligned__(PAGE_SIZE)))
 mmu_pde_entry kernel_page_directory[MMU_PDE_COUNT];
-
-// TODO: Dynamically allocate page table using frame allocator (1:1)
-
-// The kernel's very own page tables
-static __attribute__((__aligned__(PAGE_SIZE)))
-mmu_pte_entry kernel_page_tables[MMU_PDE_COUNT][MMU_PTE_COUNT];
 
 static inline void mmu_flush_tlb(u32 tlb_entry)
 {
@@ -102,6 +103,12 @@ bool mmu_init(void)
         kernel_page_directory[entry] = (mmu_pde_entry){.writable = 1};
     }
 
+    // Setup recursive page tables
+    // @link https://medium.com/@connorstack/recursive-page-tables-ad1e03b20a85
+    kernel_page_directory[MMU_PDE_COUNT - 1].present = 1;
+    kernel_page_directory[MMU_PDE_COUNT - 1].page_table =
+        MMU_PAGE_ADDRESS(kernel_page_directory);
+
     // For more simplicity, we identity map the content of our kernel.
     mmu_identity_map(align(KERNEL_CODE_START, PAGE_SIZE), KERNEL_CODE_END);
     // We also map the first 1M of physical memory, it will be reserved for
@@ -123,12 +130,24 @@ bool mmu_map(u32 virtual, u32 pageframe)
     // This will also cause an issue when reaching userspace later.
 
     if (!kernel_page_directory[pde_index].present) {
+        u32 page_table = pmm_allocate(PMM_MAP_KERNEL);
         kernel_page_directory[pde_index].page_table =
-            (u32)&kernel_page_tables[pde_index] >> 12;
+            MMU_PAGE_ADDRESS(page_table);
         kernel_page_directory[pde_index].present = 1;
     }
 
-    if (kernel_page_tables[pde_index][pte_index].present) {
+    u32 cr0;
+    ASM("movl %%cr0, %0" : "=r"(cr0));
+    bool paging_enabled = BIT(cr0, 31);
+
+    // Virtual address of the corresponding page table (physical if CR0.PG=0)
+    mmu_pte_entry *page_table =
+        (mmu_pte_entry *)(paging_enabled
+                              ? MMU_RECURSIVE_PAGE_TABLE_ADDRESS(pde_index)
+                              : (kernel_page_directory[pde_index].page_table
+                                 << 12));
+
+    if (page_table[pte_index].present) {
         log_err("MMU",
                 "Allocating already allocated virtual address: " LOG_FMT_32,
                 virtual);
@@ -136,9 +155,9 @@ bool mmu_map(u32 virtual, u32 pageframe)
     }
 
     // Link the page table entry (virtual address) to the pageframe
-    kernel_page_tables[pde_index][pte_index] = (mmu_pte_entry){
+    page_table[pte_index] = (mmu_pte_entry){
         .present = 1,
-        .page_frame = pageframe >> 12,
+        .page_frame = MMU_PAGE_ADDRESS(pageframe),
         // TODO: hard-coded values
         .writable = 1,
         .user = 0,
@@ -152,14 +171,16 @@ void mmu_unmap(u32 virtual)
     u16 pde_index = virtual >> 22;                     // bits 31-22
     u16 pte_index = (virtual >> 12) & ((1 << 10) - 1); // bits 21-12
 
-    if (!kernel_page_directory[pde_index].present)
-        return;
-
     // TODO: Hard-coded to work with kernel pages only
     //       c.f. todo inside mmu_map
 
+    if (!kernel_page_directory[pde_index].present)
+        return;
+
     // Erase the content of the page table entry
-    *((volatile u32 *)&kernel_page_tables[pde_index][pte_index]) = 0x0;
+    mmu_pte_entry *page_table =
+        (mmu_pte_entry *)MMU_RECURSIVE_PAGE_TABLE_ADDRESS(pde_index);
+    *((volatile u32 *)&page_table[pte_index]) = 0x0;
 
     mmu_flush_tlb(virtual);
 }

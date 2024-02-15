@@ -59,8 +59,11 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     u32 page = pmm_allocate(PMM_MAP_KERNEL);
     log_variable(page);
     mmu_map(0xFFFF1000, page);
-    *(volatile u8 *)0xFFFF1234 = 0x42; // No page fault
-    log_variable((volatile u8 *)0xFFFF1234);
+    *(volatile u8 *)0xFFFF1235 = 0x42; // No page fault
+    log_variable(*(volatile u8 *)0xFFFF1235);
+    mmu_map(0x12341000, page);
+    *(volatile u8 *)0x12341235 = 0x69; // No page fault, Same page
+    log_variable(*(volatile u8 *)0xFFFF1235);
     mmu_unmap(0xFFFF1000);
     *(volatile u8 *)0xFFFF1234; // Page fault
 
