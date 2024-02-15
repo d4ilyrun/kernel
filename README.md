@@ -52,8 +52,8 @@ $ gdb -x .gdbinit build/kernel/kernel.sym
 
 - [X] Interrupts
 - Memory management
-    - [ ] Paging
-    - [ ] PMM (physical)
+    - [X] Paging
+    - [X] PMM (physical)
     - [ ] VMM (virtual)
 - [ ] Scheduler
 - [ ] Filesystem
