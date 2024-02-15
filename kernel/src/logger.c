@@ -1,6 +1,6 @@
+#include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/terminal.h>
-#include <kernel/interrupts.h>
 
 #include <stdarg.h>
 #include <stdio.h>
