@@ -38,13 +38,13 @@ typedef struct {
 
 static pmm_frame_allocator g_pmm_user_allocator = {
     .start = 0,
-    .end = (u32)&kernel_code_start_address,
+    .end = KERNEL_CODE_START,
     .first_available = PMM_INVALID_PAGEFRAME,
     .initialized = false,
 };
 
 static pmm_frame_allocator g_pmm_kernel_allocator = {
-    .start = (u32)&kernel_code_start_address,
+    .start = KERNEL_CODE_START,
     .end = ADDRESS_SPACE_END,
     .first_available = PMM_INVALID_PAGEFRAME,
     .initialized = false,

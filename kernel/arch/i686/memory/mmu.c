@@ -1,4 +1,5 @@
 #include <kernel/logger.h>
+#include <kernel/memory.h>
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
 
