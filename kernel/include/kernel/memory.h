@@ -25,11 +25,15 @@
 /// one. The following constants are used by the linker script and should be
 /// used by the functions that depend on them instead of hardcoding values.
 
-#define KERNEL_IS_HIGHER_HALF
+#define KERNEL_IS_HIGHER_HALF 1
 
-#define KERNEL_PHYSICAL_START 0x00100000
-#define KERNEL_VIRTUAL_START 0xC0000000
-#define KERNEL_MEMORY_OFFSET (KERNEL_VIRTUAL_START - KERNEL_PHYSICAL_START)
+// TODO: These values are duplicated inside the linkerscript
+//       We should maybe find a way to include this header before linking the
+//       kernel to avoid conflicts
+
+#define KERNEL_PHYSICAL_START 0x00100000UL
+#define KERNEL_HIGHER_HALF_OFFSET 0xC0000000UL
+#define KERNEL_VIRTUAL_START (KERNEL_PHYSICAL_START + KERNEL_HIGHER_HALF_OFFSET)
 
 #ifndef __ASSEMBLER__
 

@@ -1,5 +1,6 @@
-#include <multiboot.h>
+#include <kernel/memory.h>
 
+#include <multiboot.h>
 
 /*
  * Define the multiboot_header, following the GNU multiboot specifications,
@@ -39,7 +40,7 @@ stack_top:
  * no paging, and complete control over the hardware. The wild wild west ...
  */
 
-.section .text
+.section .text.startup
 .global _kernel_start
 .type _kernel_start, @function
 
