@@ -6,6 +6,10 @@
 #ifndef KERNEL_MEMORY_H
 #define KERNEL_MEMORY_H
 
+#ifndef KERNEL_STACK_SIZE
+#define KERNEL_STACK_SIZE 0x4000
+#endif
+
 // NOTE: This maybe belong inside the arch directory ? (cf. #5)
 
 // The size of a single page

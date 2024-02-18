@@ -15,10 +15,6 @@
 .long MULTIBOOT_HEADER_FLAGS
 .long -(MULTIBOOT_HEADER_FLAGS + MULTIBOOT_HEADER_MAGIC)
 
-#ifndef STACK_SIZE
-#error You must define STACK_SIZE
-#endif
-
 /*
  * The stack, required by C functions and not defined by default.
  * Should be placed inside the stack pointer register (esp) inside
@@ -30,7 +26,7 @@
 .section .bss
 .align 16
 stack_bottom:
-    .skip STACK_SIZE
+    .skip KERNEL_STACK_SIZE
 stack_top:
 
 /*
