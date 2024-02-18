@@ -31,6 +31,31 @@ stack_bottom:
 stack_top:
 
 /*
+ * Temporary paging structure used by the startup code to temporarily activate paging.
+
+ * This is needed as we use a higher-half kernel design, meaning the kernel's code
+ * has been virtually relocated into the higher-half of the address space by the linker.
+ *
+ * Refer to #6 for more info.
+ *
+ * WARNING: Each and every block of 4MiB inside the address space are mapped to the first 1024 pageframes.
+ *          This only works if the kernel is smaller than 3MiB in size.
+ */
+
+.section .data
+.align PAGE_SIZE
+startup_page_directory:
+    .rept 1024
+    .long (startup_page_table - 0xC0000000) + 1
+    .endr
+startup_page_table:
+    .set addr, 0
+    .rept 1024
+    .long addr | 3
+    .set addr, addr + 0x1000
+    .endr
+
+/*
  * The entry point of our kernel (as defined in our linker script).
  *
  * This is the function called by the bootloader after detection the
@@ -40,11 +65,30 @@ stack_top:
  * no paging, and complete control over the hardware. The wild wild west ...
  */
 
+ #define PHYSICAL_ADDR(_symbol) $(_symbol - 0xC0000000)
+
 .section .text.startup
 .global _kernel_start
 .type _kernel_start, @function
 
 _kernel_start:
+    // install temporary bootstrap paging structure
+    movl PHYSICAL_ADDR(startup_page_directory), %ecx
+    movl %ecx, %cr3
+    // activate paging
+    movl %cr0, %ecx
+    orl $0x80000000, %ecx
+    movl %ecx, %cr0
+    // jump to higher half
+    lea higher_half, %ecx
+    jmp *%ecx
+
+.size _kernel_start, . - _kernel_start
+
+.section .text
+higher_half:
+
+    // Starting from here we are running in higher-half !
 
     // Initialize stack pointer
     mov $stack_top, %esp
@@ -52,6 +96,7 @@ _kernel_start:
     // The bootloader stores information about our system (memory map, ...)
     // inside these registers. We push them onto the stack to be able to access them
     // as arguments of our main function.
+    addl $KERNEL_HIGHER_HALF_OFFSET, %ebx
     push %eax
     push %ebx
 
@@ -65,5 +110,4 @@ _kernel_exit_loop:
     hlt
     jmp _kernel_exit_loop
 
-// Set the size of the _kernel_start symbol for debugging purposes
-.size _kernel_start, . - _kernel_start
+.size higher_half, . - higher_half
