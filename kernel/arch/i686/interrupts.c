@@ -5,9 +5,10 @@
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 
-#include <string.h>
 #include <utils/compiler.h>
 #include <utils/macro.h>
+
+#include <string.h>
 
 static volatile idt_descriptor idt[IDT_LENGTH];
 

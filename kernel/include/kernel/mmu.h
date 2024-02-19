@@ -20,8 +20,9 @@
 #ifndef KERNEL_MMU_H
 #define KERNEL_MMU_H
 
-#include <stdbool.h>
 #include <utils/types.h>
+
+#include <stdbool.h>
 
 /**
  * @brief Inititialize the MMU's underlying structures

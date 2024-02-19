@@ -1,10 +1,11 @@
 #include <kernel/devices/uart.h>
 
+#include <utils/compiler.h>
+#include <utils/types.h>
+
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <utils/compiler.h>
-#include <utils/types.h>
 
 static_assert(sizeof(int) == sizeof(long),
               "Unsupported architecture: sizeof(long) != sizeof(int)");

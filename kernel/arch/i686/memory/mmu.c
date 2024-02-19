@@ -3,12 +3,13 @@
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
 
-#include <stdbool.h>
-#include <stddef.h>
 #include <utils/compiler.h>
 #include <utils/cpu_ops.h>
 #include <utils/macro.h>
 #include <utils/types.h>
+
+#include <stdbool.h>
+#include <stddef.h>
 
 // Number of entries inside the page directory
 #define MMU_PDE_COUNT (1024)

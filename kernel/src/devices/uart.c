@@ -1,9 +1,10 @@
 #include <kernel/devices/serial.h>
 #include <kernel/devices/uart.h>
 
-#include <stdint.h>
 #include <utils/compiler.h>
 #include <utils/macro.h>
+
+#include <stdint.h>
 
 #define UART_BAUDRATE 38400
 #define UART_CLOCK_HZ 115200 /* UART clock at 115.2KHz */

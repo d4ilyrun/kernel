@@ -1,9 +1,10 @@
 #ifndef KERNEL_TERMINAL_H
 #define KERNEL_TERMINAL_H
 
+#include <utils/compiler.h>
+
 #include <stddef.h>
 #include <stdint.h>
-#include <utils/compiler.h>
 
 /* Hardware text mode color constants. */
 enum vga_color {

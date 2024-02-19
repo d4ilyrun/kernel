@@ -8,8 +8,9 @@
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
 
-#include <multiboot.h>
 #include <utils/macro.h>
+
+#include <multiboot.h>
 
 void arch_setup(void);
 

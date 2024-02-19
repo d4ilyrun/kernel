@@ -27,7 +27,9 @@ IncludeBlocks: Regroup
 IncludeCategories:
     - Regex: '<kernel/.*>'
       Priority: 1
-    - Regex: '<.*>'
+    - Regex: '<utils/.*>'
       Priority: 2
-    - Regex: '.*'
+    - Regex: '<.*>'
       Priority: 3
+    - Regex: '.*'
+      Priority: 4

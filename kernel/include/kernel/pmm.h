@@ -16,9 +16,10 @@
 
 #include <kernel/memory.h>
 
+#include <utils/types.h>
+
 #include <multiboot.h>
 #include <stdbool.h>
-#include <utils/types.h>
 
 // Error value returned by the PMM in case of errors
 #define PMM_INVALID_PAGEFRAME (0xFFFFFFFFUL)

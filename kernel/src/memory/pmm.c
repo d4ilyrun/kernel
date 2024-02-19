@@ -3,15 +3,16 @@
 #include <kernel/logger.h>
 #include <kernel/pmm.h>
 
-#include <assert.h>
-#include <multiboot.h>
-#include <stddef.h>
-#include <string.h>
 #include <utils/align.h>
 #include <utils/compiler.h>
 #include <utils/cpu_ops.h>
 #include <utils/macro.h>
 #include <utils/types.h>
+
+#include <assert.h>
+#include <multiboot.h>
+#include <stddef.h>
+#include <string.h>
 
 /// @brief The Physical Memory Allocator
 ///
