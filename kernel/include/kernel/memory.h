@@ -35,7 +35,19 @@
 #define KERNEL_HIGHER_HALF_OFFSET 0xC0000000UL
 #define KERNEL_VIRTUAL_START (KERNEL_PHYSICAL_START + KERNEL_HIGHER_HALF_OFFSET)
 
-#ifndef __ASSEMBLER__
+#ifdef __ASSEMBLER__
+
+#define KERNEL_HIGHER_HALF_PHYSICAL(_virtual) \
+    ((_virtual)-KERNEL_HIGHER_HALF_OFFSET)
+#define KERNEL_HIGHER_HALF_VIRTUAL(_physical) \
+    ((_physical) + KERNEL_HIGHER_HALF_OFFSET)
+
+#else
+
+#define KERNEL_HIGHER_HALF_PHYSICAL(_virtual) \
+    ((u32)(_virtual)-KERNEL_HIGHER_HALF_OFFSET)
+#define KERNEL_HIGHER_HALF_VIRTUAL(_physical) \
+    ((u32)(_physical) + KERNEL_HIGHER_HALF_OFFSET)
 
 #include <utils/types.h>
 

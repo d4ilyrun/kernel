@@ -108,14 +108,16 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
                 // We still need to check whether the pages are located inside
                 // our kernel's code, or we would be succeptible to overwrite
                 // its code.
-                if (IN_RANGE(addr, KERNEL_CODE_START, KERNEL_CODE_END))
+                if (IN_RANGE(KERNEL_HIGHER_HALF_VIRTUAL(addr),
+                             KERNEL_CODE_START, KERNEL_CODE_END))
                     continue;
                 pmm_bitmap_set(addr, PMM_AVAILABLE);
                 available_pageframes += 1;
 
-                pmm_frame_allocator *allocator = (addr >= KERNEL_CODE_START)
-                                                   ? &g_pmm_kernel_allocator
-                                                   : &g_pmm_user_allocator;
+                pmm_frame_allocator *allocator =
+                    (KERNEL_HIGHER_HALF_VIRTUAL(addr) >= KERNEL_CODE_START)
+                        ? &g_pmm_kernel_allocator
+                        : &g_pmm_user_allocator;
 
                 if (allocator->first_available == PMM_INVALID_PAGEFRAME) {
                     allocator->first_available = addr;
@@ -212,7 +214,8 @@ u32 pmm_allocate(int flags)
 
 void pmm_free(u32 pageframe)
 {
-    if (IN_RANGE(pageframe, KERNEL_CODE_END, KERNEL_CODE_START)) {
+    if (IN_RANGE(KERNEL_HIGHER_HALF_VIRTUAL(pageframe), KERNEL_CODE_END,
+                 KERNEL_CODE_START)) {
         log_err("PMM", "Trying to free kernel code pages: " LOG_FMT_32,
                 pageframe);
         return;
@@ -226,9 +229,10 @@ void pmm_free(u32 pageframe)
         return;
     }
 
-    pmm_frame_allocator *allocator = (pageframe >= KERNEL_CODE_START)
-                                       ? &g_pmm_kernel_allocator
-                                       : &g_pmm_user_allocator;
+    pmm_frame_allocator *allocator =
+        (KERNEL_HIGHER_HALF_VIRTUAL(pageframe) >= KERNEL_CODE_START)
+            ? &g_pmm_kernel_allocator
+            : &g_pmm_user_allocator;
 
     pmm_bitmap_set(pageframe, PMM_AVAILABLE);
 

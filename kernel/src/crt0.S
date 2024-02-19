@@ -65,15 +65,13 @@ startup_page_table:
  * no paging, and complete control over the hardware. The wild wild west ...
  */
 
- #define PHYSICAL_ADDR(_symbol) $(_symbol - 0xC0000000)
-
 .section .text.startup
 .global _kernel_start
 .type _kernel_start, @function
 
 _kernel_start:
     // install temporary bootstrap paging structure
-    movl PHYSICAL_ADDR(startup_page_directory), %ecx
+    movl $KERNEL_HIGHER_HALF_PHYSICAL(startup_page_directory), %ecx
     movl %ecx, %cr3
     // activate paging
     movl %cr0, %ecx

@@ -3,8 +3,8 @@
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
 
+#include <stdbool.h>
 #include <stddef.h>
-#include <utils/align.h>
 #include <utils/compiler.h>
 #include <utils/cpu_ops.h>
 #include <utils/macro.h>
@@ -62,6 +62,10 @@ typedef struct PACKED {
 static __attribute__((__aligned__(PAGE_SIZE)))
 mmu_pde_entry kernel_page_directory[MMU_PDE_COUNT];
 
+// Keep track whether paging has been fully enabled.
+// This doesn't count temporarily enabling it to jump into higher half.
+static bool paging_enabled = false;
+
 static inline void mmu_flush_tlb(u32 tlb_entry)
 {
     ASM("invlpg (%0)" ::"r"(tlb_entry) : "memory");
@@ -76,7 +80,8 @@ static inline void mmu_flush_tlb(u32 tlb_entry)
 // way to set its contentt to be that of the currently running process.
 bool mmu_start_paging(void)
 {
-    static void *page_directory = kernel_page_directory;
+    static void *page_directory =
+        (void *)KERNEL_HIGHER_HALF_PHYSICAL(kernel_page_directory);
 
     // Set CR3 to point to our page directory
     write_cr3((u32)page_directory);
@@ -90,8 +95,17 @@ bool mmu_start_paging(void)
     u32 cr0 = read_cr0();
     write_cr0(BIT_SET(cr0, 31)); // PG = bit 32
 
+    paging_enabled = true;
+
     return true;
 }
+
+/// @brief Remap an address range given an offset.
+///
+/// example:
+///     mmu_offset_map(0x0000, 0x00FF, 0xFF) will remap the physical range
+///     [0x0000; 0x00FF] to the virtual range [0xFF00; 0xFFFF]
+static void mmu_offset_map(uint32_t start, uint32_t end, int64_t offset);
 
 bool mmu_init(void)
 {
@@ -106,10 +120,17 @@ bool mmu_init(void)
     // @link https://medium.com/@connorstack/recursive-page-tables-ad1e03b20a85
     kernel_page_directory[MMU_PDE_COUNT - 1].present = 1;
     kernel_page_directory[MMU_PDE_COUNT - 1].page_table =
-        MMU_PAGE_ADDRESS(kernel_page_directory);
+        MMU_PAGE_ADDRESS(KERNEL_HIGHER_HALF_PHYSICAL(kernel_page_directory));
 
-    // For more simplicity, we identity map the content of our kernel.
-    mmu_identity_map(align(KERNEL_CODE_START, PAGE_SIZE), KERNEL_CODE_END);
+    // We remap our higher-half kernel.
+    // The addresses over 0xC0000000 will point to our kernel's code (0x00000000
+    // in physical)
+    mmu_offset_map(KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_START),
+                   KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_END),
+                   KERNEL_HIGHER_HALF_OFFSET);
+
+    // FIXME: Check conflict with PPM
+    // FIXME: Is it really necessary ?
     // We also map the first 1M of physical memory, it will be reserved for
     // hardware structs.
     mmu_identity_map(0x0, 0x100000);
@@ -121,6 +142,8 @@ bool mmu_map(u32 virtual, u32 pageframe)
 {
     u16 pde_index = virtual >> 22;                     // bits 31-22
     u16 pte_index = (virtual >> 12) & ((1 << 10) - 1); // bits 21-12
+
+    // TODO: ASSERT alignment
 
     // TODO: Hard-coded to work with kernel page tables only
     //       This should take the pagedir/pagetables as input later on
@@ -136,12 +159,15 @@ bool mmu_map(u32 virtual, u32 pageframe)
     }
 
     // Virtual address of the corresponding page table (physical if CR0.PG=0)
-    bool paging_enabled = BIT(read_cr0(), 31);
-    mmu_pte_entry *page_table =
-        (mmu_pte_entry *)(paging_enabled
-                              ? MMU_RECURSIVE_PAGE_TABLE_ADDRESS(pde_index)
-                              : (kernel_page_directory[pde_index].page_table
-                                 << 12));
+    mmu_pte_entry *page_table;
+
+    if (paging_enabled) {
+        page_table =
+            (mmu_pte_entry *)MMU_RECURSIVE_PAGE_TABLE_ADDRESS(pde_index);
+    } else {
+        page_table = (mmu_pte_entry *)KERNEL_HIGHER_HALF_VIRTUAL(
+            kernel_page_directory[pde_index].page_table << 12);
+    }
 
     if (page_table[pte_index].present) {
         log_err("MMU",
@@ -181,9 +207,14 @@ void mmu_unmap(u32 virtual)
     mmu_flush_tlb(virtual);
 }
 
-void mmu_identity_map(uint32_t start, uint32_t end)
+static void mmu_offset_map(uint32_t start, uint32_t end, int64_t offset)
 {
     for (; start < end; start += PAGE_SIZE) {
-        mmu_map(start, start);
+        mmu_map(start + offset, start);
     }
+}
+
+void mmu_identity_map(uint32_t start, uint32_t end)
+{
+    mmu_offset_map(start, end, 0);
 }
