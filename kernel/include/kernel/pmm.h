@@ -14,16 +14,11 @@
 #ifndef KERNEL_PMM_H
 #define KERNEL_PMM_H
 
+#include <kernel/memory.h>
+
 #include <multiboot.h>
 #include <stdbool.h>
 #include <utils/types.h>
-
-// The size of a single page
-#define PAGE_SIZE (4096)
-
-// 32-bit address bus -> 4GiB of addressable memory
-#define ADDRESS_SPACE_SIZE (0x100000000UL)
-#define ADDRESS_SPACE_END (ADDRESS_SPACE_SIZE - 1)
 
 // Error value returned by the PMM in case of errors
 #define PMM_INVALID_PAGEFRAME (0xFFFFFFFFUL)
@@ -38,24 +33,6 @@
 // This constant should ONLY be used as a compile-time known theoretical
 // reference value (e.g. the physical memory manager's bit map size).
 #define TOTAL_PAGEFRAMES_COUNT (ADDRESS_SPACE_SIZE / PAGE_SIZE)
-
-/// @brief Address of the byte located just after the end of the kernel's code
-///
-/// Any byte written after this address will not overwrite our kernel's
-/// executable binary.
-///
-/// @info this address is defined inside the kernel's linker scrpit.
-extern u32 kernel_code_end_address;
-#define KERNEL_CODE_END ((u32)&kernel_code_end_address)
-
-/// @brief Address of the byte located just before the end of the kernel's code
-///
-/// Any byte written after this address **WILL** overwrite our kernel's
-/// executable binary.
-///
-/// @info this address is defined inside the kernel's linker scrpit.
-extern u32 kernel_code_start_address;
-#define KERNEL_CODE_START ((u32)&kernel_code_start_address)
 
 /// \defgroup pmm_allocation_flags
 ///
