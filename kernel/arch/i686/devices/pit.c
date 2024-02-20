@@ -1,9 +1,9 @@
-#include <kernel/devices/pit.h>
-#include <kernel/devices/serial.h>
+#include <kernel/i686/devices/pit.h>
+#include <kernel/i686/devices/serial.h>
+#include <kernel/interrupts.h>
 #include <kernel/logger.h>
 
-#include "kernel/interrupts.h"
-#include "utils/macro.h"
+#include <utils/macro.h>
 
 /// PIT's control register IO port
 #define PIT_CONTROL_REGISTER (0x43)

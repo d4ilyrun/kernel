@@ -1,5 +1,5 @@
-#include <kernel/devices/serial.h>
 #include <kernel/devices/uart.h>
+#include <kernel/i686/devices/serial.h>
 
 #include <utils/compiler.h>
 #include <utils/macro.h>

@@ -1,5 +1,5 @@
-#include <kernel/devices/pic.h>
 #include <kernel/devices/uart.h>
+#include <kernel/i686/devices/pic.h>
 #include <kernel/i686/gdt.h>
 #include <kernel/i686/interrupts.h>
 #include <kernel/interrupts.h>

@@ -1,12 +1,11 @@
-#include <kernel/devices/serial.h>
 #include <kernel/devices/timer.h>
+#include <kernel/i686/devices/pic.h>
+#include <kernel/i686/devices/pit.h>
+#include <kernel/i686/devices/serial.h>
 #include <kernel/logger.h>
 
 #include <utils/macro.h>
 #include <utils/types.h>
-
-#include "kernel/devices/pic.h"
-#include "kernel/devices/pit.h"
 
 // FIXME: Include the ARCH/interrupts.h automatically inside kernel/interrupts.h
 //        This defeats the idea of separting kernel from architercture specific
