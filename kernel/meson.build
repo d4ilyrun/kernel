@@ -11,28 +11,25 @@ kernel_source_files = files([
   'src/memory/pmm.c',
 ])
 
-kernel_nasm_files = files([
-  'src/asm/pic.S',
-])
-
 arch_source_files = {
   'i686': files([
-    'arch/i686/setup.c',
-    'arch/i686/gdt.c',
-    'arch/i686/asm/gdt.S',
-    'arch/i686/interrupts.c',
-    'arch/i686/terminal.c',
-    'arch/i686/devices/pic.c',
-    'arch/i686/devices/pit.c',
-    'arch/i686/devices/timer.c',
-    'arch/i686/devices/uart.c',
-    'arch/i686/memory/mmu.c',
+    'arch/i686/src/setup.c',
+    'arch/i686/src/gdt.c',
+    'arch/i686/src/gdt.S',
+    'arch/i686/src/interrupts.c',
+    'arch/i686/src/terminal.c',
+    'arch/i686/src/devices/pic.c',
+    'arch/i686/src/devices/pit.c',
+    'arch/i686/src/devices/timer.c',
+    'arch/i686/src/devices/uart.c',
+    'arch/i686/src/memory/mmu.c',
   ]),
 }
 
 arch_nasm_files = {
   'i686': files([
-    'arch/i686/asm/interrupts.S',
+    'arch/i686/src/interrupts.S',
+    'arch/i686/src/devices/pic.S',
   ]),
 }
 
@@ -49,7 +46,6 @@ kernel = executable(
     'src/crt0.S',
     kernel_source_files,
     arch_source_files.get(arch, []),
-    nasm_gen.process(kernel_nasm_files),
     nasm_gen.process(arch_nasm_files.get(arch,[])),
   ],
   include_directories: [kernel_headers, arch_headers],
