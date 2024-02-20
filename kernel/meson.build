@@ -35,7 +35,7 @@ arch_nasm_files = {
 }
 
 
-kernel_linker_script = f'arch/@arch@/linker.ld'
+kernel_linker_script = 'linker.ld'
 kernel_linker_flags = [ '-T', meson.project_source_root() / 'kernel' / kernel_linker_script ]
 
 kernel_headers = include_directories('include')
@@ -44,7 +44,7 @@ arch_headers = include_directories(f'arch/@arch@/include')
 kernel = executable(
   'kernel.bin',
   [
-    'src/crt0.S',
+    f'arch/@arch@/src/crt0.S',
     kernel_source_files,
     arch_source_files.get(arch, []),
     nasm_gen.process(arch_nasm_files.get(arch,[])),
