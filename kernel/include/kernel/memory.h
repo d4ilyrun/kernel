@@ -6,18 +6,13 @@
 #ifndef KERNEL_MEMORY_H
 #define KERNEL_MEMORY_H
 
+#if ARCH == i686
+#include <kernel/i686/memory.h>
+#endif
+
 #ifndef KERNEL_STACK_SIZE
 #define KERNEL_STACK_SIZE 0x4000
 #endif
-
-// NOTE: This maybe belong inside the arch directory ? (cf. #5)
-
-// The size of a single page
-#define PAGE_SIZE (4096)
-
-// 32-bit address bus -> 4GiB of addressable memory
-#define ADDRESS_SPACE_SIZE (0x100000000UL)
-#define ADDRESS_SPACE_END (ADDRESS_SPACE_SIZE - 1)
 
 /// Starting from #6, our kernel uses the higher-half design.
 ///

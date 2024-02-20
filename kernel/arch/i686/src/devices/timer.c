@@ -2,14 +2,11 @@
 #include <kernel/i686/devices/pic.h>
 #include <kernel/i686/devices/pit.h>
 #include <kernel/i686/devices/serial.h>
+#include <kernel/interrupts.h>
 #include <kernel/logger.h>
 
 #include <utils/macro.h>
 #include <utils/types.h>
-
-// FIXME: Include the ARCH/interrupts.h automatically inside kernel/interrupts.h
-//        This defeats the idea of separting kernel from architercture specific
-#include <kernel/i686/interrupts.h>
 
 /**
  * This is where we keep track of the number of intervals reported by the timer.

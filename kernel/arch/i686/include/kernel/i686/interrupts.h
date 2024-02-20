@@ -4,8 +4,12 @@
  * @ref https://wiki.osdev.org/Interrupt_Descriptor_Table IDT
  */
 
-#ifndef KERNEL_I686_INTERRUPTS_H
-#define KERNEL_I686_INTERRUPTS_H
+#ifndef KERNEL_INTERRUPTS_H
+#error <kernel/i686/interrupts.h> must not be used as a standalone header. Please include <kernel/interrupts.h> instead.
+#endif
+
+#ifndef KERNEL_ARCH_I686_INTERRUPTS_H
+#define KERNEL_ARCH_I686_INTERRUPTS_H
 
 #include <kernel/i686/gdt.h>
 
@@ -91,5 +95,19 @@ struct interrupt_frame {
 
 /** Print the content of the IDT and IDTR */
 void idt_log(void);
+
+#define INLINED_INTERRUPTS_DISABLE_ENABLE
+
+/**\brief Disable CPU interrupts */
+static inline void interrupts_disable(void)
+{
+    ASM("cli");
+}
+
+/**\brief Enable CPU interrupts */
+static inline void interrupts_enable(void)
+{
+    ASM("sti");
+}
 
 #endif /* KERNEL_I686_INTERRUPTS_H */

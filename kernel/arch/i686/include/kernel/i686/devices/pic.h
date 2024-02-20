@@ -16,8 +16,6 @@
 #ifndef KERNEL_ARCH_I686_DEVICES_PIC_H
 #define KERNEL_ARCH_I686_DEVICES_PIC_H
 
-#include <kernel/interrupts.h>
-
 #include <stdint.h>
 
 /* Offset vectors

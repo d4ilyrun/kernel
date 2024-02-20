@@ -1,4 +1,3 @@
-#include <kernel/i686/interrupts.h> // FIXME: Automatically import this file
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/pmm.h>

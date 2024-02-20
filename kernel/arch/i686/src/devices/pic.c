@@ -1,7 +1,6 @@
 #include <kernel/devices/timer.h>
 #include <kernel/i686/devices/pic.h>
 #include <kernel/i686/devices/serial.h>
-#include <kernel/i686/interrupts.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/terminal.h>
