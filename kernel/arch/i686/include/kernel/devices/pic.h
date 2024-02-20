@@ -13,8 +13,8 @@
  *  https://pdos.csail.mit.edu/6.828/2005/readings/hardware/8259A.pdf
  */
 
-#ifndef KERNEL_DEVICES_PIC_H
-#define KERNEL_DEVICES_PIC_H
+#ifndef KERNEL_ARCH_I686_DEVICES_PIC_H
+#define KERNEL_ARCH_I686_DEVICES_PIC_H
 
 #include <kernel/interrupts.h>
 
@@ -72,4 +72,4 @@ void pic_disable_irq(pic_irq);
 /* Enable the given IRQ */
 void pic_enable_irq(pic_irq);
 
-#endif /* end of include guard: KERNEL_DEVICES_PIC_H */
+#endif /* KERNEL_ARCH_I686_DEVICES_PIC_H */

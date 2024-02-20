@@ -1,4 +1,3 @@
-#include <kernel/devices/pic.h>
 #include <kernel/devices/timer.h>
 #include <kernel/devices/uart.h>
 #include <kernel/interrupts.h>
@@ -40,7 +39,6 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     tty_init();
 
     arch_setup();
-    pic_reset();
 
     // IRQs are setup, we can safely enable interrupts
     interrupts_enable();

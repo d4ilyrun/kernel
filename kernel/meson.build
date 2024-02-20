@@ -8,10 +8,6 @@ kernel_source_files = files([
   'src/main.c',
   'src/syscalls.c',
   'src/logger.c',
-  'src/devices/pic.c',
-  'src/devices/pit.c',
-  'src/devices/uart.c',
-  'src/devices/timer.c',
   'src/memory/pmm.c',
 ])
 
@@ -26,6 +22,10 @@ arch_source_files = {
     'arch/i686/asm/gdt.S',
     'arch/i686/interrupts.c',
     'arch/i686/terminal.c',
+    'arch/i686/devices/pic.c',
+    'arch/i686/devices/pit.c',
+    'arch/i686/devices/timer.c',
+    'arch/i686/devices/uart.c',
     'arch/i686/memory/mmu.c',
   ]),
 }
