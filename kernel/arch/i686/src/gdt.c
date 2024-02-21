@@ -1,6 +1,7 @@
-#include <kernel/i686/gdt.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
+
+#include <kernel/i686/gdt.h>
 
 #include <utils/compiler.h>
 #include <utils/macro.h>

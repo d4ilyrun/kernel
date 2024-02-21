@@ -1,8 +1,9 @@
-#include <kernel/i686/cpu_ops.h>
 #include <kernel/logger.h>
 #include <kernel/memory.h>
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
+
+#include <kernel/i686/cpu_ops.h>
 
 #include <utils/compiler.h>
 #include <utils/macro.h>

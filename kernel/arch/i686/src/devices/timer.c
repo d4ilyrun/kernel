@@ -9,11 +9,12 @@
  */
 
 #include <kernel/devices/timer.h>
+#include <kernel/interrupts.h>
+#include <kernel/logger.h>
+
 #include <kernel/i686/cpu_ops.h>
 #include <kernel/i686/devices/pic.h>
 #include <kernel/i686/devices/pit.h>
-#include <kernel/interrupts.h>
-#include <kernel/logger.h>
 
 #include <utils/macro.h>
 #include <utils/types.h>

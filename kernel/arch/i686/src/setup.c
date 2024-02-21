@@ -1,6 +1,7 @@
+#include <kernel/interrupts.h>
+
 #include <kernel/i686/devices/pic.h>
 #include <kernel/i686/gdt.h>
-#include <kernel/interrupts.h>
 
 void arch_setup(void)
 {

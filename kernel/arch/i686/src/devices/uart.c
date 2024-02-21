@@ -7,6 +7,7 @@
  */
 
 #include <kernel/devices/uart.h>
+
 #include <kernel/i686/cpu_ops.h>
 
 #include <utils/compiler.h>
