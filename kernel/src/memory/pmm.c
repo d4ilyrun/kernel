@@ -1,10 +1,10 @@
+#include <kernel/i686/cpu_ops.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/pmm.h>
 
 #include <utils/align.h>
 #include <utils/compiler.h>
-#include <utils/cpu_ops.h>
 #include <utils/macro.h>
 #include <utils/types.h>
 

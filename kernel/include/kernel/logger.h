@@ -56,6 +56,8 @@ void log(const char *type, const char *domain, const char *msg, ...);
  */
 void panic(const char *msg, ...) __attribute__((__noreturn__));
 
+// TODO: LOG_LEVEL filter
+
 #define log_err(domain, ...) \
     log(ANSI_ERR "ERROR" ANSI_RESET " ", domain, __VA_ARGS__)
 #define log_warn(domain, ...) \

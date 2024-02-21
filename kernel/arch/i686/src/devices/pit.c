@@ -1,5 +1,5 @@
+#include <kernel/i686/cpu_ops.h>
 #include <kernel/i686/devices/pit.h>
-#include <kernel/i686/devices/serial.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 
