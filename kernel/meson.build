@@ -2,42 +2,40 @@ arch = target_machine.cpu()
 
 kernel_compile_flags = [
   '-fomit-frame-pointer',
+  f'-DARCH=@arch@',
 ]
 
 kernel_source_files = files([
   'src/main.c',
   'src/syscalls.c',
   'src/logger.c',
-  'src/devices/pic.c',
-  'src/devices/pit.c',
-  'src/devices/uart.c',
-  'src/devices/timer.c',
   'src/memory/pmm.c',
-])
-
-kernel_nasm_files = files([
-  'src/asm/pic.S',
 ])
 
 arch_source_files = {
   'i686': files([
-    'arch/i686/setup.c',
-    'arch/i686/gdt.c',
-    'arch/i686/asm/gdt.S',
-    'arch/i686/interrupts.c',
-    'arch/i686/terminal.c',
-    'arch/i686/memory/mmu.c',
+    'arch/i686/src/setup.c',
+    'arch/i686/src/gdt.c',
+    'arch/i686/src/gdt.S',
+    'arch/i686/src/interrupts.c',
+    'arch/i686/src/terminal.c',
+    'arch/i686/src/devices/pic.c',
+    'arch/i686/src/devices/pit.c',
+    'arch/i686/src/devices/timer.c',
+    'arch/i686/src/devices/uart.c',
+    'arch/i686/src/memory/mmu.c',
   ]),
 }
 
 arch_nasm_files = {
   'i686': files([
-    'arch/i686/asm/interrupts.S',
+    'arch/i686/src/interrupts.S',
+    'arch/i686/src/devices/pic.S',
   ]),
 }
 
 
-kernel_linker_script = f'arch/@arch@/linker.ld'
+kernel_linker_script = 'linker.ld'
 kernel_linker_flags = [ '-T', meson.project_source_root() / 'kernel' / kernel_linker_script ]
 
 kernel_headers = include_directories('include')
@@ -46,10 +44,9 @@ arch_headers = include_directories(f'arch/@arch@/include')
 kernel = executable(
   'kernel.bin',
   [
-    'src/crt0.S',
+    f'arch/@arch@/src/crt0.S',
     kernel_source_files,
     arch_source_files.get(arch, []),
-    nasm_gen.process(kernel_nasm_files),
     nasm_gen.process(arch_nasm_files.get(arch,[])),
   ],
   include_directories: [kernel_headers, arch_headers],

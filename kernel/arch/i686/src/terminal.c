@@ -21,6 +21,26 @@ static struct terminal_info g_terminal;
 
 #define INDEX(_x, _y) ((_y)*TTY_MAX_WIDTH + (_x))
 
+/**
+ * Generate a valid vga color combination from the given forgeroung and
+ * background.
+ */
+static ALWAYS_INLINE uint8_t vga_entry_color(enum vga_color fg,
+                                             enum vga_color bg)
+{
+    return fg | bg << 4;
+}
+
+/**
+ * Generate a valid vga entry, displaying a character with the given color
+ * combo.
+ */
+static ALWAYS_INLINE uint16_t vga_entry(unsigned char uc, uint8_t color)
+{
+    // NOLINTNEXTLINE(readability-magic-numbers)
+    return (uint16_t)uc | (uint16_t)color << 8;
+}
+
 static ALWAYS_INLINE void tty_putchar_at(char c, size_t x, size_t y)
 {
     size_t index = y * TTY_MAX_WIDTH + x;

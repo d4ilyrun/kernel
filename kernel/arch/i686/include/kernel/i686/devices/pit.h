@@ -1,6 +1,5 @@
 /** \header pit.h
  *
- *
  * \brief Interface with the i8254 Programmable Interval Timer (PIT)
  *
  * Any interaction done with the PIT should be done through
@@ -19,8 +18,8 @@
  *   * https://wiki.osdev.org/Programmable_Interval_Timer
  */
 
-#ifndef KERNEL_DEVICES_PIT_H
-#define KERNEL_DEVICES_PIT_H
+#ifndef KERNEL_ARCH_I686_DEVICES_PIT_H
+#define KERNEL_ARCH_I686_DEVICES_PIT_H
 
 #include <utils/types.h>
 
@@ -66,4 +65,4 @@ u32 pit_config_channel(pit_channel, u32 frequency, pit_mode);
 /** Read the current value inside the channel's counter */
 u16 pit_read_channel(pit_channel);
 
-#endif /* KERNEL_DEVICES_PIT_H */
+#endif /*  KERNEL_ARCH_I686_DEVICES_PIT_H */

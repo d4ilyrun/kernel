@@ -1,9 +1,9 @@
-#include <kernel/devices/pic.h>
 #include <kernel/devices/uart.h>
-#include <kernel/i686/gdt.h>
-#include <kernel/i686/interrupts.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
+
+#include <kernel/i686/devices/pic.h>
+#include <kernel/i686/gdt.h>
 
 #include <utils/compiler.h>
 #include <utils/macro.h>
@@ -81,15 +81,6 @@ static const char *interrupt_names[] = {
 #define IDT_PRESENT 0x80
 
 // TODO: Find a way to inline this ...
-void interrupts_disable(void)
-{
-    ASM("cli");
-}
-
-void interrupts_enable(void)
-{
-    ASM("sti");
-}
 
 const char *interrupts_to_str(u8 nr)
 {

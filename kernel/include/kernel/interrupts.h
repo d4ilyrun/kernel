@@ -1,13 +1,21 @@
 #ifndef KERNEL_INTERRUPTS_H
 #define KERNEL_INTERRUPTS_H
 
+#if ARCH == i686
+#include <kernel/i686/interrupts.h>
+#endif
+
 #include <utils/types.h>
+
+#ifndef INLINED_INTERRUPTS_DISABLE_ENABLE
 
 /**\brief Disable CPU interrupts */
 void interrupts_disable(void);
 
 /**\brief Enable CPU interrupts */
 void interrupts_enable(void);
+
+#endif
 
 /**
  * @brief Initialize interrupt related registers.

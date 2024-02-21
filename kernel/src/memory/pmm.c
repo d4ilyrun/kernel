@@ -1,11 +1,11 @@
-#include <kernel/i686/interrupts.h> // FIXME: Automatically import this file
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/pmm.h>
 
+#include <kernel/i686/cpu_ops.h>
+
 #include <utils/align.h>
 #include <utils/compiler.h>
-#include <utils/cpu_ops.h>
 #include <utils/macro.h>
 #include <utils/types.h>
 

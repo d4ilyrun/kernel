@@ -1,5 +1,14 @@
-#include <kernel/devices/serial.h>
+/* Interactions with the UART 16550.
+ *
+ * The UART is connected through COM1, at 38400bps.
+ *
+ * These functions follow the libc's equivalent functions'
+ * specifications.
+ */
+
 #include <kernel/devices/uart.h>
+
+#include <kernel/i686/cpu_ops.h>
 
 #include <utils/compiler.h>
 #include <utils/macro.h>

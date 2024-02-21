@@ -26,26 +26,6 @@ enum vga_color {
     VGA_COLOR_WHITE = 15,
 };
 
-/**
- * Generate a valid vga color combination from the given forgeroung and
- * background.
- */
-static ALWAYS_INLINE uint8_t vga_entry_color(enum vga_color fg,
-                                             enum vga_color bg)
-{
-    return fg | bg << 4;
-}
-
-/**
- * Generate a valid vga entry, displaying a character with the given color
- * combo.
- */
-static ALWAYS_INLINE uint16_t vga_entry(unsigned char uc, uint8_t color)
-{
-    // NOLINTNEXTLINE(readability-magic-numbers)
-    return (uint16_t)uc | (uint16_t)color << 8;
-}
-
 void tty_init(void);
 void tty_putchar(char c);
 void tty_write(const char *buffer, size_t size);
