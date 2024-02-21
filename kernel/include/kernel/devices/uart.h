@@ -1,11 +1,3 @@
-/* Interactions with the UART 16550.
- *
- * The UART is connected through COM1, at 38400bps.
- *
- * These functions follow the libc's equivalent functions'
- * specifications.
- */
-
 #ifndef KERNEL_DEVICES_UART_H
 #define KERNEL_DEVICES_UART_H
 

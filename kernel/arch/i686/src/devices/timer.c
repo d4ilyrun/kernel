@@ -1,3 +1,13 @@
+/** \file timer.c
+ *
+ * We use the PIT's channel 0 for our internal timer.
+ *
+ * We keep track of the number of IRQ_TIMER recieved, each one representing a
+ * kernel timer 'tick'.
+ *
+ * \see pit.h
+ */
+
 #include <kernel/devices/timer.h>
 #include <kernel/i686/devices/pic.h>
 #include <kernel/i686/devices/pit.h>
@@ -20,6 +30,18 @@ static volatile u32 timer_kernel_frequency = 0;
 
 static DEFINE_INTERRUPT_HANDLER(irq_timer);
 
+/**
+ * Start the timer.
+ *
+ * At each interval, the timer will trigger an IRQ_TIMER
+ * interrupt, which MUST be handled to update our internal
+ * timer tick value.
+ *
+ * @warn The frequency must be between 19 and 1.9MhZ
+ *       Any other value will be adjusted back into this range.
+ *
+ * @param frequency The timer's frequency (Hz)
+ */
 void timer_start(u32 frequency)
 {
     timer_kernel_frequency =
