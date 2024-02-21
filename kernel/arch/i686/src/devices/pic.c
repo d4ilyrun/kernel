@@ -99,7 +99,7 @@ static DEFINE_INTERRUPT_HANDLER(irq_keyboard)
     const u8 scan_code = inb(0x60);
 
     // If not key release;  write character
-    if (!BIT(scan_code, 7) && ascii[scan_code])
+    if (!BIT_READ(scan_code, 7) && ascii[scan_code])
         tty_putchar(ascii[scan_code]);
 
     pic_eoi(IRQ_KEYBOARD);

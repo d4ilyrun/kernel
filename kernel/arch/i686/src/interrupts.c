@@ -78,9 +78,7 @@ static const char *interrupt_names[] = {
 };
 
 // IDT entry flag: gate is present
-#define IDT_PRESENT 0x80
-
-// TODO: Find a way to inline this ...
+#define IDT_PRESENT BIT(7)
 
 const char *interrupts_to_str(u8 nr)
 {

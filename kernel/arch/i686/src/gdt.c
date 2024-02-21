@@ -33,6 +33,8 @@ void gdt_init(void)
      *
      * To perform this operation, we assume that we are in protected mode,
      * and that we are using a falt model (which is the case if using GRUB).
+     *
+     * FIXME: Should not use a fixed address
      */
     static gdtr gdtr = {.size = GDT_SIZE - 1, .offset = GDT_BASE_ADDRESS};
     ASM("lgdt (%0)" : : "m"(gdtr) : "memory");

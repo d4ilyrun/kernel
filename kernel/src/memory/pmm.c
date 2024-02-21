@@ -70,13 +70,13 @@ static inline void pmm_bitmap_set(u32 page, u8 availability)
 /// @return a pageframe's state according to the allocator's bitmap
 static inline int pmm_bitmap_read(u32 page)
 {
-    return BIT(g_pmm_free_bitmap[BITMAP_INDEX(page)], page % 32);
+    return BIT_READ(g_pmm_free_bitmap[BITMAP_INDEX(page)], page % 32);
 }
 
 static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
 {
     // If bit 6 in the flags uint16_t is set, then the mmap_* fields are valid
-    if (!BIT(mbt->flags, 6)) {
+    if (!BIT_READ(mbt->flags, 6)) {
         log_err("PMM", "Multiboot structure does not support memory map.");
         return false;
     }
@@ -189,7 +189,7 @@ bool pmm_init(struct multiboot_info *mbt)
 
 u32 pmm_allocate(int flags)
 {
-    pmm_frame_allocator *allocator = BIT(flags, PMM_MAP_KERNEL_BIT)
+    pmm_frame_allocator *allocator = BIT_READ(flags, PMM_MAP_KERNEL_BIT)
                                        ? &g_pmm_kernel_allocator
                                        : &g_pmm_user_allocator;
 

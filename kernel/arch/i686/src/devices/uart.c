@@ -73,7 +73,7 @@ void uart_reset()
 int uart_putc(const char c)
 {
     /* Wait until transfer buffer is empty */
-    WAIT_FOR(BIT(inb(UART_REG(LSR)), 5));
+    WAIT_FOR(BIT_READ(inb(UART_REG(LSR)), 5));
 
     outb(UART_REG(THR), c);
     return 0;
@@ -89,7 +89,7 @@ int uart_write(const char *buf, size_t length)
 char uart_getc()
 {
     /* Wait until data is available to be read */
-    WAIT_FOR(BIT(inb(UART_REG(LSR)), 0));
+    WAIT_FOR(BIT_READ(inb(UART_REG(LSR)), 0));
 
     return inb(UART_REG(THR));
 }

@@ -16,6 +16,7 @@
 
 #include <kernel/memory.h>
 
+#include <utils/macro.h>
 #include <utils/types.h>
 
 #include <multiboot.h>
@@ -45,7 +46,7 @@
 
 /// The pageframe should be located inside the kernel's physical address space.
 #define PMM_MAP_KERNEL_BIT 0x1
-#define PMM_MAP_KERNEL (1 << PMM_MAP_KERNEL_BIT) // TODO: BIT macro
+#define PMM_MAP_KERNEL BIT(PMM_MAP_KERNEL_BIT)
 
 /// @}
 
