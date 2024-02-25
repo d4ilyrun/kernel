@@ -70,5 +70,17 @@ SECTIONS
         *(.bss)
     }
 
+    /* Kernel symbol table. Should be inserted during post-processing by scripts/extract_kernel_symbols.py */
+    .kernel_symbols ALIGN(4K) : AT (ADDR (.kernel_symbols) - _kernel_higher_half_offset)
+    {
+        *(.kernel_symbols)
+    }
+
     _kernel_code_end = .;
+
+    /DISCARD/ :
+    {
+        *(.comment)
+        *(.eh_frame)
+    }
 }

@@ -5,6 +5,8 @@ if [ $# -lt 2 ]; then
     exit 1
 fi
 
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
 KERNEL_BIN="$1"
 KERNEL_ISO="$2"
 
@@ -41,25 +43,10 @@ EOF
     grub-mkrescue -o "$KERNEL_ISO" "$iso_dir"
 }
 
-# Split the binary file into two separate parts:
-# - The raw binary, stripped from any unneeded debug symbol
-# - The symbol definitions, used by GDB
-#
-# This step is necessary, as unneeded symbols would make the
-# resulting binary not multiboot compliant.
-function split_debug_symbols()
-{
-    local symbols
-    local kernel
+if ! "$SCRIPT_DIR"/extract_kernel_symbols.py "$KERNEL_BIN"; then
+    echo "Failed to process kernel binary files. Stopping"
+    exit 1
+fi
 
-    kernel="$1"
-    symbols="${kernel%.*}.sym"
-
-    echo "Moving debug symbols into $symbols"
-	objcopy --only-keep-debug "$kernel" "$symbols"
-	objcopy --strip-unneeded "$kernel"
-}
-
-split_debug_symbols "$KERNEL_BIN"
 check_multiboot "$KERNEL_BIN"
 generate_iso

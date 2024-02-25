@@ -8,7 +8,8 @@ kernel_compile_flags = [
 kernel_source_files = files([
   'src/main.c',
   'src/syscalls.c',
-  'src/logger.c',
+  'src/debug/logger.c',
+  'src/debug/symbols.c',
   'src/memory/pmm.c',
 ])
 
