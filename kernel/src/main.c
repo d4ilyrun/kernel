@@ -52,9 +52,6 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     ASM("int $0");
 
-    // Intetionnaly provoke a PageFault exception
-    *(volatile u8 *)0xFFFF1234;
-
     u32 page = pmm_allocate(PMM_MAP_KERNEL);
     log_variable(page);
     mmu_map(0xFFFF1000, page);
@@ -64,7 +61,6 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     *(volatile u8 *)0x12341235 = 0x69; // No page fault, Same page
     log_variable(*(volatile u8 *)0xFFFF1235);
     mmu_unmap(0xFFFF1000);
-    *(volatile u8 *)0xFFFF1234; // Page fault
 
     while (1) {
         timer_wait_ms(1000);

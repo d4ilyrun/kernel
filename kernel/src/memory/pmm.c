@@ -165,13 +165,18 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
     log_dbg("[PF] source", "%s access on a %s page %s",
             error.write ? "write" : "read",
             error.present ? "protected" : "non-present",
-            error.user ? "whie in user-mode" : "");
+            error.user ? "while in user-mode" : "");
 
     // The CR2 register holds the virtual address which caused the Page Fault
     u32 faulty_address = read_cr2();
 
     log_dbg("[PF] error", LOG_FMT_32, frame.error);
     log_dbg("[PF] address", LOG_FMT_32, faulty_address);
+
+    panic("PAGE FAULT at " LOG_FMT_32 ": %s access on a %s page %s",
+          faulty_address, error.write ? "write" : "read",
+          error.present ? "protected" : "non-present",
+          error.user ? "while in user-mode" : "");
 }
 
 bool pmm_init(struct multiboot_info *mbt)
