@@ -86,11 +86,20 @@ struct interrupt_frame {
     u32 nr;
     u32 error;
 
-    u32 eip;
-    u32 cs;
-    u32 flags;
-    u32 esp;
-    u32 ss;
+    // Pushed by pusha inside the handler's stub
+    struct {
+        u32 edi, esi, ebp, esp;
+        u32 ebx, edx, ecx, eax;
+    } stub;
+
+    // Interrupt
+    struct {
+        u32 eip;
+        u32 cs;
+        u32 flags;
+        u32 esp;
+        u32 ss;
+    } state;
 };
 
 /** Print the content of the IDT and IDTR */

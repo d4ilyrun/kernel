@@ -190,11 +190,11 @@ DEFINE_INTERRUPT_HANDLER(default_interrupt)
         log_err("interrupt", "Unsupported interrupt: %s (" LOG_FMT_32 ")",
                 interrupts_to_str(frame.nr), frame.nr);
         log_dbg("interrupt", "ERROR=" LOG_FMT_32, frame.error);
-        log_dbg("interrupt", "FLAGS=" LOG_FMT_32, frame.flags);
-        log_dbg("interrupt", "CS=" LOG_FMT_32 ", SS=" LOG_FMT_32, frame.cs,
-                frame.ss);
-        log_dbg("interrupt", "EIP=" LOG_FMT_32 ", ESP=" LOG_FMT_32, frame.eip,
-                frame.esp);
+        log_dbg("interrupt", "FLAGS=" LOG_FMT_32, frame.state.flags);
+        log_dbg("interrupt", "CS=" LOG_FMT_32 ", SS=" LOG_FMT_32,
+                frame.state.cs, frame.state.ss);
+        log_dbg("interrupt", "EIP=" LOG_FMT_32 ", ESP=" LOG_FMT_32,
+                frame.state.eip, frame.state.esp);
         return;
     }
 
