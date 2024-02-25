@@ -12,8 +12,10 @@
 void reload_segment_registers(void);
 
 #define GDT_ENTRY_SIZE 8
-#define GDT_SIZE (256 * GDT_ENTRY_SIZE)
-#define GDT_LENGTH (GDT_SIZE / sizeof g_global_segments[0])
+#define GDT_LENGTH 256
+#define GDT_SIZE (GDT_LENGTH * GDT_ENTRY_SIZE)
+
+static volatile u8 gdt[GDT_LENGTH][GDT_ENTRY_SIZE];
 
 static gdt_descriptor g_global_segments[] = {
     {0, 0, 0, 0},            // **required** NULL segment
@@ -33,14 +35,12 @@ void gdt_init(void)
      *
      * To perform this operation, we assume that we are in protected mode,
      * and that we are using a falt model (which is the case if using GRUB).
-     *
-     * FIXME: Should not use a fixed address
      */
-    static gdtr gdtr = {.size = GDT_SIZE - 1, .offset = GDT_BASE_ADDRESS};
+    static gdtr gdtr = {.size = GDT_SIZE - 1, .offset = (u32)gdt};
     ASM("lgdt (%0)" : : "m"(gdtr) : "memory");
 
     /** Load a NULL sector at index 0 */
-    memset((void *)GDT_BASE_ADDRESS, 0, GDT_ENTRY_SIZE);
+    memset((void *)gdt, 0, GDT_ENTRY_SIZE);
 
     // Load all default segments into the GDT
     for (u16 segment = 1;
@@ -59,17 +59,15 @@ void gdt_load_segment(gdt_descriptor segment, u16 index)
         return;
     }
 
-    u8 *gdt = (u8 *)(GDT_BASE_ADDRESS + (index * GDT_ENTRY_SIZE));
-
     log_dbg("GDT", "Loading segment descriptor");
-    gdt[0] = LSB(segment.limit);
-    gdt[1] = MSB(segment.limit);
-    gdt[2] = LSB(segment.base);
-    gdt[3] = MSB(segment.base);
-    gdt[4] = LSB(segment.base >> 16);
-    gdt[5] = segment.access;
-    gdt[6] = ((segment.limit >> 16) & 0xF) | (segment.flags << 4);
-    gdt[7] = MSB(segment.base >> 16);
+    gdt[index][0] = LSB(segment.limit);
+    gdt[index][1] = MSB(segment.limit);
+    gdt[index][2] = LSB(segment.base);
+    gdt[index][3] = MSB(segment.base);
+    gdt[index][4] = LSB(segment.base >> 16);
+    gdt[index][5] = segment.access;
+    gdt[index][6] = ((segment.limit >> 16) & 0xF) | (segment.flags << 4);
+    gdt[index][7] = MSB(segment.base >> 16);
 }
 
 void gdt_log(void)
@@ -89,7 +87,7 @@ void gdt_log(void)
          index < sizeof(g_global_segments) / sizeof(gdt_descriptor); ++index) {
 
         // Load segment from index
-        u8 *segment = (u8 *)(GDT_BASE_ADDRESS + (index * GDT_ENTRY_SIZE));
+        u8 *segment = (u8 *)gdt[index];
 
         printf("%hd = { base: " LOG_FMT_32 ", limit: " LOG_FMT_32
                ", access: " LOG_FMT_8 ", flags: " LOG_FMT_8 " }\n",

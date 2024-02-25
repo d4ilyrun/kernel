@@ -131,12 +131,6 @@ bool mmu_init(void)
                    KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_END),
                    KERNEL_HIGHER_HALF_OFFSET);
 
-    // FIXME: Check conflict with PPM
-    // FIXME: Is it really necessary ?
-    // We also map the first 1M of physical memory, it will be reserved for
-    // hardware structs.
-    mmu_identity_map(0x0, 0x100000);
-
     return true;
 }
 

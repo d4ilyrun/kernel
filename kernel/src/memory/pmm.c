@@ -160,7 +160,7 @@ typedef struct PACKED {
 static DEFINE_INTERRUPT_HANDLER(page_fault)
 {
     log_warn("interrupt", "Interrupt recieved: Page fault");
-    page_fault_error error = *(page_fault_error *)frame.error;
+    page_fault_error error = *(page_fault_error *)&frame.error;
 
     log_dbg("[PF] source", "%s access on a %s page %s",
             error.write ? "write" : "read",

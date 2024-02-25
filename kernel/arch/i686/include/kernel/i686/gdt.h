@@ -10,10 +10,6 @@
 #include <utils/compiler.h>
 #include <utils/types.h>
 
-// 32-bit linear base address of the GDT (protected mode).
-// Should be put inside GDTR during startup.
-#define GDT_BASE_ADDRESS 0x00000800UL
-
 // Hard coded constant linear base 32-bits address for the TSS
 #define GDT_TSS_BASE_ADDRESS 0x00000000UL
 
