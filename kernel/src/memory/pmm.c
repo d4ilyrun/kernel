@@ -1,8 +1,7 @@
+#include <kernel/cpu.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/pmm.h>
-
-#include <kernel/i686/cpu_ops.h>
 
 #include <utils/align.h>
 #include <utils/compiler.h>

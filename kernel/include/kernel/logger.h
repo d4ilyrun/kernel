@@ -12,8 +12,7 @@
 #ifndef KERNEL_LOGGER_H
 #define KERNEL_LOGGER_H
 
-// TODO: Rename into cpu.h
-#include <kernel/i686/cpu_ops.h>
+#include <kernel/cpu.h>
 
 #define LOG_FMT_8 "%#02hhx"
 #define LOG_FMT_16 "%#04hx"
