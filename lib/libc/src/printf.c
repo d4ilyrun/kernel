@@ -43,6 +43,11 @@ typedef struct {
         PADDING_LEFT,
         PADDING_RIGHT
     } pad_side;
+    enum {
+        SIGN_MINUS_ONLY,
+        SIGN_PLUS_SPACE = ' ',
+        SIGN_BOTH = '+'
+    } sign_character;
 } flags_t;
 
 /// man 3 printf: Length modifier
@@ -154,6 +159,8 @@ static void printf_itoa(register int x, const printf_ctx_t *ctx, int *written)
         printf_char('-', written);
         printf_utoa_base(-x, 10, ctx, written);
     } else {
+        if (ctx->flags.sign_character != SIGN_MINUS_ONLY)
+            printf_char(ctx->flags.sign_character, written);
         printf_utoa_base(x, 10, ctx, written);
     }
 }
@@ -165,7 +172,12 @@ static void printf_itoa(register int x, const printf_ctx_t *ctx, int *written)
 
 static flags_t printf_flags_characters(const char *format, int *index)
 {
-    flags_t flags = {.pad_char = PADDING_SPACE, .pad_side = PADDING_LEFT};
+    flags_t flags = {
+        .pad_char = PADDING_SPACE,
+        .pad_side = PADDING_LEFT,
+        .sign_character = SIGN_MINUS_ONLY,
+    };
+
     bool parsing = true;
 
     while (parsing) {
@@ -173,21 +185,18 @@ static flags_t printf_flags_characters(const char *format, int *index)
         case '0':
             flags.pad_char = PADDING_ZERO;
             break;
-
         case '-':
             flags.pad_side = PADDING_RIGHT;
             break;
-
         case '#':
             flags.alternate_form = true;
             break;
-
         case ' ':
-        case '+':
-            // TODO: Not implemented
-            flags.invalid = true;
+            flags.sign_character = SIGN_PLUS_SPACE;
             break;
-
+        case '+':
+            flags.sign_character = SIGN_BOTH;
+            break;
         default:
             parsing = false;
             break;
