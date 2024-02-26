@@ -1,7 +1,6 @@
 arch = target_machine.cpu()
 
 kernel_compile_flags = [
-  '-fomit-frame-pointer',
   f'-DARCH=@arch@',
 ]
 
@@ -9,6 +8,7 @@ kernel_source_files = files([
   'src/main.c',
   'src/syscalls.c',
   'src/debug/logger.c',
+  'src/debug/panic.c',
   'src/debug/symbols.c',
   'src/memory/pmm.c',
 ])
