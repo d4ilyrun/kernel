@@ -1,3 +1,4 @@
+#include <kernel/cpu.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/symbols.h>
@@ -12,6 +13,18 @@ struct stackframe_t {
     struct stackframe_t *ebp;
     u32 eip;
 };
+
+static void panic_dump_registers(void)
+{
+    // We only dump useful registers, or else it will become unreadable
+    // Registers deemed "useful" are subject to change in the future
+
+    log_err("REGS", "Summary of registers");
+
+    log_err("REGS", "CR0=" LOG_FMT_32 " CR2=" LOG_FMT_32 " CR3=" LOG_FMT_32,
+            read_cr0(), read_cr2(), read_cr3());
+    log_err("REGS", "CS=" LOG_FMT_16 " SS=" LOG_FMT_16, read_cs(), read_ss());
+}
 
 static void panic_unwind_stack(void)
 {
@@ -66,9 +79,8 @@ void panic(u32 esp, const char *msg, ...)
 
     va_end(parameters);
 
-    // TODO: Dump the kernel's state
-    // This includes:
-    // * Registers
+    panic_dump_registers();
+    printf("\n");
 
     panic_unwind_stack();
     printf("\n");
