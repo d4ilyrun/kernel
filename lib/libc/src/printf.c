@@ -34,6 +34,7 @@ static_assert(sizeof(int) == sizeof(long),
 /// man 3 printf: Flag characters
 typedef struct {
     bool invalid;
+    bool alternate_form;
     enum {
         PADDING_ZERO = '0',
         PADDING_SPACE = ' '
@@ -110,6 +111,29 @@ static void printf_utoa_base(register unsigned long long x,
 
     unsigned int length = end - c;
 
+    if (ctx->flags.alternate_form) {
+        switch (base) {
+        case 2:
+            printf_char('b', written);
+            break;
+        case 8:
+            // For o conversions, the first character of the output string
+            // is made 0 (by prefixing a 0 if it was not 0 already).
+            if (c[1] != 0)
+                break;
+            if (ctx->flags.pad_side == PADDING_LEFT &&
+                ctx->flags.pad_char == PADDING_ZERO && length < ctx->field_with)
+                break;
+            printf_char('0', written);
+            break;
+        case 16:
+            printf_puts("0x", written);
+            break;
+        default:
+            break;
+        }
+    }
+
     if (ctx->flags.pad_side == PADDING_RIGHT)
         while (++c != &buf[MAXBUF])
             printf_char(*c, written);
@@ -155,6 +179,9 @@ static flags_t printf_flags_characters(const char *format, int *index)
             break;
 
         case '#':
+            flags.alternate_form = true;
+            break;
+
         case ' ':
         case '+':
             // TODO: Not implemented
