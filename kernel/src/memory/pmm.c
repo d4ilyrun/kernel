@@ -173,7 +173,7 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
     log_dbg("[PF] error", LOG_FMT_32, frame.error);
     log_dbg("[PF] address", LOG_FMT_32, faulty_address);
 
-    panic("PAGE FAULT at " LOG_FMT_32 ": %s access on a %s page %s",
+    PANIC("PAGE FAULT at " LOG_FMT_32 ": %s access on a %s page %s",
           faulty_address, error.write ? "write" : "read",
           error.present ? "protected" : "non-present",
           error.user ? "while in user-mode" : "");

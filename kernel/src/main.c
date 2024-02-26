@@ -17,7 +17,7 @@ void arch_setup(void);
 void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 {
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
-        panic("Invalid magic number recieved from multiboot "
+        PANIC("Invalid magic number recieved from multiboot "
               "bootloader: " LOG_FMT_32,
               magic);
     }
@@ -47,9 +47,9 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     timer_start(TIMER_TICK_FREQUENCY);
 
     if (!pmm_init(mbt))
-        panic("Could not initialize the physical memory manager");
+        PANIC("Could not initialize the physical memory manager");
     if (!mmu_init() || !mmu_start_paging())
-        panic("Failed to initialize virtual address space");
+        PANIC("Failed to initialize virtual address space");
 
     ASM("int $0");
 

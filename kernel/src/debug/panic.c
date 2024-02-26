@@ -6,6 +6,8 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#define KERNEL_PANIC_STACK_DUMP_SIZE 64
+
 struct stackframe_t {
     struct stackframe_t *ebp;
     u32 eip;
@@ -39,7 +41,19 @@ static void panic_unwind_stack(void)
     }
 }
 
-void panic(const char *msg, ...)
+static void panic_dump_stack(u32 esp, u32 size)
+{
+    log_err("STACK", "** start of stack: at esp=" LOG_FMT_32 " **", esp);
+
+    for (u32 offset = 0; offset < size; offset += sizeof(u32)) {
+        log_err("STACK", "esp+%-3d: " LOG_FMT_32, offset,
+                *(volatile u32 *)(esp + offset));
+    }
+
+    log_err("STACK", "** end of stack **");
+}
+
+void panic(u32 esp, const char *msg, ...)
 {
     interrupts_disable();
 
@@ -57,6 +71,9 @@ void panic(const char *msg, ...)
     // * Registers
 
     panic_unwind_stack();
+    printf("\n");
+
+    panic_dump_stack(esp, KERNEL_PANIC_STACK_DUMP_SIZE);
     printf("\n");
 
     // Halt the kernel's execution
