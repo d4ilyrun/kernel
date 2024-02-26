@@ -4,6 +4,7 @@
 #include <utils/types.h>
 
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 
@@ -30,6 +31,49 @@ static_assert(sizeof(int) == sizeof(long),
 
 #define MAXBUF (sizeof(long) * 8) // 32B max (times 8 bits)
 
+/// man 3 printf: Flag characters
+typedef struct {
+    bool invalid;
+    enum {
+        PADDING_ZERO = '0',
+        PADDING_SPACE = ' '
+    } pad_char;
+    enum {
+        PADDING_LEFT,
+        PADDING_RIGHT
+    } pad_side;
+} flags_t;
+
+/// man 3 printf: Length modifier
+typedef struct {
+    bool invalid;
+    unsigned char ell; // Number of 'ell' before the current token
+    unsigned char h;   // Number of 'h' before the current token
+    unsigned char z;   // Following conversion corresponds to a (s)size_t
+    unsigned char t;   // Following conversion corresponds to a ptrdiff_t
+} length_modifier_t;
+
+typedef struct {
+    bool invalid;
+    flags_t flags;
+    length_modifier_t length;
+    unsigned int field_with; ///< man 3 printf: Field width
+    // Missing: precision
+} printf_ctx_t;
+
+static inline bool __attribute__((always_inline)) isdigit(char c)
+{
+    return '0' <= (c) && (c) <= '9';
+}
+
+/// PRINTERS
+///
+/// These functions are used to print the string and arguments according to the
+/// given format.
+///
+/// They require the printing context to be known, and as such should be called
+/// after we are done with the PARSERS functions.
+
 static inline void __attribute__((always_inline))
 printf_char(register char c, int *written)
 {
@@ -50,121 +94,183 @@ static void printf_puts(register char *str, int *written)
 }
 
 static void printf_utoa_base(register unsigned long long x,
-                             register unsigned int base, int *written)
+                             register unsigned int base,
+                             const printf_ctx_t *ctx, int *written)
 {
     static const char digits[] = "0123456789abcdef";
     char buf[MAXBUF];
 
     register char *c = &buf[MAXBUF - 1];
+    char *const end = c;
 
     do {
         *c-- = digits[x % base];
         x /= base;
     } while (x != 0);
 
-    while (++c != &buf[MAXBUF])
-        printf_char(*c, written);
+    unsigned int length = end - c;
+
+    if (ctx->flags.pad_side == PADDING_RIGHT)
+        while (++c != &buf[MAXBUF])
+            printf_char(*c, written);
+
+    if (length < ctx->field_with) {
+        for (unsigned int i = length; i < ctx->field_with; ++i)
+            printf_char(ctx->flags.pad_char, written);
+    }
+
+    if (ctx->flags.pad_side == PADDING_LEFT)
+        while (++c != &buf[MAXBUF])
+            printf_char(*c, written);
 }
 
-static void printf_itoa(register int x, int *written)
+static void printf_itoa(register int x, const printf_ctx_t *ctx, int *written)
 {
     if (x < 0) {
         printf_char('-', written);
-        printf_utoa_base(-x, 10, written);
+        printf_utoa_base(-x, 10, ctx, written);
     } else {
-        printf_utoa_base(x, 10, written);
+        printf_utoa_base(x, 10, ctx, written);
     }
 }
 
-typedef struct printf_ctx {
-    char ell;     // Number of 'ell' before the current token
-    char h;       // Number of 'h' before the current token
-    char z;       // Following conversion corresponds to a (s)size_t
-    char t;       // Following conversion corresponds to a ptrdiff_t
-    char invalid; // Ill formed contex
-} printf_ctx;
+/// PARSERS
+///
+/// These functions are used to parse the printing context from the
+/// given format (padding, flags, size of fields, ...).
 
-static printf_ctx printf_length_modifiers(const char *format, int *index)
+static flags_t printf_flags_characters(const char *format, int *index)
 {
-    printf_ctx ctx = {0};
+    flags_t flags = {.pad_char = PADDING_SPACE, .pad_side = PADDING_LEFT};
+    bool parsing = true;
+
+    while (parsing) {
+        switch (format[*index]) {
+        case '0':
+            flags.pad_char = PADDING_ZERO;
+            break;
+
+        case '-':
+            flags.pad_side = PADDING_RIGHT;
+            break;
+
+        case '#':
+        case ' ':
+        case '+':
+            // TODO: Not implemented
+            flags.invalid = true;
+            break;
+
+        default:
+            parsing = false;
+            break;
+        }
+
+        if (parsing)
+            *index += 1;
+    }
+
+    // If the 0 and - flags both appear, the 0 flag is ignored.
+    if (flags.pad_side == PADDING_RIGHT)
+        flags.pad_char = PADDING_SPACE;
+
+    return flags;
+}
+
+static unsigned int printf_field_width(const char *format, int *index)
+{
+    unsigned int width = 0;
+
+    while (isdigit(format[*index])) {
+        width = 10 * width + (format[*index] - '0');
+        *index += 1;
+    }
+
+    return width;
+}
+
+static length_modifier_t printf_length_modifiers(const char *format, int *index)
+{
+    length_modifier_t length = {0};
 
     switch (format[*index]) {
     case TOK_LEN_ELL:
         while (format[(*index)++] == TOK_LEN_ELL)
-            ctx.ell += 1;
+            length.ell += 1;
         *index -= 1; // skipped over the next character
-        return ctx;
+        return length;
 
     case TOK_LEN_SHORT:
         while (format[(*index)++] == TOK_LEN_SHORT)
-            ctx.h += 1;
+            length.h += 1;
         *index -= 1; // skipped over the next character
-        return ctx;
+        return length;
 
     case TOK_LEN_SIZE_T:
 
-        ctx.z = 1;
+        length.z = 1;
         break;
 
     case TOK_LEN_PTRDIFF_T:
-        ctx.t = 1;
+        length.t = 1;
         break;
 
     case 'q':
-        ctx.ell = 2;
+        length.ell = 2;
         break;
 
     case '\0':
-        ctx.invalid = 1;
-        return ctx;
+        length.invalid = true;
+        return length;
 
     default:
-        return ctx;
+        return length;
     }
 
     *index += 1;
 
-    return ctx;
+    return length;
 }
 
 static void printf_unsigned(register int base, va_list *parameters,
-                            const printf_ctx *ctx, int *written)
+                            const printf_ctx_t *ctx, int *written)
 {
     // Here we know that sizeof(int) == sizeof(long) anyway and skip the
     // case were we only have a single 'l' modifier (cf. static_assert)
-    if (ctx->ell >= 2)
-        printf_utoa_base(va_arg(*parameters, unsigned long long), base,
+    if (ctx->length.ell >= 2)
+        printf_utoa_base(va_arg(*parameters, unsigned long long), base, ctx,
                          written);
-    else if (ctx->h == 1)
+    else if (ctx->length.h == 1)
         printf_utoa_base((unsigned short)va_arg(*parameters, unsigned int),
-                         base, written);
-    else if (ctx->h >= 2)
+                         base, ctx, written);
+    else if (ctx->length.h >= 2)
         printf_utoa_base((unsigned char)va_arg(*parameters, unsigned int), base,
-                         written);
-    else if (ctx->z)
-        printf_utoa_base(va_arg(*parameters, size_t), base, written);
-    else if (ctx->t)
-        printf_utoa_base(va_arg(*parameters, ptrdiff_t), base, written);
+                         ctx, written);
+    else if (ctx->length.z)
+        printf_utoa_base(va_arg(*parameters, size_t), base, ctx, written);
+    else if (ctx->length.t)
+        printf_utoa_base(va_arg(*parameters, ptrdiff_t), base, ctx, written);
     else
-        printf_utoa_base(va_arg(*parameters, unsigned int), base, written);
+        printf_utoa_base(va_arg(*parameters, unsigned int), base, ctx, written);
 }
 
 static int printf_step(char c, int *written, va_list *parameters,
-                       const printf_ctx *ctx)
+                       const printf_ctx_t *ctx)
 {
     switch (c) {
 
-    // Here we assume that sizeof(int) == sizeof(long) anyway and skip the
-    // case were we only have a single 'l' modifier (cf. static_assert)
+    // Here we assume that sizeof(int) == sizeof(long) anyway and skip
+    // the case were we only have a single 'l' modifier (cf.
+    // static_assert)
     case TOK_DECIMAL:
-        if (ctx->ell < 2)
-            printf_itoa(va_arg(*parameters, int), written);
-        else if (ctx->z)
-            printf_itoa(va_arg(*parameters, ssize_t), written);
-        else if (ctx->t)
-            printf_itoa(va_arg(*parameters, ptrdiff_t), written);
+        if (ctx->length.ell < 2)
+            printf_itoa(va_arg(*parameters, int), ctx, written);
+        else if (ctx->length.z)
+            printf_itoa(va_arg(*parameters, ssize_t), ctx, written);
+        else if (ctx->length.t)
+            printf_itoa(va_arg(*parameters, ptrdiff_t), ctx, written);
         else
-            printf_itoa(va_arg(*parameters, long long), written);
+            printf_itoa(va_arg(*parameters, long long), ctx, written);
         break;
 
     case TOK_UNSIGNED:
@@ -184,7 +290,7 @@ static int printf_step(char c, int *written, va_list *parameters,
         break;
 
     case TOK_POINTER:
-        printf_utoa_base((unsigned int)va_arg(*parameters, void *), 16,
+        printf_utoa_base((unsigned int)va_arg(*parameters, void *), 16, ctx,
                          written);
         break;
 
@@ -207,6 +313,13 @@ static int printf_step(char c, int *written, va_list *parameters,
     return 0;
 }
 
+/// MAIN FUNCTIONS
+///
+/// These are the main functions, called by the user.
+///
+/// They use both the PARSERS and the PRINTERS to print the final
+/// result.
+
 int vprintf(const char *format, va_list parameters)
 {
     int written = 0;
@@ -223,7 +336,24 @@ int vprintf(const char *format, va_list parameters)
             continue;
         }
 
-        const printf_ctx ctx = printf_length_modifiers(format, &i);
+        // After the delimiter, the argument is of the following format:
+        //
+        // %[flag_characters][field_with][length_modifier]conversion_specifier
+        //
+        // Refer to man 3 printf and the corresponding parsers for more
+        // detailed explanations.
+
+        const flags_t flags = printf_flags_characters(format, &i);
+        const unsigned int width = printf_field_width(format, &i);
+        const length_modifier_t length = printf_length_modifiers(format, &i);
+
+        const printf_ctx_t ctx = (printf_ctx_t){
+            .invalid = flags.invalid || length.invalid,
+            .flags = flags,
+            .length = length,
+            .field_with = width,
+        };
+
         if (ctx.invalid) {
             error = 1;
             continue;

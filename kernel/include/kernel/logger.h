@@ -12,10 +12,10 @@
 #ifndef KERNEL_LOGGER_H
 #define KERNEL_LOGGER_H
 
-#define LOG_FMT_8 "0x%hhx"
-#define LOG_FMT_16 "0x%hx"
-#define LOG_FMT_32 "0x%x"
-#define LOG_FMT_64 "0x%llx"
+#define LOG_FMT_8 "0x%02hhx"
+#define LOG_FMT_16 "0x%04hx"
+#define LOG_FMT_32 "0x%08x"
+#define LOG_FMT_64 "0x%016llx"
 
 #define ANSI_ERR "\033[31;1;4m"
 #define ANSI_WARN "\033[33;1m"
