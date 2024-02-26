@@ -175,9 +175,9 @@ void idt_log(void)
             continue; // Uninitialized
 
         printf(LOG_FMT_8 " = { offset: " LOG_FMT_32 ", segment: " LOG_FMT_16
-                         ", access: " LOG_FMT_8 " }\n",
+                         ", access: " LOG_FMT_8 " } <%s>\n",
                i, interrupt.offset_low | (interrupt.offset_high << 16),
-               interrupt.segment, interrupt.access);
+               interrupt.segment, interrupt.access, interrupts_to_str(i));
     }
 }
 

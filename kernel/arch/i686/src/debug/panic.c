@@ -3,6 +3,8 @@
 #include <kernel/logger.h>
 #include <kernel/symbols.h>
 
+#include <kernel/i686/gdt.h>
+
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -86,6 +88,12 @@ void panic(u32 esp, const char *msg, ...)
     printf("\n");
 
     panic_dump_stack(esp, KERNEL_PANIC_STACK_DUMP_SIZE);
+    printf("\n");
+
+    gdt_log();
+    printf("\n");
+
+    idt_log();
     printf("\n");
 
     // Halt the kernel's execution
