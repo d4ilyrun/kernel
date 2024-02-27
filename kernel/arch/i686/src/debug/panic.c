@@ -51,7 +51,7 @@ static void panic_unwind_stack(void)
         // attribute noreturn
         const kernel_symbol_t *symbol =
             symbol_from_address(frame->eip - sizeof(u16));
-        log_err("TRACE", "#%d  " LOG_FMT_32 " in <%s+%d>", i, frame->eip,
+        log_err("TRACE", "#%d  " LOG_FMT_32 " in <%s%+d>", i, frame->eip,
                 kernel_symbol_name(symbol), frame->eip - symbol->address);
     }
 }

@@ -37,7 +37,14 @@ def extract_symbol_table(kernel: Path) -> Path:
 
     # isolate function symbols
     symbols = symbols.decode().strip().split("\n")
-    function_symbols = [symbol.split()[::2] for symbol in symbols if symbol.split()[1] in ["t", "T"]]
+    function_symbols = [
+        symbol.split()[::2]
+        for symbol in symbols
+        if symbol.split()[1] in ["t", "T"] or symbol.split()[2] in ["_kernel_code_start", "_kernel_code_end"] # not optimal but meh
+    ]
+
+    function_symbols.pop(0) # remove _kernel_start
+    function_symbols.insert(1, function_symbols.pop(0)) # place _kernel_code_start first
 
     # Write to file
     map_file = kernel.parent / f"{kernel.stem}.map"
