@@ -1,29 +1,30 @@
 arch = target_machine.cpu()
 
 kernel_compile_flags = [
-  '-fomit-frame-pointer',
   f'-DARCH=@arch@',
 ]
 
 kernel_source_files = files([
   'src/main.c',
   'src/syscalls.c',
-  'src/logger.c',
+  'src/debug/logger.c',
+  'src/debug/symbols.c',
   'src/memory/pmm.c',
 ])
 
 arch_source_files = {
   'i686': files([
-    'arch/i686/src/setup.c',
-    'arch/i686/src/gdt.c',
     'arch/i686/src/gdt.S',
+    'arch/i686/src/gdt.c',
     'arch/i686/src/interrupts.c',
+    'arch/i686/src/memory/mmu.c',
+    'arch/i686/src/setup.c',
     'arch/i686/src/terminal.c',
+    'arch/i686/src/debug/panic.c',
     'arch/i686/src/devices/pic.c',
     'arch/i686/src/devices/pit.c',
     'arch/i686/src/devices/timer.c',
     'arch/i686/src/devices/uart.c',
-    'arch/i686/src/memory/mmu.c',
   ]),
 }
 

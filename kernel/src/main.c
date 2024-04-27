@@ -4,6 +4,7 @@
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
+#include <kernel/symbols.h>
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
 
@@ -16,7 +17,7 @@ void arch_setup(void);
 void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 {
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
-        panic("Invalid magic number recieved from multiboot "
+        PANIC("Invalid magic number recieved from multiboot "
               "bootloader: " LOG_FMT_32,
               magic);
     }
@@ -46,9 +47,9 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     timer_start(TIMER_TICK_FREQUENCY);
 
     if (!pmm_init(mbt))
-        panic("Could not initialize the physical memory manager");
+        PANIC("Could not initialize the physical memory manager");
     if (!mmu_init() || !mmu_start_paging())
-        panic("Failed to initialize virtual address space");
+        PANIC("Failed to initialize virtual address space");
 
     ASM("int $0");
 
@@ -61,6 +62,10 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     *(volatile u8 *)0x12341235 = 0x69; // No page fault, Same page
     log_variable(*(volatile u8 *)0xFFFF1235);
     mmu_unmap(0xFFFF1000);
+
+    const kernel_symbol_t *symbol = symbol_from_address((u32)printf + 32);
+    log_info("MAIN", "PRINTF ? (%s, " LOG_FMT_32 ")",
+             kernel_symbol_name(symbol), symbol->address);
 
     while (1) {
         timer_wait_ms(1000);

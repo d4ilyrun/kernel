@@ -1,9 +1,9 @@
+#include <kernel/cpu.h>
 #include <kernel/devices/timer.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/terminal.h>
 
-#include <kernel/i686/cpu_ops.h>
 #include <kernel/i686/devices/pic.h>
 
 #include <utils/macro.h>

@@ -12,6 +12,8 @@
 #ifndef KERNEL_LOGGER_H
 #define KERNEL_LOGGER_H
 
+#include <kernel/cpu.h>
+
 #define LOG_FMT_8 "%#02hhx"
 #define LOG_FMT_16 "%#04hx"
 #define LOG_FMT_32 "%#08x"
@@ -54,7 +56,13 @@ void log(const char *type, const char *domain, const char *msg, ...);
  *
  * TODO: Dump the kernel's internal state (registers, ...)
  */
-void panic(const char *msg, ...) __attribute__((__noreturn__));
+void panic(u32 esp, const char *msg, ...) __attribute__((__noreturn__));
+
+#define PANIC(...)               \
+    do {                         \
+        u32 esp = read_esp();    \
+        panic(esp, __VA_ARGS__); \
+    } while (0)
 
 // TODO: LOG_LEVEL filter
 
