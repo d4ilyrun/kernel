@@ -87,7 +87,7 @@ static DEFINE_INTERRUPT_HANDLER(irq_keyboard)
 {
     UNUSED(frame);
 
-    u8 ascii[128] = {
+    static const u8 ascii[128] = {
         0x0,  0x0,  '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-',  '=',
         0x0,  0x0,  'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[',  ']',
         '\n', 0x0,  'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`',

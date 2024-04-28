@@ -46,7 +46,7 @@ stack_top:
 .align PAGE_SIZE
 startup_page_directory:
     .rept 1024
-    .long (startup_page_table - 0xC0000000) + 1
+    .long KERNEL_HIGHER_HALF_PHYSICAL(startup_page_table) + 1
     .endr
 startup_page_table:
     .set addr, 0

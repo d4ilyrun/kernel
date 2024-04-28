@@ -130,6 +130,12 @@ bool mmu_init(void)
                    KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_END),
                    KERNEL_HIGHER_HALF_OFFSET);
 
+    // Identity map the first MB, since it contains hardcoded addresses we still
+    // use (console buffer for example).
+    //
+    // TODO: Check for possible alternatives? (MMIO?, map only what we need?)
+    mmu_identity_map(0x0, 0x100000);
+
     return true;
 }
 
