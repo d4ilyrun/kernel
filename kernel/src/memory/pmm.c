@@ -3,6 +3,7 @@
 #include <kernel/logger.h>
 #include <kernel/pmm.h>
 
+#include <libalgo/bitmap.h>
 #include <utils/align.h>
 #include <utils/compiler.h>
 #include <utils/macro.h>
@@ -27,7 +28,7 @@
 ///
 /// @info The bitmap's size is hardcoded to be able to fit each and every
 /// pageframes (even though only part of them will be available at runtime).
-static u32 g_pmm_free_bitmap[TOTAL_PAGEFRAMES_COUNT / (8 * sizeof(u32))];
+static BITMAP(g_pmm_free_bitmap, TOTAL_PAGEFRAMES_COUNT);
 
 // FIXME: There might be a confusion between vaddr/paddr here
 //        Why would our pmm refer to the kernel's vitrual addresses
@@ -63,22 +64,18 @@ static pmm_frame_allocator g_pmm_kernel_allocator = {
 #define PMM_AVAILABLE (1)
 #define PMM_UNAVAILABLE (0)
 
-#define BITMAP_INDEX(address) ((address / PAGE_SIZE) / 32)
+#define BITMAP_INDEX(address) (address / PAGE_SIZE)
 
 /// Mark a pageframe as PMM_AVAILABLE or PMM_UNAVAILABLE
 static inline void pmm_bitmap_set(paddr_t pf, u8 availability)
 {
-    u32 value = g_pmm_free_bitmap[BITMAP_INDEX(pf)];
-    if (availability == PMM_AVAILABLE)
-        g_pmm_free_bitmap[BITMAP_INDEX(pf)] = BIT_SET(value, pf % 32);
-    else
-        g_pmm_free_bitmap[BITMAP_INDEX(pf)] = BIT_MASK(value, pf % 32);
+    bitmap_assign(g_pmm_free_bitmap, BITMAP_INDEX(pf), availability);
 }
 
 /// @return a pageframe's state according to the allocator's bitmap
 static inline int pmm_bitmap_read(paddr_t pageframe)
 {
-    return BIT_READ(g_pmm_free_bitmap[BITMAP_INDEX(pageframe)], pageframe % 32);
+    return bitmap_read(g_pmm_free_bitmap, BITMAP_INDEX(pageframe));
 }
 
 static bool pmm_initialize_bitmap(struct multiboot_info *mbt)

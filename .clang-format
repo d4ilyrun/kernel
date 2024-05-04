@@ -29,7 +29,7 @@ IncludeCategories:
       Priority: 2
     - Regex: '<kernel/.*>'
       Priority: 1
-    - Regex: '<utils/.*>'
+    - Regex: '<(utils|lib.*)/.*>'
       Priority: 3
     - Regex: '<.*>'
       Priority: 4

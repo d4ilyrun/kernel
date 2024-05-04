@@ -90,7 +90,7 @@ bool mmu_start_paging(void)
     // According to 4.3, to activate 32-bit mode paging we must:
     // 1. set CR4.PAE to 0 (de-activate PAE)
     u32 cr4 = read_cr4();
-    write_cr4(BIT_MASK(cr4, 5)); // PAE = bit 6
+    write_cr4(BIT_CLEAR(cr4, 5)); // PAE = bit 6
 
     // 2. set CR0.PG to 1  (activate paging)
     u32 cr0 = read_cr0();

@@ -54,7 +54,7 @@ kernel = executable(
   c_args: kernel_compile_flags,
   link_depends: [kernel_linker_script],
   link_args: [kernel_linker_flags],
-  dependencies: libc_dep,
+  dependencies: [libc_dep, libalgo_dep],
 )
 
 alias_target('kernel', kernel)

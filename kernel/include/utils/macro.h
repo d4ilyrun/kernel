@@ -5,7 +5,7 @@
 #define BIT(_n) (1 << (_n))
 
 /* Clear the nth bit */
-#define BIT_MASK(_x, _n) ((_x) & ~BIT((_n)))
+#define BIT_CLEAR(_x, _n) ((_x) & ~BIT((_n)))
 
 /* Set the nth bit */
 #define BIT_SET(_x, _n) ((_x) | BIT((_n)))
