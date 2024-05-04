@@ -16,6 +16,8 @@ jobs:
 
     - name: Checkout repository
       uses: actions/checkout@v2
+      with:
+        submodules: recursive
 
       # We use nix flakes to setup environment
     - name: Install Nix
