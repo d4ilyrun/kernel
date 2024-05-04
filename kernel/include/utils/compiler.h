@@ -8,5 +8,6 @@
 #define ALWAYS_INLINE __attribute__((always_inline)) inline
 #define PACKED __attribute__((__packed__))
 #define SECTION(_section) __attribute__((section(_section)))
+#define NO_DISCARD __attribute__((warn_unused_result))
 
 #endif /* UTILS_COMPILER_H */

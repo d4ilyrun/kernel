@@ -1,8 +1,8 @@
 project('kernel', ['c'],
   default_options : [
     'warning_level=3',
-    'c_std=c11',
-    'c_args=-ffreestanding',
+    'c_std=gnu11',
+    'c_args=-ffreestanding -Wno-pedantic -Wformat',
     'c_link_args=-nostdlib -lgcc',
     'default_library=static',
     'werror=true',
@@ -49,6 +49,7 @@ endif
 
 subdir('lib/libtest')
 subdir('lib/libc')
+subdir('lib/libalgo')
 subdir('kernel')
 
 iso = custom_target('iso',
