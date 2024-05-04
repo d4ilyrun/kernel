@@ -42,26 +42,46 @@
           default = kernel;
         };
 
-        devShells = rec {
-          default = kernel;
-          kernel = pkgs.mkShell.override { inherit (pkgs-i686) stdenv; } {
-            nativeBuildInputs = with pkgs; [
-              gnumake
-              meson
-              ninja
-              grub2
-              bear
-              libisoburn
-              shellcheck
-              binutils
-              qemu
-              nasm
-            ];
-            buildInputs = with pkgs.pkgsi686Linux; [
-              glibc
-            ];
+        devShells =
+          let
+            native_build_required = with pkgs; [ ninja meson ];
+          in
+          rec {
+            default = kernel;
+            kernel = pkgs.mkShell.override { inherit (pkgs-i686) stdenv; } {
+              nativeBuildInputs = with pkgs; [
+                # building
+                grub2
+                libisoburn
+                binutils
+                nasm
+                # QOL
+                bear
+                shellcheck
+                qemu
+              ] ++ native_build_required;
+
+              buildInputs = [ pkgs.pkgsi686Linux.glibc ];
+              hardeningDisable = [ "fortify" ];
+            };
+
+            tests = pkgs.mkShell rec {
+              nativeBuildInputs = with pkgs; [
+                # Bulding
+                gnumake
+                ninja
+                meson
+                # Testing
+                criterion.out
+                criterion.dev
+                gcovr
+              ] ++ native_build_required;
+
+              LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath nativeBuildInputs;
+              hardeningDisable = [ "fortify" ];
+            };
+
           };
-        };
       }
     );
 }

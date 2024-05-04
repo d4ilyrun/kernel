@@ -47,6 +47,7 @@ if get_option('buildtype') == 'debug'
   add_project_link_arguments('-g3', language : 'c')
 endif
 
+subdir('lib/libtest')
 subdir('lib/libc')
 subdir('kernel')
 
