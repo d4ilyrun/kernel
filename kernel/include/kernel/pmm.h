@@ -72,7 +72,7 @@ bool pmm_init(struct multiboot_info *);
  *
  * @return The pageframe's **physical** address, PMM_INVALID_PAGEFRAME on error
  */
-u32 pmm_allocate(int flags);
+paddr_t pmm_allocate(int flags);
 
 /**
  * \brief Allocate a previously unused pageframe
@@ -81,6 +81,6 @@ u32 pmm_allocate(int flags);
  *
  * @return The pageframe's **physical** address
  */
-void pmm_free(u32 pageframe);
+void pmm_free(paddr_t pageframe);
 
 #endif /* KERNEL_PMM_H */

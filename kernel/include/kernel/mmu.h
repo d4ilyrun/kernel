@@ -46,7 +46,7 @@ bool mmu_start_paging(void);
  *
  * @return False if the address was already mapped before
  */
-bool mmu_map(u32 virt, u32 physical);
+bool mmu_map(vaddr_t virt, paddr_t physical);
 
 /**
  * @brief Unmap a virtual address
@@ -56,7 +56,7 @@ bool mmu_map(u32 virt, u32 physical);
  *
  * @param virt The virtual address
  */
-void mmu_unmap(u32 virt);
+void mmu_unmap(vaddr_t virt);
 
 /**
  * @brief Perform identity mapping inside a given virtual address range
@@ -69,6 +69,6 @@ void mmu_unmap(u32 virt);
  * @brief start the starting page of the address range
  * @brief start the ending address of the address range
  */
-void mmu_identity_map(u32 start, u32 end);
+void mmu_identity_map(paddr_t start, paddr_t end);
 
 #endif /* KERNEL_MMU_H */

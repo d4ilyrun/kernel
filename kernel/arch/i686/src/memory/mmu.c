@@ -106,7 +106,7 @@ bool mmu_start_paging(void)
 /// example:
 ///     mmu_offset_map(0x0000, 0x00FF, 0xFF) will remap the physical range
 ///     [0x0000; 0x00FF] to the virtual range [0xFF00; 0xFFFF]
-static void mmu_offset_map(uint32_t start, uint32_t end, int64_t offset);
+static void mmu_offset_map(paddr_t start, paddr_t end, int64_t offset);
 
 bool mmu_init(void)
 {
@@ -139,7 +139,7 @@ bool mmu_init(void)
     return true;
 }
 
-bool mmu_map(u32 virtual, u32 pageframe)
+bool mmu_map(vaddr_t virtual, vaddr_t pageframe)
 {
     u16 pde_index = virtual >> 22;                     // bits 31-22
     u16 pte_index = (virtual >> 12) & ((1 << 10) - 1); // bits 21-12
@@ -189,7 +189,7 @@ bool mmu_map(u32 virtual, u32 pageframe)
     return true;
 }
 
-void mmu_unmap(u32 virtual)
+void mmu_unmap(vaddr_t virtual)
 {
     u16 pde_index = virtual >> 22;                     // bits 31-22
     u16 pte_index = (virtual >> 12) & ((1 << 10) - 1); // bits 21-12
@@ -208,14 +208,14 @@ void mmu_unmap(u32 virtual)
     mmu_flush_tlb(virtual);
 }
 
-static void mmu_offset_map(uint32_t start, uint32_t end, int64_t offset)
+static void mmu_offset_map(paddr_t start, paddr_t end, int64_t offset)
 {
     for (; start < end; start += PAGE_SIZE) {
         mmu_map(start + offset, start);
     }
 }
 
-void mmu_identity_map(uint32_t start, uint32_t end)
+void mmu_identity_map(paddr_t start, paddr_t end)
 {
     mmu_offset_map(start, end, 0);
 }
