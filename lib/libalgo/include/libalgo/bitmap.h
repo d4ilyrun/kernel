@@ -20,7 +20,7 @@
 #ifndef LIBALGO_BITMAP_H
 #define LIBALGO_BITMAP_H
 
-#include <utils/macro.h>
+#include <utils/bits.h>
 #include <utils/compiler.h>
 
 #include <stdbool.h>

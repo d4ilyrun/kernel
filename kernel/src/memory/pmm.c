@@ -5,6 +5,7 @@
 
 #include <libalgo/bitmap.h>
 #include <utils/align.h>
+#include <utils/bits.h>
 #include <utils/compiler.h>
 #include <utils/macro.h>
 #include <utils/types.h>

@@ -16,7 +16,7 @@
 
 #include <kernel/memory.h>
 
-#include <utils/macro.h>
+#include <utils/bits.h>
 #include <utils/types.h>
 
 #include <multiboot.h>

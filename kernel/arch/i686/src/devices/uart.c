@@ -9,6 +9,7 @@
 #include <kernel/cpu.h>
 #include <kernel/devices/uart.h>
 
+#include <utils/bits.h>
 #include <utils/compiler.h>
 #include <utils/macro.h>
 

@@ -6,6 +6,7 @@
 
 #include <kernel/i686/devices/pic.h>
 
+#include <utils/bits.h>
 #include <utils/macro.h>
 #include <utils/types.h>
 

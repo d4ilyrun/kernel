@@ -4,8 +4,8 @@
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
 
+#include <utils/bits.h>
 #include <utils/compiler.h>
-#include <utils/macro.h>
 #include <utils/types.h>
 
 #include <stdbool.h>

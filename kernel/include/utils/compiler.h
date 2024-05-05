@@ -9,5 +9,6 @@
 #define PACKED __attribute__((__packed__))
 #define SECTION(_section) __attribute__((section(_section)))
 #define NO_DISCARD __attribute__((warn_unused_result))
+#define MAYBE_UNUSED __attribute__((unused))
 
 #endif /* UTILS_COMPILER_H */
