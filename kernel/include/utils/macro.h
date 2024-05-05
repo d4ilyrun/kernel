@@ -20,26 +20,6 @@
 /* Avoid compiler warning when not using a symbol */
 #define UNUSED(_x) (void)(_x);
 
-#define MAX(_x, _y)                    \
-    ({                                 \
-        __typeof__(_x) _max1 = (_x);   \
-        __typeof__(_y) _max2 = (_y);   \
-        _max1 > _max2 ? _max1 : _max2; \
-    })
-
-#define MIN(_x, _y)                    \
-    ({                                 \
-        __typeof__(_x) _max1 = (_x);   \
-        __typeof__(_y) _max2 = (_y);   \
-        _max1 < _max2 ? _max1 : _max2; \
-    })
-
-#define ABS(_x)                     \
-    ({                              \
-        __typeof__(_x) _tmp = (_x); \
-        _tmp < 0 ? -_tmp : _tmp;    \
-    })
-
 #define ARRAY_SIZE(_arr) (sizeof(_arr) / sizeof(_arr[0]))
 
 #endif /* UTILS_MACRO_H */

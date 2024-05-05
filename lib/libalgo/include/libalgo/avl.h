@@ -30,7 +30,6 @@
 #define LIBALGO_AVL_H
 
 #include <utils/compiler.h>
-#include <utils/macro.h>
 #include <utils/types.h>
 
 #include <stdbool.h>

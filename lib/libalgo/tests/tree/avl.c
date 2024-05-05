@@ -1,5 +1,6 @@
 #include <libalgo/avl.h>
 #include <utils/map.h>
+#include <utils/math.h>
 
 #include <criterion/assert.h>
 #include <criterion/criterion.h>

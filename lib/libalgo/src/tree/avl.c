@@ -1,4 +1,5 @@
 #include <libalgo/avl.h>
+#include <utils/math.h>
 
 static inline int avl_balance_factor(const avl_t *avl)
 {
