@@ -10,6 +10,7 @@ kernel_source_files = files([
   'src/debug/logger.c',
   'src/debug/symbols.c',
   'src/memory/pmm.c',
+  'src/memory/vmm.c',
 ])
 
 arch_source_files = {

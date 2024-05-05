@@ -7,8 +7,10 @@
 #include <kernel/symbols.h>
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
+#include <kernel/vmm.h>
 
 #include <utils/macro.h>
+#include <utils/math.h>
 
 #include <multiboot.h>
 
@@ -66,6 +68,20 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     const kernel_symbol_t *symbol = symbol_from_address((u32)printf + 32);
     log_info("MAIN", "PRINTF ? (%s, " LOG_FMT_32 ")",
              kernel_symbol_name(symbol), symbol->address);
+
+    vmm_init(KERNEL_CODE_START, align_down(ADDRESS_SPACE_END, PAGE_SIZE));
+
+    {
+        vaddr_t a = vmm_allocate(PAGE_SIZE, 0);
+        vaddr_t b = vmm_allocate(PAGE_SIZE * 2, 0);
+        vaddr_t c = vmm_allocate(PAGE_SIZE, 0);
+        vaddr_t d = vmm_allocate(PAGE_SIZE, 0);
+
+        vmm_free(b);
+        vmm_free(d);
+        vmm_free(c); // Should be merged together with B and C
+        vmm_free(a); // Should be merged into 1 big area (the whole range)
+    }
 
     while (1) {
         timer_wait_ms(1000);

@@ -40,4 +40,6 @@
         _tmp < 0 ? -_tmp : _tmp;    \
     })
 
+#define ARRAY_SIZE(_arr) (sizeof(_arr) / sizeof(_arr[0]))
+
 #endif /* UTILS_MACRO_H */

@@ -351,7 +351,7 @@ avl_t *avl_remove(avl_t *root, avl_t *value, avl_compare_t compare,
     // Trace back along the tree to correct eventual imbalances
     // If trace is null, we removed the root
     if (*retrace != NULL)
-        return avl_retrace_tree(*retrace);
+        *root = avl_retrace_tree(*retrace);
 
     return *remove;
 }
