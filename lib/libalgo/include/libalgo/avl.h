@@ -78,26 +78,11 @@ static inline bool avl_is_root(const avl_t *avl)
 typedef int (*avl_compare_t)(const avl_t *left, const avl_t *right);
 
 /**
- * @brief Insert a new node inside an AVL tree
- *
- * @root The root of the AVL tree
- * @new The new node to insert inside the tree
- * @compare The comparison function used for this tree
- *
- * @warning Inserting a new node inside an AVL tree may require a rotation in
- *          order to keep it balanced. DO NOT forget to replace the old root of
- *          the tree with the one returned by this function.
- *
- * @return The new root of the modified tree
- */
-NO_DISCARD avl_t *avl_insert(avl_t *root, avl_t *new, avl_compare_t);
-
-/**
  * @brief Search a value inside an AVL tree
  *
- * @root The root of the AVL tree
- * @value The value to find
- * @compare The comparison function used for this AVL tree
+ * @param root The root of the AVL tree
+ * @param value The value to find
+ * @param compare The comparison function used for this AVL tree
  *
  * @return The found node if any, else NULL
  *
@@ -110,35 +95,43 @@ NO_DISCARD avl_t *avl_insert(avl_t *root, avl_t *new, avl_compare_t);
 const avl_t *avl_search(avl_t *root, avl_t *value, avl_compare_t);
 
 /**
- * @brief Remove a value from an AVL tree
+ * @brief Insert a new node inside an AVL tree
  *
- * @root The root of the AVL tree
- * @value The value to remove from the AVL tree
- * @compare The comparison function used for this tree
- *
- * @remove [out] If not null, store wether a value to remove was found
+ * @param root The root of the AVL tree
+ * @param new The new node to insert inside the tree
+ * @param compare The comparison function used for this tree
  *
  * @note @c value is passed as the left parameter of @c comparison
  *
- * @warning Inserting a new node inside an AVL tree may require a rotation in
- *          order to keep it balanced. DO NOT forget to replace the old root of
- *          the tree with the one returned by this function.
- *
- * @return The new root of the modified tree
+ * @return The newly inserted node
  */
-NO_DISCARD avl_t *avl_remove(avl_t *root, avl_t *value, avl_compare_t,
-                             bool *removed);
+
+avl_t *avl_insert(avl_t **root, avl_t *new, avl_compare_t);
+
+/**
+ * @brief Remove a value from an AVL tree
+ *
+ * @param root The root of the AVL tree
+ * @param value The value to remove from the AVL tree
+ * @param compare The comparison function used for this tree
+ *
+ * @note @c value is passed as the left parameter of @c comparison
+ *
+ * @return The removed value if any, else NULL
+ */
+avl_t *avl_remove(avl_t **root, avl_t *value, avl_compare_t);
 
 /**
  * @brief Print the content of an AVL tree
  *
  * The AVL is printed in an in-order depth-first way.
  *
- * @warning This function visit the tree recursively, this means a higher stack
- * usage. Be careful when you use it (more particularily inside the kernel).
+ * @warning This function visits the tree recursively, this means
+ *          a higher stack usage. Be careful when you use it,
+ *          more particularily inside the kernel.
  *
- * @root The root of the AVL tree
- * @print The function used to print the content of a node
+ * @param root The root of the AVL tree
+ * @param print The function used to print the content of a node
  */
 void avl_print(avl_t *root, void (*print)(const avl_t *));
 

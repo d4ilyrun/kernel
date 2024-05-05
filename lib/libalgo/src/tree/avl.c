@@ -258,7 +258,7 @@ NO_DISCARD static avl_t *avl_retrace_tree(avl_t *leaf)
     return root;
 }
 
-avl_t *avl_insert(avl_t *root, avl_t *new, avl_compare_t compare)
+avl_t *avl_insert(avl_t **root, avl_t *new, avl_compare_t compare)
 {
     // TODO: Similar to linux's ERR_PTR
     //       Return a negative pointer containing an error code
@@ -270,7 +270,7 @@ avl_t *avl_insert(avl_t *root, avl_t *new, avl_compare_t compare)
         return new;
 
     avl_t *parent = NULL;
-    avl_t **node = &root;
+    avl_t **node = root;
 
     // Look for the leaf in wich to insert the new node
     while (*node != NULL) {
@@ -288,27 +288,25 @@ avl_t *avl_insert(avl_t *root, avl_t *new, avl_compare_t compare)
 
     // Retrace the tree to correct eventual imbalances
     // Update root during unwinding in case it changes due to rotation
-    return avl_retrace_tree(new);
+    *root = avl_retrace_tree(new);
+
+    return new;
 }
 
-avl_t *avl_remove(avl_t *root, avl_t *value, avl_compare_t compare,
-                  bool *removed)
+avl_t *avl_remove(avl_t **root, avl_t *value, avl_compare_t compare)
 {
     if (root == NULL)
         return NULL;
 
-    if (removed != NULL)
-        *removed = true;
-
     avl_t *parent;
-    avl_t **remove = avl_search_node(&root, value, compare, &parent);
+    avl_t **remove = avl_search_node(root, value, compare, &parent);
 
     // No equivalent value is present inside the tree
     if (*remove == NULL) {
-        if (removed != NULL)
-            *removed = false;
-        return root;
+        return NULL;
     }
+
+    avl_t *removed = *remove;
 
     // Find the highest lower child if posisble,
     // Else copy the right child (it cannot have children since it is balanced)
@@ -354,7 +352,7 @@ avl_t *avl_remove(avl_t *root, avl_t *value, avl_compare_t compare,
     if (*retrace != NULL)
         *root = avl_retrace_tree(*retrace);
 
-    return *remove;
+    return removed;
 }
 
 // NOLINTNEXTLINE(misc-no-recursion)

@@ -139,9 +139,12 @@ Test(Search, DuplicateValues)
                  "Search function should return the FIRST match only");
 }
 
-#define TEST_INSERT(_data, _root, _new_root)              \
-    _root = avl_insert(_root, (_data), avl_test_compare); \
-    cr_assert_eq(_root, (_new_root));
+#define TEST_INSERT(_data, _root, _new_root)                              \
+    {                                                                     \
+        avl_t *_inserted = avl_insert(&_root, (_data), avl_test_compare); \
+        cr_assert_avl_eq(_root, (_new_root));                             \
+        cr_assert_eq(_inserted, _data);                                   \
+    }
 
 Test(Insert, Simple)
 {
@@ -184,10 +187,12 @@ Test(Insert, NonEmpty)
     data3.avl.left = &data0.avl;
     data4.avl.left = &data0.avl;
 
-    cr_assert_null(avl_insert(&data0.avl, &data1.avl, avl_test_compare));
-    cr_assert_null(avl_insert(&data0.avl, &data2.avl, avl_test_compare));
-    cr_assert_null(avl_insert(&data0.avl, &data3.avl, avl_test_compare));
-    cr_assert_null(avl_insert(&data0.avl, &data4.avl, avl_test_compare));
+    avl_t *root = &data0.avl;
+
+    cr_assert_null(avl_insert(&root, &data1.avl, avl_test_compare));
+    cr_assert_null(avl_insert(&root, &data2.avl, avl_test_compare));
+    cr_assert_null(avl_insert(&root, &data3.avl, avl_test_compare));
+    cr_assert_null(avl_insert(&root, &data4.avl, avl_test_compare));
 }
 
 Test(Insert, Rotation_Left)
@@ -239,7 +244,7 @@ Test(Insert, Rotation_NewRoot)
     avl_t *got = &got3.avl;
 
     TEST_INSERT(&got2.avl, got, &got3.avl);
-    got = avl_insert(got, (&got1.avl), avl_test_compare);
+    TEST_INSERT(&got1.avl, got, &got2.avl);
 
     cr_assert_avl_eq(got, &expected->avl);
 }
@@ -290,13 +295,15 @@ Test(Insert, Rotation_RightLeft)
     cr_assert_avl_eq(got, &expected->avl);
 }
 
-#define TEST_REMOVE(_data, _root, _new_root, _removed)                  \
+#define TEST_REMOVE1(_data, _root, _new_root, _removed)                 \
     {                                                                   \
-        bool removed;                                                   \
-        _root = avl_remove(_root, (_data), avl_test_compare, &removed); \
+        avl_t *removed = avl_remove(&_root, (_data), avl_test_compare); \
         cr_assert_eq(_root, (_new_root));                               \
         cr_assert_eq(removed, _removed);                                \
     }
+
+#define TEST_REMOVE(_data, _root, _new_root) \
+    TEST_REMOVE1(_data, _root, _new_root, _data);
 
 Test(Remove, Leaf)
 {
@@ -314,7 +321,7 @@ Test(Remove, Leaf)
 
     avl_t *got = &start->avl;
 
-    TEST_REMOVE(&got4.avl, got, &start->avl, true);
+    TEST_REMOVE(&got4.avl, got, &start->avl);
 
     cr_assert_avl_eq(got, &expected->avl);
 }
@@ -329,7 +336,7 @@ Test(Remove, NotFound)
     avl_t *got = &start->avl;
 
     // 4 is not inside the tree, &removed should be set to false
-    TEST_REMOVE(&got4.avl, got, &got2.avl, false);
+    TEST_REMOVE1(&got4.avl, got, &got2.avl, NULL);
 
     cr_assert_avl_eq(got, &expected->avl);
 }
@@ -341,7 +348,7 @@ Test(Remove, Empty)
     test_data *start = &got0;
     avl_t *got = &start->avl;
 
-    TEST_REMOVE(&got0.avl, got, NULL, false);
+    TEST_REMOVE(&got0.avl, got, NULL);
 }
 
 Test(Remove, Root)
@@ -359,7 +366,7 @@ Test(Remove, Root)
 
     avl_t *got = &start->avl;
 
-    TEST_REMOVE(&got3.avl, got, &got2.avl, true);
+    TEST_REMOVE(&got3.avl, got, &got2.avl);
 
     cr_assert_avl_eq(got, &expected->avl);
 }
@@ -379,7 +386,7 @@ Test(Remove, Regular)
 
     avl_t *got = &start->avl;
 
-    TEST_REMOVE(&got1.avl, got, &start->avl, true);
+    TEST_REMOVE(&got1.avl, got, &start->avl);
 
     cr_assert_avl_eq(got, &expected->avl);
 }
@@ -399,7 +406,7 @@ Test(Remove, NoLeftChild)
 
     avl_t *got = &start->avl;
 
-    TEST_REMOVE(&got0.avl, got, &start->avl, true);
+    TEST_REMOVE(&got0.avl, got, &start->avl);
 
     cr_assert_avl_eq(got, &expected->avl);
 }
@@ -485,7 +492,7 @@ Test(Remove, MultipleRotations)
 
     avl_t *got = &start->avl;
 
-    TEST_REMOVE(&got0.avl, got, &got6.avl, true);
+    TEST_REMOVE(&got0.avl, got, &got6.avl);
 
     cr_assert_avl_eq(got, &expected->avl);
 }
