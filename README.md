@@ -45,6 +45,13 @@ You can also run unit-tests on our libraries:
 $ meson test -C build --print-errorlogs
 ```
 
+## Documentation
+
+I try to keep the codebase well-documented. You can generate the full doc using doxygen:
+```bash
+$ doxygen docs/doxygen/Doxyfile # Requires you to also pull the git submodules
+```
+
 ## What's available ?
 
 - GDT segments
