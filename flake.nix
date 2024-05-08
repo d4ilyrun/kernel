@@ -63,6 +63,11 @@
 
               buildInputs = [ pkgs.pkgsi686Linux.glibc ];
               hardeningDisable = [ "fortify" ];
+
+              shellHook = ''
+                export BUILD_DIR=build
+                meson setup --cross-file ./scripts/meson_cross.ini --reconfigure -Dbuildtype=debug "./$BUILD_DIR"
+              '';
             };
 
             test = pkgs.mkShell rec {

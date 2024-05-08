@@ -28,4 +28,8 @@ jobs:
 
     - name: Build Kernel
       run: |
-        nix build .#kernel -L
+        nix develop --command ninja -C build kernel
+
+    - name: Build ISO
+      run: |
+        nix develop --command ninja -C build iso
