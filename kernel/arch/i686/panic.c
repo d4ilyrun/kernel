@@ -3,7 +3,7 @@
 #include <kernel/logger.h>
 #include <kernel/symbols.h>
 
-#include <kernel/i686/gdt.h>
+#include <kernel/arch/i686/gdt.h>
 
 #include <stdarg.h>
 #include <stddef.h>

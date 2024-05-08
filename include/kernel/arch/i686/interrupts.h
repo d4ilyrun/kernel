@@ -5,13 +5,13 @@
  */
 
 #ifndef KERNEL_INTERRUPTS_H
-#error <kernel/i686/interrupts.h> must not be used as a standalone header. Please include <kernel/interrupts.h> instead.
+#error <kernel/arch/i686/interrupts.h> must not be used as a standalone header. Please include <kernel/interrupts.h> instead.
 #endif
 
 #ifndef KERNEL_ARCH_I686_INTERRUPTS_H
 #define KERNEL_ARCH_I686_INTERRUPTS_H
 
-#include <kernel/i686/gdt.h>
+#include <kernel/arch/i686/gdt.h>
 
 #include <utils/compiler.h>
 #include <utils/types.h>

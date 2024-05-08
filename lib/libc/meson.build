@@ -1,5 +1,5 @@
 public_headers = include_directories('include')
-kernel_headers = include_directories('../../kernel/include')
+kernel_headers = include_directories('../../include')
 
 sources = [
   'src/strlen.c',

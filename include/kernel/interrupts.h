@@ -2,7 +2,7 @@
 #define KERNEL_INTERRUPTS_H
 
 #if ARCH == i686
-#include <kernel/i686/interrupts.h>
+#include <kernel/arch/i686/interrupts.h>
 #endif
 
 #include <utils/types.h>

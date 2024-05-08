@@ -25,7 +25,7 @@ SpacesInParentheses: false
 
 IncludeBlocks: Regroup
 IncludeCategories:
-    - Regex: '<kernel/(i686)/.*>'
+    - Regex: '<kernel/arch/.*>'
       Priority: 2
     - Regex: '<kernel/.*>'
       Priority: 1

@@ -7,7 +7,7 @@
 #define KERNEL_ARCH_I686_MEMORY_H
 
 #ifndef KERNEL_MEMORY_H
-#error <kernel/i686/memory.h> must not be used as a standalone header. Please include <kernel/memory.h> instead.
+#error <kernel/arch/i686/memory.h> must not be used as a standalone header. Please include <kernel/memory.h> instead.
 #endif
 
 // The size of a single page

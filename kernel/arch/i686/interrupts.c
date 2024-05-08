@@ -2,8 +2,8 @@
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 
-#include <kernel/i686/devices/pic.h>
-#include <kernel/i686/gdt.h>
+#include <kernel/arch/i686/devices/pic.h>
+#include <kernel/arch/i686/gdt.h>
 
 #include <utils/bits.h>
 #include <utils/compiler.h>

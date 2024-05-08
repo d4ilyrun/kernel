@@ -2,7 +2,7 @@
 #define KERNEL_CPU_H
 
 #if ARCH == i686
-#include <kernel/i686/cpu.h>
+#include <kernel/arch/i686/cpu.h>
 #else
 #error Unknown CPU architecture.
 #endif

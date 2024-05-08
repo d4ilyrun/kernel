@@ -7,7 +7,7 @@
 #define KERNEL_MEMORY_H
 
 #if ARCH == i686
-#include <kernel/i686/memory.h>
+#include <kernel/arch/i686/memory.h>
 #endif
 
 #ifndef KERNEL_STACK_SIZE

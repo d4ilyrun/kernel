@@ -2,7 +2,7 @@
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 
-#include <kernel/i686/devices/pit.h>
+#include <kernel/arch/i686/devices/pit.h>
 
 #include <utils/macro.h>
 
