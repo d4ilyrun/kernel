@@ -6,6 +6,7 @@
  * @date 28/04/2024
  *
  * @defgroup VMM Virtual Memory Manager
+ * @ingroup kernel
  *
  * # VMM
  *

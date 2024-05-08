@@ -15,31 +15,50 @@
 #include <stddef.h>
 #include <string.h>
 
-/// @brief The Physical Memory Allocator
-///
-/// This allocator is responsible for keeping track of available
-/// framepages, returning them for memory allocations and free unused ones.
-///
-/// For simplicity's sake, we use a bitmap allocator.
-/// It keeps track of the available pageframe's index inside a static array.
-///
-/// @TODO: Implement a buddy Allocator
-///        The buddy allocator is less memory efficient, but way faster when it
-///        comes to retrieving available pages.
-///
-/// @info The bitmap's size is hardcoded to be able to fit each and every
-/// pageframes (even though only part of them will be available at runtime).
+/**
+ * @defgroup pmm_internals Internal structures and definitions
+ * @ingroup PMM
+ *
+ * Internal structures and definitions used by the PMM.
+ * No module outside of the PMM should access these.
+ *
+ * @{
+ */
+
+/**
+ * @brief The Physical Memory Allocator
+ *
+ * This allocator is responsible for keeping track of available
+ * framepages, returning them for memory allocations and free unused ones.
+ *
+ * For simplicity's sake, we use a bitmap allocator.
+ * It keeps track of the available pageframe's index inside a static array.
+ *
+ * @todo  TODO: Implement a buddy Allocator
+ *        The buddy allocator is less memory efficient, but way faster when it
+ *        comes to retrieving available pages.
+ *
+ * @note The bitmap's size is hardcoded to be able to fit each and every
+ *       pageframes (even though only part of them will be available at
+ *       runtime).
+ */
 static BITMAP(g_pmm_free_bitmap, TOTAL_PAGEFRAMES_COUNT);
 
-// FIXME: There might be a confusion between vaddr/paddr here
-//        Why would our pmm refer to the kernel's vitrual addresses
-//        to determine its range?
-
+/**
+ * @struct pmm_frame_allocator
+ * @brief A pageframe allocator
+ *
+ * As we are using multiple ranges, we need multiple allocators.
+ *
+ * FIXME: There might be a confusion between vaddr/paddr here
+ *        Why would our pmm refer to the kernel's vitrual addresses
+ *        to determine its range?
+ */
 typedef struct {
-    paddr_t first_available; // Address of the first available pageframe
-    vaddr_t start;
-    vaddr_t end;
-    bool initialized;
+    paddr_t first_available; ///< Address of the first available pageframe
+    vaddr_t start;           ///< Start of the allocator's physical range
+    vaddr_t end;             ///< End of the allocator's physical range
+    bool initialized;        ///< Whether this allocator has been initialized
 } pmm_frame_allocator;
 
 // TODO: Determine a more realistic memory layout here.
@@ -47,6 +66,7 @@ typedef struct {
 //       To avoid running out of pageframes for the kernel? meh ... would not be
 //       a good design)
 
+/** Allocator for pageframes inside the user range */
 static pmm_frame_allocator g_pmm_user_allocator = {
     .start = 0,
     .end = KERNEL_CODE_START,
@@ -54,6 +74,7 @@ static pmm_frame_allocator g_pmm_user_allocator = {
     .initialized = false,
 };
 
+/** Allocator for pageframes inside the kernel range */
 static pmm_frame_allocator g_pmm_kernel_allocator = {
     .start = KERNEL_CODE_START,
     .end = ADDRESS_SPACE_END,
@@ -67,18 +88,32 @@ static pmm_frame_allocator g_pmm_kernel_allocator = {
 
 #define BITMAP_INDEX(address) (address / PAGE_SIZE)
 
-/// Mark a pageframe as PMM_AVAILABLE or PMM_UNAVAILABLE
+/** Mark a pageframe as PMM_AVAILABLE or PMM_UNAVAILABLE */
 static inline void pmm_bitmap_set(paddr_t pf, u8 availability)
 {
     bitmap_assign(g_pmm_free_bitmap, BITMAP_INDEX(pf), availability);
 }
 
-/// @return a pageframe's state according to the allocator's bitmap
+/** Return a pageframe's state according to the allocator's bitmap */
 static inline int pmm_bitmap_read(paddr_t pageframe)
 {
     return bitmap_read(g_pmm_free_bitmap, BITMAP_INDEX(pageframe));
 }
 
+/**
+ * @brief Initialize the pageframe bitmap
+ *
+ * Using the bootloader's information, we mark unusable pageframes as being
+ * unavailable. The kernel's code is also marked as unavailable, since this
+ * distinction is not made by the bootloader.
+ *
+ * Finally, we initialize the allocator structs, locating their first
+ * respective available address.
+ *
+ * @param mbt The information passed on by the bootloader
+ *
+ * @return Whether the initialization process succeeded
+ */
 static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
 {
     // If bit 6 in the flags uint16_t is set, then the mmap_* fields are valid
@@ -157,7 +192,7 @@ bool pmm_init(struct multiboot_info *mbt)
 
 paddr_t pmm_allocate(int flags)
 {
-    pmm_frame_allocator *allocator = BIT_READ(flags, PMM_MAP_KERNEL_BIT)
+    pmm_frame_allocator *allocator = flags & PMM_MAP_KERNEL
                                        ? &g_pmm_kernel_allocator
                                        : &g_pmm_user_allocator;
 

@@ -1,10 +1,18 @@
-/** \header timer.h
+/**
+ * @file kerneldevices/timer.h
+ *
+ * @defgroup timer Timer
+ * @ingroup kernel
+ *
+ * # Timer
  *
  * Any interaction done with the timer should be done through
  * the functions defined inside this header.
  *
  * The underlying implementation is architecture dependent and, as such,
  * can be found inside the corresponding `arch` subfolder.
+ *
+ * @{
  */
 
 #ifndef KERNEL_DEVICES_TIMER_H
@@ -12,11 +20,11 @@
 
 #include <utils/types.h>
 
+/** The frequency used for the timer (in KHz) */
 #define TIMER_TICK_FREQUENCY (1000) // 1KHz
 
 /**
- * Start the timer.
- *
+ * @brief Start the timer
  * @param frequency The timer's frequency (Hz)
  */
 void timer_start(u32 frequency);
@@ -25,7 +33,7 @@ void timer_start(u32 frequency);
 u64 timer_gettick(void);
 
 /**
- * Wait a certain amount of miliseconds
+ *  @brief Wait a certain amount of miliseconds
  *  @warning Calls to this function are blocking
  */
 void timer_wait_ms(u64);

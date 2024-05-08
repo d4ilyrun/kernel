@@ -2,6 +2,8 @@
 build
 compile_commands.json
 
+docs/doxygen/doc
+
 # qemu
 *.iso
 *.qcow2

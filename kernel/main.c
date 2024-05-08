@@ -65,7 +65,8 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     log_variable(*(volatile u8 *)0xFFFF1235);
     mmu_unmap(0xFFFF1000);
 
-    const kernel_symbol_t *symbol = symbol_from_address((u32)printf + 32);
+    const kernel_symbol_t *symbol =
+        kernel_symbol_from_address((u32)printf + 32);
     log_info("MAIN", "PRINTF ? (%s, " LOG_FMT_32 ")",
              kernel_symbol_name(symbol), symbol->address);
 

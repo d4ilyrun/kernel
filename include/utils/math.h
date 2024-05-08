@@ -1,9 +1,13 @@
 /**
  * @file utils/math.h
- *
  * @author Léo DUBOIN <leo@duboin.com>
  *
+ * @defgroup utils_math Mathematical operations
+ * @ingroup utils
+ *
  * Collection of macros to perform simple and common math operations.
+ *
+ * @{
  */
 
 #ifndef UTILS_MATH_H
@@ -36,22 +40,22 @@
 
 #define __align_mask(_value, _power) ((__typeof__(_value))((_power)-1))
 
-/** @brief Align @_value to the next multiple of @_power
+/** @brief Align @c _value to the next multiple of @c _power
  *  @warning This macro assumes _power is a power of 2. When using an arbitrary
- *           value, you must use @link round_up instead.
+ *           value, you must use @ref round_up instead.
  */
 #define align_up(_value, _power) \
     ((((_value)-1) | __align_mask(_value, _power)) + 1)
 
-/** @brief Align @_value to the previous multiple of @_power
+/** @brief Align @c _value to the previous multiple of @c _power
  *  @warning This macro assumes _power is a power of 2. When using an arbitrary
- *           value, you must use @link round_down instead.
+ *           value, you must use @ref round_down instead.
  */
 #define align_down(_value, _power) ((_value) & ~__align_mask(_value, _power))
 
-/** @brief Round @value to the next multiple of @alignment
+/** @brief Round @c value to the next multiple of @c alignment
  *
- *  When rounding to a power of two, prefere using @link align_up instead.
+ *  When rounding to a power of two, prefere using @ref align_up instead.
  *
  *  @warning This function does not check against overflow
  */
@@ -67,9 +71,9 @@ static inline u32 round_up(u32 value, u32 alignment)
     return value;
 }
 
-/** @brief Round @value to the previous multiple of @alignment
+/** @brief Round @c value to the previous multiple of @c alignment
  *
- *  When rounding to a power of two, prefere using @link align_down instead.
+ *  When rounding to a power of two, prefere using @ref align_down instead.
  */
 static inline u32 round_down(u32 value, u32 alignment)
 {

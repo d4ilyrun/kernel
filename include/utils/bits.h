@@ -1,3 +1,14 @@
+/**
+ * @file utlis/bits.h
+ *
+ * @defgroup utils_bits Bit manipulation
+ * @ingroup utils
+ *
+ * This file contains common (or not) bitwise operations.
+ *
+ * @{
+ */
+
 #ifndef UTILS_BITS_H
 #define UTILS_BITS_H
 

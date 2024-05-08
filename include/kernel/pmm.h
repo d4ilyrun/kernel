@@ -1,16 +1,19 @@
 /**
- * @brief Physical Memory Manager
- *
- * @file pmm.h
+ * @file kernel/pmm.h
  *
  * @defgroup PMM Physical Memory Manager
+ * @ingroup kernel
  *
- * The PMM is responsible for allocating and freeing new memory pages.
- * These pages are then used by the Virtual Memory Manager (e.g. UNIX's malloc)
- * to return (free) new mapped virtual addresses to the caller.
+ * # Physical Memory Manager
+ *
+ * The PMM is responsible for allocating and freeing new memory pageframes.
+ * These pages are then used by the Virtual Memory Manager (e.g. UNIX's mmap)
+ * to return new (or free) mapped virtual addresses to the caller.
  *
  * The PMM should never interact with the virtual address space, this is the
  * responsabillity of the VMM only.
+ *
+ * ## Desig,
  *
  * @{
  */
@@ -26,33 +29,40 @@
 #include <multiboot.h>
 #include <stdbool.h>
 
-// Error value returned by the PMM in case of errors
+/** Error value returned by the PMM in case of errors */
 #define PMM_INVALID_PAGEFRAME (0xFFFFFFFFUL)
 
-// This is the theorical total number of pageframes available inside the whole
-// address space.
-//
-// BUT, not all pageframes are necessarily available (usable for memory
-// allocation). Some are reserved, used for ACPI, plus RAM is not guaranteed to
-// be contiugous.
-//
-// This constant should ONLY be used as a compile-time known theoretical
-// reference value (e.g. the physical memory manager's bit map size).
+/**
+ * @brief Total number of pageframes
+ *
+ * This is the **theorical** total number of pageframes available inside the
+ * whole address space.
+ *
+ * **BUT**, not all pageframes are necessarily available (usable for memory
+ * allocation). Some are reserved, used for ACPI, plus RAM is not guaranteed to
+ * be contiugous.
+ *
+ * This constant should **ONLY** be used as a compile-time known theoretical
+ * reference value (e.g. the physical memory manager's bit map size).
+ */
 #define TOTAL_PAGEFRAMES_COUNT (ADDRESS_SPACE_SIZE / PAGE_SIZE)
 
-/// \defgroup Flags PMM Allocation Flags
-///
-/// Flags used when allocating a page frame to specify that the allocation must
-/// respect certain constraints. Constraints can be specific addresses, rules,
-/// etc...
-///
-/// @{
+/**
+ * \defgroup Flags PMM Allocation Flags
+ *
+ * Flags used when allocating a page frame to specify that the allocation must
+ * respect certain constraints. Constraints can be specific addresses, rules,
+ * etc...
+ *
+ * @{
+ */
 
-/// The pageframe should be located inside the kernel's physical address space.
-#define PMM_MAP_KERNEL BIT(PMM_MAP_KERNEL_BIT)
-#define PMM_MAP_KERNEL_BIT 0x1
+typedef enum pmm_flags {
+    /** Pageframe should be located inside the kernel physical address space */
+    PMM_MAP_KERNEL = 0x1,
+} pmm_flags;
 
-/// @}
+/** @} */
 
 /**
  * @brief Initialize the Physical Memory Mapper

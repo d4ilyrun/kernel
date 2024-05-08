@@ -1,20 +1,22 @@
 /**
- * @brief Memory Management Unit
+ * @file kernel/mmu.h
  *
- * Interact with the CPU's hardware MMU.
+ * @defgroup mmu Memory Management Unit
+ * @ingroup kernel
  *
- * The MMU is used to translate virtual addresses into physical ones.
+ * # Memory Managerment Unit (MMU)
+ *
+ * Interface with the CPU's hardware MMU.
+ *
+ * The MMU automatically translates virtual addresses into physical ones.
  * These physical addresses should be pages, allocated using the PMM.
  * This whole translation process is called paging.
- *
- * All the functions defined inside this file are arch-dependant, and only
- * serve as a common interface for different architectures.
  *
  * This includes:
  * * Enabling/Disabling paging
  * * Updating the underlying structures
  *
- * @file mmu.h
+ * @{
  */
 
 #ifndef KERNEL_MMU_H
@@ -24,9 +26,7 @@
 
 #include <stdbool.h>
 
-/**
- * @brief Inititialize the MMU's underlying structures
- */
+/** @brief Inititialize the MMU's underlying structures */
 bool mmu_init(void);
 
 /**
@@ -68,8 +68,8 @@ paddr_t mmu_unmap(vaddr_t virt);
  *
  * Both start and end addresses will be included inside the range.
  *
- * @brief start the starting page of the address range
- * @brief start the ending address of the address range
+ * @param start the starting page of the address range
+ * @param end the ending address of the address range
  */
 void mmu_identity_map(paddr_t start, paddr_t end);
 

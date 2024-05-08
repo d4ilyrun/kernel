@@ -1,11 +1,18 @@
-/** \file timer.c
+/**
+ * @file kernel/arch/i686/devices/timer.c
  *
- * We use the PIT's channel 0 for our internal timer.
+ * @ingroup timer_x86
+ * @ingroup timer
+ * @ingroup x86
+ *
+ * @brief We use the @ref PIT channel 0 for our internal timer.
+ *
+ * ## Implementation
  *
  * We keep track of the number of IRQ_TIMER recieved, each one representing a
  * kernel timer 'tick'.
  *
- * \see pit.h
+ * @{
  */
 
 #include <kernel/cpu.h>
@@ -38,8 +45,8 @@ static DEFINE_INTERRUPT_HANDLER(irq_timer);
  * interrupt, which MUST be handled to update our internal
  * timer tick value.
  *
- * @warn The frequency must be between 19 and 1.9MhZ
- *       Any other value will be adjusted back into this range.
+ * @warning The frequency must be between 19 and 1.9MhZ
+ *          Any other value will be adjusted back into this range.
  *
  * @param frequency The timer's frequency (Hz)
  */

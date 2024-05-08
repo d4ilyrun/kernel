@@ -1,16 +1,21 @@
-/*
- * Interface with the 8259 PIC.
+/**
+ * @file kernel/arch/i686/devices/pic.h
  *
- * Programmable Interrupt Controller.
+ * @defgroup pic Interrupt Controller - x86
+ * @ingroup x86
+ *
+ * # 8259 Programmable Interrupt Controller (PIC)
  *
  * Any interaction done with the PIC should be done through
  * the functions defined inside this header.
  *
- * This also includes the defition of the interrupt handlers for the IRQs
+ * This also includes the definition of the interrupt handlers for the IRQs
  * raised by the PIC.
  *
- * Reference manual can be found here:
- *  https://pdos.csail.mit.edu/6.828/2005/readings/hardware/8259A.pdf
+ * @see
+ *  * https://pdos.csail.mit.edu/6.828/2005/readings/hardware/8259A.pdf
+ *
+ * @{
  */
 
 #ifndef KERNEL_ARCH_I686_DEVICES_PIC_H
@@ -27,14 +32,15 @@
 #define PIC_SLAVE_VECTOR 0x28
 
 /**
- * All available PIC irqs, by vector index
+ * @brief All available PIC irqs, by vector index
+ * @enum pic_irq
  */
 typedef enum pic_irq {
-    IRQ_TIMER = 0,
-    IRQ_KEYBOARD,
-    IRQ_CASCADE,
-    IRQ_COM2,
-    IRQ_COM1,
+    IRQ_TIMER = 0, ///< Raised by the \ref PIT
+    IRQ_KEYBOARD,  ///< Raised by the keyboard
+    IRQ_CASCADE,   ///< Used to access the second controller
+    IRQ_COM2,      ///< Raised by the serial port
+    IRQ_COM1,      ///< Raised by the serial port
     IRQ_LPT2,
     IRQ_FLOPPY,
     IRQ_LPT1,
@@ -48,15 +54,16 @@ typedef enum pic_irq {
     IRQ_ATA_SECONDARY
 } pic_irq;
 
+/** The total number of IRQ */
 #define PIC_IRQ_COUNT (IRQ_ATA_SECONDARY + 1)
 
-/** Reset the PIC.
+/** @brief Reset the PIC.
  *
  * Should be called when entering protected mode.
  */
 void pic_reset();
 
-/** Send an End Of Interrupt command to the PIC.
+/** @brief Send an End Of Interrupt command to the PIC.
  *
  * This is issued to the PIC chips at the end of an IRQ-based interrupt routine
  *
@@ -64,10 +71,10 @@ void pic_reset();
  */
 void pic_eoi(pic_irq);
 
-/* Disable the given IRQ */
+/** Disable the given IRQ */
 void pic_disable_irq(pic_irq);
 
-/* Enable the given IRQ */
+/** Enable the given IRQ */
 void pic_enable_irq(pic_irq);
 
 #endif /* KERNEL_ARCH_I686_DEVICES_PIC_H */

@@ -10,6 +10,18 @@
  * even for commercial purposes, all without asking permission.
  */
 
+/**
+ * @file utils/map.h
+ * @defgroup utils_map Mapping
+ * @ingroup utils
+ *
+ * These macros allow to map another macro or function onto a list of arguments.
+ * This is done at compile time, and will only generate the corresponding code
+ * for each call, not performing any loop.
+ *
+ * @{
+ */
+
 #ifndef KERNEL_UTLS_MAP_H
 #define KERNEL_UTLS_MAP_H
 
