@@ -65,12 +65,13 @@
               hardeningDisable = [ "fortify" ];
             };
 
-            tests = pkgs.mkShell rec {
+            test = pkgs.mkShell rec {
               nativeBuildInputs = with pkgs; [
                 # Bulding
                 gnumake
                 ninja
                 meson
+                nasm
                 # Testing
                 criterion.out
                 criterion.dev
@@ -79,6 +80,11 @@
 
               LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath nativeBuildInputs;
               hardeningDisable = [ "fortify" ];
+
+              shellHook = ''
+                export BUILD_DIR=build
+                meson setup --cross-file ./scripts/meson_cross.ini --reconfigure -Dbuildtype=debug "./$BUILD_DIR"
+              '';
             };
 
           };
