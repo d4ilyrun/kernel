@@ -55,8 +55,10 @@ bool mmu_map(vaddr_t virt, paddr_t physical);
  * the CPU to raise an exception.
  *
  * @param virt The virtual address
+ *
+ * @return The physical pageframe associated with the unmapped address
  */
-void mmu_unmap(vaddr_t virt);
+paddr_t mmu_unmap(vaddr_t virt);
 
 /**
  * @brief Perform identity mapping inside a given virtual address range

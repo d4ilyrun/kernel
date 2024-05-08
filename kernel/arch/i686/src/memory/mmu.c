@@ -189,7 +189,7 @@ bool mmu_map(vaddr_t virtual, vaddr_t pageframe)
     return true;
 }
 
-void mmu_unmap(vaddr_t virtual)
+paddr_t mmu_unmap(vaddr_t virtual)
 {
     u16 pde_index = virtual >> 22;                     // bits 31-22
     u16 pte_index = (virtual >> 12) & ((1 << 10) - 1); // bits 21-12
@@ -198,14 +198,17 @@ void mmu_unmap(vaddr_t virtual)
     //       c.f. todo inside mmu_map
 
     if (!kernel_page_directory[pde_index].present)
-        return;
+        return 0;
 
     // Erase the content of the page table entry
     mmu_pte_entry *page_table =
         (mmu_pte_entry *)MMU_RECURSIVE_PAGE_TABLE_ADDRESS(pde_index);
+    paddr_t physical = page_table->page_frame << 12;
     *((volatile u32 *)&page_table[pte_index]) = 0x0;
 
     mmu_flush_tlb(virtual);
+
+    return physical;
 }
 
 static void mmu_offset_map(paddr_t start, paddr_t end, int64_t offset)

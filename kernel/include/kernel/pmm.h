@@ -1,6 +1,10 @@
 /**
  * @brief Physical Memory Manager
  *
+ * @file pmm.h
+ *
+ * @defgroup PMM Physical Memory Manager
+ *
  * The PMM is responsible for allocating and freeing new memory pages.
  * These pages are then used by the Virtual Memory Manager (e.g. UNIX's malloc)
  * to return (free) new mapped virtual addresses to the caller.
@@ -8,7 +12,7 @@
  * The PMM should never interact with the virtual address space, this is the
  * responsabillity of the VMM only.
  *
- * @file pmm.h
+ * @{
  */
 
 #ifndef KERNEL_PMM_H
@@ -36,7 +40,7 @@
 // reference value (e.g. the physical memory manager's bit map size).
 #define TOTAL_PAGEFRAMES_COUNT (ADDRESS_SPACE_SIZE / PAGE_SIZE)
 
-/// \defgroup pmm_allocation_flags
+/// \defgroup Flags PMM Allocation Flags
 ///
 /// Flags used when allocating a page frame to specify that the allocation must
 /// respect certain constraints. Constraints can be specific addresses, rules,
@@ -45,8 +49,8 @@
 /// @{
 
 /// The pageframe should be located inside the kernel's physical address space.
-#define PMM_MAP_KERNEL_BIT 0x1
 #define PMM_MAP_KERNEL BIT(PMM_MAP_KERNEL_BIT)
+#define PMM_MAP_KERNEL_BIT 0x1
 
 /// @}
 
@@ -77,10 +81,12 @@ paddr_t pmm_allocate(int flags);
 /**
  * \brief Allocate a previously unused pageframe
  *
- * TODO: Take pagetable settings as parameter (writable, user, ...)
+ * @todo Take pagetable settings as parameter (writable, user, ...)
  *
  * @return The pageframe's **physical** address
  */
 void pmm_free(paddr_t pageframe);
 
 #endif /* KERNEL_PMM_H */
+
+/** @} */
