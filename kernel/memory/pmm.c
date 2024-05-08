@@ -2,13 +2,13 @@
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/pmm.h>
+#include <kernel/types.h>
 
 #include <libalgo/bitmap.h>
 #include <utils/bits.h>
 #include <utils/compiler.h>
 #include <utils/macro.h>
 #include <utils/math.h>
-#include <utils/types.h>
 
 #include <assert.h>
 #include <multiboot.h>

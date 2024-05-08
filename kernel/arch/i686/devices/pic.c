@@ -3,12 +3,12 @@
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/terminal.h>
+#include <kernel/types.h>
 
 #include <kernel/arch/i686/devices/pic.h>
 
 #include <utils/bits.h>
 #include <utils/macro.h>
-#include <utils/types.h>
 
 /* Number of IRQs in a single PIC */
 #define PIC_SIZE 8

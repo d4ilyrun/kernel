@@ -20,8 +20,9 @@
 #ifndef KERNEL_SYMBOLS_H
 #define KERNEL_SYMBOLS_H
 
+#include <kernel/types.h>
+
 #include <utils/compiler.h>
-#include <utils/types.h>
 
 #include <wchar.h>
 

@@ -13,7 +13,7 @@
 #ifndef UTILS_MATH_H
 #define UTILS_MATH_H
 
-#include "types.h"
+#include <kernel/types.h>
 
 /** @brief Compute the maximum value between 2 numbers */
 #define MAX(_x, _y)                    \

@@ -39,10 +39,11 @@
 #ifndef KERNEL_ARCH_I686_INTERRUPTS_H
 #define KERNEL_ARCH_I686_INTERRUPTS_H
 
+#include <kernel/types.h>
+
 #include <kernel/arch/i686/gdt.h>
 
 #include <utils/compiler.h>
-#include <utils/types.h>
 
 #define IDT_LENGTH 256
 #define IDT_SIZE (IDT_LENGTH * sizeof(idt_descriptor))

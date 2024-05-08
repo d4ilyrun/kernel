@@ -22,7 +22,7 @@
 #ifndef KERNEL_MMU_H
 #define KERNEL_MMU_H
 
-#include <utils/types.h>
+#include <kernel/types.h>
 
 #include <stdbool.h>
 

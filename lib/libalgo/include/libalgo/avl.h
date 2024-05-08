@@ -29,8 +29,9 @@
 #ifndef LIBALGO_AVL_H
 #define LIBALGO_AVL_H
 
+#include <kernel/types.h>
+
 #include <utils/compiler.h>
-#include <utils/types.h>
 
 #include <stdbool.h>
 #include <stddef.h>

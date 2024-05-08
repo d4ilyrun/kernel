@@ -52,10 +52,10 @@
 #include <kernel/memory.h>
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
+#include <kernel/types.h>
 
 #include <utils/bits.h>
 #include <utils/compiler.h>
-#include <utils/types.h>
 
 #include <stdbool.h>
 #include <stddef.h>

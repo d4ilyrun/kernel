@@ -18,7 +18,7 @@
 #ifndef KERNEL_DEVICES_TIMER_H
 #define KERNEL_DEVICES_TIMER_H
 
-#include <utils/types.h>
+#include <kernel/types.h>
 
 /** The frequency used for the timer (in KHz) */
 #define TIMER_TICK_FREQUENCY (1000) // 1KHz

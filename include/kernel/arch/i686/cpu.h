@@ -1,9 +1,10 @@
 #ifndef KERNEL_ARCH_I686_UTILS_CPU_OPS_H
 #define KERNEL_ARCH_I686_UTILS_CPU_OPS_H
 
+#include <kernel/types.h>
+
 #include <utils/compiler.h>
 #include <utils/map.h>
-#include <utils/types.h>
 
 // Read from a 32-bits register
 #define READ_REGISTER_OPS(_reg)                  \

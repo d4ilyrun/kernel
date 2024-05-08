@@ -52,9 +52,10 @@
 #ifndef KERNEL_VMM_H
 #define KERNEL_VMM_H
 
+#include <kernel/types.h>
+
 #include <libalgo/avl.h>
 #include <utils/compiler.h>
-#include <utils/types.h>
 
 #include <stdbool.h>
 #include <stddef.h>

@@ -77,7 +77,7 @@
 #define KERNEL_HIGHER_HALF_VIRTUAL(_physical) \
     ((u32)(_physical) + KERNEL_HIGHER_HALF_OFFSET)
 
-#include <utils/types.h>
+#include <kernel/types.h>
 
 /**
  * @brief Address of the byte located just before the end of the kernel's code

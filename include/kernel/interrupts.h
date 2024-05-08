@@ -25,7 +25,7 @@
 #include <kernel/arch/i686/interrupts.h>
 #endif
 
-#include <utils/types.h>
+#include <kernel/types.h>
 
 #ifndef INLINED_INTERRUPTS_DISABLE_ENABLE
 

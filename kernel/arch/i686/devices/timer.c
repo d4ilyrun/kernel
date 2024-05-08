@@ -19,12 +19,12 @@
 #include <kernel/devices/timer.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
+#include <kernel/types.h>
 
 #include <kernel/arch/i686/devices/pic.h>
 #include <kernel/arch/i686/devices/pit.h>
 
 #include <utils/macro.h>
-#include <utils/types.h>
 
 /**
  * This is where we keep track of the number of intervals reported by the timer.

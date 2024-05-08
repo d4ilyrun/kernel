@@ -22,9 +22,9 @@
 #define KERNEL_PMM_H
 
 #include <kernel/memory.h>
+#include <kernel/types.h>
 
 #include <utils/bits.h>
-#include <utils/types.h>
 
 #include <multiboot.h>
 #include <stdbool.h>

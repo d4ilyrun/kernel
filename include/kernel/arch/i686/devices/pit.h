@@ -30,7 +30,7 @@
 #ifndef KERNEL_ARCH_I686_DEVICES_PIT_H
 #define KERNEL_ARCH_I686_DEVICES_PIT_H
 
-#include <utils/types.h>
+#include <kernel/types.h>
 
 #define PIT_INTERNAL_FREQUENCY (1193182)
 

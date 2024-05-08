@@ -1,7 +1,7 @@
 #include <kernel/devices/uart.h>
+#include <kernel/types.h>
 
 #include <utils/compiler.h>
-#include <utils/types.h>
 
 #include <stdarg.h>
 #include <stdbool.h>
