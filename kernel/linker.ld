@@ -76,6 +76,7 @@ SECTIONS
         *(.kernel_symbols)
     }
 
+    . = ALIGN(4K);
     _kernel_code_end = .;
 
     /DISCARD/ :
