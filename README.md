@@ -35,10 +35,14 @@ $ ninja -C build qemu     # boots up qemu using the iso file
 
 I don't know how I can test kernel code, so all tests are performed manually for the time being ...
 
-
 ```bash
 $ ninja -C build qemu-server    # boots up a qemu server open for GDB connections
 $ gdb -x .gdbinit build/kernel/kernel.sym
+```
+
+You can also run unit-tests on our libraries:
+```bash
+$ meson test -C build --print-errorlogs
 ```
 
 ## What's available ?
@@ -54,7 +58,7 @@ $ gdb -x .gdbinit build/kernel/kernel.sym
 - Memory management
     - [X] Paging
     - [X] PMM (physical)
-    - [ ] VMM (virtual)
+    - [X] VMM (virtual)
 - [ ] Scheduler
 - [ ] Filesystem
 - [ ] Syscalls
