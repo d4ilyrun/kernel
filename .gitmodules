@@ -1,3 +1,6 @@
 [submodule "lib/libtest/criterion"]
 	path = lib/libtest/criterion
 	url = git@github.com:Snaipe/Criterion.git
+[submodule "docs/doxygen/doxygen-awesome-css"]
+	path = docs/doxygen/doxygen-awesome-css
+	url = https://github.com/jothepro/doxygen-awesome-css.git
