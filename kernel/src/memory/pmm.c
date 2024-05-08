@@ -144,47 +144,6 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
     return true;
 }
 
-// TODO: This handler should go inside the VMM's code once implemented.
-//       We only defined it here for now for learning/debugging purposes
-//       after activating paging.
-
-/// Structure of the page fault's error code
-/// @link https://wiki.osdev.org/Exceptions#Page_Fault
-typedef struct PACKED {
-    u8 present : 1;
-    u8 write : 1;
-    u8 user : 1;
-    u8 reserved_write : 1;
-    u8 fetch : 1;
-    u8 protection_key : 1;
-    u8 ss : 1;
-    u16 _unused1 : 8;
-    u8 sgx : 1;
-    u16 _unused2 : 15;
-} page_fault_error;
-
-static DEFINE_INTERRUPT_HANDLER(page_fault)
-{
-    log_warn("interrupt", "Interrupt recieved: Page fault");
-    page_fault_error error = *(page_fault_error *)&frame.error;
-
-    log_dbg("[PF] source", "%s access on a %s page %s",
-            error.write ? "write" : "read",
-            error.present ? "protected" : "non-present",
-            error.user ? "while in user-mode" : "");
-
-    // The CR2 register holds the virtual address which caused the Page Fault
-    vaddr_t faulty_address = read_cr2();
-
-    log_dbg("[PF] error", LOG_FMT_32, frame.error);
-    log_dbg("[PF] address", LOG_FMT_32, faulty_address);
-
-    PANIC("PAGE FAULT at " LOG_FMT_32 ": %s access on a %s page %s",
-          faulty_address, error.write ? "write" : "read",
-          error.present ? "protected" : "non-present",
-          error.user ? "while in user-mode" : "");
-}
-
 bool pmm_init(struct multiboot_info *mbt)
 {
     log_info("PMM", "Initializing pageframe allocator");
@@ -192,8 +151,6 @@ bool pmm_init(struct multiboot_info *mbt)
     if (!pmm_initialize_bitmap(mbt)) {
         return false;
     }
-
-    interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault));
 
     return true;
 }

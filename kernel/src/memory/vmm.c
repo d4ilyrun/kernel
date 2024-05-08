@@ -1,3 +1,4 @@
+#include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
@@ -14,6 +15,8 @@
 #define VMA_SIZE (64)
 static_assert(sizeof(vma_t) <= VMA_SIZE,
               "Update the allocated size for VMA structures!");
+
+static DEFINE_INTERRUPT_HANDLER(page_fault);
 
 /**
  * @struct vmm
@@ -166,6 +169,11 @@ bool vmm_init(vaddr_t start, vaddr_t end)
 
     kernel_vmm.vmas.by_size = &first_area->avl.by_size;
     kernel_vmm.vmas.by_address = &first_area->avl.by_address;
+
+    // TODO: Refactor such calls (hooks, initcalls, there are better ways to do)
+    //       Even more so for this one since we'll be updating the interrupt
+    //       handler each time we create a new process!
+    interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault));
 
     return true;
 }
@@ -377,4 +385,47 @@ const vma_t *vmm_find(vaddr_t addr)
         return NULL;
 
     return container_of(vma, vma_t, avl.by_address);
+}
+
+/// Structure of the page fault's error code
+/// @link https://wiki.osdev.org/Exceptions#Page_Fault
+typedef struct PACKED {
+    u8 present : 1;
+    u8 write : 1;
+    u8 user : 1;
+    u8 reserved_write : 1;
+    u8 fetch : 1;
+    u8 protection_key : 1;
+    u8 ss : 1;
+    u16 _unused1 : 8;
+    u8 sgx : 1;
+    u16 _unused2 : 15;
+} page_fault_error;
+
+/**
+ * @brief Interrupt handler for page faults (#PF)
+ * @ingroup vmm_internals
+ *
+ * @todo lazy allocation (allocate pageframe if PF and allocated by VMM)
+ */
+static DEFINE_INTERRUPT_HANDLER(page_fault)
+{
+    log_warn("interrupt", "Interrupt recieved: Page fault");
+    page_fault_error error = *(page_fault_error *)&frame.error;
+
+    log_dbg("[PF] source", "%s access on a %s page %s",
+            error.write ? "write" : "read",
+            error.present ? "protected" : "non-present",
+            error.user ? "while in user-mode" : "");
+
+    // The CR2 register holds the virtual address which caused the Page Fault
+    vaddr_t faulty_address = read_cr2();
+
+    log_dbg("[PF] error", LOG_FMT_32, frame.error);
+    log_dbg("[PF] address", LOG_FMT_32, faulty_address);
+
+    PANIC("PAGE FAULT at " LOG_FMT_32 ": %s access on a %s page %s",
+          faulty_address, error.write ? "write" : "read",
+          error.present ? "protected" : "non-present",
+          error.user ? "while in user-mode" : "");
 }
