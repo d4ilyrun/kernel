@@ -59,6 +59,8 @@
                 bear
                 shellcheck
                 qemu
+                doxygen
+                graphviz
               ] ++ native_build_required;
 
               buildInputs = [ pkgs.pkgsi686Linux.glibc ];
