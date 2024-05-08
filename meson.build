@@ -1,8 +1,8 @@
 project('kernel', ['c'],
   default_options : [
     'warning_level=3',
-    'c_std=c11',
-    'c_args=-ffreestanding',
+    'c_std=gnu11',
+    'c_args=-ffreestanding -Wno-pedantic -Wformat',
     'c_link_args=-nostdlib -lgcc',
     'default_library=static',
     'werror=true',
@@ -47,7 +47,9 @@ if get_option('buildtype') == 'debug'
   add_project_link_arguments('-g3', language : 'c')
 endif
 
+subdir('lib/libtest')
 subdir('lib/libc')
+subdir('lib/libalgo')
 subdir('kernel')
 
 iso = custom_target('iso',
@@ -60,21 +62,24 @@ alias_target('iso', iso)
 
 ### Run targets: run the kernel using qemu
 
-qemu = find_program('qemu-system-i386')
-
-run_target('qemu',
-  command: [qemu, '-cdrom', iso, '-serial', 'stdio']
-)
+qemu = find_program('qemu-system-i386', required: false)
+if qemu.found()
+  run_target('qemu',
+    command: [qemu, '-cdrom', iso, '-serial', 'stdio']
+  )
+endif
 
 if get_option('buildtype') == 'debug'
 
-gdb = find_program('gdb')
+gdb = find_program('gdb', required: false)
 
 # We need to use a custom target to be able to daemonize appropriately
-custom_target('qemu-server',
-  input: [],
-  output: ['qemu-server'],
-  command: [qemu, '-cdrom', iso, '-daemonize', '-s', '-S'],
-)
+if qemu.found()
+  custom_target('qemu-server',
+    input: [],
+    output: ['qemu-server'],
+    command: [qemu, '-cdrom', iso, '-daemonize', '-s', '-S'],
+  )
+endif
 
 endif

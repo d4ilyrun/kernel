@@ -16,6 +16,15 @@ typedef int64_t s64;
 typedef float f32;  //< 32b floating point value
 typedef double f64; //< 64b floating point value
 
-typedef int32_t ssize_t;
+typedef long int ssize_t;
+
+#if ARCH == i686
+/// Architecture independent type for physical addresses
+typedef u32 paddr_t;
+/// Architecture independent type for virtual addresses
+typedef u32 vaddr_t;
+#else
+#error Unsuported architecture
+#endif
 
 #endif /* UTILS_TYPES_H */

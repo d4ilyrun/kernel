@@ -10,6 +10,7 @@ kernel_source_files = files([
   'src/debug/logger.c',
   'src/debug/symbols.c',
   'src/memory/pmm.c',
+  'src/memory/vmm.c',
 ])
 
 arch_source_files = {
@@ -54,7 +55,7 @@ kernel = executable(
   c_args: kernel_compile_flags,
   link_depends: [kernel_linker_script],
   link_args: [kernel_linker_flags],
-  dependencies: libc_dep,
+  dependencies: [libc_dep, libalgo_dep],
 )
 
 alias_target('kernel', kernel)

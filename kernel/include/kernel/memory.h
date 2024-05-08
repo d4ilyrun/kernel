@@ -66,4 +66,29 @@ extern u32 _kernel_code_end;
 
 #endif /* __ASSEMBLER__ */
 
+//         Virtual Address Space Layout
+//
+// 0xFFFF_FFFF --------------------
+//             |                  |
+//             |  Kernel Memory   |
+//             |                  |
+// 0xC000_0000 |------------------|
+//             |                  |
+//             |                  |
+//             |       ...        |
+//             |                  |
+//             |                  |
+// 0x0110_0000 |------------------|
+//             |  VMM Reserved    |
+// 0x0100_0000 |------------------|
+//             |     Reserved     |
+// 0x0000_0000 |------------------|
+
+/// 1MiB Virtual memory range reserved for allocating VMA structures.
+/// We place this area first thing first thing after our bootstrap code.
+/// See vmm.h for more information
+#define VMM_RESERVED_SIZE 0x100000
+#define VMM_RESERVED_START KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_START)
+#define VMM_RESERVED_END (VMM_RESERVED_START + VMM_RESERVED_SIZE)
+
 #endif /* KERNEL_MEMORY_H */

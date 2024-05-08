@@ -3,9 +3,11 @@
 #include <kernel/logger.h>
 #include <kernel/pmm.h>
 
-#include <utils/align.h>
+#include <libalgo/bitmap.h>
+#include <utils/bits.h>
 #include <utils/compiler.h>
 #include <utils/macro.h>
+#include <utils/math.h>
 #include <utils/types.h>
 
 #include <assert.h>
@@ -27,14 +29,23 @@
 ///
 /// @info The bitmap's size is hardcoded to be able to fit each and every
 /// pageframes (even though only part of them will be available at runtime).
-static u32 g_pmm_free_bitmap[TOTAL_PAGEFRAMES_COUNT / (8 * sizeof(u32))];
+static BITMAP(g_pmm_free_bitmap, TOTAL_PAGEFRAMES_COUNT);
+
+// FIXME: There might be a confusion between vaddr/paddr here
+//        Why would our pmm refer to the kernel's vitrual addresses
+//        to determine its range?
 
 typedef struct {
-    u32 first_available; // Address of the first available pageframe
-    u32 start;
-    u32 end;
+    paddr_t first_available; // Address of the first available pageframe
+    vaddr_t start;
+    vaddr_t end;
     bool initialized;
 } pmm_frame_allocator;
+
+// TODO: Determine a more realistic memory layout here.
+//       (Why would we differentiate between user/kernel pageframes?
+//       To avoid running out of pageframes for the kernel? meh ... would not be
+//       a good design)
 
 static pmm_frame_allocator g_pmm_user_allocator = {
     .start = 0,
@@ -54,22 +65,18 @@ static pmm_frame_allocator g_pmm_kernel_allocator = {
 #define PMM_AVAILABLE (1)
 #define PMM_UNAVAILABLE (0)
 
-#define BITMAP_INDEX(address) ((address / PAGE_SIZE) / 32)
+#define BITMAP_INDEX(address) (address / PAGE_SIZE)
 
 /// Mark a pageframe as PMM_AVAILABLE or PMM_UNAVAILABLE
-static inline void pmm_bitmap_set(u32 page, u8 availability)
+static inline void pmm_bitmap_set(paddr_t pf, u8 availability)
 {
-    u32 value = g_pmm_free_bitmap[BITMAP_INDEX(page)];
-    if (availability == PMM_AVAILABLE)
-        g_pmm_free_bitmap[BITMAP_INDEX(page)] = BIT_SET(value, page % 32);
-    else
-        g_pmm_free_bitmap[BITMAP_INDEX(page)] = BIT_MASK(value, page % 32);
+    bitmap_assign(g_pmm_free_bitmap, BITMAP_INDEX(pf), availability);
 }
 
 /// @return a pageframe's state according to the allocator's bitmap
-static inline int pmm_bitmap_read(u32 page)
+static inline int pmm_bitmap_read(paddr_t pageframe)
 {
-    return BIT_READ(g_pmm_free_bitmap[BITMAP_INDEX(page)], page % 32);
+    return bitmap_read(g_pmm_free_bitmap, BITMAP_INDEX(pageframe));
 }
 
 static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
@@ -102,7 +109,7 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
         // If the RAM range is marked as available, we can use the pages it
         // contains for memory allocation.
         if (ram->type == MULTIBOOT_MEMORY_AVAILABLE) {
-            for (u32 addr = ram->addr; addr < ram->addr + ram->len;
+            for (paddr_t addr = ram->addr; addr < ram->addr + ram->len;
                  addr += PAGE_SIZE) {
 
                 // We still need to check whether the pages are located inside
@@ -137,47 +144,6 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
     return true;
 }
 
-// TODO: This handler should go inside the VMM's code once implemented.
-//       We only defined it here for now for learning/debugging purposes
-//       after activating paging.
-
-/// Structure of the page fault's error code
-/// @link https://wiki.osdev.org/Exceptions#Page_Fault
-typedef struct PACKED {
-    u8 present : 1;
-    u8 write : 1;
-    u8 user : 1;
-    u8 reserved_write : 1;
-    u8 fetch : 1;
-    u8 protection_key : 1;
-    u8 ss : 1;
-    u16 _unused1 : 8;
-    u8 sgx : 1;
-    u16 _unused2 : 15;
-} page_fault_error;
-
-static DEFINE_INTERRUPT_HANDLER(page_fault)
-{
-    log_warn("interrupt", "Interrupt recieved: Page fault");
-    page_fault_error error = *(page_fault_error *)&frame.error;
-
-    log_dbg("[PF] source", "%s access on a %s page %s",
-            error.write ? "write" : "read",
-            error.present ? "protected" : "non-present",
-            error.user ? "while in user-mode" : "");
-
-    // The CR2 register holds the virtual address which caused the Page Fault
-    u32 faulty_address = read_cr2();
-
-    log_dbg("[PF] error", LOG_FMT_32, frame.error);
-    log_dbg("[PF] address", LOG_FMT_32, faulty_address);
-
-    PANIC("PAGE FAULT at " LOG_FMT_32 ": %s access on a %s page %s",
-          faulty_address, error.write ? "write" : "read",
-          error.present ? "protected" : "non-present",
-          error.user ? "while in user-mode" : "");
-}
-
 bool pmm_init(struct multiboot_info *mbt)
 {
     log_info("PMM", "Initializing pageframe allocator");
@@ -186,12 +152,10 @@ bool pmm_init(struct multiboot_info *mbt)
         return false;
     }
 
-    interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault));
-
     return true;
 }
 
-u32 pmm_allocate(int flags)
+paddr_t pmm_allocate(int flags)
 {
     pmm_frame_allocator *allocator = BIT_READ(flags, PMM_MAP_KERNEL_BIT)
                                        ? &g_pmm_kernel_allocator
@@ -217,7 +181,7 @@ u32 pmm_allocate(int flags)
     return (u32)address;
 }
 
-void pmm_free(u32 pageframe)
+void pmm_free(paddr_t pageframe)
 {
     if (IN_RANGE(KERNEL_HIGHER_HALF_VIRTUAL(pageframe), KERNEL_CODE_END,
                  KERNEL_CODE_START)) {

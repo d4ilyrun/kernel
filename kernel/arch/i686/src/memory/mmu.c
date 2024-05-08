@@ -4,8 +4,8 @@
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
 
+#include <utils/bits.h>
 #include <utils/compiler.h>
-#include <utils/macro.h>
 #include <utils/types.h>
 
 #include <stdbool.h>
@@ -90,7 +90,7 @@ bool mmu_start_paging(void)
     // According to 4.3, to activate 32-bit mode paging we must:
     // 1. set CR4.PAE to 0 (de-activate PAE)
     u32 cr4 = read_cr4();
-    write_cr4(BIT_MASK(cr4, 5)); // PAE = bit 6
+    write_cr4(BIT_CLEAR(cr4, 5)); // PAE = bit 6
 
     // 2. set CR0.PG to 1  (activate paging)
     u32 cr0 = read_cr0();
@@ -106,7 +106,7 @@ bool mmu_start_paging(void)
 /// example:
 ///     mmu_offset_map(0x0000, 0x00FF, 0xFF) will remap the physical range
 ///     [0x0000; 0x00FF] to the virtual range [0xFF00; 0xFFFF]
-static void mmu_offset_map(uint32_t start, uint32_t end, int64_t offset);
+static void mmu_offset_map(paddr_t start, paddr_t end, int64_t offset);
 
 bool mmu_init(void)
 {
@@ -139,7 +139,7 @@ bool mmu_init(void)
     return true;
 }
 
-bool mmu_map(u32 virtual, u32 pageframe)
+bool mmu_map(vaddr_t virtual, vaddr_t pageframe)
 {
     u16 pde_index = virtual >> 22;                     // bits 31-22
     u16 pte_index = (virtual >> 12) & ((1 << 10) - 1); // bits 21-12
@@ -189,7 +189,7 @@ bool mmu_map(u32 virtual, u32 pageframe)
     return true;
 }
 
-void mmu_unmap(u32 virtual)
+paddr_t mmu_unmap(vaddr_t virtual)
 {
     u16 pde_index = virtual >> 22;                     // bits 31-22
     u16 pte_index = (virtual >> 12) & ((1 << 10) - 1); // bits 21-12
@@ -198,24 +198,27 @@ void mmu_unmap(u32 virtual)
     //       c.f. todo inside mmu_map
 
     if (!kernel_page_directory[pde_index].present)
-        return;
+        return 0;
 
     // Erase the content of the page table entry
     mmu_pte_entry *page_table =
         (mmu_pte_entry *)MMU_RECURSIVE_PAGE_TABLE_ADDRESS(pde_index);
+    paddr_t physical = page_table->page_frame << 12;
     *((volatile u32 *)&page_table[pte_index]) = 0x0;
 
     mmu_flush_tlb(virtual);
+
+    return physical;
 }
 
-static void mmu_offset_map(uint32_t start, uint32_t end, int64_t offset)
+static void mmu_offset_map(paddr_t start, paddr_t end, int64_t offset)
 {
     for (; start < end; start += PAGE_SIZE) {
         mmu_map(start + offset, start);
     }
 }
 
-void mmu_identity_map(uint32_t start, uint32_t end)
+void mmu_identity_map(paddr_t start, paddr_t end)
 {
     mmu_offset_map(start, end, 0);
 }

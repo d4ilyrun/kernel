@@ -1,4 +1,4 @@
-name: Build
+name: Testing
 
 on:
   pull_request:
@@ -8,8 +8,8 @@ on:
 
 jobs:
 
-  build-kernel:
-    name: Kernel
+  tests:
+    name: Run tests
     runs-on: ubuntu-latest
 
     steps:
@@ -26,10 +26,6 @@ jobs:
         extra_nix_config: |
           access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
-    - name: Build Kernel
+    - name: Test
       run: |
-        nix develop --command ninja -C build kernel
-
-    - name: Build ISO
-      run: |
-        nix develop --command ninja -C build iso
+        nix develop .#test --command meson test -C build --print-errorlogs

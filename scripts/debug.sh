@@ -33,6 +33,7 @@ gdb --symbol ./build/kernel/kernel.sym \
     -iex "set pagination of" \
     -iex "target remote localhost:1234" \
     "${BREAKPOINTS[@]}" \
+    -x "${GITROOT}/.gdbinit" \
     -ex "continue"
 
 echo "[INFO] Terminating debugging session"
