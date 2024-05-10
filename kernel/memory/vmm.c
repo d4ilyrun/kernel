@@ -230,6 +230,30 @@ static int vma_search_free_by_address(const avl_t *addr_avl,
     return (addr->start <= area->start) ? -1 : 1;
 }
 
+/**
+ * Look for a free area of at least the given size and located after the
+ * given address
+ *
+ * This is used when specifying a starting address to vmm_allocate
+ */
+static int vma_search_free_by_address_and_size(const avl_t *addr_avl,
+                                               const avl_t *area_avl)
+{
+    const vma_t *addr = container_of(addr_avl, vma_t, avl.by_address);
+    const vma_t *area = container_of(area_avl, vma_t, avl.by_address);
+
+    if (area->start >= addr->start ||
+        IN_RANGE(addr->start, area->start, vma_end(area) - 1)) {
+        if (vma_end(area) >= MAX(area->start, addr->start) + addr->size)
+            return 0;
+        // We know all addresses higher than this one are valid,
+        // we could do a best fit tho
+        return 1;
+    }
+
+    return (addr->start <= area->start) ? -1 : 1;
+}
+
 /* Check if both areas are of the same size */
 static int vma_compare_size(const avl_t *left_avl, const avl_t *right_avl)
 {
@@ -274,51 +298,98 @@ static int vma_compare_address_inside_size(const avl_t *left_avl,
     return (left->size <= right->size) ? -1 : 1;
 }
 
-vaddr_t vmm_allocate(size_t size, int flags)
+void vmm_split_vma(vmm_t *vmm, vma_t *original, vma_t *requested)
+{
+    if (requested->start > original->start) {
+        /* We need to insert a new vma between the start of the original
+         * area, and the start of the returned one.
+         * This is the case when we found a suitable free area, right in the
+         * middle of a bigger one, when specifying an explicit minimum virtual
+         * address
+         */
+        vma_t *prepend = (vma_t *)vma_reserved_allocate(vmm);
+        *prepend = (vma_t){
+            .start = original->start,
+            .size = requested->start - original->start,
+            .allocated = false,
+            .flags = MAP_NONE,
+        };
+
+        log_info("VMM",
+                 "Prepending area: start=" LOG_FMT_32 ", size=" LOG_FMT_32,
+                 prepend->start, prepend->size);
+
+        avl_insert(&vmm->vmas.by_size, &prepend->avl.by_size, vma_compare_size);
+        avl_insert(&vmm->vmas.by_address, &prepend->avl.by_address,
+                   vma_compare_address);
+    }
+
+    vaddr_t new_start =
+        MAX(original->start, requested->start) + requested->size;
+    original->size -= (new_start - original->start);
+    original->start = new_start;
+    // cannot insert an old node in a tree, so reset it before doing so
+    original->avl.by_address = AVL_EMPTY_NODE;
+    original->avl.by_size = AVL_EMPTY_NODE;
+
+    log_info("VMM", "Appending area: start=" LOG_FMT_32 ", size=" LOG_FMT_32,
+             original->start, original->size);
+
+    avl_insert(&vmm->vmas.by_size, &original->avl.by_size, vma_compare_size);
+    avl_insert(&vmm->vmas.by_address, &original->avl.by_address,
+               vma_compare_address);
+}
+
+vaddr_t vmm_allocate(vaddr_t addr, size_t size, int flags)
 {
     size = align_up(size, PAGE_SIZE);
+    if (addr != 0)
+        addr = align_up(addr, PAGE_SIZE);
 
-    vma_t requested = {.size = size};
-    const avl_t *area_avl =
-        avl_remove(&kernel_vmm.vmas.by_size, &requested.avl.by_size,
-                   vma_search_free_by_size);
+    vma_t requested = {.size = size, .start = addr};
+    const avl_t *area_avl;
+
+    if (addr != 0) {
+        area_avl =
+            avl_remove(&kernel_vmm.vmas.by_address, &requested.avl.by_address,
+                       vma_search_free_by_address_and_size);
+    } else {
+        area_avl = avl_remove(&kernel_vmm.vmas.by_size, &requested.avl.by_size,
+                              vma_search_free_by_size);
+    }
 
     if (area_avl == NULL) {
         log_err("VMM", "Failed to allocate");
         return VMM_INVALID;
     }
 
-    vma_t *old = container_of(area_avl, vma_t, avl.by_size);
+    vma_t *old;
     vma_t *allocated;
 
-    avl_remove(&kernel_vmm.vmas.by_address, &old->avl.by_address,
-               vma_compare_address);
+    if (addr != 0) {
+        old = container_of(area_avl, vma_t, avl.by_address);
+        avl_remove(&kernel_vmm.vmas.by_size, &old->avl.by_size,
+                   vma_compare_size);
+    } else {
+        old = container_of(area_avl, vma_t, avl.by_size);
+        avl_remove(&kernel_vmm.vmas.by_address, &old->avl.by_address,
+                   vma_compare_address);
+    }
 
     if (old->size == size) {
         allocated = old;
     } else {
-
         allocated = (vma_t *)vma_reserved_allocate(&kernel_vmm);
         *allocated = (vma_t){
-            .start = old->start,
+            .start = MAX(addr, old->start),
             .size = size,
             .allocated = true,
             .flags = flags,
         };
 
-        // There still is space remaining inside the original area,
-        // so we can reinsert it into the trees
-        old->start += size;
-        old->size -= size;
-
-        // cannot insert an old node in a tree, so reset it before doing so
-        old->avl.by_size = AVL_EMPTY_NODE;
-        old->avl.by_address = AVL_EMPTY_NODE;
-
-        avl_insert(&kernel_vmm.vmas.by_size, &old->avl.by_size,
-                   vma_compare_size);
-        avl_insert(&kernel_vmm.vmas.by_address, &old->avl.by_address,
-                   vma_compare_address);
+        // Reinsert into the trees the part of the original areas that were not
+        // included inside the allocation
+        vmm_split_vma(&kernel_vmm, old, &requested);
     }
 
     // Insert the allocated virtual address inside the AVL tree

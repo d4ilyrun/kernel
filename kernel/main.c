@@ -70,18 +70,26 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     log_info("MAIN", "PRINTF ? (%s, " LOG_FMT_32 ")",
              kernel_symbol_name(symbol), symbol->address);
 
-    vmm_init(KERNEL_CODE_START, align_down(ADDRESS_SPACE_END, PAGE_SIZE));
+    vmm_init(KERNEL_CODE_END, align_down(ADDRESS_SPACE_END, PAGE_SIZE));
 
     {
-        vaddr_t a = vmm_allocate(PAGE_SIZE, 0);
-        vaddr_t b = vmm_allocate(PAGE_SIZE * 2, 0);
-        vaddr_t c = vmm_allocate(PAGE_SIZE, 0);
-        vaddr_t d = vmm_allocate(PAGE_SIZE, 0);
+        vaddr_t a = vmm_allocate(0, PAGE_SIZE, 0);
+        vaddr_t b = vmm_allocate(0, PAGE_SIZE * 2, 0);
+        vaddr_t c = vmm_allocate(0, PAGE_SIZE, 0);
+        vaddr_t e = vmm_allocate(0xd0000000, PAGE_SIZE, 0);
+        vaddr_t d = vmm_allocate(0xa0000000, PAGE_SIZE * 5, 0);
+
+        log_variable(a);
+        log_variable(b);
+        log_variable(c);
+        log_variable(d);
+        log_variable(e);
 
         vmm_free(b);
         vmm_free(d);
         vmm_free(c); // Should be merged together with B and C
         vmm_free(a); // Should be merged into 1 big area (the whole range)
+        vmm_free(e);
     }
 
     while (1) {

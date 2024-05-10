@@ -128,13 +128,18 @@ bool vmm_init(vaddr_t start, vaddr_t end);
  * The minimum addressable size for the VMM is a page. The size of the allocated
  * area will automatically be rounded to the next page size.
  *
+ * You can specify a minimum virtual address to use for the area with the @c
+ * addr parameter. If not NULL the returned address is **guaranted** to be
+ * located at or after the specified one, else the kernel will chose one.
+ *
+ * @param addr Starting address for the allocated area.
  * @param size The size of the requested area
  * @param flags Feature flags used for the allocated area.
- *              Must be a combination of @link vmm_flags @endlink
+ *              Must be a combination of @link vmm_flag @endlink
  *
  * @return The virtual start address of the area, or VMM_INVALID
  */
-vaddr_t vmm_allocate(size_t size, int flags);
+vaddr_t vmm_allocate(vaddr_t addr, size_t size, int flags);
 
 /**
  * @brief Free a virtual address
