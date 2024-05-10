@@ -72,6 +72,14 @@ typedef struct vmm {
 // TODO: Don't use a static VMM ! (multiprocess)
 static vmm_t kernel_vmm;
 
+/** Compute the end address of a VMA.
+ * @ingroup vmm_internals
+ */
+static ALWAYS_INLINE vaddr_t vma_end(const vma_t *vma)
+{
+    return vma->start + vma->size;
+}
+
 /**
  * @brief Allocate memory for a single VMA from within the VMM's reserved area
  * @ingroup vmm_internals
@@ -175,6 +183,10 @@ bool vmm_init(vaddr_t start, vaddr_t end)
     //       handler each time we create a new process!
     interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault));
 
+    log_info("VMM",
+             "Initialized VMM { start=" LOG_FMT_32 ", end=" LOG_FMT_32 "}",
+             kernel_vmm.start, kernel_vmm.end);
+
     return true;
 }
 
@@ -206,7 +218,7 @@ static int vma_search_free_by_address(const avl_t *addr_avl,
     const vma_t *addr = container_of(addr_avl, vma_t, avl.by_address);
     const vma_t *area = container_of(area_avl, vma_t, avl.by_address);
 
-    if (IN_RANGE(addr->start, area->start, area->start + area->size - 1) &&
+    if (IN_RANGE(addr->start, area->start, vma_end(area) - 1) &&
         !area->allocated) {
         return 0;
     }
@@ -220,8 +232,10 @@ static int vma_compare_size(const avl_t *left_avl, const avl_t *right_avl)
     vma_t *left = container_of(left_avl, vma_t, avl.by_size);
     vma_t *right = container_of(right_avl, vma_t, avl.by_size);
 
-    if (left->size == right->size)
-        return 0;
+    if (left->size == right->size) {
+        // To be able to distinct in between areas of the same size
+        RETURN_CMP(left->start, right->start);
+    }
 
     return (left->size < right->size) ? -1 : 1;
 }
@@ -247,6 +261,11 @@ static int vma_compare_address_inside_size(const avl_t *left_avl,
 
     if (IN_RANGE(left->start, right->start, right->start + right->size - 1))
         return 0;
+
+    if (left->size == right->size) {
+        // To be able to distinct in between areas of the same size
+        RETURN_CMP(left->start, right->start);
+    }
 
     return (left->size <= right->size) ? -1 : 1;
 }

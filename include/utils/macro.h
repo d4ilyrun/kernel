@@ -30,4 +30,14 @@
 /** Compute the number of element inside an array at compile time */
 #define ARRAY_SIZE(_arr) (sizeof(_arr) / sizeof(_arr[0]))
 
+/** Retun the result of a comparison, similar to what's returned by strcmp */
+#define RETURN_CMP(_x, _y)                 \
+    do {                                   \
+        typeof((_x)) _tmp_x = (_x);        \
+        typeof((_y)) _tmp_y = (_y);        \
+        if (_tmp_x == _tmp_y)              \
+            return 0;                      \
+        return (_tmp_x < _tmp_y) ? -1 : 1; \
+    } while (0);
+
 #endif /* UTILS_MACRO_H */
