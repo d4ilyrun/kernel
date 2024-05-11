@@ -1,6 +1,7 @@
 #include <kernel/devices/timer.h>
 #include <kernel/devices/uart.h>
 #include <kernel/interrupts.h>
+#include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
@@ -53,6 +54,8 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     if (!mmu_init() || !mmu_start_paging())
         PANIC("Failed to initialize virtual address space");
 
+    vmm_init(KERNEL_CODE_END, align_down(ADDRESS_SPACE_END, PAGE_SIZE));
+
     ASM("int $0");
 
     u32 page = pmm_allocate(PMM_MAP_KERNEL);
@@ -69,8 +72,6 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
         kernel_symbol_from_address((u32)printf + 32);
     log_info("MAIN", "PRINTF ? (%s, " LOG_FMT_32 ")",
              kernel_symbol_name(symbol), symbol->address);
-
-    vmm_init(KERNEL_CODE_END, align_down(ADDRESS_SPACE_END, PAGE_SIZE));
 
     {
         u32 *a = mmap(0, PAGE_SIZE, 0, 0);
@@ -91,6 +92,33 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
         munmap(c, PAGE_SIZE);
         munmap(e, PAGE_SIZE);
         munmap(addresses, PAGE_SIZE * 5);
+    }
+
+    {
+        uint32_t *kmalloc_addresses =
+            kcalloc(4, sizeof(uint32_t), KMALLOC_DEFAULT);
+
+        UNUSED(kmalloc_addresses);
+
+        for (int i = 0; i < 4; ++i)
+            kmalloc_addresses[i] = (uint32_t)&kmalloc_addresses[i];
+
+        log_array("MAIN", kmalloc_addresses, 4);
+
+        kfree(kmalloc_addresses);
+
+        kfree(kmalloc(4 * PAGE_SIZE, KMALLOC_DEFAULT));
+
+        uint32_t **blocks = kcalloc(8, sizeof(uint32_t *), KMALLOC_DEFAULT);
+        for (int i = 0; i < 8; ++i) {
+            blocks[i] = kmalloc(64 * sizeof(uint32_t), KMALLOC_DEFAULT);
+            for (int j = 0; j < 64; ++j)
+                blocks[i][j] = i * j;
+        }
+
+        for (int i = 0; i < 8; ++i)
+            kfree(blocks[i]);
+        kfree(blocks);
     }
 
     while (1) {

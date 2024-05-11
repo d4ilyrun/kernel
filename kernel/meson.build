@@ -11,6 +11,7 @@ kernel_source_files = files([
   'misc/symbols.c',
   'memory/pmm.c',
   'memory/vmm.c',
+  'memory/kmalloc.c',
 ])
 
 arch_source_files = {
