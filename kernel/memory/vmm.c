@@ -38,6 +38,10 @@ static DEFINE_INTERRUPT_HANDLER(page_fault);
  *  *   Ordered by address to easily retrieve the area to which an address
  *      belongs.
  *  *   Ordered by size to retrieve the first fitting area when allocating
+ *
+ * @note The tree ordered by size does not keep track of used areas, since we
+ * never need to search for un-free area by size. This avoid modifying the
+ * trees more than we need to, since it can be costly.
  */
 typedef struct vmm {
 
@@ -318,8 +322,7 @@ vaddr_t vmm_allocate(size_t size, int flags)
     }
 
     // Insert the allocated virtual address inside the AVL tree
-    avl_insert(&kernel_vmm.vmas.by_size, &allocated->avl.by_size,
-               vma_compare_size);
+    // note: we do not keep track of the allocated areas inside by_size
     avl_insert(&kernel_vmm.vmas.by_address, &allocated->avl.by_address,
                vma_compare_address);
 
@@ -362,16 +365,11 @@ void vmm_free(vaddr_t addr)
     vma_t value = {.start = addr};
     avl_t *freed = avl_remove(&kernel_vmm.vmas.by_address,
                               &value.avl.by_address, vma_compare_address);
-    vma_t *area = container_of(freed, vma_t, avl.by_address);
 
-    // Remove the equivalent inside the by_size tree
-    value.size = area->size;
-    avl_remove(&kernel_vmm.vmas.by_size, &value.avl.by_size,
-               vma_compare_address_inside_size);
+    vma_t *area = container_of(freed, vma_t, avl.by_address);
+    area->allocated = false;
 
     // 2. Merge with surrounding areas if possible
-
-    area->allocated = false;
 
     // Avoid negative overflow of uselessly going through the AVL
     if (area->start > (kernel_vmm.start)) {
