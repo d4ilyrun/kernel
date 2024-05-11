@@ -1,7 +1,10 @@
 #ifndef UTILS_TYPES_H
 #define UTILS_TYPES_H
 
+#include <stdbool.h>
 #include <stdint.h>
+
+#define boolean(_x) (!!(_x))
 
 typedef uint8_t u8;
 typedef uint16_t u16;

@@ -118,7 +118,7 @@ static vaddr_t vma_reserved_allocate(vmm_t *vmm)
 
     if (!page_already_allocated) {
         paddr_t pageframe = pmm_allocate(PMM_MAP_KERNEL);
-        if (!mmu_map(addr, pageframe)) {
+        if (!mmu_map(addr, pageframe, PROT_WRITE | PROT_READ)) {
             log_err("VMM",
                     "Virtual address for VMA already in use: " LOG_FMT_32,
                     addr);

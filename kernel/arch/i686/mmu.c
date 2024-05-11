@@ -173,7 +173,8 @@ bool mmu_start_paging(void)
  *     mmu_offset_map(0x0000, 0x00FF, 0xFF) will remap the physical range
  *     [0x0000; 0x00FF] to the virtual range [0xFF00; 0xFFFF]
  */
-static void mmu_offset_map(paddr_t start, paddr_t end, int64_t offset);
+static void mmu_offset_map(paddr_t start, paddr_t end, int64_t offset,
+                           int prot);
 
 bool mmu_init(void)
 {
@@ -195,18 +196,18 @@ bool mmu_init(void)
     // in physical)
     mmu_offset_map(KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_START),
                    KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_END),
-                   KERNEL_HIGHER_HALF_OFFSET);
+                   KERNEL_HIGHER_HALF_OFFSET, PROT_EXEC | PROT_READ);
 
     // Identity map the first MB, since it contains hardcoded addresses we still
     // use (console buffer for example).
     //
     // TODO: Check for possible alternatives? (MMIO?, map only what we need?)
-    mmu_identity_map(0x0, 0x100000);
+    mmu_identity_map(0x0, 0x100000, PROT_READ | PROT_WRITE);
 
     return true;
 }
 
-bool mmu_map(vaddr_t virtual, vaddr_t pageframe)
+bool mmu_map(vaddr_t virtual, vaddr_t pageframe, int prot)
 {
     u16 pde_index = virtual >> 22;                     // bits 31-22
     u16 pte_index = (virtual >> 12) & ((1 << 10) - 1); // bits 21-12
@@ -247,8 +248,8 @@ bool mmu_map(vaddr_t virtual, vaddr_t pageframe)
     page_table[pte_index] = (mmu_pte_t){
         .present = 1,
         .page_frame = MMU_PAGE_ADDRESS(pageframe),
-        // TODO: hard-coded values
-        .writable = 1,
+        // cannot disable reading from x86 pages pages
+        .writable = boolean(prot & PROT_WRITE),
         .user = 0,
     };
 
@@ -277,14 +278,14 @@ paddr_t mmu_unmap(vaddr_t virtual)
     return physical;
 }
 
-static void mmu_offset_map(paddr_t start, paddr_t end, int64_t offset)
+static void mmu_offset_map(paddr_t start, paddr_t end, int64_t offset, int prot)
 {
     for (; start < end; start += PAGE_SIZE) {
-        mmu_map(start + offset, start);
+        mmu_map(start + offset, start, prot);
     }
 }
 
-void mmu_identity_map(paddr_t start, paddr_t end)
+void mmu_identity_map(paddr_t start, paddr_t end, int prot)
 {
-    mmu_offset_map(start, end, 0);
+    mmu_offset_map(start, end, 0, prot);
 }
