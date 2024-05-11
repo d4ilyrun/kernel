@@ -25,6 +25,17 @@
 /** All returned addresses are aligned on a 16B boundary */
 #define KMALLOC_ALIGNMENT (16)
 
+/**
+ * @brief Magic value to detect if a block is free
+ *
+ * To prevent corrupting the metadata by freeing the same block multiple times
+ * we write this number right after the linked list node when freeing a block.
+ * We then check for this arbitrary value before freeing it. If it's present
+ * this means we're freeing an already free block.
+ */
+#define KMALLOC_FREE_MAGIC (0x3402CECE)
+#define BLOCK_FREE_MAGIC(_block) ((uint32_t *)((_block) + sizeof(llist_node_t)))
+
 /** Head of the linked list of buckets */
 static llist_t kmalloc_buckets = ((void *)0);
 ;
@@ -66,6 +77,8 @@ static void *bucket_get_free_block(bucket_t *bucket)
 {
     void *block = llist_pop(&bucket->free);
     bucket->block_count += 1;
+    // remove KMALLOC_FREE_MAGIC
+    *BLOCK_FREE_MAGIC(block) = 0x0;
     return block;
 }
 
@@ -84,8 +97,10 @@ static struct bucket_meta *bucket_create(llist_t *buckets, size_t block_size)
     // Generate the intrusive freelist
     llist_node_t *node = (llist_node_t *)bucket->data;
     size_t nb_blocks = (bucket_size - sizeof(bucket_t)) / block_size;
-    for (size_t i = 0; i < nb_blocks - 1; ++i)
+    for (size_t i = 0; i < nb_blocks - 1; ++i) {
+        *BLOCK_FREE_MAGIC(node) = KMALLOC_FREE_MAGIC;
         node = node->next = (void *)node + block_size;
+    }
     bucket->free = (llist_t)bucket->data;
 
     llist_add(buckets, &bucket->this);
@@ -96,6 +111,11 @@ static struct bucket_meta *bucket_create(llist_t *buckets, size_t block_size)
 /** Free a block inside a bucket */
 static void bucket_free_block(bucket_t *bucket, void *block, llist_t *buckets)
 {
+    // Check if block is already free or not
+    uint32_t *const block_free_magic = BLOCK_FREE_MAGIC(block);
+    if (*block_free_magic == KMALLOC_FREE_MAGIC)
+        return; // block is already free
+
     // If all blocks are free, unmap the bucket to avoid hording memory
     if (bucket->block_count == 1) {
         llist_remove(buckets, &bucket->this);
@@ -104,6 +124,7 @@ static void bucket_free_block(bucket_t *bucket, void *block, llist_t *buckets)
         return;
     }
 
+    *block_free_magic = KMALLOC_FREE_MAGIC;
     llist_add(&bucket->free, block);
     bucket->block_count -= 1;
 }

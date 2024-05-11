@@ -95,10 +95,14 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     }
 
     {
+        uint32_t *invalid_free = kcalloc(4, sizeof(uint32_t), KMALLOC_DEFAULT);
         uint32_t *kmalloc_addresses =
             kcalloc(4, sizeof(uint32_t), KMALLOC_DEFAULT);
 
         UNUSED(kmalloc_addresses);
+
+        for (int i = 0; i < 4; ++i)
+            kfree(invalid_free); // test anti corruption free magic
 
         for (int i = 0; i < 4; ++i)
             kmalloc_addresses[i] = (uint32_t)&kmalloc_addresses[i];
