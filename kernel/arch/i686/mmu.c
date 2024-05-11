@@ -270,7 +270,7 @@ paddr_t mmu_unmap(vaddr_t virtual)
     // Erase the content of the page table entry
     mmu_pte_t *page_table =
         (mmu_pte_t *)MMU_RECURSIVE_PAGE_TABLE_ADDRESS(pde_index);
-    paddr_t physical = page_table->page_frame << 12;
+    paddr_t physical = page_table[pte_index].page_frame << 12;
     *((volatile u32 *)&page_table[pte_index]) = 0x0;
 
     mmu_flush_tlb(virtual);

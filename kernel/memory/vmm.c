@@ -1,3 +1,4 @@
+#include <kernel/error.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
@@ -188,7 +189,7 @@ bool vmm_init(vaddr_t start, vaddr_t end)
     interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault));
 
     log_info("VMM",
-             "Initialized VMM { start=" LOG_FMT_32 ", end=" LOG_FMT_32 "}",
+             "Initialized VMM { start=" LOG_FMT_32 ", end=" LOG_FMT_32 " }",
              kernel_vmm.start, kernel_vmm.end);
 
     return true;
@@ -312,12 +313,8 @@ void vmm_split_vma(vmm_t *vmm, vma_t *original, vma_t *requested)
             .start = original->start,
             .size = requested->start - original->start,
             .allocated = false,
-            .flags = MAP_NONE,
+            .flags = original->flags,
         };
-
-        log_info("VMM",
-                 "Prepending area: start=" LOG_FMT_32 ", size=" LOG_FMT_32,
-                 prepend->start, prepend->size);
 
         avl_insert(&vmm->vmas.by_size, &prepend->avl.by_size, vma_compare_size);
         avl_insert(&vmm->vmas.by_address, &prepend->avl.by_address,
@@ -332,9 +329,6 @@ void vmm_split_vma(vmm_t *vmm, vma_t *original, vma_t *requested)
     original->avl.by_address = AVL_EMPTY_NODE;
     original->avl.by_size = AVL_EMPTY_NODE;
 
-    log_info("VMM", "Appending area: start=" LOG_FMT_32 ", size=" LOG_FMT_32,
-             original->start, original->size);
-
     avl_insert(&vmm->vmas.by_size, &original->avl.by_size, vma_compare_size);
     avl_insert(&vmm->vmas.by_address, &original->avl.by_address,
                vma_compare_address);
@@ -342,6 +336,9 @@ void vmm_split_vma(vmm_t *vmm, vma_t *original, vma_t *requested)
 
 vaddr_t vmm_allocate(vaddr_t addr, size_t size, int flags)
 {
+    if (size == 0)
+        return 0x0;
+
     size = align_up(size, PAGE_SIZE);
     if (addr != 0)
         addr = align_up(addr, PAGE_SIZE);
@@ -427,10 +424,11 @@ static void vma_try_merge(vmm_t *vmm, vma_t *dst, vaddr_t src_start)
     }
 }
 
-void vmm_free(vaddr_t addr)
+void vmm_free(vaddr_t addr, size_t length)
 {
 
     addr = align_down(addr, PAGE_SIZE);
+    length = align_up(length, PAGE_SIZE);
 
     // 1. Remove the corresponding area
     vma_t value = {.start = addr};
@@ -440,16 +438,13 @@ void vmm_free(vaddr_t addr)
     vma_t *area = container_of(freed, vma_t, avl.by_address);
     area->allocated = false;
 
-    // 2. Merge with surrounding areas if possible
-
-    // Avoid negative overflow of uselessly going through the AVL
-    if (area->start > (kernel_vmm.start)) {
-        // any value in [-PAGE_SIZE; -1] would work
+    // Merge with the previous area (if free)
+    if (area->start == addr && area->start > kernel_vmm.start) {
         vma_try_merge(&kernel_vmm, area, area->start - PAGE_SIZE);
     }
 
-    // Same, avoid overflow
-    if (area->start < kernel_vmm.end - PAGE_SIZE) {
+    // Merge with the next area (if free)
+    if (addr + length == vma_end(area) && vma_end(area) < kernel_vmm.end) {
         vma_try_merge(&kernel_vmm, area, area->start + area->size);
     }
 
@@ -459,6 +454,12 @@ void vmm_free(vaddr_t addr)
     avl_insert(&kernel_vmm.vmas.by_address, &area->avl.by_address,
                vma_compare_address);
     avl_insert(&kernel_vmm.vmas.by_size, &area->avl.by_size, vma_compare_size);
+
+    // It is possible that the requested length spans over multiple areas
+    if (addr + length > vma_end(area) && vma_end(area) < kernel_vmm.end) {
+        length -= vma_end(area) - addr;
+        vmm_free(vma_end(area), length);
+    }
 }
 
 const vma_t *vmm_find(vaddr_t addr)
@@ -494,26 +495,61 @@ typedef struct PACKED {
  * @brief Interrupt handler for page faults (#PF)
  * @ingroup vmm_internals
  *
- * @todo lazy allocation (allocate pageframe if PF and allocated by VMM)
+ * What the handler does:
+ * * Lazy allocation of pageframes for allocated virtual addresses
+ * * Panic if address is effectively invalid
+ *
  */
 static DEFINE_INTERRUPT_HANDLER(page_fault)
 {
-    log_warn("interrupt", "Interrupt recieved: Page fault");
-    page_fault_error error = *(page_fault_error *)&frame.error;
-
-    log_dbg("[PF] source", "%s access on a %s page %s",
-            error.write ? "write" : "read",
-            error.present ? "protected" : "non-present",
-            error.user ? "while in user-mode" : "");
-
     // The CR2 register holds the virtual address which caused the Page Fault
     vaddr_t faulty_address = read_cr2();
+    const vma_t *address_area = vmm_find(faulty_address);
+    page_fault_error error = *(page_fault_error *)&frame.error;
 
-    log_dbg("[PF] error", LOG_FMT_32, frame.error);
-    log_dbg("[PF] address", LOG_FMT_32, faulty_address);
+    // Lazily allocate pageframes
+    if (!error.present && address_area != NULL && address_area->allocated) {
+        for (size_t off = 0; off < address_area->size; off += PAGE_SIZE) {
+            const paddr_t pageframe = pmm_allocate(PMM_MAP_KERNEL);
+            mmu_map(address_area->start + off, pageframe, address_area->flags);
+        }
+        return;
+    }
 
     PANIC("PAGE FAULT at " LOG_FMT_32 ": %s access on a %s page %s",
           faulty_address, error.write ? "write" : "read",
           error.present ? "protected" : "non-present",
           error.user ? "while in user-mode" : "");
+}
+
+/**
+ * @brief Implementation of the mmap syscall
+ * @ingroup vmm_internals
+ */
+void *mmap(void *addr, size_t length, int prot, int flags)
+{
+    // The actual pageframes are lazily allocated by the #PF handler
+    return (void *)vmm_allocate((vaddr_t)addr, length, prot | flags);
+}
+
+/**
+ * @brief Implementation of the munmap syscall
+ * @ingroup vmm_internals
+ */
+int munmap(void *addr, size_t length)
+{
+    if ((vaddr_t)addr % PAGE_SIZE)
+        return -E_INVAL;
+
+    // Mark virtual address as free
+    vmm_free((vaddr_t)addr, length);
+
+    // Remove mappings from the page tables
+    length = align_up(length, PAGE_SIZE);
+    for (size_t off = 0; off < length; off += PAGE_SIZE) {
+        paddr_t pageframe = mmu_unmap((vaddr_t)addr + off);
+        pmm_free(pageframe);
+    }
+
+    return E_NONE;
 }

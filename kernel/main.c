@@ -73,23 +73,24 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     vmm_init(KERNEL_CODE_END, align_down(ADDRESS_SPACE_END, PAGE_SIZE));
 
     {
-        vaddr_t a = vmm_allocate(0, PAGE_SIZE, 0);
-        vaddr_t b = vmm_allocate(0, PAGE_SIZE * 2, 0);
-        vaddr_t c = vmm_allocate(0, PAGE_SIZE, 0);
-        vaddr_t e = vmm_allocate(0xd0000000, PAGE_SIZE, 0);
-        vaddr_t d = vmm_allocate(0xa0000000, PAGE_SIZE * 5, 0);
+        u32 *a = mmap(0, PAGE_SIZE, 0, 0);
+        u32 *b = mmap(0, PAGE_SIZE * 2, 0, 0);
+        u32 *c = mmap(0, PAGE_SIZE, 0, 0);
+        u32 *e = mmap((void *)0xd0000000, PAGE_SIZE, 0, 0);
 
-        log_variable(a);
-        log_variable(b);
-        log_variable(c);
-        log_variable(d);
-        log_variable(e);
+        u32 *addresses =
+            mmap((void *)0xa0000000, PAGE_SIZE * 5, PROT_READ | PROT_WRITE, 0);
 
-        vmm_free(b);
-        vmm_free(d);
-        vmm_free(c); // Should be merged together with B and C
-        vmm_free(a); // Should be merged into 1 big area (the whole range)
-        vmm_free(e);
+        for (int i = 0; i < 4; ++i)
+            addresses[i] = (u32)&addresses[i];
+
+        log_array("MAIN", addresses, 4);
+
+        munmap(a, PAGE_SIZE);
+        munmap(b, PAGE_SIZE * 2);
+        munmap(c, PAGE_SIZE);
+        munmap(e, PAGE_SIZE);
+        munmap(addresses, PAGE_SIZE * 5);
     }
 
     while (1) {

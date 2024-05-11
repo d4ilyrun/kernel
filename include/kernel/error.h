@@ -22,5 +22,9 @@
  * @brief All the error types used in ths project
  */
 typedef enum error {
-    E_NONE, ///< No error
+    E_NONE,       ///< No error
+    E_INVAL = 22, ///< Invalid argument
 } error_t;
+
+/** Check if an integer can be interpreted as an error */
+#define IS_ERR(_x) ((_x) < 0)
