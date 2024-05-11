@@ -1,3 +1,4 @@
+#include <kernel/error.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
@@ -38,6 +39,10 @@ static DEFINE_INTERRUPT_HANDLER(page_fault);
  *  *   Ordered by address to easily retrieve the area to which an address
  *      belongs.
  *  *   Ordered by size to retrieve the first fitting area when allocating
+ *
+ * @note The tree ordered by size does not keep track of used areas, since we
+ * never need to search for un-free area by size. This avoid modifying the
+ * trees more than we need to, since it can be costly.
  */
 typedef struct vmm {
 
@@ -71,6 +76,14 @@ typedef struct vmm {
 
 // TODO: Don't use a static VMM ! (multiprocess)
 static vmm_t kernel_vmm;
+
+/** Compute the end address of a VMA.
+ * @ingroup vmm_internals
+ */
+static ALWAYS_INLINE vaddr_t vma_end(const vma_t *vma)
+{
+    return vma->start + vma->size;
+}
 
 /**
  * @brief Allocate memory for a single VMA from within the VMM's reserved area
@@ -106,7 +119,7 @@ static vaddr_t vma_reserved_allocate(vmm_t *vmm)
 
     if (!page_already_allocated) {
         paddr_t pageframe = pmm_allocate(PMM_MAP_KERNEL);
-        if (!mmu_map(addr, pageframe)) {
+        if (!mmu_map(addr, pageframe, PROT_WRITE | PROT_READ)) {
             log_err("VMM",
                     "Virtual address for VMA already in use: " LOG_FMT_32,
                     addr);
@@ -175,6 +188,10 @@ bool vmm_init(vaddr_t start, vaddr_t end)
     //       handler each time we create a new process!
     interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault));
 
+    log_info("VMM",
+             "Initialized VMM { start=" LOG_FMT_32 ", end=" LOG_FMT_32 " }",
+             kernel_vmm.start, kernel_vmm.end);
+
     return true;
 }
 
@@ -206,9 +223,33 @@ static int vma_search_free_by_address(const avl_t *addr_avl,
     const vma_t *addr = container_of(addr_avl, vma_t, avl.by_address);
     const vma_t *area = container_of(area_avl, vma_t, avl.by_address);
 
-    if (IN_RANGE(addr->start, area->start, area->start + area->size - 1) &&
+    if (IN_RANGE(addr->start, area->start, vma_end(area) - 1) &&
         !area->allocated) {
         return 0;
+    }
+
+    return (addr->start <= area->start) ? -1 : 1;
+}
+
+/**
+ * Look for a free area of at least the given size and located after the
+ * given address
+ *
+ * This is used when specifying a starting address to vmm_allocate
+ */
+static int vma_search_free_by_address_and_size(const avl_t *addr_avl,
+                                               const avl_t *area_avl)
+{
+    const vma_t *addr = container_of(addr_avl, vma_t, avl.by_address);
+    const vma_t *area = container_of(area_avl, vma_t, avl.by_address);
+
+    if (area->start >= addr->start ||
+        IN_RANGE(addr->start, area->start, vma_end(area) - 1)) {
+        if (vma_end(area) >= MAX(area->start, addr->start) + addr->size)
+            return 0;
+        // We know all addresses higher than this one are valid,
+        // we could do a best fit tho
+        return 1;
     }
 
     return (addr->start <= area->start) ? -1 : 1;
@@ -220,8 +261,10 @@ static int vma_compare_size(const avl_t *left_avl, const avl_t *right_avl)
     vma_t *left = container_of(left_avl, vma_t, avl.by_size);
     vma_t *right = container_of(right_avl, vma_t, avl.by_size);
 
-    if (left->size == right->size)
-        return 0;
+    if (left->size == right->size) {
+        // To be able to distinct in between areas of the same size
+        RETURN_CMP(left->start, right->start);
+    }
 
     return (left->size < right->size) ? -1 : 1;
 }
@@ -248,59 +291,106 @@ static int vma_compare_address_inside_size(const avl_t *left_avl,
     if (IN_RANGE(left->start, right->start, right->start + right->size - 1))
         return 0;
 
+    if (left->size == right->size) {
+        // To be able to distinct in between areas of the same size
+        RETURN_CMP(left->start, right->start);
+    }
+
     return (left->size <= right->size) ? -1 : 1;
 }
 
-vaddr_t vmm_allocate(size_t size, int flags)
+void vmm_split_vma(vmm_t *vmm, vma_t *original, vma_t *requested)
 {
-    size = align_up(size, PAGE_SIZE);
+    if (requested->start > original->start) {
+        /* We need to insert a new vma between the start of the original
+         * area, and the start of the returned one.
+         * This is the case when we found a suitable free area, right in the
+         * middle of a bigger one, when specifying an explicit minimum virtual
+         * address
+         */
+        vma_t *prepend = (vma_t *)vma_reserved_allocate(vmm);
+        *prepend = (vma_t){
+            .start = original->start,
+            .size = requested->start - original->start,
+            .allocated = false,
+            .flags = original->flags,
+        };
 
-    vma_t requested = {.size = size};
-    const avl_t *area_avl =
-        avl_remove(&kernel_vmm.vmas.by_size, &requested.avl.by_size,
-                   vma_search_free_by_size);
+        avl_insert(&vmm->vmas.by_size, &prepend->avl.by_size, vma_compare_size);
+        avl_insert(&vmm->vmas.by_address, &prepend->avl.by_address,
+                   vma_compare_address);
+    }
+
+    vaddr_t new_start =
+        MAX(original->start, requested->start) + requested->size;
+    original->size -= (new_start - original->start);
+    original->start = new_start;
+    // cannot insert an old node in a tree, so reset it before doing so
+    original->avl.by_address = AVL_EMPTY_NODE;
+    original->avl.by_size = AVL_EMPTY_NODE;
+
+    avl_insert(&vmm->vmas.by_size, &original->avl.by_size, vma_compare_size);
+    avl_insert(&vmm->vmas.by_address, &original->avl.by_address,
+               vma_compare_address);
+}
+
+vaddr_t vmm_allocate(vaddr_t addr, size_t size, int flags)
+{
+    if (size == 0)
+        return 0x0;
+
+    size = align_up(size, PAGE_SIZE);
+    if (addr != 0)
+        addr = align_up(addr, PAGE_SIZE);
+
+    vma_t requested = {.size = size, .start = addr};
+    const avl_t *area_avl;
+
+    if (addr != 0) {
+        area_avl =
+            avl_remove(&kernel_vmm.vmas.by_address, &requested.avl.by_address,
+                       vma_search_free_by_address_and_size);
+    } else {
+        area_avl = avl_remove(&kernel_vmm.vmas.by_size, &requested.avl.by_size,
+                              vma_search_free_by_size);
+    }
 
     if (area_avl == NULL) {
         log_err("VMM", "Failed to allocate");
         return VMM_INVALID;
     }
 
-    vma_t *old = container_of(area_avl, vma_t, avl.by_size);
+    vma_t *old;
     vma_t *allocated;
 
-    avl_remove(&kernel_vmm.vmas.by_address, &old->avl.by_address,
-               vma_compare_address);
+    if (addr != 0) {
+        old = container_of(area_avl, vma_t, avl.by_address);
+        avl_remove(&kernel_vmm.vmas.by_size, &old->avl.by_size,
+                   vma_compare_size);
+    } else {
+        old = container_of(area_avl, vma_t, avl.by_size);
+        avl_remove(&kernel_vmm.vmas.by_address, &old->avl.by_address,
+                   vma_compare_address);
+    }
 
     if (old->size == size) {
         allocated = old;
     } else {
-
         allocated = (vma_t *)vma_reserved_allocate(&kernel_vmm);
         *allocated = (vma_t){
-            .start = old->start,
+            .start = MAX(addr, old->start),
             .size = size,
             .allocated = true,
             .flags = flags,
         };
 
-        // There still is space remaining inside the original area,
-        // so we can reinsert it into the trees
-        old->start += size;
-        old->size -= size;
-
-        // cannot insert an old node in a tree, so reset it before doing so
-        old->avl.by_size = AVL_EMPTY_NODE;
-        old->avl.by_address = AVL_EMPTY_NODE;
-
-        avl_insert(&kernel_vmm.vmas.by_size, &old->avl.by_size,
-                   vma_compare_size);
-        avl_insert(&kernel_vmm.vmas.by_address, &old->avl.by_address,
-                   vma_compare_address);
+        // Reinsert into the trees the part of the original areas that were not
+        // included inside the allocation
+        vmm_split_vma(&kernel_vmm, old, &requested);
     }
 
     // Insert the allocated virtual address inside the AVL tree
-    avl_insert(&kernel_vmm.vmas.by_size, &allocated->avl.by_size,
-               vma_compare_size);
+    // note: we do not keep track of the allocated areas inside by_size
     avl_insert(&kernel_vmm.vmas.by_address, &allocated->avl.by_address,
                vma_compare_address);
 
@@ -334,34 +424,27 @@ static void vma_try_merge(vmm_t *vmm, vma_t *dst, vaddr_t src_start)
     }
 }
 
-void vmm_free(vaddr_t addr)
+void vmm_free(vaddr_t addr, size_t length)
 {
 
     addr = align_down(addr, PAGE_SIZE);
+    length = align_up(length, PAGE_SIZE);
 
     // 1. Remove the corresponding area
     vma_t value = {.start = addr};
     avl_t *freed = avl_remove(&kernel_vmm.vmas.by_address,
                               &value.avl.by_address, vma_compare_address);
+
     vma_t *area = container_of(freed, vma_t, avl.by_address);
-
-    // Remove the equivalent inside the by_size tree
-    value.size = area->size;
-    avl_remove(&kernel_vmm.vmas.by_size, &value.avl.by_size,
-               vma_compare_address_inside_size);
-
-    // 2. Merge with surrounding areas if possible
-
     area->allocated = false;
 
-    // Avoid negative overflow of uselessly going through the AVL
-    if (area->start > (kernel_vmm.start)) {
-        // any value in [-PAGE_SIZE; -1] would work
+    // Merge with the previous area (if free)
+    if (area->start == addr && area->start > kernel_vmm.start) {
         vma_try_merge(&kernel_vmm, area, area->start - PAGE_SIZE);
     }
 
-    // Same, avoid overflow
-    if (area->start < kernel_vmm.end - PAGE_SIZE) {
+    // Merge with the next area (if free)
+    if (addr + length == vma_end(area) && vma_end(area) < kernel_vmm.end) {
         vma_try_merge(&kernel_vmm, area, area->start + area->size);
     }
 
@@ -371,6 +454,12 @@ void vmm_free(vaddr_t addr)
     avl_insert(&kernel_vmm.vmas.by_address, &area->avl.by_address,
                vma_compare_address);
     avl_insert(&kernel_vmm.vmas.by_size, &area->avl.by_size, vma_compare_size);
+
+    // It is possible that the requested length spans over multiple areas
+    if (addr + length > vma_end(area) && vma_end(area) < kernel_vmm.end) {
+        length -= vma_end(area) - addr;
+        vmm_free(vma_end(area), length);
+    }
 }
 
 const vma_t *vmm_find(vaddr_t addr)
@@ -406,26 +495,61 @@ typedef struct PACKED {
  * @brief Interrupt handler for page faults (#PF)
  * @ingroup vmm_internals
  *
- * @todo lazy allocation (allocate pageframe if PF and allocated by VMM)
+ * What the handler does:
+ * * Lazy allocation of pageframes for allocated virtual addresses
+ * * Panic if address is effectively invalid
+ *
  */
 static DEFINE_INTERRUPT_HANDLER(page_fault)
 {
-    log_warn("interrupt", "Interrupt recieved: Page fault");
-    page_fault_error error = *(page_fault_error *)&frame.error;
-
-    log_dbg("[PF] source", "%s access on a %s page %s",
-            error.write ? "write" : "read",
-            error.present ? "protected" : "non-present",
-            error.user ? "while in user-mode" : "");
-
     // The CR2 register holds the virtual address which caused the Page Fault
     vaddr_t faulty_address = read_cr2();
+    const vma_t *address_area = vmm_find(faulty_address);
+    page_fault_error error = *(page_fault_error *)&frame.error;
 
-    log_dbg("[PF] error", LOG_FMT_32, frame.error);
-    log_dbg("[PF] address", LOG_FMT_32, faulty_address);
+    // Lazily allocate pageframes
+    if (!error.present && address_area != NULL && address_area->allocated) {
+        for (size_t off = 0; off < address_area->size; off += PAGE_SIZE) {
+            const paddr_t pageframe = pmm_allocate(PMM_MAP_KERNEL);
+            mmu_map(address_area->start + off, pageframe, address_area->flags);
+        }
+        return;
+    }
 
     PANIC("PAGE FAULT at " LOG_FMT_32 ": %s access on a %s page %s",
           faulty_address, error.write ? "write" : "read",
           error.present ? "protected" : "non-present",
           error.user ? "while in user-mode" : "");
+}
+
+/**
+ * @brief Implementation of the mmap syscall
+ * @ingroup vmm_internals
+ */
+void *mmap(void *addr, size_t length, int prot, int flags)
+{
+    // The actual pageframes are lazily allocated by the #PF handler
+    return (void *)vmm_allocate((vaddr_t)addr, length, prot | flags);
+}
+
+/**
+ * @brief Implementation of the munmap syscall
+ * @ingroup vmm_internals
+ */
+int munmap(void *addr, size_t length)
+{
+    if ((vaddr_t)addr % PAGE_SIZE)
+        return -E_INVAL;
+
+    // Mark virtual address as free
+    vmm_free((vaddr_t)addr, length);
+
+    // Remove mappings from the page tables
+    length = align_up(length, PAGE_SIZE);
+    for (size_t off = 0; off < length; off += PAGE_SIZE) {
+        paddr_t pageframe = mmu_unmap((vaddr_t)addr + off);
+        pmm_free(pageframe);
+    }
+
+    return E_NONE;
 }

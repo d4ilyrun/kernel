@@ -1,19 +1,23 @@
 extern default_interrupt_handler
 
+section .text
+__common_handler:
+    pushad
+    cld
+    call default_interrupt_handler
+    popad
+    add esp, 8
+    stia
+    iret
+
 %macro interrupt 2
     section .text
     align 4
 __%2_stub_handler:
     cli         ; disable interrupts
-    pushad
     push $0     ; push empty error code and interrupt number onto stack
     push %1
-    cld
-    call default_interrupt_handler
-    add esp, 8  ; discard error & interrupt number from stack
-    popad
-    sti         ; re-enable interrupts
-    iret
+    jmp __common_handler
 %endmacro
 
 %macro interrupt_error 2
@@ -21,14 +25,8 @@ __%2_stub_handler:
     align 4
 __%2_stub_handler:
     cli         ; disable interrupts
-    pushad
     push %1     ; push interrupt number onto stack
-    cld
-    call default_interrupt_handler
-    add esp, 8  ; discard error & interrupt number from stack
-    popad
-    sti         ; re-enable interrupts
-    iret
+    jmp __common_handler
 %endmacro
 
 ; Define all the interrupt handler stubs for the internal interrupts
@@ -54,13 +52,31 @@ interrupt 18, machine_check
 interrupt 19, smid_fp_exception
 interrupt 20, virtualization
 interrupt_error 21, control_protection
+; Define interrupt handler stubs for IRQ
+interrupt 32, irq_timer
+interrupt 33, irq_keyboard
+interrupt 34, irq_cascade
+interrupt 35, irq_com2
+interrupt 36, irq_com1
+interrupt 37, irq_lpt2
+interrupt 38, irq_floppy
+interrupt 39, irq_lpt1
+interrupt 40, irq_cmos
+interrupt 41, irq_free1
+interrupt 42, irq_free2
+interrupt 43, irq_free3
+interrupt 44, irq_ps2
+interrupt 45, irq_fpu
+interrupt 46, irq_ata_primary
+interrupt 47, irq_ata_secondary
 
 %macro stub 1
     dd __%1_stub_handler
 %endmacro
 
-; addressable interrupt handler stubs table
+; addressable interrupt handler stubs tables
 global interrupt_handler_stubs
+global irq_handler_stubs
 
 interrupt_handler_stubs:
   stub division_error
@@ -85,3 +101,16 @@ interrupt_handler_stubs:
   stub smid_fp_exception
   stub virtualization
   stub control_protection
+
+irq_handler_stubs:
+  stub irq_timer
+  stub irq_keyboard
+  stub irq_com2
+  stub irq_com1
+  stub irq_lpt2
+  stub irq_floppy
+  stub irq_cmos
+  stub irq_ps2
+  stub irq_fpu
+  stub irq_ata_primary
+  stub irq_ata_secondary

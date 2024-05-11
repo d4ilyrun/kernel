@@ -1,6 +1,7 @@
 #include <kernel/devices/timer.h>
 #include <kernel/devices/uart.h>
 #include <kernel/interrupts.h>
+#include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
@@ -53,14 +54,16 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     if (!mmu_init() || !mmu_start_paging())
         PANIC("Failed to initialize virtual address space");
 
+    vmm_init(KERNEL_CODE_END, align_down(ADDRESS_SPACE_END, PAGE_SIZE));
+
     ASM("int $0");
 
     u32 page = pmm_allocate(PMM_MAP_KERNEL);
     log_variable(page);
-    mmu_map(0xFFFF1000, page);
+    mmu_map(0xFFFF1000, page, PROT_NONE);
     *(volatile u8 *)0xFFFF1235 = 0x42; // No page fault
     log_variable(*(volatile u8 *)0xFFFF1235);
-    mmu_map(0x12341000, page);
+    mmu_map(0x12341000, page, PROT_NONE);
     *(volatile u8 *)0x12341235 = 0x69; // No page fault, Same page
     log_variable(*(volatile u8 *)0xFFFF1235);
     mmu_unmap(0xFFFF1000);
@@ -70,18 +73,56 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     log_info("MAIN", "PRINTF ? (%s, " LOG_FMT_32 ")",
              kernel_symbol_name(symbol), symbol->address);
 
-    vmm_init(KERNEL_CODE_START, align_down(ADDRESS_SPACE_END, PAGE_SIZE));
+    {
+        u32 *a = mmap(0, PAGE_SIZE, 0, 0);
+        u32 *b = mmap(0, PAGE_SIZE * 2, 0, 0);
+        u32 *c = mmap(0, PAGE_SIZE, 0, 0);
+        u32 *e = mmap((void *)0xd0000000, PAGE_SIZE, 0, 0);
+
+        u32 *addresses =
+            mmap((void *)0xa0000000, PAGE_SIZE * 5, PROT_READ | PROT_WRITE, 0);
+
+        for (int i = 0; i < 4; ++i)
+            addresses[i] = (u32)&addresses[i];
+
+        log_array("MAIN", addresses, 4);
+
+        munmap(a, PAGE_SIZE);
+        munmap(b, PAGE_SIZE * 2);
+        munmap(c, PAGE_SIZE);
+        munmap(e, PAGE_SIZE);
+        munmap(addresses, PAGE_SIZE * 5);
+    }
 
     {
-        vaddr_t a = vmm_allocate(PAGE_SIZE, 0);
-        vaddr_t b = vmm_allocate(PAGE_SIZE * 2, 0);
-        vaddr_t c = vmm_allocate(PAGE_SIZE, 0);
-        vaddr_t d = vmm_allocate(PAGE_SIZE, 0);
+        uint32_t *invalid_free = kcalloc(4, sizeof(uint32_t), KMALLOC_DEFAULT);
+        uint32_t *kmalloc_addresses =
+            kcalloc(4, sizeof(uint32_t), KMALLOC_DEFAULT);
 
-        vmm_free(b);
-        vmm_free(d);
-        vmm_free(c); // Should be merged together with B and C
-        vmm_free(a); // Should be merged into 1 big area (the whole range)
+        UNUSED(kmalloc_addresses);
+
+        for (int i = 0; i < 4; ++i)
+            kfree(invalid_free); // test anti corruption free magic
+
+        for (int i = 0; i < 4; ++i)
+            kmalloc_addresses[i] = (uint32_t)&kmalloc_addresses[i];
+
+        log_array("MAIN", kmalloc_addresses, 4);
+
+        kfree(kmalloc_addresses);
+
+        kfree(kmalloc(4 * PAGE_SIZE, KMALLOC_DEFAULT));
+
+        uint32_t **blocks = kcalloc(8, sizeof(uint32_t *), KMALLOC_DEFAULT);
+        for (int i = 0; i < 8; ++i) {
+            blocks[i] = kmalloc(64 * sizeof(uint32_t), KMALLOC_DEFAULT);
+            for (int j = 0; j < 64; ++j)
+                blocks[i][j] = i * j;
+        }
+
+        for (int i = 0; i < 8; ++i)
+            kfree(blocks[i]);
+        kfree(blocks);
     }
 
     while (1) {

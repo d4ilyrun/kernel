@@ -11,6 +11,7 @@ kernel_source_files = files([
   'misc/symbols.c',
   'memory/pmm.c',
   'memory/vmm.c',
+  'memory/kmalloc.c',
 ])
 
 arch_source_files = {
@@ -32,7 +33,6 @@ arch_source_files = {
 arch_nasm_files = {
   'i686': files([
     'arch/i686/interrupts.S',
-    'arch/i686/devices/pic.S',
   ]),
 }
 

@@ -26,6 +26,18 @@
 
 #include <stdbool.h>
 
+/**
+ * @enum mmu_prot
+ * @brief Protection flags passed to the mmu's functions
+ */
+typedef enum mmu_prot {
+    PROT_NONE = 0x0, /*<! Pages may not be accessed */
+    PROT_EXEC = 0x1, /*!< Pages may be executed */
+    PROT_READ = 0x2, /*!< Pages may be read */
+    // TODO: NX bit for PROT_EXEC
+    PROT_WRITE = 0x4, /*!< Pages may be written */
+} mmu_prot;
+
 /** @brief Inititialize the MMU's underlying structures */
 bool mmu_init(void);
 
@@ -43,10 +55,12 @@ bool mmu_start_paging(void);
  *
  * @param virt The virtual address
  * @param physical Its physical equivalent
+ * @param prot Protection rule in use for this page.
+ *             A combination of @ref mmu_prot flags.
  *
  * @return False if the address was already mapped before
  */
-bool mmu_map(vaddr_t virt, paddr_t physical);
+bool mmu_map(vaddr_t virt, paddr_t physical, int prot);
 
 /**
  * @brief Unmap a virtual address
@@ -70,7 +84,9 @@ paddr_t mmu_unmap(vaddr_t virt);
  *
  * @param start the starting page of the address range
  * @param end the ending address of the address range
+ * @param prot Protection rule in use for this page.
+ *             A combination of @ref mmu_prot flags.
  */
-void mmu_identity_map(paddr_t start, paddr_t end);
+void mmu_identity_map(paddr_t start, paddr_t end, int prot);
 
 #endif /* KERNEL_MMU_H */

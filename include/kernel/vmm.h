@@ -91,7 +91,7 @@ typedef struct vma {
 
     vaddr_t start; /*!< Starting virtual address of this area */
     size_t size;   /*!< Size of the area */
-    u32 flags;     /*!< Feature flags, defined as VMM_F_* */
+    u32 flags;     /*!< Feature flags, combination of @ref vma_flags */
 
     bool allocated; /*!< Whether this area is currently being used */
 
@@ -109,12 +109,15 @@ typedef struct vma {
 /** Returned by VMM functions in case of error */
 #define VMM_INVALID ((vaddr_t)NULL)
 
-/** @enum vmm_flags
- * @brief Feature flags for VMM regions and allocations
+/** @enum vma_flags
+ * @brief Feature flags for VMAs
  */
-typedef enum vmm_flags {
-    VMM_F_NONE = 0 /*!< Default */
-} vmm_flags;
+typedef enum vma_flags {
+    VMA_NONE = 0,    /*!< Default */
+    VMA_EXEC = 0x1,  /*!< Pages inside the area are executable */
+    VMA_READ = 0x2,  /*!< Pages inside the area are readable */
+    VMA_WRITE = 0x4, /*!< Pages inside the area are writable */
+} vma_flags;
 
 /**
  * @brief Initialize a VMM instance
@@ -128,13 +131,18 @@ bool vmm_init(vaddr_t start, vaddr_t end);
  * The minimum addressable size for the VMM is a page. The size of the allocated
  * area will automatically be rounded to the next page size.
  *
+ * You can specify a minimum virtual address to use for the area with the @c
+ * addr parameter. If not NULL the returned address is **guaranted** to be
+ * located at or after the specified one, else the kernel will chose one.
+ *
+ * @param addr Starting address for the allocated area.
  * @param size The size of the requested area
  * @param flags Feature flags used for the allocated area.
- *              Must be a combination of @link vmm_flags @endlink
+ *              Must be a combination of @link vma_flags @endlink
  *
  * @return The virtual start address of the area, or VMM_INVALID
  */
-vaddr_t vmm_allocate(size_t size, int flags);
+vaddr_t vmm_allocate(vaddr_t addr, size_t size, int flags);
 
 /**
  * @brief Free a virtual address
@@ -147,7 +155,7 @@ vaddr_t vmm_allocate(size_t size, int flags);
  *       I guess we'll see later on when dealing with actual dynamic allocation
  *       using our heap allocator, or implementing munmap.
  */
-void vmm_free(vaddr_t addr);
+void vmm_free(vaddr_t addr, size_t length);
 
 /**
  * @brief Find the VMA to which a virtual address belongs
