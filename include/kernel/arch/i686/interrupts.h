@@ -120,11 +120,6 @@ typedef struct PACKED idt_descriptor {
 /** @brief Frame passed onto the interrupt handlers by our stub handler */
 struct interrupt_frame {
 
-    /** Interrupt number (pushed by our stub) */
-    u32 nr;
-    /** Error code for this exception (pushed by our stub)  */
-    u32 error;
-
     /**
      * @brief Dump of the process's registers.
      * These are pushed by `pusha` inside our stub handler
@@ -133,6 +128,11 @@ struct interrupt_frame {
         u32 edi, esi, ebp, esp;
         u32 ebx, edx, ecx, eax;
     } stub;
+
+    /** Interrupt number (pushed by our stub) */
+    u32 nr;
+    /** Error code for this exception (pushed by our stub)  */
+    u32 error;
 
     /**
      * @brief Default x86 interrupt frame pushed by the cpu

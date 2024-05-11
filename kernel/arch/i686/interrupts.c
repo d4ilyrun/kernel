@@ -14,7 +14,7 @@ static volatile idt_descriptor idt[IDT_LENGTH];
 
 // Global addressable interrupt handler stub tables
 extern interrupt_handler interrupt_handler_stubs[];
-extern interrupt_handler pic_interrupt_handler_stubs[PIC_IRQ_COUNT];
+extern interrupt_handler irq_handler_stubs[PIC_IRQ_COUNT];
 
 /*
  * Custom ISRs, defined at runtime and called by __stub_interrupt_handler
@@ -155,7 +155,7 @@ void interrupts_init(void)
     log_info("IDT", "Setting up IRQ handler stubs");
     for (pic_irq irq = IRQ_TIMER; irq <= IRQ_ATA_SECONDARY; ++irq)
         interrupts_set(PIC_MASTER_VECTOR + irq, INTERRUPT_GATE_32B,
-                       pic_interrupt_handler_stubs[irq]);
+                       irq_handler_stubs[irq]);
 
     log_dbg("IDT", "Finished setting up the IDT");
 }

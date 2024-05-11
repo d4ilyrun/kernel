@@ -32,7 +32,6 @@ arch_source_files = {
 arch_nasm_files = {
   'i686': files([
     'arch/i686/interrupts.S',
-    'arch/i686/devices/pic.S',
   ]),
 }
 
