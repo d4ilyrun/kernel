@@ -33,7 +33,7 @@ typedef struct linked_list_node llist_node_t;
 typedef llist_node_t *llist_t;
 
 /** Declare a head to an empty linked list */
-#define DECLARE_LLIST(_name) llist_t _name = NULL;
+#define DECLARE_LLIST(_name) llist_t _name = NULL
 
 /** Loop over each element inside a linked list
  *  @param _name The name of the current node

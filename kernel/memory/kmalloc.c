@@ -37,14 +37,13 @@
 #define BLOCK_FREE_MAGIC(_block) ((uint32_t *)((_block) + sizeof(llist_node_t)))
 
 /** Head of the linked list of buckets */
-static llist_t kmalloc_buckets = ((void *)0);
-;
+static DECLARE_LLIST(kmalloc_buckets);
 
 /**
  * @brief The metadata for a single bucket
  * @struct bucket_meta
  *
- * A bucket's metadata is stored inside at the beginning of its mapped area,
+ * A bucket's metadata is stored at the beginning of its mapped area,
  * inside its first block.
  *
  */
