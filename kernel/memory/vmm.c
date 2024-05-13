@@ -20,51 +20,6 @@ static_assert(sizeof(vma_t) <= VMA_SIZE,
 static DEFINE_INTERRUPT_HANDLER(page_fault);
 
 /**
- * @struct vmm
- * @ingroup VMM
- *
- * @brief Virtual Memory Manager
- *
- * A VMM is responsible for managing the allocated virtual addresses within a
- * process.
- *
- * The VMM splits the address space into distinct regions called Virtual Memory
- * Areas, and keeps track of them individually using AVL trees.
- *
- * A VMM does not necessarily manage the full 32bits address space, instead it
- * is assigned a start and end addresses, and only keeps track of the regions
- * inside this range.
- *
- * The VMM uses two different AVL trees to keep track of the VMAs:
- *  *   Ordered by address to easily retrieve the area to which an address
- *      belongs.
- *  *   Ordered by size to retrieve the first fitting area when allocating
- *
- * @note The tree ordered by size does not keep track of used areas, since we
- * never need to search for un-free area by size. This avoid modifying the
- * trees more than we need to, since it can be costly.
- */
-typedef struct vmm {
-
-    vaddr_t start; /*!< The start of the VMM's assigned range */
-    vaddr_t end;   /*!< The end of the VMM's assigned range (excluded) */
-
-    /** Roots of the AVL trees containing the VMAs */
-    struct vmm_vma_roots {
-        avl_t *by_address;
-        avl_t *by_size;
-    } vmas;
-
-    /** Bitmap of the available virtual addreses inside the reserved area
-     *
-     *  TODO: Using a bitmap for this takes 2KiB of memory per VMM (so per
-     * process)! Is there a less expensive way to keep track of them?
-     */
-    BITMAP(reserved, VMM_RESERVED_SIZE / VMA_SIZE);
-
-} vmm_t;
-
-/**
  * @defgroup vmm_internals VMM Internals
  * @ingroup VMM
  *

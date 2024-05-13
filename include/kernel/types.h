@@ -1,5 +1,7 @@
-#ifndef UTILS_TYPES_H
-#define UTILS_TYPES_H
+#ifndef KERNEL_TYPES_H
+#define KERNEL_TYPES_H
+
+#define _SYS_TYPES_H // To avoid incompatibility with glibc during tests
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -22,12 +24,16 @@ typedef double f64; //< 64b floating point value
 typedef long int ssize_t;
 
 #if ARCH == i686
+
 /// Architecture independent type for physical addresses
-typedef u32 paddr_t;
+typedef uintptr_t paddr_t;
 /// Architecture independent type for virtual addresses
-typedef u32 vaddr_t;
+typedef uintptr_t vaddr_t;
+
 #else
 #error Unsuported architecture
 #endif
 
-#endif /* UTILS_TYPES_H */
+typedef u32 pid_t;
+
+#endif /* KERNEL_TYPES_H */

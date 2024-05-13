@@ -51,7 +51,9 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     if (!pmm_init(mbt))
         PANIC("Could not initialize the physical memory manager");
-    if (!mmu_init() || !mmu_start_paging())
+
+    log_info("MMU", "Initializing MMU");
+    if (!mmu_init())
         PANIC("Failed to initialize virtual address space");
 
     vmm_init(KERNEL_CODE_END, align_down(ADDRESS_SPACE_END, PAGE_SIZE));

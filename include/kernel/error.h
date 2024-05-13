@@ -23,6 +23,7 @@
  */
 typedef enum error {
     E_NONE,       ///< No error
+    E_NOMEM = 12, ///< Out of memory
     E_INVAL = 22, ///< Invalid argument
 } error_t;
 
