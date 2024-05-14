@@ -35,6 +35,7 @@ function generate_iso()
 
     # Add a custom multiboot entry for grub to be able to boot our kernel
     cat <<EOF > "$iso_dir/boot/grub/grub.cfg"
+set timeout=0
 menuentry "Kernel - ${KERNEL_BIN%.*}" {
     multiboot /boot/$(basename "$KERNEL_BIN")
 }

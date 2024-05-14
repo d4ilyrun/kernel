@@ -65,7 +65,7 @@ alias_target('iso', iso)
 qemu = find_program('qemu-system-i386', required: false)
 if qemu.found()
   run_target('qemu',
-    command: [qemu, '-cdrom', iso, '-serial', 'stdio']
+    command: [qemu, '-cdrom', iso, '-nographic']
   )
 endif
 
