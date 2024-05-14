@@ -14,10 +14,10 @@ reload_segment_registers:
     jmp $0x08,$.reload_CS // 0x08 == current code segment
 .reload_CS:
     // All other segment regsiters only require a mov to be reloaded
-    mov %ax, 0x10 // 0x010 = current data segment
-    mov %ds, %ax
-    mov %es, %ax
-    mov %fs, %ax
-    mov %gs, %ax
-    mov %ss, %ax
+    mov $0x10, %ax
+    mov %ax, %ds
+    mov %ax, %es
+    mov %ax, %fs
+    mov %ax, %gs
+    mov %ax, %ss
     ret
