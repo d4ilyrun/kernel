@@ -256,7 +256,7 @@ paddr_t mmu_new_page_directory(void)
 
     // Unmap new page directory from current address space, but do not release
     // the pageframe
-    vmm_free((vaddr_t) new, PAGE_SIZE);
+    vmm_free(current_process->vmm, (vaddr_t) new, PAGE_SIZE);
     mmu_unmap((vaddr_t) new);
 
     return new_physical;

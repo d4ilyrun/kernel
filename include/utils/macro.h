@@ -24,6 +24,10 @@
 /** Check if x is between l and h (l =< x =< h) */
 #define IN_RANGE(_x, _l, _h) ((_l) <= (_x) && (_x) <= (_h))
 
+/** Check if two ranges overlap with each other */
+#define RANGES_OVERLAP(_start1, _end1, _start2, _end2) \
+    ((_start1) <= (_end2) && (_end1) >= (_start2))
+
 /** Avoid compiler warning when not using a symbol */
 #define UNUSED(_x) (void)(_x);
 

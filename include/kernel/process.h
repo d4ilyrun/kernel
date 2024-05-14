@@ -51,3 +51,6 @@ typedef struct process {
  * scheduler.
  */
 extern process_t kernel_startup_process;
+
+/** The currently running process */
+extern process_t *current_process;

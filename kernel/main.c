@@ -5,6 +5,7 @@
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
+#include <kernel/process.h>
 #include <kernel/symbols.h>
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
@@ -52,11 +53,13 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     if (!pmm_init(mbt))
         PANIC("Could not initialize the physical memory manager");
 
-    log_info("MMU", "Initializing MMU");
+    log_info("START", "Initializing MMU");
     if (!mmu_init())
         PANIC("Failed to initialize virtual address space");
 
-    vmm_init(KERNEL_CODE_END, align_down(ADDRESS_SPACE_END, PAGE_SIZE));
+    log_info("START", "Initializing kernel VMM");
+    vmm_init(&kernel_vmm, KERNEL_MEMORY_START, KERNEL_MEMORY_END);
+    kernel_startup_process.vmm = &kernel_vmm;
 
     ASM("int $0");
 

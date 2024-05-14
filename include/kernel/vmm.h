@@ -52,9 +52,11 @@
 #ifndef KERNEL_VMM_H
 #define KERNEL_VMM_H
 
+#include <kernel/memory.h>
 #include <kernel/types.h>
 
 #include <libalgo/avl.h>
+#include <libalgo/bitmap.h>
 #include <utils/compiler.h>
 
 #include <stdbool.h>
@@ -162,17 +164,36 @@ typedef struct vmm {
  * @brief Feature flags for VMAs
  */
 typedef enum vma_flags {
-    VMA_NONE = 0,    /*!< Default */
-    VMA_EXEC = 0x1,  /*!< Pages inside the area are executable */
-    VMA_READ = 0x2,  /*!< Pages inside the area are readable */
-    VMA_WRITE = 0x4, /*!< Pages inside the area are writable */
+    VMA_NONE = 0,     /*!< Default */
+    VMA_EXEC = 0x1,   /*!< Pages inside the area are executable */
+    VMA_READ = 0x2,   /*!< Pages inside the area are readable */
+    VMA_WRITE = 0x4,  /*!< Pages inside the area are writable */
+    VMA_KERNEL = 0x8, /*!< Should be mapped inside kernel pages */
 } vma_flags;
+
+/* For mmap */
+#define MAP_KERNEL VMA_KERNEL
+
+/**
+ * Global kernel VMM, used to allocate shared kernel addresses.
+ *
+ * These addresses are stored in the PTEs above KERNEL_VIRTUAL_START, and are
+ * shared across all processes. That is why we must use a global shared VMM.
+ *
+ * @todo TODO: This behaviour could be generalised once we implement MAP_SHARED
+ */
+extern vmm_t kernel_vmm;
 
 /**
  * @brief Initialize a VMM instance
+ *
+ * @param vmm The VMM instance
+ * @param start The starting address of the VMM's range
+ * @param end The end address of the VMM's range (excluded)
+ *
  * @return Whether the init processes suceeded or not
  */
-bool vmm_init(vaddr_t start, vaddr_t end);
+bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end);
 
 /**
  * @brief Allocate a virtual area of the given size
@@ -184,6 +205,7 @@ bool vmm_init(vaddr_t start, vaddr_t end);
  * addr parameter. If not NULL the returned address is **guaranted** to be
  * located at or after the specified one, else the kernel will chose one.
  *
+ * @param vmm The VMM instance to use
  * @param addr Starting address for the allocated area.
  * @param size The size of the requested area
  * @param flags Feature flags used for the allocated area.
@@ -191,7 +213,7 @@ bool vmm_init(vaddr_t start, vaddr_t end);
  *
  * @return The virtual start address of the area, or VMM_INVALID
  */
-vaddr_t vmm_allocate(vaddr_t addr, size_t size, int flags);
+vaddr_t vmm_allocate(vmm_t *, vaddr_t, size_t size, int flags);
 
 /**
  * @brief Free a virtual address
@@ -204,13 +226,13 @@ vaddr_t vmm_allocate(vaddr_t addr, size_t size, int flags);
  *       I guess we'll see later on when dealing with actual dynamic allocation
  *       using our heap allocator, or implementing munmap.
  */
-void vmm_free(vaddr_t addr, size_t length);
+void vmm_free(vmm_t *, vaddr_t, size_t length);
 
 /**
  * @brief Find the VMA to which a virtual address belongs
  * @return The VMA containing this address, or NULL if not found
  */
-const vma_t *vmm_find(vaddr_t addr);
+const vma_t *vmm_find(vmm_t *, vaddr_t);
 
 #endif /* KERNEL_VMM_H */
 
