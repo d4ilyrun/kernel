@@ -65,7 +65,7 @@ typedef struct gdt_descriptor {
 } gdt_descriptor;
 
 /**
- * @struct gdt_tss Task State Segment
+ * @struct tss Task State Segment
  *
  * A Task State Segment (TSS) is a binary data structure specific to the IA-32
  * and x86-64 architectures.
@@ -74,7 +74,7 @@ typedef struct gdt_descriptor {
  *
  * @see https://wiki.osdev.org/Task_State_Segment
  */
-typedef struct PACKED gdt_tss {
+typedef struct PACKED tss {
     u16 link;
     u16 _reserved1;
     u32 esp0;
@@ -114,7 +114,7 @@ typedef struct PACKED gdt_tss {
     u16 _reserved12;
     u16 iopb;
     u32 ssp;
-} gdt_tss;
+} tss_t;
 
 /**
  * @union segment_selector
@@ -149,5 +149,8 @@ void gdt_load_segment(gdt_descriptor, u16 index);
 
 /** Print the content of the GDT and GDTR. */
 void gdt_log(void);
+
+/** Modify the kernel stack pointer inside the current TSS */
+void gdt_set_esp0(u32);
 
 #endif /* KERNEL_ARCH_I686_GDT_H */

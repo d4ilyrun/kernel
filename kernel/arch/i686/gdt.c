@@ -17,13 +17,16 @@ void reload_segment_registers(void);
 
 static volatile u8 gdt[GDT_LENGTH][GDT_ENTRY_SIZE];
 
+tss_t kernel_tss;
+
 static gdt_descriptor g_global_segments[] = {
     {0, 0, 0, 0},            // **required** NULL segment
     {0, 0xFFFFF, 0x9A, 0xC}, // Kernel Mode code segment
     {0, 0xFFFFF, 0x92, 0xC}, // Kernel Mode data segment
     {0, 0xFFFFF, 0xFA, 0xC}, // User Mode code segment
     {0, 0xFFFFF, 0xF2, 0xC}, // User Mode data segment
-    {GDT_TSS_BASE_ADDRESS, sizeof(gdt_tss), 0x80, 0x0}, // Task State segment
+    // Task State segment
+    {(u32)&kernel_tss, sizeof(tss_t), 0x80, 0x0},
 };
 
 void gdt_init(void)
@@ -99,4 +102,9 @@ void gdt_log(void)
                segment[0] | (segment[1] << 8) | (segment[6] & 0xF) << 16,
                segment[5], (segment[6] & 0xF0) >> 4);
     }
+}
+
+void gdt_set_esp0(u32 esp0)
+{
+    kernel_tss.esp0 = esp0;
 }

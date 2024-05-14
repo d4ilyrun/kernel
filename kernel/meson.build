@@ -20,6 +20,8 @@ arch_source_files = {
     'arch/i686/gdt.S',
     'arch/i686/gdt.c',
     'arch/i686/interrupts.c',
+    'arch/i686/process.c',
+    'arch/i686/process.S',
     'arch/i686/mmu.c',
     'arch/i686/setup.c',
     'arch/i686/terminal.c',

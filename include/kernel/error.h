@@ -28,4 +28,4 @@ typedef enum error {
 } error_t;
 
 /** Check if an integer can be interpreted as an error */
-#define IS_ERR(_x) ((_x) < 0)
+#define IS_ERR(_x) ((s32)(_x) < 0)

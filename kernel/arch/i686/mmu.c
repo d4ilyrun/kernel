@@ -190,7 +190,7 @@ bool mmu_init(void)
     }
 
     // Initialize the kernel's page directory
-    kernel_startup_process.task.cr3 =
+    kernel_startup_process.context.cr3 =
         KERNEL_HIGHER_HALF_PHYSICAL(kernel_startup_page_directory);
 
     // Mark all PDEs as "absent" (present = 0), and writable
@@ -202,7 +202,7 @@ bool mmu_init(void)
     // @link https://medium.com/@connorstack/recursive-page-tables-ad1e03b20a85
     kernel_startup_page_directory[MMU_PDE_COUNT - 1].present = 1;
     kernel_startup_page_directory[MMU_PDE_COUNT - 1].page_table =
-        TO_PFN(kernel_startup_process.task.cr3);
+        TO_PFN(kernel_startup_process.context.cr3);
 
     // We remap our higher-half kernel.
     // The addresses over 0xC0000000 will point to our kernel's code (0x00000000
@@ -217,7 +217,7 @@ bool mmu_init(void)
     // TODO: Check for possible alternatives? (MMIO?, map only what we need?)
     mmu_identity_map(0x0, 0x100000, PROT_READ | PROT_WRITE);
 
-    mmu_load_page_directory(kernel_startup_process.task.cr3);
+    mmu_load_page_directory(kernel_startup_process.context.cr3);
 
     // According to 4.3, to activate 32-bit mode paging we must:
     // 1. set CR4.PAE to 0 (de-activate PAE)
@@ -248,7 +248,7 @@ paddr_t mmu_new_page_directory(void)
 
     // Copy kernel page table entries
     memcpy(&new[MMU_PDE_KERNEL_FIRST], &page_directory[MMU_PDE_KERNEL_FIRST],
-           MMU_PDE_KERNEL_COUNT);
+           MMU_PDE_KERNEL_COUNT * sizeof(mmu_pte_t));
 
     paddr_t new_physical = mmu_find_physical((vaddr_t) new);
     new[MMU_PDE_COUNT - 1].page_table =

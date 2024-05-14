@@ -131,6 +131,9 @@ extern u32 _kernel_code_end;
 #define KERNEL_MEMORY_END (KERNEL_VMM_RESERVED_START)
 #define KERNEL_MEMORY_START (KERNEL_CODE_END)
 
+#define USER_MEMORY_END KERNEL_MEMORY_START
+#define USER_MEMORY_START VMM_RESERVED_END
+
 /**
  * @brief Size of the area reserved fo rallovation memory management structures
  *

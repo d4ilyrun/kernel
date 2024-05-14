@@ -18,6 +18,22 @@
 
 void arch_setup(void);
 
+void kernel_task_timer(void *data)
+{
+    UNUSED(data);
+
+    log_dbg("TASK", "Started task: '%s'", current_process->name);
+
+    timer_wait_ms(1000);
+    log_info("MAIN", "Elapsed miliseconds: %d", gettime());
+
+    process_switch(&kernel_startup_process);
+
+    while (1) {
+        ASM("hlt");
+    }
+}
+
 void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 {
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
@@ -133,6 +149,12 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
             kfree(blocks[i]);
         kfree(blocks);
     }
+
+    process_t *kernel_timer_test =
+        process_create("ktimer_test", kernel_task_timer);
+    process_switch(kernel_timer_test);
+
+    log_dbg("TASK", "Re-started task: '%s'", current_process->name);
 
     while (1) {
         timer_wait_ms(1000);
