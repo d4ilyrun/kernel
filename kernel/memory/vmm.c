@@ -13,6 +13,8 @@
 #include <utils/macro.h>
 #include <utils/math.h>
 
+#include <string.h>
+
 /* For simplicity, we will allocate 64B for each VMA structure */
 #define VMA_SIZE (64)
 static_assert(sizeof(vma_t) <= VMA_SIZE,
@@ -145,6 +147,8 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
 
     vmm->start = start;
     vmm->end = end;
+
+    memset(vmm->reserved, 0, sizeof(vmm->reserved));
 
     vma_t *first_area = (vma_t *)vma_reserved_allocate(vmm);
     first_area->start = start;

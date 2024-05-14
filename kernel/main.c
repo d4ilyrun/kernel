@@ -118,6 +118,10 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
         kfree(kmalloc(4 * PAGE_SIZE, KMALLOC_DEFAULT));
 
+        uint8_t *tata = kmalloc(KERNEL_STACK_SIZE, KMALLOC_KERNEL);
+        tata[KERNEL_STACK_SIZE - 100] = 1;
+        kfree(tata);
+
         uint32_t **blocks = kcalloc(8, sizeof(uint32_t *), KMALLOC_DEFAULT);
         for (int i = 0; i < 8; ++i) {
             blocks[i] = kmalloc(64 * sizeof(uint32_t), KMALLOC_DEFAULT);
