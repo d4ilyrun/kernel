@@ -48,9 +48,10 @@ static DECLARE_LLIST(kmalloc_buckets);
  *
  */
 typedef struct bucket_meta {
-    size_t block_size;  ///< The size of each blocks inside this bucket
-    size_t block_count; ///< Number of blocks currently malloc'd
-    llist_t free;       ///< Head of the freelist
+    u32 block_size;  ///< The size of each blocks inside this bucket
+    u16 block_count; ///< Number of blocks currently malloc'd
+    u16 flags;       ///< Flags for this bucket
+    llist_t free;    ///< Head of the freelist
     llist_node_t this;
     char data[] __attribute__((aligned(KMALLOC_ALIGNMENT)));
 } bucket_t;
@@ -59,12 +60,13 @@ static_assert(sizeof(bucket_t) <= KMALLOC_ALIGNMENT,
               "Bucket metadata MUST fit into a single block");
 
 /** Find a bucket containing with at least one free block of the given size */
-static bucket_t *bucket_find(llist_t buckets, size_t size)
+static bucket_t *bucket_find(llist_t buckets, size_t size, const u16 flags)
 {
     FOREACH_LLIST(node, buckets)
     {
         bucket_t *bucket = container_of(node, bucket_t, this);
-        if (bucket->block_size == size && bucket->free != NULL)
+        if (bucket->block_size == size && bucket->free != NULL &&
+            bucket->flags == flags)
             return bucket;
     }
 
@@ -82,16 +84,18 @@ static void *bucket_get_free_block(bucket_t *bucket)
 }
 
 /** Create a new empty bucket for blocks of size @c block_size */
-static struct bucket_meta *bucket_create(llist_t *buckets, size_t block_size)
+static struct bucket_meta *bucket_create(llist_t *buckets, size_t block_size,
+                                         const u16 flags)
 {
     size_t bucket_size = align_up(KMALLOC_ALIGNMENT + block_size, PAGE_SIZE);
-    bucket_t *bucket = mmap(NULL, bucket_size, PROT_READ | PROT_WRITE, 0);
+    bucket_t *bucket = mmap(NULL, bucket_size, PROT_READ | PROT_WRITE, flags);
 
     if (bucket == NULL)
         return NULL;
 
     bucket->block_size = block_size;
     bucket->block_count = 0;
+    bucket->flags = flags;
 
     // Generate the intrusive freelist
     llist_node_t *node = (llist_node_t *)bucket->data;
@@ -137,17 +141,15 @@ static ALWAYS_INLINE bucket_t *bucket_from_block(void *block)
 
 void *kmalloc(size_t size, int flags)
 {
-    UNUSED(flags);
-
     if (size == 0)
         return NULL;
 
     size = align_up(size, KMALLOC_ALIGNMENT);
     size = bit_next_pow32(size);
 
-    bucket_t *bucket = bucket_find(kmalloc_buckets, size);
+    bucket_t *bucket = bucket_find(kmalloc_buckets, size, flags);
     if (bucket == NULL)
-        bucket = bucket_create(&kmalloc_buckets, size);
+        bucket = bucket_create(&kmalloc_buckets, size, flags);
 
     if (bucket == NULL)
         return NULL;
@@ -194,7 +196,9 @@ void *krealloc(void *ptr, size_t size, int flags)
         return ptr;
 
     void *new = kmalloc(size, flags);
-    memcpy(new, ptr, size);
+    if (new != NULL)
+        memcpy(new, ptr, size);
+
     kfree(ptr);
 
     return new;
