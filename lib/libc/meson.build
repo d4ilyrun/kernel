@@ -2,7 +2,7 @@ public_headers = include_directories('include')
 kernel_headers = include_directories('../../include')
 
 sources = [
-  'src/strlen.c',
+  'src/string.c',
   'src/memcpy.c',
   'src/memset.c',
   'src/printf.c',

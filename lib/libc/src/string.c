@@ -10,3 +10,14 @@ size_t strlen(const char *str)
 
     return len;
 }
+
+char *strncpy(char *dst, const char *src, size_t n)
+{
+    for (size_t i = 0; i < n; ++i) {
+        dst[i] = src[i];
+        if (dst[i] == '\0')
+            break;
+    }
+
+    return dst;
+}
