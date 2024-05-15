@@ -22,8 +22,8 @@
  * @{
  */
 
-/** All returned addresses are aligned on a 16B boundary */
-#define KMALLOC_ALIGNMENT (16)
+/** All returned addresses are aligned on a 32B boundary */
+#define KMALLOC_ALIGNMENT (32)
 
 /**
  * @brief Magic value to detect if a block is free
@@ -34,7 +34,8 @@
  * this means we're freeing an already free block.
  */
 #define KMALLOC_FREE_MAGIC (0x3402CECE)
-#define BLOCK_FREE_MAGIC(_block) ((uint32_t *)((_block) + sizeof(llist_node_t)))
+#define BLOCK_FREE_MAGIC(_block) \
+    ((uint32_t *)(((void *)_block) + sizeof(llist_node_t)))
 
 /** Head of the linked list of buckets */
 static DECLARE_LLIST(kmalloc_buckets);
