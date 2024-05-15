@@ -28,10 +28,10 @@ struct linked_list_node {
  * @struct linked_list_node
  * @brief A doubly linked list node
  */
-typedef struct linked_list_node llist_node_t;
+typedef struct linked_list_node node_t;
 
 /** The head of a doubly linked list */
-typedef llist_node_t *llist_t;
+typedef node_t *llist_t;
 
 /** Declare a head to an empty linked list */
 #define DECLARE_LLIST(_name) llist_t _name = NULL
@@ -41,14 +41,14 @@ typedef llist_node_t *llist_t;
  *  @param _head The head of the linked list
  */
 #define FOREACH_LLIST(_name, _head) \
-    for (llist_node_t *_name = (_head); _name; _name = _name->next)
+    for (node_t *_name = (_head); _name; _name = _name->next)
 
 /** Loop over each element inside a linked list in reverse order
  *  @param _name The name of the current node
  *  @param _tail The tail of the linked list
  */
 #define FOREACH_REVERSE_LLIST(_name, _head) \
-    for (llist_node_t *_name = (_tail); _name; _name = _name->prev)
+    for (node_t *_name = (_tail); _name; _name = _name->prev)
 
 static inline void __llist_add(node_t **node, node_t *prev, node_t *new)
 {
@@ -62,7 +62,7 @@ static inline void __llist_add(node_t **node, node_t *prev, node_t *new)
 }
 
 /** Prepend a new node to the given list */
-static ALWAYS_INLINE void llist_add(llist_t *head, llist_node_t *new)
+static ALWAYS_INLINE void llist_add(llist_t *head, node_t *new)
 {
     __llist_add(head, NULL, new);
 }
@@ -79,7 +79,7 @@ static inline void llist_add_tail(llist_t *head, node_t *new)
 /** Pop the first element of the list */
 static inline node_t *llist_pop(llist_t *head)
 {
-    llist_node_t *old_head = *head;
+    node_t *old_head = *head;
 
     // we assume head = &head->prev->next
     // This is supposed to be the head anyway.
@@ -120,7 +120,7 @@ static inline void llist_remove(llist_t *head, node_t *node)
 }
 
 /** Return the given list's head */
-static ALWAYS_INLINE const llist_node_t *llist_head(llist_t head)
+static ALWAYS_INLINE const node_t *llist_head(llist_t head)
 {
     return head;
 }

@@ -35,7 +35,7 @@
  */
 #define KMALLOC_FREE_MAGIC (0x3402CECE)
 #define BLOCK_FREE_MAGIC(_block) \
-    ((uint32_t *)(((void *)_block) + sizeof(llist_node_t)))
+    ((uint32_t *)(((void *)_block) + sizeof(node_t)))
 
 /** Head of the linked list of buckets */
 static DECLARE_LLIST(kmalloc_buckets);
@@ -53,7 +53,7 @@ typedef struct bucket_meta {
     u16 block_count; ///< Number of blocks currently malloc'd
     u16 flags;       ///< Flags for this bucket
     llist_t free;    ///< Head of the freelist
-    llist_node_t this;
+    node_t this;
     char data[] __attribute__((aligned(KMALLOC_ALIGNMENT)));
 } bucket_t;
 
@@ -99,7 +99,7 @@ static struct bucket_meta *bucket_create(llist_t *buckets, size_t block_size,
     bucket->flags = flags;
 
     // Generate the intrusive freelist
-    llist_node_t *node = (llist_node_t *)bucket->data;
+    node_t *node = (node_t *)bucket->data;
     size_t nb_blocks = (bucket_size - sizeof(bucket_t)) / block_size;
     for (size_t i = 0; i < nb_blocks - 1; ++i) {
         *BLOCK_FREE_MAGIC(node) = KMALLOC_FREE_MAGIC;
