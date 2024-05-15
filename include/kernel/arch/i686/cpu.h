@@ -73,4 +73,8 @@ static ALWAYS_INLINE uint32_t inl(uint16_t port)
     return val;
 }
 
+static ALWAYS_INLINE void hlt(void)
+{
+    ASM("hlt");
+}
 #endif /* KERNEL_I686_UTILS_CPU_OPS_H */

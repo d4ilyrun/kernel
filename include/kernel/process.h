@@ -1,16 +1,19 @@
 #pragma once
 
 /**
- * @brief Scheduler implementation
+ * @brief Process management
+ * @file kernel/process.h
  *
- * @defgroup scheduling Scheduling
- * @ingroup kernel
+ * @defgroup process Processes
+ * @ingroup scheduling
  *
  * @{
  */
 
 #include <kernel/types.h>
 #include <kernel/vmm.h>
+
+#include <libalgo/linked_list.h>
 
 #if ARCH == i686
 #include <kernel/arch/i686/process.h>
@@ -20,6 +23,13 @@
 
 /** The max length of a process's name */
 #define PROCESS_NAME_MAX_LEN 32
+
+/** @enum process_state
+ *  The different states a process can be in
+ */
+typedef enum process_state {
+    SCHED_RUNNING = 0x0, ///< Process is currently running (or ready to run)
+} process_state_t;
 
 /**
  * @brief A single process.
@@ -34,11 +44,14 @@ typedef struct process {
      * switching back into the process.
      */
     process_context_t context;
+    process_state_t state; /*!< Process's current state */
 
     char name[PROCESS_NAME_MAX_LEN]; /*!< The process's name */
     pid_t pid;                       /*!< The PID */
 
     vmm_t *vmm; /*!< The process's address space manager */
+
+    node_t this; /*!< Intrusive linked list used by the scheduler */
 
 } process_t;
 
@@ -57,7 +70,8 @@ extern process_t *current_process;
 
 /** A function used as an entry point when starting a new process
  *
- * @param data Generic data passed on to the function when starting the process
+ * @param data Generic data passed on to the function when starting
+ * the process
  * @note We never return from this function
  */
 typedef void (*process_entry_t)(void *data);
@@ -82,8 +96,8 @@ process_t *process_create(char *name, process_entry_t entrypoint);
 
 /** Arch specific, hardware level process switching
  *
- * This updates the content of the registers to effectively switch into the
- * desired process.
+ * This updates the content of the registers to effectively switch
+ * into the desired process.
  *
  * @param context The next process's hardware context
  *

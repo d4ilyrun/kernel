@@ -3,8 +3,8 @@
 /**
  * @file kernel/arch/i686/process.h
  *
- * @defgroup x86_process x86 - Scheduling
- * @ingroup scheduling
+ * @defgroup x86_process Processes - x86
+ * @ingroup process
  * @ingroup x86
  *
  * @{

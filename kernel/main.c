@@ -1,3 +1,4 @@
+#include <kernel/cpu.h>
 #include <kernel/devices/timer.h>
 #include <kernel/devices/uart.h>
 #include <kernel/interrupts.h>
@@ -6,6 +7,7 @@
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
 #include <kernel/process.h>
+#include <kernel/sched.h>
 #include <kernel/symbols.h>
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
@@ -24,13 +26,10 @@ void kernel_task_timer(void *data)
 
     log_dbg("TASK", "Started task: '%s'", current_process->name);
 
-    timer_wait_ms(1000);
-    log_info("MAIN", "Elapsed miliseconds: %d", gettime());
-
-    process_switch(&kernel_startup_process);
-
     while (1) {
-        ASM("hlt");
+        timer_wait_ms(1000);
+        log_info("TASK", "Elapsed miliseconds: %d", gettime());
+        schedule();
     }
 }
 
@@ -150,14 +149,19 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
         kfree(blocks);
     }
 
+    scheduler_init();
+
     process_t *kernel_timer_test =
         process_create("ktimer_test", kernel_task_timer);
-    process_switch(kernel_timer_test);
+
+    sched_new_process(kernel_timer_test);
+    schedule();
 
     log_dbg("TASK", "Re-started task: '%s'", current_process->name);
 
     while (1) {
         timer_wait_ms(1000);
         log_info("MAIN", "Elapsed miliseconds: %d", gettime());
+        schedule();
     }
 }

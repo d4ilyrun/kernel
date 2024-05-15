@@ -10,7 +10,8 @@
 /** Minimum PID, should be given to the very first started process */
 #define PROCESS_FIRST_PID 1
 
-static pid_t g_highest_pid = PROCESS_FIRST_PID;
+// PID 0 is attributed to the IDLE task (and kernel startup but it is temporary)
+static pid_t g_highest_pid = 0;
 
 process_t kernel_startup_process = {
     .name = "kstartup",

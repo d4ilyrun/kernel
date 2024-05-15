@@ -6,6 +6,7 @@ kernel_compile_flags = [
 
 kernel_source_files = files([
   'main.c',
+  'sys/sched.c',
   'sys/syscalls.c',
   'sys/process.c',
   'misc/logger.c',
