@@ -36,4 +36,6 @@ typedef uintptr_t vaddr_t;
 
 typedef u32 pid_t;
 
+typedef u64 timestamp_t;
+
 #endif /* KERNEL_TYPES_H */

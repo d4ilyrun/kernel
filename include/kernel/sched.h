@@ -67,6 +67,16 @@ extern bool scheduler_initialized;
  */
 void schedule(void);
 
+/** Lock the different interna synchronization mechanisms
+ *  @return Wether interrupts were previously enabled
+ */
+bool scheduler_lock(void);
+
+/** Release the different locks and synchorinzation mechanisms
+ *  @param old_if_flag The state of the interrputs prior to locking
+ */
+void scheduler_unlock(bool old_if_flag);
+
 /** Add a new process to be scheduled.
  *  When adding a new process, its state will be set to @ref SCHED_RUNNING
  */
@@ -74,3 +84,17 @@ void sched_new_process(process_t *);
 
 /** Initialize this cpu's scheduler */
 void scheduler_init(void);
+
+/** Mark the current process as blocked
+ *
+ * A blocked process cannot be rescheduled until it is explicitely marked as
+ * @ref SCHED_RUNNING.
+ */
+void sched_block_current_process(void);
+
+/** Unblock a currently blocked process
+ *
+ * The process is marked as @ref SCHED_RUNNING and is automatically added to the
+ * appropriate runqueue.
+ */
+void sched_unblock_process(process_t *process);

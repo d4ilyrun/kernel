@@ -28,7 +28,8 @@
  *  The different states a process can be in
  */
 typedef enum process_state {
-    SCHED_RUNNING = 0x0, ///< Process is currently running (or ready to run)
+    SCHED_RUNNING = 0x0, ///< Currently running (or ready to run)
+    SCHED_WAITING = 0x1, ///< Currently waiting for a resource (timer, lock ...)
 } process_state_t;
 
 /**
@@ -52,6 +53,20 @@ typedef struct process {
     vmm_t *vmm; /*!< The process's address space manager */
 
     node_t this; /*!< Intrusive linked list used by the scheduler */
+
+    /** Information relative to the current state of the process */
+    union {
+
+        struct {
+            /** End of the currently running process's timeslice */
+            timestamp_t preempt;
+        } running;
+
+        /** For sleeping processes only */
+        struct {
+            timestamp_t wakeup; /*!< Time when it should wakeup (in ticks) */
+        } sleep;
+    };
 
 } process_t;
 

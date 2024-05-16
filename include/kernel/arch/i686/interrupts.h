@@ -164,4 +164,14 @@ static inline void interrupts_enable(void)
     ASM("sti");
 }
 
+/* @brief Disable CPU interrupts
+ * @return Whether the interrupts where previously enabled
+ */
+static inline bool interrupts_test_and_disable(void)
+{
+    u32 eflags;
+    ASM("pushf; cli; popl %0" : "=r"(eflags)::"memory");
+    return boolean(eflags & 0x200); // flag: IF
+}
+
 #endif /* KERNEL_I686_INTERRUPTS_H */

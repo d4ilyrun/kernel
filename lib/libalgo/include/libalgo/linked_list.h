@@ -135,3 +135,20 @@ static inline const node_t *llist_tail(llist_t head)
         head = head->next;
     return head;
 }
+
+/** Insert a new item inside a sorted list in asending order */
+static inline void llist_insert_sorted(llist_t *head, node_t *new,
+                                       int (*compare)(const node_t *,
+                                                      const node_t *))
+{
+    node_t *prev = NULL;
+
+    while (*head != NULL) {
+        if (compare(new, *head) <= 0)
+            break;
+        prev = *head;
+        head = &(*head)->next;
+    }
+
+    __llist_add(head, prev, new);
+}
