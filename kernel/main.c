@@ -29,7 +29,6 @@ void kernel_task_timer(void *data)
     while (1) {
         timer_wait_ms(1000);
         log_info("TASK", "Elapsed miliseconds: %d", gettime());
-        schedule();
     }
 }
 
@@ -153,15 +152,12 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     process_t *kernel_timer_test =
         process_create("ktimer_test", kernel_task_timer);
-
     sched_new_process(kernel_timer_test);
-    schedule();
 
     log_dbg("TASK", "Re-started task: '%s'", current_process->name);
 
     while (1) {
         timer_wait_ms(1000);
         log_info("MAIN", "Elapsed miliseconds: %d", gettime());
-        schedule();
     }
 }

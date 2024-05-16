@@ -55,6 +55,9 @@
 
 #include <kernel/process.h>
 
+// TODO: Remove this once we implemented another timer for the scheduler
+extern bool scheduler_initialized;
+
 /**
  * @brief Reschedule the current process
  *

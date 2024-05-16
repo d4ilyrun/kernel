@@ -1,9 +1,7 @@
 /**
  * @file kernel/arch/i686/devices/timer.c
  *
- * @ingroup timer_x86
- * @ingroup timer
- * @ingroup x86
+ * @addtogroup timer_x86
  *
  * @brief We use the @ref PIT channel 0 for our internal timer.
  *
@@ -19,6 +17,7 @@
 #include <kernel/devices/timer.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
+#include <kernel/sched.h>
 #include <kernel/types.h>
 
 #include <kernel/arch/i686/devices/pic.h>
@@ -74,6 +73,14 @@ static DEFINE_INTERRUPT_HANDLER(irq_timer)
     timer_ticks_counter += 1;
 
     pic_eoi(IRQ_TIMER);
+
+    // TODO: Don't mingle IRQ and scheduling
+
+    if (!scheduler_initialized)
+        return;
+
+    if (current_process->running.preempt <= timer_ticks_counter)
+        schedule();
 }
 
 u64 timer_gettick(void)

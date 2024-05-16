@@ -2,12 +2,18 @@
 #include <kernel/sched.h>
 
 #include <libalgo/queue.h>
+#include <utils/constants.h>
 #include <utils/container_of.h>
 
 /** This is a placeholder until we implement an actual spinlock mechanism */
 typedef struct spinlock {
     uint8_t irq; // stub: spinlock for IRQ with SMP
 } spinlock_t;
+
+bool scheduler_initialized = false;
+
+/** The maximum timeslice given to a process by the scheduler */
+#define SCHED_TIMESLICE MS(2ULL * TIMER_TICK_FREQUENCY) // 2MS
 
 typedef struct scheduler {
 
@@ -42,6 +48,8 @@ void schedule(void)
 
     queue_enqueue(&scheduler.ready, &current_process->this);
 
+    next->running.preempt = timer_gettick() + SCHED_TIMESLICE;
+
     process_switch(next);
 }
 
@@ -58,6 +66,7 @@ void scheduler_init(void)
     // use the largest PID possible to avoid any conflict later on
     idle_process->pid = (pid_t)-1;
     sched_new_process(idle_process);
+    scheduler_initialized = true;
 }
 
 void sched_new_process(process_t *process)
