@@ -52,27 +52,32 @@ I try to keep the codebase well-documented. You can generate the full doc using 
 $ doxygen docs/doxygen/Doxyfile # Requires you to also pull the git submodules
 ```
 
-## What's available ?
-
-- GDT segments
-- Interrupts
-- Logging
-- PIT & Timer
-
-## Things I'd like to learn/implement
+## Things I'd like to learn
 
 - [X] Interrupts
 - Memory management
     - [X] Paging
-    - [X] PMM (physical)
     - [X] VMM (virtual)
-- [ ] Scheduler
-- [ ] Filesystem
-- [ ] Syscalls
-- User interaction
-    - [X] Keyboard
+    - [ ] CoW
+    - [ ] Guard pages
+- Drivers
+    - [X] Timer
     - [ ] Mouse
-    - [ ] Screen
-- [ ] Porting an already existing program (Can it run DOOM?)
-- [ ] Multitasking
-- [ ] Semaphores
+    - [ ] Networking
+    - [ ] Loadable kernel modules
+- Scheduling
+    - [X] Multitasking
+    - [ ] Priority
+    - [ ] Multiprocessor
+- Filesystems
+    - [ ] ext2
+    - [ ] VFS
+- Userland
+    - [ ] context switching
+    - [ ] syscalls
+- Porting
+    - [ ] Load/Execute ELF programs
+    - [ ] Porting an already existing program (Can it run DOOM?)
+    - [ ] Dynamic ELF relocation
+- [ ] IPC
+- [ ] SMP

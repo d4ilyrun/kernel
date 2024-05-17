@@ -29,8 +29,13 @@
 
 #ifndef INLINED_INTERRUPTS_DISABLE_ENABLE
 
-/**@brief Disable CPU interrupts */
+/** @brief Disable CPU interrupts */
 void interrupts_disable(void);
+
+/* @brief Disable CPU interrupts
+ * @return Whether the interrupts where previously enabled
+ */
+bool interrupts_test_and_disable(void);
 
 /**@brief Enable CPU interrupts */
 void interrupts_enable(void);

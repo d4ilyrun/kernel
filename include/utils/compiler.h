@@ -1,7 +1,7 @@
 /**
  * @file utlis/compiler.h
  *
- * @defgroup utils_compiler Compiler Arguments
+ * @defgroup utils_compiler Compiler
  * @ingroup utils
  *
  * This file contains macros designed to be used with the compiler.
@@ -26,5 +26,11 @@
 #define SECTION(_section) __attribute__((section(_section)))
 #define NO_DISCARD __attribute__((warn_unused_result))
 #define MAYBE_UNUSED __attribute__((unused))
+#define ALIAS(_function) __attribute__((alias(_function)))
+
+/** Raises a compile time eror if \c _x is 0
+ *  @return \c _x so that it can be used as a compile time known value
+ */
+#define NON_ZERO(_x) (1 + sizeof(struct { char size[(_x)-1]; }))
 
 #endif /* UTILS_COMPILER_H */

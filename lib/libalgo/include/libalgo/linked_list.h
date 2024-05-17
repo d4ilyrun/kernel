@@ -8,7 +8,7 @@
  *
  * # Linked list
  *
- * This is our implementation for linked lists.
+ * This is our implementation for doubly linked lists.
  *
  * @note We use an intrusive linked list design.
  *
@@ -21,16 +21,17 @@
 
 struct linked_list_node {
     struct linked_list_node *next; ///< Next item in the list
+    struct linked_list_node *prev; ///< Previous item in the list
 };
 
 /**
  * @struct linked_list_node
- * @brief A linked list node
+ * @brief A doubly linked list node
  */
-typedef struct linked_list_node llist_node_t;
+typedef struct linked_list_node node_t;
 
-/** The head of a linked list */
-typedef llist_node_t *llist_t;
+/** The head of a doubly linked list */
+typedef node_t *llist_t;
 
 /** Declare a head to an empty linked list */
 #define DECLARE_LLIST(_name) llist_t _name = NULL
@@ -40,53 +41,78 @@ typedef llist_node_t *llist_t;
  *  @param _head The head of the linked list
  */
 #define FOREACH_LLIST(_name, _head) \
-    for (llist_node_t *_name = (_head); _name; _name = _name->next)
+    for (node_t *_name = (_head); _name; _name = _name->next)
+
+/** Loop over each element inside a linked list in reverse order
+ *  @param _name The name of the current node
+ *  @param _tail The tail of the linked list
+ */
+#define FOREACH_REVERSE_LLIST(_name, _head) \
+    for (node_t *_name = (_tail); _name; _name = _name->prev)
+
+static inline void __llist_add(node_t **node, node_t *prev, node_t *new)
+{
+    new->next = *node;
+    new->prev = prev;
+
+    if (new->next)
+        new->next->prev = new;
+
+    *node = new;
+}
 
 /** Prepend a new node to the given list */
-static ALWAYS_INLINE void llist_add(llist_t *head, llist_node_t *new)
+static ALWAYS_INLINE void llist_add(llist_t *head, node_t *new)
 {
-    new->next = *head;
-    *head = new;
+    __llist_add(head, NULL, new);
 }
 
 /** Append a new node to the given list */
-static ALWAYS_INLINE void llist_add_tail(llist_t *head, llist_node_t *new)
+static inline void llist_add_tail(llist_t *head, node_t *new)
 {
     while (*head != NULL)
         head = &(*head)->next;
 
-    *head = new;
+    llist_add(head, new);
 }
 
 /** Pop the first element of the list */
-static ALWAYS_INLINE llist_node_t *llist_pop(llist_t *head)
+static inline node_t *llist_pop(llist_t *head)
 {
-    llist_node_t *old_head = *head;
-    *head = (*head)->next;
+    node_t *old_head = *head;
+
+    // we assume head = &head->prev->next
+    // This is supposed to be the head anyway.
+    // We only updated the next->prev to be able to use it in the other helpers
+    if (old_head) {
+        if (old_head->next) {
+            old_head->next->prev = old_head->prev;
+            *head = old_head->next;
+        }
+
+        *head = old_head->next;
+    }
+
     return old_head;
 }
 
 /** Pop the last element of the list */
-static ALWAYS_INLINE llist_node_t *llist_pop_tail(llist_t *head)
+static inline node_t *llist_pop_tail(llist_t *head)
 {
-    llist_node_t *old_tail = *head;
+    if (*head == NULL)
+        return NULL;
 
-    while (*head != NULL) {
-        old_tail = *head;
+    while ((*head)->next != NULL)
         head = &(*head)->next;
-    }
 
-    if (*head != NULL)
-        *head = (*head)->next;
-
-    return old_tail;
+    return llist_pop(head);
 }
 
-static ALWAYS_INLINE void llist_remove(llist_t *head, llist_node_t *node)
+static inline void llist_remove(llist_t *head, node_t *node)
 {
     while (*head != NULL) {
         if (*head == node) {
-            *head = node->next;
+            llist_pop(head);
             return;
         }
         head = &(*head)->next;
@@ -94,13 +120,13 @@ static ALWAYS_INLINE void llist_remove(llist_t *head, llist_node_t *node)
 }
 
 /** Return the given list's head */
-static ALWAYS_INLINE const llist_node_t *llist_head(llist_t head)
+static ALWAYS_INLINE const node_t *llist_head(llist_t head)
 {
     return head;
 }
 
 /** Return the given list's tail */
-static ALWAYS_INLINE const llist_node_t *llist_tail(llist_t head)
+static inline const node_t *llist_tail(llist_t head)
 {
     if (head == NULL)
         return NULL;
@@ -108,4 +134,21 @@ static ALWAYS_INLINE const llist_node_t *llist_tail(llist_t head)
     while (head->next != NULL)
         head = head->next;
     return head;
+}
+
+/** Insert a new item inside a sorted list in asending order */
+static inline void llist_insert_sorted(llist_t *head, node_t *new,
+                                       int (*compare)(const node_t *,
+                                                      const node_t *))
+{
+    node_t *prev = NULL;
+
+    while (*head != NULL) {
+        if (compare(new, *head) <= 0)
+            break;
+        prev = *head;
+        head = &(*head)->next;
+    }
+
+    __llist_add(head, prev, new);
 }

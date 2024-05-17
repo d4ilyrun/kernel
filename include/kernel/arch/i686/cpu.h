@@ -22,7 +22,7 @@
         ASM("movl %0, %%" #_reg : : "r"(value));      \
     }
 
-#define CPU_32BIT_REGISTERS cr0, cr1, cr2, cr3, cr4, esp, cs, ss
+#define CPU_32BIT_REGISTERS cr0, cr1, cr2, cr3, cr4, esp, cs, ds, es, fs, gs, ss
 
 MAP(READ_REGISTER_OPS, CPU_32BIT_REGISTERS, )
 MAP(WRITE_REGISTER_OPS, CPU_32BIT_REGISTERS, )
@@ -73,4 +73,8 @@ static ALWAYS_INLINE uint32_t inl(uint16_t port)
     return val;
 }
 
+static ALWAYS_INLINE void hlt(void)
+{
+    ASM("hlt");
+}
 #endif /* KERNEL_I686_UTILS_CPU_OPS_H */

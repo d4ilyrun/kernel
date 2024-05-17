@@ -26,9 +26,9 @@
 
 .section .bss
 .align 16
-stack_bottom:
+startup_kernel_stack_bottom:
     .skip KERNEL_STACK_SIZE
-stack_top:
+startup_kernel_stack_top:
 
 /*
  * Temporary paging structure used by the startup code to temporarily activate paging.
@@ -83,13 +83,18 @@ _kernel_start:
 
 .size _kernel_start, . - _kernel_start
 
+.extern kernel_startup_process
+
 .section .text
 higher_half:
 
     // Starting from here we are running in higher-half !
 
     // Initialize stack pointer
-    mov $stack_top, %esp
+    movl $startup_kernel_stack_top, %esp
+    // Store it into the startup's task ESP0 (required for multitasking)
+    leal (kernel_startup_process), %edx
+    movl $startup_kernel_stack_top, 0x4(%edx)
 
     // The bootloader stores information about our system (memory map, ...)
     // inside these registers. We push them onto the stack to be able to access them

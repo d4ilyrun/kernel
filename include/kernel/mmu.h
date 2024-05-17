@@ -38,17 +38,30 @@ typedef enum mmu_prot {
     PROT_WRITE = 0x4, /*!< Pages may be written */
 } mmu_prot;
 
-/** @brief Inititialize the MMU's underlying structures */
-bool mmu_init(void);
-
-/**
- * @brief Enable paging and automatic virtual address translation.
+/** Initialize the MMU's paging system
  *
- * @warning After calling this function, each and every address will
+ * This function is responsible for setting any required bit inside the CPU's
+ * register.
+ *
+ * It is also responsible of remapping the kernel's code and addresses before
+ * enabling paging.
+ *
+ * @warning  After calling this function, each and every address will
  * automatically be translated into its physical equivalent using the paging
  * mechanism. Be sure to remap known addresses to avoid raising exceptions.
  */
-bool mmu_start_paging(void);
+bool mmu_init(void);
+
+/** @brief Inititialize a new page directory
+ *  @return The physical address of the new page_directory, 0 if error.
+ */
+paddr_t mmu_new_page_directory(void);
+
+/**
+ * @brief Replace the current page directory.
+ * @param page_directory The physical address of the page directory
+ */
+void mmu_load_page_directory(paddr_t);
 
 /**
  * @brief Map a virtual address to a physical one
@@ -88,5 +101,10 @@ paddr_t mmu_unmap(vaddr_t virt);
  *             A combination of @ref mmu_prot flags.
  */
 void mmu_identity_map(paddr_t start, paddr_t end, int prot);
+
+/** Find the physical mapping of a virtual address
+ *  @return -E_INVAL if error, a physical address if none
+ */
+paddr_t mmu_find_physical(vaddr_t);
 
 #endif /* KERNEL_MMU_H */

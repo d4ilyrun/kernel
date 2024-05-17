@@ -20,7 +20,7 @@
 
 #include <kernel/types.h>
 
-/** The frequency used for the timer (in KHz) */
+/** The frequency used for the timer (in Hz) */
 #define TIMER_TICK_FREQUENCY (1000) // 1KHz
 
 /**

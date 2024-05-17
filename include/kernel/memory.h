@@ -12,19 +12,34 @@
  *
  *      0xFFFF_FFFF --------------------
  *                  |                  |
+ *                  |    Page Tables   |
+ *      0xFFC0_0000 |------------------|
+ *                  |      Kernel      |
+ *                  |   VMM Reserved   |
+ *      0xFFB0_0000 |------------------|
+ *                  |                  |
+ *                  |                  |
+ *                  |                  |
  *                  |  Kernel Memory   |
  *                  |                  |
+ *                  |                  |
+ *                  |                  |
  *      0xC000_0000 |------------------|
+ *                  |                  |
+ *                  |                  |
  *                  |                  |
  *                  |                  |
  *                  |       ...        |
  *                  |                  |
  *                  |                  |
+ *                  |                  |
+ *                  |                  |
+ *                  |                  |
  *      0x0110_0000 |------------------|
- *                  |  VMM Reserved    |
+ *                  |   VMM Reserved   |
  *      0x0100_0000 |------------------|
  *                  |     Reserved     |
- *      0x0000_0000 |------------------|
+ *      0x0000_0000 --------------------
  *
  * @{
  */
@@ -102,6 +117,22 @@ extern u32 _kernel_code_end;
 #define KERNEL_CODE_END ((u32)&_kernel_code_end)
 
 #endif /* __ASSEMBLER__ */
+
+#define PAGE_TABLES_START (0xFFC00000)
+
+/** @brief Location of the reserved range for the kernel's VMM structure
+ *  @ref kernel_vmm
+ *  @{
+ */
+#define KERNEL_VMM_RESERVED_END (PAGE_TABLES_START)
+#define KERNEL_VMM_RESERVED_START (KERNEL_VMM_RESERVED_END - VMM_RESERVED_SIZE)
+/** @} */
+
+#define KERNEL_MEMORY_END (KERNEL_VMM_RESERVED_START)
+#define KERNEL_MEMORY_START (KERNEL_CODE_END)
+
+#define USER_MEMORY_END KERNEL_MEMORY_START
+#define USER_MEMORY_START VMM_RESERVED_END
 
 /**
  * @brief Size of the area reserved fo rallovation memory management structures

@@ -23,8 +23,9 @@
  */
 typedef enum error {
     E_NONE,       ///< No error
+    E_NOMEM = 12, ///< Out of memory
     E_INVAL = 22, ///< Invalid argument
 } error_t;
 
 /** Check if an integer can be interpreted as an error */
-#define IS_ERR(_x) ((_x) < 0)
+#define IS_ERR(_x) ((s32)(_x) < 0)

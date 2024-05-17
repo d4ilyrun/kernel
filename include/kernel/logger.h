@@ -67,11 +67,13 @@ void log(const char *type, const char *domain, const char *msg, ...);
 void panic(u32 esp, const char *msg, ...) __attribute__((__noreturn__));
 
 /** @brief Call the panic function with the appropriate parameters */
-#define PANIC(...)               \
-    do {                         \
-        u32 esp = read_esp();    \
-        panic(esp, __VA_ARGS__); \
-    } while (0)
+#define PANIC(...)                   \
+    {                                \
+        do {                         \
+            u32 esp = read_esp();    \
+            panic(esp, __VA_ARGS__); \
+        } while (0);                 \
+    }
 
 // TODO: LOG_LEVEL filter
 

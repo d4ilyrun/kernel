@@ -1,9 +1,7 @@
 /**
  * @file kernel/arch/i686/devices/timer.c
  *
- * @ingroup timer_x86
- * @ingroup timer
- * @ingroup x86
+ * @addtogroup timer_x86
  *
  * @brief We use the @ref PIT channel 0 for our internal timer.
  *
@@ -19,11 +17,14 @@
 #include <kernel/devices/timer.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
+#include <kernel/sched.h>
 #include <kernel/types.h>
 
 #include <kernel/arch/i686/devices/pic.h>
 #include <kernel/arch/i686/devices/pit.h>
 
+#include <libalgo/linked_list.h>
+#include <utils/container_of.h>
 #include <utils/macro.h>
 
 /**
@@ -37,6 +38,8 @@ static volatile u64 timer_ticks_counter = 0;
 static volatile u32 timer_kernel_frequency = 0;
 
 static DEFINE_INTERRUPT_HANDLER(irq_timer);
+
+static DECLARE_LLIST(sleeping_tasks);
 
 /**
  * Start the timer.
@@ -74,6 +77,30 @@ static DEFINE_INTERRUPT_HANDLER(irq_timer)
     timer_ticks_counter += 1;
 
     pic_eoi(IRQ_TIMER);
+
+    // TODO: Use a separate and more modern timer for scheduler (LAPIC, HPET)
+    //
+    // We could be setting the next timer interrupt dynamically to match the
+    // next due task, but:
+    // * this is our main timekeeping source, and it would make it less accurate
+    // * the PIT is too slow to re-program dynamically like this
+
+    // TODO: Don't mingle IRQ and scheduling
+
+    if (!scheduler_initialized)
+        return;
+
+    const node_t *next_wakeup = llist_head(sleeping_tasks);
+    while (next_wakeup &&
+           container_of(next_wakeup, process_t, this)->sleep.wakeup <=
+               timer_ticks_counter) {
+        next_wakeup = llist_pop(&sleeping_tasks);
+        sched_unblock_process(container_of(next_wakeup, process_t, this));
+        next_wakeup = llist_head(sleeping_tasks);
+    }
+
+    if (current_process->running.preempt <= timer_ticks_counter)
+        schedule();
 }
 
 u64 timer_gettick(void)
@@ -81,12 +108,24 @@ u64 timer_gettick(void)
     return timer_ticks_counter;
 }
 
+static int process_cmp_wakeup(const node_t *current_node,
+                              const node_t *cmp_node)
+{
+    const process_t *current = container_of(current_node, process_t, this);
+    const process_t *cmp = container_of(cmp_node, process_t, this);
+
+    RETURN_CMP(current->sleep.wakeup, cmp->sleep.wakeup);
+}
+
 void timer_wait_ms(u64 ms)
 {
     const u64 start = timer_ticks_counter;
     const u64 end = start + (1000 * timer_kernel_frequency) / ms;
 
-    WAIT_FOR(timer_ticks_counter >= end);
+    current_process->sleep.wakeup = end;
+    llist_insert_sorted(&sleeping_tasks, &current_process->this,
+                        process_cmp_wakeup);
+    sched_block_current_process();
 }
 
 u64 timer_to_ms(u64 ticks)

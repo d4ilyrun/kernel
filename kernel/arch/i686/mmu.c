@@ -48,10 +48,13 @@
  */
 
 #include <kernel/cpu.h>
+#include <kernel/error.h>
 #include <kernel/logger.h>
 #include <kernel/memory.h>
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
+#include <kernel/process.h>
+#include <kernel/syscalls.h>
 #include <kernel/types.h>
 
 #include <utils/bits.h>
@@ -59,17 +62,16 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <string.h>
 
 /** Number of entries inside the page directory */
 #define MMU_PDE_COUNT (1024)
 /** Number of entries inside a single page table */
 #define MMU_PTE_COUNT (1024)
-
-/**
- * Compute the virtual address of a page table when using recursive paging
- * @link https://medium.com/@connorstack/recursive-page-tables-ad1e03b20a85
- */
-#define MMU_RECURSIVE_PAGE_TABLE_ADDRESS(_index) ((0xFFC00 + (_index)) << 12)
+/** First PDE corresponding to the kernel pages */
+#define MMU_PDE_KERNEL_FIRST (767)
+/** Number of PDE corresponding to kernel pages */
+#define MMU_PDE_KERNEL_COUNT (MMU_PDE_COUNT - MMU_PDE_KERNEL_FIRST)
 
 /**
  * @struct mmu_pde Page Directory entry
@@ -111,8 +113,44 @@ typedef struct PACKED mmu_pte {
     u32 page_frame : 20;
 } mmu_pte_t;
 
-/** Compute the 12 higher bits of a page's address (i.e. address / PAGE_SIZE) */
-#define MMU_PAGE_ADDRESS(_page) (((u32)_page) >> 12)
+typedef mmu_pde_t *page_directory_t;
+typedef mmu_pte_t *page_table_t;
+
+/** Representation of a 32bit virtual address from the MMU's POV */
+typedef union {
+
+    u32 raw;
+    struct {
+        u32 offset : 12;
+        u32 pte : 10;
+        u32 pde : 10;
+    };
+
+} mmu_decode_t;
+
+static_assert(sizeof(mmu_decode_t) == sizeof(u32));
+
+/** Convert pageframe address to page frame number */
+#define TO_PFN(_pageframe) (((u32)(_pageframe)) >> 12)
+/** Convert pageframe number to pageframe address */
+#define FROM_PFN(_pageframe) ((_pageframe) << 12)
+
+/**
+ * Compute the virtual address of a page table when using recursive paging
+ * @link https://medium.com/@connorstack/recursive-page-tables-ad1e03b20a85
+ */
+#define MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS \
+    ((page_directory_t)FROM_PFN(0xFFFFF))
+#define MMU_RECURSIVE_PAGE_TABLE_ADDRESS(_index) \
+    ((page_table_t)FROM_PFN((0xFFC00 + (_index))))
+
+// Page directory used when initializing the kernel
+static __attribute__((__aligned__(PAGE_SIZE)))
+mmu_pde_t kernel_startup_page_directory[MMU_PDE_COUNT];
+
+// Keep track whether paging has been fully enabled.
+// This doesn't count temporarily enabling it to jump into higher half.
+static bool paging_enabled = false;
 
 /**
  * @brief Flush the translation buffer
@@ -129,28 +167,57 @@ static inline void mmu_flush_tlb(u32 tlb_entry)
     ASM("invlpg (%0)" ::"r"(tlb_entry) : "memory");
 }
 
-// The kernel's very own page directory
-static __attribute__((__aligned__(PAGE_SIZE)))
-mmu_pde_t kernel_page_directory[MMU_PDE_COUNT];
-
-// Keep track whether paging has been fully enabled.
-// This doesn't count temporarily enabling it to jump into higher half.
-static bool paging_enabled = false;
-
-// TODO: Do not hard-code the content of CR3 to kernel's PD
-//
-// We set CR3 to be the kernel's page directory, AT ALL TIMES.
-//
-// This works for now since we only have ONE active tasks. But once
-// we are able to execute multiple tasks at once, we should find another
-// way to set its contentt to be that of the currently running process.
-bool mmu_start_paging(void)
+void mmu_load_page_directory(paddr_t page_directory)
 {
-    static void *page_directory =
-        (void *)KERNEL_HIGHER_HALF_PHYSICAL(kernel_page_directory);
+    write_cr3(page_directory);
+}
 
-    // Set CR3 to point to our page directory
-    write_cr3((u32)page_directory);
+/*
+ * @brief Remap an address range given an offset.
+ *
+ * example:
+ *     mmu_offset_map(0x0000, 0x00FF, 0xFF) will remap the physical range
+ *     [0x0000; 0x00FF] to the virtual range [0xFF00; 0xFFFF]
+ */
+static void mmu_offset_map(paddr_t start, paddr_t end, int64_t offset,
+                           int prot);
+
+bool mmu_init(void)
+{
+    if (paging_enabled) {
+        log_warn("MMU", "Trying to re-enable paging. Skipping.");
+        return false;
+    }
+
+    // Initialize the kernel's page directory
+    kernel_startup_process.context.cr3 =
+        KERNEL_HIGHER_HALF_PHYSICAL(kernel_startup_page_directory);
+
+    // Mark all PDEs as "absent" (present = 0), and writable
+    for (size_t entry = 0; entry < MMU_PDE_COUNT; entry++) {
+        kernel_startup_page_directory[entry] = (mmu_pde_t){.writable = 1};
+    }
+
+    // Setup recursive page tables
+    // @link https://medium.com/@connorstack/recursive-page-tables-ad1e03b20a85
+    kernel_startup_page_directory[MMU_PDE_COUNT - 1].present = 1;
+    kernel_startup_page_directory[MMU_PDE_COUNT - 1].page_table =
+        TO_PFN(kernel_startup_process.context.cr3);
+
+    // We remap our higher-half kernel.
+    // The addresses over 0xC0000000 will point to our kernel's code (0x00000000
+    // in physical)
+    mmu_offset_map(KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_START),
+                   KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_END),
+                   KERNEL_HIGHER_HALF_OFFSET, PROT_EXEC | PROT_READ);
+
+    // Identity map the first MB, since it contains hardcoded addresses we still
+    // use (console buffer for example).
+    //
+    // TODO: Check for possible alternatives? (MMIO?, map only what we need?)
+    mmu_identity_map(0x0, 0x100000, PROT_READ | PROT_WRITE);
+
+    mmu_load_page_directory(kernel_startup_process.context.cr3);
 
     // According to 4.3, to activate 32-bit mode paging we must:
     // 1. set CR4.PAE to 0 (de-activate PAE)
@@ -166,78 +233,68 @@ bool mmu_start_paging(void)
     return true;
 }
 
-/*
- * @brief Remap an address range given an offset.
- *
- * example:
- *     mmu_offset_map(0x0000, 0x00FF, 0xFF) will remap the physical range
- *     [0x0000; 0x00FF] to the virtual range [0xFF00; 0xFFFF]
+/** @brief Inititialize a new page directory
+ *  @return The physical address of the new page_directory, 0 if error.
  */
-static void mmu_offset_map(paddr_t start, paddr_t end, int64_t offset,
-                           int prot);
-
-bool mmu_init(void)
+paddr_t mmu_new_page_directory(void)
 {
-    log_info("MMU", "Initializing MMU");
-
-    // Mark all PDEs as "absent" (present = 0), and writable
-    for (size_t entry = 0; entry < MMU_PDE_COUNT; entry++) {
-        kernel_page_directory[entry] = (mmu_pde_t){.writable = 1};
+    page_directory_t new = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, 0);
+    if (new == NULL) {
+        log_err("MMU", "Failed to allocate page for the new page directory");
+        return -E_NOMEM;
     }
 
-    // Setup recursive page tables
-    // @link https://medium.com/@connorstack/recursive-page-tables-ad1e03b20a85
-    kernel_page_directory[MMU_PDE_COUNT - 1].present = 1;
-    kernel_page_directory[MMU_PDE_COUNT - 1].page_table =
-        MMU_PAGE_ADDRESS(KERNEL_HIGHER_HALF_PHYSICAL(kernel_page_directory));
+    page_directory_t page_directory = MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS;
 
-    // We remap our higher-half kernel.
-    // The addresses over 0xC0000000 will point to our kernel's code (0x00000000
-    // in physical)
-    mmu_offset_map(KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_START),
-                   KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_END),
-                   KERNEL_HIGHER_HALF_OFFSET, PROT_EXEC | PROT_READ);
+    // Copy kernel page table entries
+    memcpy(&new[MMU_PDE_KERNEL_FIRST], &page_directory[MMU_PDE_KERNEL_FIRST],
+           MMU_PDE_KERNEL_COUNT * sizeof(mmu_pte_t));
 
-    // Identity map the first MB, since it contains hardcoded addresses we still
-    // use (console buffer for example).
-    //
-    // TODO: Check for possible alternatives? (MMIO?, map only what we need?)
-    mmu_identity_map(0x0, 0x100000, PROT_READ | PROT_WRITE);
+    paddr_t new_physical = mmu_find_physical((vaddr_t) new);
+    new[MMU_PDE_COUNT - 1].page_table =
+        TO_PFN(new_physical); // Setup recursive mapping
 
-    return true;
+    // Unmap new page directory from current address space, but do not release
+    // the pageframe
+    vmm_free(current_process->vmm, (vaddr_t) new, PAGE_SIZE);
+    mmu_unmap((vaddr_t) new);
+
+    return new_physical;
 }
 
 bool mmu_map(vaddr_t virtual, vaddr_t pageframe, int prot)
 {
-    u16 pde_index = virtual >> 22;                     // bits 31-22
-    u16 pte_index = (virtual >> 12) & ((1 << 10) - 1); // bits 21-12
+    mmu_decode_t address = {.raw = virtual};
 
-    // TODO: ASSERT alignment
+    if (virtual % PAGE_SIZE)
+        return false;
 
-    // TODO: Hard-coded to work with kernel page tables only
-    //       This should take the pagedir/pagetables as input later on
-    //
-    // We also hardcode the pde/pte to be un-accessible when in user mode.
+    // TODO: We hardcode the pde/pte to be un-accessible when in user mode.
     // This will also cause an issue when reaching userspace later.
 
-    if (!kernel_page_directory[pde_index].present) {
+    page_directory_t page_directory;
+    page_table_t page_table;
+
+    if (paging_enabled)
+        page_directory = MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS;
+    else
+        page_directory = kernel_startup_page_directory;
+
+    if (!page_directory[address.pde].present) {
         u32 page_table = pmm_allocate(PMM_MAP_KERNEL);
-        kernel_page_directory[pde_index].page_table =
-            MMU_PAGE_ADDRESS(page_table);
-        kernel_page_directory[pde_index].present = 1;
+        page_directory[address.pde].page_table = TO_PFN(page_table);
+        page_directory[address.pde].present = 1;
     }
 
     // Virtual address of the corresponding page table (physical if CR0.PG=0)
-    mmu_pte_t *page_table;
-
     if (paging_enabled) {
-        page_table = (mmu_pte_t *)MMU_RECURSIVE_PAGE_TABLE_ADDRESS(pde_index);
+        page_table = MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde);
     } else {
-        page_table = (mmu_pte_t *)KERNEL_HIGHER_HALF_VIRTUAL(
-            kernel_page_directory[pde_index].page_table << 12);
+        page_table =
+            (page_table_t)FROM_PFN(page_directory[address.pde].page_table);
     }
 
-    if (page_table[pte_index].present) {
+    if (page_table[address.pte].present) {
         log_err("MMU",
                 "Allocating already allocated virtual address: " LOG_FMT_32,
                 virtual);
@@ -245,9 +302,9 @@ bool mmu_map(vaddr_t virtual, vaddr_t pageframe, int prot)
     }
 
     // Link the page table entry (virtual address) to the pageframe
-    page_table[pte_index] = (mmu_pte_t){
+    page_table[address.pte] = (mmu_pte_t){
         .present = 1,
-        .page_frame = MMU_PAGE_ADDRESS(pageframe),
+        .page_frame = TO_PFN(pageframe),
         // cannot disable reading from x86 pages pages
         .writable = boolean(prot & PROT_WRITE),
         .user = 0,
@@ -258,20 +315,15 @@ bool mmu_map(vaddr_t virtual, vaddr_t pageframe, int prot)
 
 paddr_t mmu_unmap(vaddr_t virtual)
 {
-    u16 pde_index = virtual >> 22;                     // bits 31-22
-    u16 pte_index = (virtual >> 12) & ((1 << 10) - 1); // bits 21-12
+    mmu_decode_t address = {.raw = virtual};
 
-    // TODO: Hard-coded to work with kernel pages only
-    //       c.f. todo inside mmu_map
-
-    if (!kernel_page_directory[pde_index].present)
+    if (!MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS[address.pde].present)
         return 0;
 
     // Erase the content of the page table entry
-    mmu_pte_t *page_table =
-        (mmu_pte_t *)MMU_RECURSIVE_PAGE_TABLE_ADDRESS(pde_index);
-    paddr_t physical = page_table[pte_index].page_frame << 12;
-    *((volatile u32 *)&page_table[pte_index]) = 0x0;
+    page_table_t page_table = MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde);
+    paddr_t physical = FROM_PFN(page_table[address.pte].page_frame);
+    *((volatile u32 *)&page_table[address.pte]) = 0x0;
 
     mmu_flush_tlb(virtual);
 
@@ -288,4 +340,18 @@ static void mmu_offset_map(paddr_t start, paddr_t end, int64_t offset, int prot)
 void mmu_identity_map(paddr_t start, paddr_t end, int prot)
 {
     mmu_offset_map(start, end, 0, prot);
+}
+
+paddr_t mmu_find_physical(vaddr_t virtual)
+{
+    mmu_decode_t address = {.raw = virtual};
+
+    if (!MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS[address.pde].present)
+        return -E_INVAL;
+
+    page_table_t page_table = MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde);
+    if (!page_table[address.pte].present)
+        return -E_INVAL;
+
+    return FROM_PFN(page_table[address.pte].page_frame);
 }

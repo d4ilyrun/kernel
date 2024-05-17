@@ -1,3 +1,4 @@
+#include <kernel/cpu.h>
 #include <kernel/devices/timer.h>
 #include <kernel/devices/uart.h>
 #include <kernel/interrupts.h>
@@ -5,6 +6,8 @@
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
+#include <kernel/process.h>
+#include <kernel/sched.h>
 #include <kernel/symbols.h>
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
@@ -16,6 +19,18 @@
 #include <multiboot.h>
 
 void arch_setup(void);
+
+void kernel_task_timer(void *data)
+{
+    UNUSED(data);
+
+    log_dbg("TASK", "Started task: '%s'", current_process->name);
+
+    while (1) {
+        timer_wait_ms(1000);
+        log_info("TASK", "Elapsed miliseconds: %d", gettime());
+    }
+}
 
 void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 {
@@ -51,10 +66,14 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     if (!pmm_init(mbt))
         PANIC("Could not initialize the physical memory manager");
-    if (!mmu_init() || !mmu_start_paging())
+
+    log_info("START", "Initializing MMU");
+    if (!mmu_init())
         PANIC("Failed to initialize virtual address space");
 
-    vmm_init(KERNEL_CODE_END, align_down(ADDRESS_SPACE_END, PAGE_SIZE));
+    log_info("START", "Initializing kernel VMM");
+    vmm_init(&kernel_vmm, KERNEL_MEMORY_START, KERNEL_MEMORY_END);
+    kernel_startup_process.vmm = &kernel_vmm;
 
     ASM("int $0");
 
@@ -113,6 +132,10 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
         kfree(kmalloc(4 * PAGE_SIZE, KMALLOC_DEFAULT));
 
+        uint8_t *tata = kmalloc(KERNEL_STACK_SIZE, KMALLOC_KERNEL);
+        tata[KERNEL_STACK_SIZE - 100] = 1;
+        kfree(tata);
+
         uint32_t **blocks = kcalloc(8, sizeof(uint32_t *), KMALLOC_DEFAULT);
         for (int i = 0; i < 8; ++i) {
             blocks[i] = kmalloc(64 * sizeof(uint32_t), KMALLOC_DEFAULT);
@@ -125,8 +148,18 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
         kfree(blocks);
     }
 
+    scheduler_init();
+
+    process_t *kernel_timer_test =
+        process_create("ktimer_test", kernel_task_timer);
+    sched_new_process(kernel_timer_test);
+
+    log_dbg("TASK", "Re-started task: '%s'", current_process->name);
+
     while (1) {
         timer_wait_ms(1000);
         log_info("MAIN", "Elapsed miliseconds: %d", gettime());
+        if (BETWEEN(gettime(), 5000, 6000))
+            process_kill(kernel_timer_test);
     }
 }
