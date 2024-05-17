@@ -128,10 +128,16 @@ void sched_block_current_process(void)
 void sched_unblock_process(process_t *process)
 {
     const bool old_if = scheduler_lock();
-    process->state = SCHED_RUNNING;
+
+    // Avoid resurecting a process that had been killed in the meantime
+    if (process->state == SCHED_WAITING)
+        process->state = SCHED_RUNNING;
+
     queue_enqueue(&scheduler.ready, &process->this);
+
     // give the least time possible to the IDLE task
     if (current_process == idle_process)
         do_schedule();
+
     scheduler_unlock(old_if);
 }

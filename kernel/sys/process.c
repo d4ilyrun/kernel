@@ -4,6 +4,7 @@
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
 #include <kernel/process.h>
+#include <kernel/sched.h>
 
 #include <string.h>
 
@@ -51,7 +52,6 @@ process_t *process_create(char *name, process_entry_t entrypoint)
     new->vmm = vmm;
 
     if (!arch_process_create(new, entrypoint)) {
-        // TODO: vmm_release
         kfree(vmm);
         kfree(new);
     }
@@ -59,7 +59,24 @@ process_t *process_create(char *name, process_entry_t entrypoint)
     return new;
 }
 
+static void process_free(process_t *process)
+{
+    vmm_destroy(process->vmm);
+}
+
 void process_switch(process_t *process)
 {
     arch_process_switch(&process->context);
+
+    if (current_process->state == SCHED_KILLED) {
+        process_free(current_process);
+        schedule();
+    }
+}
+
+void process_kill(process_t *process)
+{
+    process->state = SCHED_KILLED;
+    if (process == current_process)
+        schedule();
 }

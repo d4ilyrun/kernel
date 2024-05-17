@@ -45,7 +45,8 @@ typedef bitmap_block_t *bitmap_t;
 #define BITMAP_OFFSET(_index) ((_index) / BITMAP_BLOCK_SIZE)
 
 /** @brief Declare a bitmap variable of a given size */
-#define BITMAP(_name, _size) bitmap_block_t _name[BITMAP_OFFSET(_size) + 1]
+#define BITMAP(_name, _size) \
+    bitmap_block_t _name[BITMAP_OFFSET(NON_ZERO(_size) - 1) + 1]
 
 /**
  * @brief Read the value at a given index inside a bitmap

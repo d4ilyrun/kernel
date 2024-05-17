@@ -159,5 +159,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     while (1) {
         timer_wait_ms(1000);
         log_info("MAIN", "Elapsed miliseconds: %d", gettime());
+        if (BETWEEN(gettime(), 5000, 6000))
+            process_kill(kernel_timer_test);
     }
 }

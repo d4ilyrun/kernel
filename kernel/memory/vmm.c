@@ -1,5 +1,6 @@
 #include <kernel/error.h>
 #include <kernel/interrupts.h>
+#include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
@@ -64,9 +65,9 @@ static vaddr_t vma_reserved_allocate(vmm_t *vmm)
                                  (i * BITMAP_BLOCK_SIZE));
 
             // NOTE: This line only works if we use 64 bytes long VMAs
-            //       A page is 64 VMAs, so if index is odd, the 32 previous VMAs
-            //       already belong to the same page (which means it is
-            //       allocated)
+            //       A page can contain up to 64 VMAs, so if index is odd
+            //       the 32 previous (non-free) VMAs already belong to the same
+            //       page (which means it is already allocated)
             if (i % 2 == 0)
                 page_already_allocated = vmm->reserved[i] != 0x0;
 
@@ -106,14 +107,15 @@ MAYBE_UNUSED static void vma_reserved_free(vmm_t *vmm, vma_t *vma)
                   ? ((vaddr_t)vma - KERNEL_VMM_RESERVED_START) / VMA_SIZE
                   : ((vaddr_t)vma - VMM_RESERVED_START) / VMA_SIZE;
 
-    const int offset = BITMAP_OFFSET(index) % 2;
-
     bitmap_clear(vmm->reserved, index);
 
     // Free the page if no currently allocated VMA inside it
     // NOTE: This line only works if we use 64 bytes long VMAs (see allocate)
+
+    const int offset = align_down(BITMAP_OFFSET(index), 2);
+
     if (vmm->reserved[offset] == 0x0 && vmm->reserved[offset + 1] == 0x0) {
-        paddr_t pageframe = mmu_unmap(align_down((vaddr_t)vmm, PAGE_SIZE));
+        paddr_t pageframe = mmu_unmap(align_down((vaddr_t)vma, PAGE_SIZE));
         pmm_free(pageframe);
     }
 }
@@ -448,6 +450,25 @@ const vma_t *vmm_find(vmm_t *vmm, vaddr_t addr)
         return NULL;
 
     return container_of(vma, vma_t, avl.by_address);
+}
+
+void vmm_destroy(vmm_t *vmm)
+{
+    if (vmm == &kernel_vmm) {
+        log_err("VMM", "Trying to free the kernel VMM. Skipping.");
+        return;
+    }
+
+    for (unsigned int i = 0; i < ARRAY_SIZE(vmm->reserved); i += 2) {
+        // See vma_reserved_allocate for an explanation of what's going on
+        if (*(u64 *)&vmm->reserved[i] != 0) {
+            vaddr_t addr =
+                VMM_RESERVED_START + (VMA_SIZE * i * BITMAP_BLOCK_SIZE);
+            pmm_free(mmu_unmap(addr));
+        }
+    }
+
+    kfree(vmm);
 }
 
 /// Structure of the page fault's error code

@@ -234,6 +234,9 @@ void vmm_free(vmm_t *, vaddr_t, size_t length);
  */
 const vma_t *vmm_find(vmm_t *, vaddr_t);
 
+/** Release all memory allocated by the current VMM */
+void vmm_destroy(vmm_t *vmm);
+
 #endif /* KERNEL_VMM_H */
 
 /** @} */

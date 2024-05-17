@@ -30,6 +30,8 @@
 typedef enum process_state {
     SCHED_RUNNING = 0x0, ///< Currently running (or ready to run)
     SCHED_WAITING = 0x1, ///< Currently waiting for a resource (timer, lock ...)
+    SCHED_KILLED = 0x2,  ///< A process has been killed, waiting for its
+                         ///< resources to be disposed of
 } process_state_t;
 
 /**
@@ -102,6 +104,13 @@ void process_switch(process_t *process);
  * @param entrypoint The function called when starting the process
  */
 process_t *process_create(char *name, process_entry_t entrypoint);
+
+/** Effectively kill a process
+ *
+ *  * Free all private memory used by the process
+ *  * Synchronize resources (write to files, ...)
+ */
+void process_kill(process_t *);
 
 /** @defgroup arch_process Processes - arch specifics
  *  @ingroup x86_process
