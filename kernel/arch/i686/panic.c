@@ -1,9 +1,12 @@
 #include <kernel/cpu.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
+#include <kernel/memory.h>
 #include <kernel/symbols.h>
 
 #include <kernel/arch/i686/gdt.h>
+
+#include <utils/macro.h>
 
 #include <stdarg.h>
 #include <stddef.h>
@@ -45,6 +48,10 @@ static void panic_unwind_stack(void)
     frame = frame->ebp;
 
     for (int i = 0; frame != NULL; ++i, frame = frame->ebp) {
+
+        // Avoid infinite unwiding when stackframe is invalid
+        if (!IN_RANGE((vaddr_t)frame->eip, KERNEL_CODE_START, KERNEL_CODE_END))
+            break;
 
         // We substract the size of the call instruction to avoid getting an
         // invalid symbol when at the ned of a function marked with the
