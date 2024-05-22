@@ -169,10 +169,14 @@ typedef enum vma_flags {
     VMA_READ = 0x2,   /*!< Pages inside the area are readable */
     VMA_WRITE = 0x4,  /*!< Pages inside the area are writable */
     VMA_KERNEL = 0x8, /*!< Should be mapped inside kernel pages */
+    VMA_CLEAR = 0x10, /*!< Page content should be reset when allocating */
 } vma_flags;
 
 /* For mmap */
-#define MAP_KERNEL VMA_KERNEL
+typedef enum mmap_flags {
+    MAP_KERNEL = VMA_KERNEL,
+    MAP_CLEAR = VMA_CLEAR,
+} mmap_flags;
 
 /**
  * Global kernel VMM, used to allocate shared kernel addresses.

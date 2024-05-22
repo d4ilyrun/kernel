@@ -238,7 +238,8 @@ bool mmu_init(void)
  */
 paddr_t mmu_new_page_directory(void)
 {
-    page_directory_t new = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, 0);
+    page_directory_t new =
+        mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_CLEAR);
     if (new == NULL) {
         log_err("MMU", "Failed to allocate page for the new page directory");
         return -E_NOMEM;
@@ -274,6 +275,7 @@ bool mmu_map(vaddr_t virtual, vaddr_t pageframe, int prot)
 
     page_directory_t page_directory;
     page_table_t page_table;
+    bool new_page_table = false;
 
     if (paging_enabled)
         page_directory = MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS;
@@ -284,6 +286,7 @@ bool mmu_map(vaddr_t virtual, vaddr_t pageframe, int prot)
         u32 page_table = pmm_allocate(PMM_MAP_KERNEL);
         page_directory[address.pde].page_table = TO_PFN(page_table);
         page_directory[address.pde].present = 1;
+        new_page_table = true;
     }
 
     // Virtual address of the corresponding page table (physical if CR0.PG=0)
@@ -293,6 +296,10 @@ bool mmu_map(vaddr_t virtual, vaddr_t pageframe, int prot)
         page_table =
             (page_table_t)FROM_PFN(page_directory[address.pde].page_table);
     }
+
+    // clear the page table to avoid having residual values corrupt our mappings
+    if (new_page_table)
+        memset((void *)page_table, 0, PAGE_SIZE);
 
     if (page_table[address.pte].present) {
         log_err("MMU",

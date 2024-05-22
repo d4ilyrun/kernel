@@ -4,6 +4,7 @@
 #include <kernel/mmu.h>
 #include <kernel/syscalls.h>
 #include <kernel/types.h>
+#include <kernel/vmm.h>
 
 #include <libalgo/linked_list.h>
 #include <utils/bits.h>
@@ -89,7 +90,8 @@ static struct bucket_meta *bucket_create(llist_t *buckets, size_t block_size,
                                          const u16 flags)
 {
     size_t bucket_size = align_up(KMALLOC_ALIGNMENT + block_size, PAGE_SIZE);
-    bucket_t *bucket = mmap(NULL, bucket_size, PROT_READ | PROT_WRITE, flags);
+    bucket_t *bucket =
+        mmap(NULL, bucket_size, PROT_READ | PROT_WRITE, MAP_CLEAR | flags);
 
     if (bucket == NULL)
         return NULL;

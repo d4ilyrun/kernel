@@ -94,6 +94,7 @@ static vaddr_t vma_reserved_allocate(vmm_t *vmm)
             pmm_free(pageframe);
             return 0;
         }
+        memset((void *)address, 0, PAGE_SIZE);
     }
 
     bitmap_set(vmm->reserved, offset / VMA_SIZE);
@@ -510,6 +511,8 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
         for (size_t off = 0; off < address_area->size; off += PAGE_SIZE) {
             const paddr_t pageframe = pmm_allocate(PMM_MAP_KERNEL);
             mmu_map(address_area->start + off, pageframe, address_area->flags);
+            if (address_area->flags & MAP_CLEAR)
+                memset((void *)address_area->start + off, 0, PAGE_SIZE);
         }
         return;
     }
