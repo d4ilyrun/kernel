@@ -153,13 +153,13 @@ void idt_log(void);
 #define INLINED_INTERRUPTS_DISABLE_ENABLE
 
 /** @brief Disable CPU interrupts */
-static inline void interrupts_disable(void)
+static ALWAYS_INLINE void interrupts_disable(void)
 {
     ASM("cli");
 }
 
 /** @brief Enable CPU interrupts */
-static inline void interrupts_enable(void)
+static ALWAYS_INLINE void interrupts_enable(void)
 {
     ASM("sti");
 }
@@ -167,7 +167,7 @@ static inline void interrupts_enable(void)
 /* @brief Disable CPU interrupts
  * @return Whether the interrupts where previously enabled
  */
-static inline bool interrupts_test_and_disable(void)
+static ALWAYS_INLINE bool interrupts_test_and_disable(void)
 {
     u32 eflags;
     ASM("pushf; cli; popl %0" : "=r"(eflags)::"memory");

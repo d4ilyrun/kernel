@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @ingroup kernel
+ * @addtogroup kernel
  *
  * @{
  */
