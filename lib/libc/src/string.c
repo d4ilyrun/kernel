@@ -21,3 +21,37 @@ char *strncpy(char *dst, const char *src, size_t n)
 
     return dst;
 }
+
+int strcmp(const char *s1, const char *s2)
+{
+    for (; *s1 && *s2; s1++, s2++) {
+        if (*s1 == *s2)
+            continue;
+        return *s1 - *s2;
+    }
+
+    if (*s1)
+        return 1;
+    if (*s2)
+        return -1;
+
+    return 0;
+}
+
+int strncmp(const char *s1, const char *s2, size_t count)
+{
+    for (; count > 0 && *s1 && *s2; s1++, s2++, count--) {
+        if (*s1 == *s2)
+            continue;
+        return *s1 - *s2;
+    }
+
+    if (count > 0) {
+        if (*s1)
+            return 1;
+        if (*s2)
+            return -1;
+    }
+
+    return 0;
+}
