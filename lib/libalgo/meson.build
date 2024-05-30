@@ -3,6 +3,7 @@ kernel_headers = include_directories('../../include')
 
 sources = [
   'src/tree/avl.c',
+  'src/tree/tree.c',
 ]
 
 libalgo = library('libalgo', sources,
