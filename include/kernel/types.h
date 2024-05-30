@@ -41,4 +41,9 @@ typedef native_t vaddr_t;
 typedef u32 pid_t;
 typedef u64 timestamp_t;
 
+/** Comparison function over two generic objects
+ *  @return 0 if both are equal, -1 if left is inferior, +1 if it is superior
+ */
+typedef int (*compare_t)(const void *left, const void *right);
+
 #endif /* KERNEL_TYPES_H */
