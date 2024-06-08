@@ -551,7 +551,8 @@ int munmap(void *addr, size_t length)
     length = align_up(length, PAGE_SIZE);
     for (size_t off = 0; off < length; off += PAGE_SIZE) {
         paddr_t pageframe = mmu_unmap((vaddr_t)addr + off);
-        pmm_free(pageframe);
+        if (pageframe != PMM_INVALID_PAGEFRAME)
+            pmm_free(pageframe);
     }
 
     return E_NONE;

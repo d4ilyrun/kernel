@@ -325,10 +325,13 @@ paddr_t mmu_unmap(vaddr_t virtual)
     mmu_decode_t address = {.raw = virtual};
 
     if (!MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS[address.pde].present)
-        return 0;
+        return PMM_INVALID_PAGEFRAME;
+
+    page_table_t page_table = MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde);
+    if (!page_table[address.pte].present)
+        return PMM_INVALID_PAGEFRAME;
 
     // Erase the content of the page table entry
-    page_table_t page_table = MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde);
     paddr_t physical = FROM_PFN(page_table[address.pte].page_frame);
     *((volatile u32 *)&page_table[address.pte]) = 0x0;
 
