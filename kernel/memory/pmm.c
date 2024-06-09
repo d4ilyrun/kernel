@@ -61,22 +61,9 @@ typedef struct {
     bool initialized;        ///< Whether this allocator has been initialized
 } pmm_frame_allocator;
 
-// TODO: Determine a more realistic memory layout here.
-//       (Why would we differentiate between user/kernel pageframes?
-//       To avoid running out of pageframes for the kernel? meh ... would not be
-//       a good design)
-
-/** Allocator for pageframes inside the user range */
-static pmm_frame_allocator g_pmm_user_allocator = {
+/** Allocator for 'classical' pageframes */
+static pmm_frame_allocator g_pmm_allocator = {
     .start = 0,
-    .end = KERNEL_CODE_START,
-    .first_available = PMM_INVALID_PAGEFRAME,
-    .initialized = false,
-};
-
-/** Allocator for pageframes inside the kernel range */
-static pmm_frame_allocator g_pmm_kernel_allocator = {
-    .start = KERNEL_CODE_START,
     .end = ADDRESS_SPACE_END,
     .first_available = PMM_INVALID_PAGEFRAME,
     .initialized = false,
@@ -156,11 +143,7 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
                 pmm_bitmap_set(addr, PMM_AVAILABLE);
                 available_pageframes += 1;
 
-                pmm_frame_allocator *allocator =
-                    (KERNEL_HIGHER_HALF_VIRTUAL(addr) >= KERNEL_CODE_START)
-                        ? &g_pmm_kernel_allocator
-                        : &g_pmm_user_allocator;
-
+                pmm_frame_allocator *allocator = &g_pmm_allocator;
                 if (allocator->first_available == PMM_INVALID_PAGEFRAME) {
                     allocator->first_available = addr;
                     allocator->initialized = true;
@@ -174,7 +157,7 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
              (available_pageframes * PAGE_SIZE) / (2 << 19));
     log_dbg("PMM", "Total pageframes: %ld", TOTAL_PAGEFRAMES_COUNT);
     log_dbg("PMM", "First available pageframe: " LOG_FMT_32,
-            g_pmm_user_allocator.first_available);
+            g_pmm_allocator.first_available);
 
     return true;
 }
@@ -192,9 +175,9 @@ bool pmm_init(struct multiboot_info *mbt)
 
 paddr_t pmm_allocate(int flags)
 {
-    pmm_frame_allocator *allocator = flags & PMM_MAP_KERNEL
-                                       ? &g_pmm_kernel_allocator
-                                       : &g_pmm_user_allocator;
+    pmm_frame_allocator *allocator = &g_pmm_allocator;
+
+    UNUSED(flags);
 
     if (!allocator->initialized) {
         log_err("PMM", "Trying to allocate using an uninitialized allocator");
@@ -233,10 +216,7 @@ void pmm_free(paddr_t pageframe)
         return;
     }
 
-    pmm_frame_allocator *allocator =
-        (KERNEL_HIGHER_HALF_VIRTUAL(pageframe) >= KERNEL_CODE_START)
-            ? &g_pmm_kernel_allocator
-            : &g_pmm_user_allocator;
+    pmm_frame_allocator *allocator = &g_pmm_allocator;
 
     pmm_bitmap_set(pageframe, PMM_AVAILABLE);
 
