@@ -18,6 +18,8 @@
 
 #include <multiboot.h>
 
+static struct multiboot_info mbt_info;
+
 void arch_setup(void);
 
 void kernel_task_timer(void *data)
@@ -39,6 +41,8 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
               "bootloader: " LOG_FMT_32,
               magic);
     }
+
+    memcpy(&mbt_info, mbt, sizeof(struct multiboot_info));
 
     // FIXME: Find how to clear pending keyboard IRQs inherited from bootloader
     //
@@ -64,12 +68,17 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     timer_start(TIMER_TICK_FREQUENCY);
 
-    if (!pmm_init(mbt))
+    if (!pmm_init(&mbt_info))
         PANIC("Could not initialize the physical memory manager");
 
     log_info("START", "Initializing MMU");
     if (!mmu_init())
         PANIC("Failed to initialize virtual address space");
+
+    // We need to identity map the content of the multiboot modules since they
+    // are marked as available inside the memory_map passed on by Grub.
+    FOREACH_MULTIBOOT_MODULE (module, &mbt_info)
+        mmu_identity_map(module->mod_start, module->mod_end, PROT_READ);
 
     log_info("START", "Initializing kernel VMM");
     vmm_init(&kernel_vmm, KERNEL_MEMORY_START, KERNEL_MEMORY_END);

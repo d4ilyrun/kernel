@@ -162,12 +162,36 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
     return true;
 }
 
+static void pmm_allocator_allocate(pmm_frame_allocator *allocator,
+                                   paddr_t address)
+{
+    pmm_bitmap_set(address, PMM_UNAVAILABLE);
+
+    if (address != allocator->first_available)
+        return;
+
+    // Compute the next available pageframe
+    allocator->first_available = address;
+    while (allocator->first_available <= 0xFFFFFFFF &&
+           pmm_bitmap_read(allocator->first_available) != PMM_AVAILABLE)
+        allocator->first_available += PAGE_SIZE;
+}
+
+/** @} */
+
 bool pmm_init(struct multiboot_info *mbt)
 {
     log_info("PMM", "Initializing pageframe allocator");
 
     if (!pmm_initialize_bitmap(mbt)) {
         return false;
+    }
+
+    FOREACH_MULTIBOOT_MODULE (module, mbt) {
+        for (paddr_t page = module->mod_start; page <= module->mod_end;
+             page += PAGE_SIZE) {
+            pmm_allocator_allocate(&g_pmm_allocator, page);
+        }
     }
 
     return true;
@@ -188,13 +212,7 @@ paddr_t pmm_allocate(int flags)
     if (address > 0xFFFFFFFF)
         return PMM_INVALID_PAGEFRAME; // ENOMEM
 
-    pmm_bitmap_set(address, PMM_UNAVAILABLE);
-
-    // Compute the next available pageframe
-    allocator->first_available = address;
-    while (allocator->first_available <= 0xFFFFFFFF &&
-           pmm_bitmap_read(allocator->first_available) != PMM_AVAILABLE)
-        allocator->first_available += PAGE_SIZE;
+    pmm_allocator_allocate(allocator, address);
 
     return (u32)address;
 }

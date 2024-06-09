@@ -35,3 +35,8 @@ IncludeCategories:
       Priority: 4
     - Regex: '.*'
       Priority: 5
+
+ForEachMacros:
+  - FOREACH_LLIST
+  - FOREACH_CHILDREN
+  - FOREACH_MULTIBOOT_MODULE

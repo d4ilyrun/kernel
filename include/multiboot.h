@@ -259,6 +259,12 @@ struct multiboot_apm_info {
     multiboot_uint16_t dseg_len;
 };
 
+#define FOREACH_MULTIBOOT_MODULE(_iter, _mbt)                            \
+    for (multiboot_module_t *_iter = (void *)(_mbt)->mods_addr;          \
+         _iter <                                                         \
+         &((multiboot_module_t *)(_mbt)->mods_addr)[(_mbt)->mods_count]; \
+         ++_iter)
+
 #endif /* ! ASM_FILE */
 
 #endif /* ! MULTIBOOT_HEADER */
