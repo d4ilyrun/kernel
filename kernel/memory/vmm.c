@@ -555,5 +555,5 @@ int munmap(void *addr, size_t length)
             pmm_free(pageframe);
     }
 
-    return E_NONE;
+    return E_SUCCESS;
 }

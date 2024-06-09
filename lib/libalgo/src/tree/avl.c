@@ -1,3 +1,5 @@
+#include <kernel/error.h>
+
 #include <libalgo/avl.h>
 #include <utils/math.h>
 
@@ -260,11 +262,9 @@ NO_DISCARD static avl_t *avl_retrace_tree(avl_t *leaf)
 
 avl_t *avl_insert(avl_t **root, avl_t *new, avl_compare_t compare)
 {
-    // TODO: Similar to linux's ERR_PTR
-    //       Return a negative pointer containing an error code
     if (new == NULL || new->height > 0 || new->left || new->right ||
         new->parent)
-        return NULL; // -EINVAL
+        return PTR_ERR(E_INVAL);
 
     if (root == NULL)
         return new;

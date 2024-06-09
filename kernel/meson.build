@@ -11,6 +11,7 @@ kernel_source_files = files([
   'sys/process.c',
   'misc/logger.c',
   'misc/symbols.c',
+  'misc/error.c',
   'memory/pmm.c',
   'memory/vmm.c',
   'memory/kmalloc.c',

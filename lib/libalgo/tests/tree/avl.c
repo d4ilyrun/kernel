@@ -1,3 +1,5 @@
+#include <kernel/error.h>
+
 #include <libalgo/avl.h>
 #include <utils/map.h>
 #include <utils/math.h>
@@ -189,10 +191,8 @@ Test(Insert, NonEmpty)
 
     avl_t *root = &data0.avl;
 
-    cr_assert_null(avl_insert(&root, &data1.avl, avl_test_compare));
-    cr_assert_null(avl_insert(&root, &data2.avl, avl_test_compare));
-    cr_assert_null(avl_insert(&root, &data3.avl, avl_test_compare));
-    cr_assert_null(avl_insert(&root, &data4.avl, avl_test_compare));
+    cr_assert(IS_ERR(avl_insert(&root, &data3.avl, avl_test_compare)));
+    cr_assert(IS_ERR(avl_insert(&root, &data4.avl, avl_test_compare)));
 }
 
 Test(Insert, Rotation_Left)
