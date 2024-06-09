@@ -20,6 +20,8 @@
 #ifndef LIBALGO_BITMAP_H
 #define LIBALGO_BITMAP_H
 
+#include <kernel/types.h>
+
 #include <utils/bits.h>
 #include <utils/compiler.h>
 
@@ -30,10 +32,8 @@
  * @brief Basic unit used by the bitmap
  *
  * A block is just a group of bits
- *
- * @todo define arch default type (e.g. u64 for 64 bits)
  */
-typedef uint32_t bitmap_block_t;
+typedef native_t bitmap_block_t;
 
 /** @brief A bitmap instance
  *  A bitmap is just a simple list of bytes (bitmap_block_t)
