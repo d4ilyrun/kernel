@@ -1,4 +1,5 @@
 #include <kernel/cpu.h>
+#include <kernel/device.h>
 #include <kernel/devices/timer.h>
 #include <kernel/devices/uart.h>
 #include <kernel/interrupts.h>
@@ -11,12 +12,14 @@
 #include <kernel/symbols.h>
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
+#include <kernel/vfs.h>
 #include <kernel/vmm.h>
 
 #include <utils/macro.h>
 #include <utils/math.h>
 
 #include <multiboot.h>
+#include <string.h>
 
 static struct multiboot_info mbt_info;
 
@@ -158,6 +161,24 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     }
 
     scheduler_init();
+
+    {
+        multiboot_module_t *ramdev_module = (void *)mbt_info.mods_addr;
+        log_dbg("mbt", "ramdev@" LOG_FMT_32, ramdev_module);
+        log_dbg("mbt", "ramdev[" LOG_FMT_32 ":" LOG_FMT_32 "]",
+                ramdev_module->mod_start, ramdev_module->mod_end);
+
+        dev_t *ramdev =
+            device_new(ramdev_module->mod_start,
+                       ramdev_module->mod_end - ramdev_module->mod_start + 1);
+        error_t ret = vfs_mount_root("tarfs", ramdev);
+        log_dbg("init", "mount_root: %s", err_to_str(ret));
+        log_info("init", "Searching for '/bin/busybox'");
+        vnode_t *busybox = vfs_find_by_path("/bin/busybox");
+        if (IS_ERR(busybox))
+            log_err("init", "Could not find busybox: %s",
+                    err_to_str(ERR_FROM_PTR(busybox)));
+    }
 
     process_t *kernel_timer_test =
         process_create("ktimer_test", kernel_task_timer);
