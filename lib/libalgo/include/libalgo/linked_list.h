@@ -52,6 +52,11 @@ typedef node_t *llist_t;
 #define FOREACH_REVERSE_LLIST(_name, _head) \
     for (node_t *_name = (_tail); _name; _name = _name->prev)
 
+static ALWAYS_INLINE bool llist_is_empty(llist_t list)
+{
+    return list == NULL;
+}
+
 static inline void __llist_add(node_t **node, node_t *prev, node_t *new)
 {
     new->next = *node;
