@@ -178,6 +178,28 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
         if (IS_ERR(busybox))
             log_err("init", "Could not find busybox: %s",
                     err_to_str(ERR_FROM_PTR(busybox)));
+
+        ret = vfs_mount("/bin", "tarfs", ramdev);
+        if (ret) {
+            log_err("rootfs", "Failed to mount into rootfs: %s",
+                    err_to_str(ret));
+        } else {
+            busybox = vfs_find_by_path("/bin/usr/bin");
+            if (IS_ERR(busybox))
+                log_err("rootfs",
+                        "Could not find requested path inside mounted fs: %s",
+                        err_to_str(ERR_FROM_PTR(busybox)));
+            busybox = vfs_find_by_path("/bin/busybox");
+            if (!IS_ERR(busybox)) {
+                log_err("rootfs", "Should not be able to find old busybox");
+                vfs_vnode_release(busybox);
+            }
+            if ((ret = vfs_unmount("/bin")))
+                log_err("rootfs", "Failed to unmount '/bin': %s",
+                        err_to_str(ret));
+            if ((ret = vfs_unmount("/bin") != E_INVAL))
+                log_err("rootfs", "Should not be able to unmount twice");
+        }
     }
 
     process_t *kernel_timer_test =

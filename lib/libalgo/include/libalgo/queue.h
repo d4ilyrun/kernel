@@ -61,3 +61,18 @@ static ALWAYS_INLINE const node_t *queue_peek(const queue_t *queue)
 {
     return queue->head;
 }
+
+static inline void queue_enqueue_all(queue_t *queue, llist_t elements)
+{
+    if (llist_is_empty(elements))
+        return;
+
+    if (queue_is_empty(queue))
+        queue->head = elements;
+    else {
+        queue->tail->next = elements;
+        elements->prev = queue->tail;
+    }
+
+    queue->tail = (node_t *)llist_tail(elements);
+}

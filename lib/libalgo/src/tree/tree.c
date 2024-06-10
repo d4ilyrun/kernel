@@ -1,3 +1,4 @@
+#include <libalgo/queue.h>
 #include <libalgo/tree.h>
 
 void tree_add_child(tree_node_t *node, tree_node_t *child)
@@ -33,4 +34,17 @@ tree_node_t *tree_find_child(tree_node_t *node, compare_t compare,
     }
 
     return NULL;
+}
+
+void tree_free(tree_t root, void (*free_function)(tree_node_t *))
+{
+    DECLARE_QUEUE(nodes);
+
+    queue_enqueue(&nodes, &root->this);
+
+    while (!queue_is_empty(&nodes)) {
+        tree_node_t *node = tree_node(queue_dequeue(&nodes));
+        queue_enqueue_all(&nodes, node->children);
+        free_function(node);
+    }
 }

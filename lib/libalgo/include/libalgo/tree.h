@@ -77,4 +77,11 @@ tree_node_t *tree_remove(tree_node_t *node);
  */
 tree_node_t *tree_find_child(tree_node_t *node, compare_t, const void *data);
 
+/** Free all the elements contained inside a tree
+ *
+ *  @param root The root of the tree
+ *  @param free The function used to free an element
+ */
+void tree_free(tree_t root, void (*free_function)(tree_node_t *));
+
 /** @} */

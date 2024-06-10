@@ -140,6 +140,14 @@ static tar_node_t *tar_create_node(const path_segment_t *segment, hdr_t *header)
     return new;
 }
 
+static void tar_free_node(tree_node_t *node)
+{
+    tar_node_t *tar_node = container_of(node, tar_node_t, this);
+    if (tar_node->vnode)
+        kfree(tar_node->vnode);
+    kfree(node);
+}
+
 /* Check whether a tar node's name corresponds to a path segment */
 static int tar_node_is(const void *this, const void *segment)
 {
@@ -172,9 +180,10 @@ static tree_t tar_init_tree(dev_t *dev)
             tree_node_t *node = tree_find_child(current, tar_node_is, &segment);
             if (!node) {
                 tar_node_t *new = tar_create_node(&segment, header);
-                // TODO: delete the whole tree
-                if (IS_ERR(new))
-                    break;
+                if (IS_ERR(new)) {
+                    tree_free(&tar_root->this, tar_free_node);
+                    return (tree_t) new;
+                }
                 tree_add_child(current, &new->this);
                 node = &new->this;
             }
@@ -220,9 +229,16 @@ static vnode_t *tar_vfs_root(vfs_t *fs)
     return tar_get_vnode(root, fs);
 }
 
+static void tar_vfs_delete(vfs_t *vfs)
+{
+    tar_t *tar = vfs->pdata;
+    tree_free(tar->root, tar_free_node);
+}
+
 static vnode_t *tar_get_vnode(tar_node_t *node, vfs_t *fs)
 {
     bool new;
+
     node->vnode = vfs_vnode_acquire(node->vnode, &new);
 
     if (new) {
@@ -274,6 +290,7 @@ static vnode_ops_t tar_vnode_ops = {
 
 static vfs_ops_t tar_vfs_ops = {
     .root = tar_vfs_root,
+    .delete = tar_vfs_delete,
 };
 
 vfs_t *tar_new(dev_t *dev)

@@ -171,6 +171,7 @@ struct vnode {
     u16 refcount;            ///< Number of references hold to that node
     vnode_ops_t *operations; ///< @ref vnode_operations
     void *pdata;             ///< Private node data
+    vfs_t *mounted_here;     ///< Potential filesystem mounted over this node
 };
 
 /** Increment the refcount of a vnode
