@@ -1,6 +1,5 @@
 Checks: >
 
-    cert-*,
     misc-*,
     modernize-*
     bugprone-*,
@@ -31,9 +30,10 @@ WarningsAsErrors: >
 
 CheckOptions:
     # CASE
-    - {key: readability-identifier-naming.FunctionCase,         value: lower_case   }
-    - {key: readability-identifier-naming.VariableCase,         value: lower_case   }
-    - {key: readability-identifier-naming.GlobalVariableCase,   value: lower_case   }
-    - {key: readability-identifier-naming.GlobalConstantCase,   value: UPPER_CASE   }
-    - {key: readability-identifier-naming.EnumConstantCase,     value: UPPER_CASE   }
-    - {key: readability-identifier-naming.MacroDefinitionCase,  value: UPPER_CASE   }
+    - {key: readability-identifier-naming.FunctionCase,           value: lower_case   }
+    - {key: readability-identifier-naming.FunctionIgnoredRegexp,  value: '__.*'       }
+    - {key: readability-identifier-naming.VariableCase,           value: lower_case   }
+    - {key: readability-identifier-naming.GlobalVariableCase,     value: lower_case   }
+    - {key: readability-identifier-naming.GlobalConstantCase,     value: UPPER_CASE   }
+    - {key: readability-identifier-naming.EnumConstantCase,       value: UPPER_CASE   }
+    - {key: readability-identifier-naming.MacroDefinitionCase,    value: UPPER_CASE   }
