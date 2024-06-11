@@ -29,6 +29,7 @@ typedef long int ssize_t;
 #ifdef ARCH_IS_32_BITS
 typedef u32 native_t;
 #elif defined(ARCH_IS_64_BITS)
+typedef u64 native_t;
 #else
 #error Unsuported architecture
 #endif

@@ -27,6 +27,8 @@
 #ifndef LIB_LIBPATH_H
 #define LIB_LIBPATH_H
 
+#include <kernel/types.h>
+
 #include <utils/compiler.h>
 
 #include <stdbool.h>
@@ -66,6 +68,20 @@ static inline bool path_is_empty(const path_t *path)
 {
     return path->len == 0 || (path_is_absolute(path) && path->len == 1);
 }
+
+/** Store the raw path of path's parent inside a string.
+ *
+ *  The string must be allocated beforehand, and be large enough to
+ *  store the parent's raw path (including the NULL terminator).
+ *
+ *  @param parent The string inside which the parent's path is stored
+ *  @param path The original path
+ *  @param size The size of the \c parent buffer
+ *
+ *  @return The length of the parent path, -1 if the buffer wasn't large
+ *          enough or if the path is empty.
+ */
+ssize_t path_load_parent(char *parent, const path_t *path, size_t size);
 
 /**
  * @defgroup libpath_walk Path walking

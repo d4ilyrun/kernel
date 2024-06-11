@@ -144,6 +144,81 @@ vnode_t *vfs_find_by_path(const char *raw_path)
     return current;
 }
 
+static vnode_t *vfs_find_parent(path_t *path)
+{
+    vnode_t *parent;
+    char *raw_parent = kmalloc(path->len * sizeof(char), KMALLOC_DEFAULT);
+    ssize_t len = path_load_parent(raw_parent, path, path->len);
+
+    if (len == -1) {
+        parent = PTR_ERR(E_NOENT);
+    } else {
+        parent = vfs_find_by_path(raw_parent);
+    }
+
+    kfree(raw_parent);
+
+    return parent;
+}
+
+error_t vfs_create_at(const char *raw_path, vnode_type type)
+{
+    error_t ret;
+    path_t path = NEW_DYNAMIC_PATH(raw_path);
+    vnode_t *parent = vfs_find_parent(&path);
+
+    if (IS_ERR(parent))
+        return ERR_FROM_PTR(parent);
+
+    if (parent->operations->create == NULL) {
+        ret = E_NOT_IMPLEMENTED;
+    } else {
+        path_segment_t file;
+        path_walk_last(&path, &file);
+
+        // Artificially normalize the file name
+        const char end_char = *file.end;
+        *((char *)file.end) = '\0';
+
+        ret = parent->operations->create(parent, file.start, type);
+
+        // Do not modify the original string
+        *((char *)file.end) = end_char;
+    }
+
+    vfs_vnode_release(parent);
+    return ret;
+}
+
+error_t vfs_remove_at(const char *raw_path)
+{
+    error_t ret;
+    path_t path = NEW_DYNAMIC_PATH(raw_path);
+    vnode_t *parent = vfs_find_parent(&path);
+
+    if (IS_ERR(parent))
+        return ERR_FROM_PTR(parent);
+
+    if (parent->operations->remove == NULL) {
+        ret = E_NOT_IMPLEMENTED;
+    } else {
+        path_segment_t file;
+        path_walk_last(&path, &file);
+
+        // Artificially normalize the file name
+        const char end_char = *file.end;
+        *((char *)file.end) = '\0';
+
+        ret = parent->operations->remove(parent, file.start);
+
+        // Do not modify the original string
+        *((char *)file.end) = end_char;
+    }
+
+    vfs_vnode_release(parent);
+    return ret;
+}
+
 vnode_t *vfs_vnode_acquire(vnode_t *node, bool *new)
 {
     if (node == NULL) {

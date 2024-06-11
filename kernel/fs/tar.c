@@ -282,10 +282,19 @@ static error_t tar_vnode_create(vnode_t *vnode, const char *name,
     return E_NOT_SUPPORTED;
 }
 
+static error_t tar_vnode_remove(vnode_t *vnode, const char *name)
+{
+    UNUSED(vnode);
+    UNUSED(name);
+
+    return E_NOT_SUPPORTED;
+}
+
 static vnode_ops_t tar_vnode_ops = {
     .lookup = tar_vnode_lookup,
     .release = tar_vnode_release,
     .create = tar_vnode_create,
+    .remove = tar_vnode_remove,
 };
 
 static vfs_ops_t tar_vfs_ops = {

@@ -80,6 +80,33 @@ static void libpath_test(struct path_test_params params)
         libpath_test(params);                          \
     }
 
+static ssize_t libpath_test_parent(const char *raw_path, const char *parent)
+{
+    path_t path = NEW_DYNAMIC_PATH(raw_path);
+    char *buf = malloc(path.len + 1);
+
+    ssize_t parent_length = path_load_parent(buf, &path, path.len + 1);
+
+    if (parent_length == -1) {
+        free(buf);
+        return -1;
+    }
+
+    cr_assert_str_eq(buf, parent);
+    free(buf);
+
+    return parent_length;
+}
+
+#define PARENT_TEST(_test_name, _path, _parent, _expected)            \
+    Test(Parent, _test_name)                                          \
+    {                                                                 \
+        ssize_t length = libpath_test_parent(_path, _parent);         \
+        cr_assert_eq(length, _expected,                               \
+                     "Invalid length: got %ld instead of %d", length, \
+                     _expected);                                      \
+    }
+
 Test(Path, Empty)
 {
     struct path_test_params params = {
@@ -116,3 +143,10 @@ PATH_TEST(Relative, EmptyComponents, "etc//usr////bin/sh", "etc", "usr", "bin", 
 PATH_TEST(Relative, Directory, "etc/ssl/", "etc", "ssl")
 PATH_TEST(Relative, DirectoryEmptyComponent, "etc/ssl///", "etc", "ssl")
 PATH_TEST(Relative, SpecialCharacters, "../../../kernel/./main.c", "..", "..", "..", "kernel", ".", "main.c")
+
+PARENT_TEST(Empty, "", "", -1)
+PARENT_TEST(Simple, "/usr/bin/toto", "/usr/bin", 8)
+PARENT_TEST(Root, "/usr", "/", 1)
+PARENT_TEST(RootAbsolute, "usr", "", 0)
+PARENT_TEST(MultipleSeparators, "/usr///bin", "/usr", 4)
+PARENT_TEST(Directory, "/usr/bin/", "/usr", 4)

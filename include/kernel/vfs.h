@@ -48,6 +48,8 @@
 typedef struct vfs vfs_t;
 typedef struct vnode vnode_t;
 
+typedef enum vnode_type vnode_type;
+
 /** @defgroup fs_vfs_vfs Virtual filesystem
  *  @{
  */
@@ -119,6 +121,23 @@ error_t vfs_unmount(const char *path);
  */
 vnode_t *vfs_find_by_path(const char *path);
 
+/** Create a new file at the given path
+ *
+ *  @param path The path of the new child
+ *  @param type The type of the new file
+ *
+ *  @return filesystem specific errors, or:
+ *      * E_NOENT - Path is invalid
+ *      * E_EXIST - File already exists
+ */
+error_t vfs_create_at(const char *path, vnode_type type);
+
+/** Remove the file located at the given path
+ *
+ *  @return E_NOENT if the file does not exist
+ */
+error_t vfs_remove_at(const char *path);
+
 /** @} */
 
 /** @defgroup fs_vfs_vnode Virtual nodes
@@ -153,6 +172,9 @@ typedef struct vnode_operations {
      *  @returns E_INVAL - the parent vnode cannot have children (e.g. a file)
      */
     error_t (*create)(vnode_t *node, const char *name, vnode_type);
+
+    /** Remove a child from a directory */
+    error_t (*remove)(vnode_t *node, const char *child);
 
     /** Called by the VFS driver before deleting a vnode (optional).
      *  This is responsible for freeing/updating any necessary internal

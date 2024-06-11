@@ -172,3 +172,34 @@ bool path_segment_is(const char *name, path_segment_t *segment)
     size_t len = path_segment_length(segment);
     return strncmp(name, segment->start, len) == 0 && name[len] == '\0';
 }
+
+ssize_t path_load_parent(char *parent, const path_t *path, size_t size)
+{
+    path_segment_t segment;
+    size_t parent_length;
+
+    if (size == 0 || parent == NULL)
+        return -1;
+
+    if (!path_walk_last(path, &segment))
+        return -1;
+
+    if (path_segment_is_first(&segment)) {
+        if (!path_is_absolute(path)) {
+            parent[0] = '\0';
+            return 0;
+        }
+        parent_length = 1;
+    } else {
+        path_walk_prev(&segment);
+        parent_length = segment.end - path->path;
+    }
+
+    if (parent_length >= size)
+        return -1;
+
+    memcpy(parent, path->path, parent_length);
+    parent[parent_length] = '\0';
+
+    return parent_length;
+}

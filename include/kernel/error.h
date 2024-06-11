@@ -38,7 +38,7 @@ typedef enum error {
 /** Construct a pointer containing info about an error */
 static ALWAYS_INLINE void *PTR_ERR(error_t err)
 {
-    return (void *)-err;
+    return (void *)((native_t)-err);
 }
 
 /** Extract the error value contained inside a pointer  */

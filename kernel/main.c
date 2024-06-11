@@ -199,6 +199,8 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
                         err_to_str(ret));
             if ((ret = vfs_unmount("/bin") != E_INVAL))
                 log_err("rootfs", "Should not be able to unmount twice");
+            log_dbg("rootfs", "creating file: %s",
+                    err_to_str(vfs_create_at("/usr/bin/gcc///", VNODE_FILE)));
         }
     }
 
