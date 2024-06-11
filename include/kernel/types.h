@@ -29,6 +29,7 @@ typedef long int ssize_t;
 #ifdef ARCH_IS_32_BITS
 typedef u32 native_t;
 #elif defined(ARCH_IS_64_BITS)
+typedef u64 native_t;
 #else
 #error Unsuported architecture
 #endif
@@ -40,5 +41,10 @@ typedef native_t vaddr_t;
 
 typedef u32 pid_t;
 typedef u64 timestamp_t;
+
+/** Comparison function over two generic objects
+ *  @return 0 if both are equal, -1 if left is inferior, +1 if it is superior
+ */
+typedef int (*compare_t)(const void *left, const void *right);
 
 #endif /* KERNEL_TYPES_H */

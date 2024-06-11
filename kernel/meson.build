@@ -6,6 +6,9 @@ kernel_compile_flags = [
 
 kernel_source_files = files([
   'main.c',
+  'fs/vfs.c',
+  'fs/tar.c',
+  'sys/device.c',
   'sys/sched.c',
   'sys/syscalls.c',
   'sys/process.c',
@@ -59,7 +62,7 @@ kernel = executable(
   c_args: kernel_compile_flags,
   link_depends: [kernel_linker_script],
   link_args: [kernel_linker_flags],
-  dependencies: [libc_dep, libalgo_dep],
+  dependencies: [libc_dep, libalgo_dep, libpath_dep],
 )
 
 alias_target('kernel', kernel)

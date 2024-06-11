@@ -64,8 +64,7 @@ static_assert(sizeof(bucket_t) <= KMALLOC_ALIGNMENT,
 /** Find a bucket containing with at least one free block of the given size */
 static bucket_t *bucket_find(llist_t buckets, size_t size, const u16 flags)
 {
-    FOREACH_LLIST(node, buckets)
-    {
+    FOREACH_LLIST (node, buckets) {
         bucket_t *bucket = container_of(node, bucket_t, this);
         if (bucket->block_size == size && bucket->free != NULL &&
             bucket->flags == flags)

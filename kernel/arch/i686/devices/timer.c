@@ -108,8 +108,7 @@ u64 timer_gettick(void)
     return timer_ticks_counter;
 }
 
-static int process_cmp_wakeup(const node_t *current_node,
-                              const node_t *cmp_node)
+static int process_cmp_wakeup(const void *current_node, const void *cmp_node)
 {
     const process_t *current = container_of(current_node, process_t, this);
     const process_t *cmp = container_of(cmp_node, process_t, this);

@@ -32,12 +32,17 @@ function generate_iso()
     # Create a minimal boot partition for grub to be able to generate an iso file
     mkdir -p "$iso_dir/boot/grub"
     cp "$KERNEL_BIN" "$iso_dir/boot/$(basename "$KERNEL_BIN")"
+    touch "$iso_dir/boot/initramfs.tar" # In case it is not present, at least have an empty initramfs
+    if [ -f "$SCRIPT_DIR/../initramfs.tar" ]; then
+        cp "$SCRIPT_DIR/../initramfs.tar"  "$iso_dir/boot/initramfs.tar"
+    fi
 
     # Add a custom multiboot entry for grub to be able to boot our kernel
     cat <<EOF > "$iso_dir/boot/grub/grub.cfg"
 set timeout=0
 menuentry "Kernel - ${KERNEL_BIN%.*}" {
     multiboot /boot/$(basename "$KERNEL_BIN")
+    module /boot/initramfs.tar
 }
 EOF
 

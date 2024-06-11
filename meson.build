@@ -50,6 +50,7 @@ endif
 subdir('lib/libtest')
 subdir('lib/libc')
 subdir('lib/libalgo')
+subdir('lib/libpath')
 subdir('kernel')
 
 iso = custom_target('iso',

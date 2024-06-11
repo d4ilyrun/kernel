@@ -61,6 +61,12 @@ SECTIONS
     .data ALIGN(4K) : AT (ADDR (.data) - _kernel_higher_half_offset)
     {
         *(.data)
+
+        /* Used to iterate over the different available filesystems */
+        _kernel_filesystems_start = .;
+        *(.data.vfs.filesystems)
+        . = ALIGN(4);
+        _kernel_filesystems_end = .;
     }
 
     /* Uninitialized data and stack (RW) */

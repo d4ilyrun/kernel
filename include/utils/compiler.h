@@ -27,6 +27,7 @@
 #define NO_DISCARD __attribute__((warn_unused_result))
 #define MAYBE_UNUSED __attribute__((unused))
 #define ALIAS(_function) __attribute__((alias(_function)))
+#define ALIGNED(_alignment) __attribute__((aligned(_alignment)))
 
 /** Raises a compile time eror if \c _x is 0
  *  @return \c _x so that it can be used as a compile time known value

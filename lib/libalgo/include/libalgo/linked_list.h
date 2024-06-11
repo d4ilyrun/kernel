@@ -15,6 +15,8 @@
  * @{
  */
 
+#include <kernel/types.h>
+
 #include <utils/compiler.h>
 
 #include <stddef.h>
@@ -49,6 +51,11 @@ typedef node_t *llist_t;
  */
 #define FOREACH_REVERSE_LLIST(_name, _head) \
     for (node_t *_name = (_tail); _name; _name = _name->prev)
+
+static ALWAYS_INLINE bool llist_is_empty(llist_t list)
+{
+    return list == NULL;
+}
 
 static inline void __llist_add(node_t **node, node_t *prev, node_t *new)
 {
@@ -138,8 +145,7 @@ static inline const node_t *llist_tail(llist_t head)
 
 /** Insert a new item inside a sorted list in asending order */
 static inline void llist_insert_sorted(llist_t *head, node_t *new,
-                                       int (*compare)(const node_t *,
-                                                      const node_t *))
+                                       compare_t compare)
 {
     node_t *prev = NULL;
 

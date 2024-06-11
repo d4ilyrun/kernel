@@ -4,6 +4,8 @@ compile_commands.json
 
 docs/doxygen/doc
 
+initramfs.*
+
 # qemu
 *.iso
 *.qcow2
