@@ -47,6 +47,8 @@ if get_option('buildtype') == 'debug'
   add_project_link_arguments('-g3', language : 'c')
 endif
 
+uacpi = subproject('uACPI')
+
 subdir('lib/libtest')
 subdir('lib/libc')
 subdir('lib/libalgo')
