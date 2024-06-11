@@ -2,6 +2,7 @@ arch = target_machine.cpu()
 
 kernel_compile_flags = [
   f'-DARCH=@arch@',
+  f'-DUACPI_FORMATTED_LOGGING',
 ]
 
 kernel_source_files = files([
@@ -18,6 +19,7 @@ kernel_source_files = files([
   'memory/pmm.c',
   'memory/vmm.c',
   'memory/kmalloc.c',
+  'devices/uacpi.c',
 ])
 
 arch_source_files = {

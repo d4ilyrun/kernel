@@ -52,6 +52,9 @@
  */
 void log(const char *type, const char *domain, const char *msg, ...);
 
+void log_vlog(const char *type, const char *domain, const char *msg,
+              va_list parameters);
+
 /**
  * @brief Completely stop the kernel's execution
  *

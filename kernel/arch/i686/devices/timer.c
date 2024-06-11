@@ -25,6 +25,7 @@
 #include <kernel/arch/i686/devices/pit.h>
 
 #include <libalgo/linked_list.h>
+#include <utils/constants.h>
 #include <utils/container_of.h>
 #include <utils/macro.h>
 
@@ -133,4 +134,9 @@ void timer_wait_ms(u64 ms)
 u64 timer_to_ms(u64 ticks)
 {
     return (1000 * ticks) / timer_kernel_frequency;
+}
+
+u64 timer_to_us(u64 ticks)
+{
+    return (US(ticks)) / timer_kernel_frequency;
 }
