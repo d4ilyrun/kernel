@@ -1,5 +1,6 @@
 #include <kernel/cpu.h>
 #include <kernel/device.h>
+#include <kernel/devices/acpi.h>
 #include <kernel/devices/timer.h>
 #include <kernel/devices/uart.h>
 #include <kernel/interrupts.h>
@@ -21,6 +22,9 @@
 #include <multiboot.h>
 #include <string.h>
 
+void arch_setup(void);
+void acpi_list_devices(void);
+
 static struct multiboot_info *mbt_info;
 
 // Temporarily store the content of the multiboot info structure before
@@ -34,8 +38,6 @@ union {
     u8 raw[PAGE_SIZE];
     struct multiboot_info mbt;
 } mbt_tmp;
-
-void arch_setup(void);
 
 void kernel_task_timer(void *data)
 {
@@ -105,6 +107,11 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
             mmu_identity_map(module->mod_start, module->mod_end, PROT_READ);
         }
     }
+
+    scheduler_init();
+
+    acpi_init(mbt_info);
+    acpi_list_devices();
 
     ASM("int $0");
 
@@ -178,8 +185,6 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
             kfree(blocks[i]);
         kfree(blocks);
     }
-
-    scheduler_init();
 
     {
         struct multiboot_tag_module *ramdev_module = NULL;

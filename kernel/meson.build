@@ -20,6 +20,7 @@ kernel_source_files = files([
   'memory/vmm.c',
   'memory/kmalloc.c',
   'devices/uacpi.c',
+  'devices/acpi.c',
 ])
 
 arch_source_files = {
