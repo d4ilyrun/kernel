@@ -15,7 +15,7 @@ KERNEL_ISO="$2"
 #   $1 - path to the kernel executable
 function check_multiboot()
 {
-    if ! grub-file --is-x86-multiboot "$1"; then
+    if ! grub-file --is-x86-multiboot2 "$1"; then
         echo "error: The provided kernel executable is not multiboot compliant ($1)" >&2
         exit 2
     fi
@@ -41,8 +41,8 @@ function generate_iso()
     cat <<EOF > "$iso_dir/boot/grub/grub.cfg"
 set timeout=0
 menuentry "Kernel - ${KERNEL_BIN%.*}" {
-    multiboot /boot/$(basename "$KERNEL_BIN")
-    module /boot/initramfs.tar
+    multiboot2 /boot/$(basename "$KERNEL_BIN")
+    module2 /boot/initramfs.tar
 }
 EOF
 

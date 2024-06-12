@@ -21,7 +21,19 @@
 #include <multiboot.h>
 #include <string.h>
 
-static struct multiboot_info mbt_info;
+static struct multiboot_info *mbt_info;
+
+// Temporarily store the content of the multiboot info structure before
+// relocating it later (into mbt_info), since the original structure is
+// not acccessible anymore once we activated paging, and that is size is
+// dynamic (depends on the tags used). We hardcode it to a PAGE here since
+// this should be plenty enough.
+//
+// We could release this once the kernel is started (similar to linux's __init).
+union {
+    u8 raw[PAGE_SIZE];
+    struct multiboot_info mbt;
+} mbt_tmp;
 
 void arch_setup(void);
 
@@ -39,13 +51,13 @@ void kernel_task_timer(void *data)
 
 void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 {
-    if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
+    if (magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
         PANIC("Invalid magic number recieved from multiboot "
               "bootloader: " LOG_FMT_32,
               magic);
     }
 
-    memcpy(&mbt_info, mbt, sizeof(struct multiboot_info));
+    memcpy(mbt_tmp.raw, mbt, mbt->total_size);
 
     // FIXME: Find how to clear pending keyboard IRQs inherited from bootloader
     //
@@ -71,21 +83,28 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     timer_start(TIMER_TICK_FREQUENCY);
 
-    if (!pmm_init(&mbt_info))
+    if (!pmm_init(mbt))
         PANIC("Could not initialize the physical memory manager");
 
     log_info("START", "Initializing MMU");
     if (!mmu_init())
         PANIC("Failed to initialize virtual address space");
 
-    // We need to identity map the content of the multiboot modules since they
-    // are marked as available inside the memory_map passed on by Grub.
-    FOREACH_MULTIBOOT_MODULE (module, &mbt_info)
-        mmu_identity_map(module->mod_start, module->mod_end, PROT_READ);
-
     log_info("START", "Initializing kernel VMM");
     vmm_init(&kernel_vmm, KERNEL_MEMORY_START, KERNEL_MEMORY_END);
     kernel_startup_process.vmm = &kernel_vmm;
+
+    mbt_info = kmalloc(mbt_tmp.mbt.total_size, KMALLOC_KERNEL);
+    memcpy(mbt_info, mbt_tmp.raw, mbt_tmp.mbt.total_size);
+
+    // We need to identity map the content of the multiboot modules since they
+    // are marked as available inside the memory_map passed on by Grub.
+    FOREACH_MULTIBOOT_TAG (tag, mbt_info) {
+        if (tag->type == MULTIBOOT_TAG_TYPE_MODULE) {
+            struct multiboot_tag_module *module = (void *)tag;
+            mmu_identity_map(module->mod_start, module->mod_end, PROT_READ);
+        }
+    }
 
     ASM("int $0");
 
@@ -163,7 +182,20 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     scheduler_init();
 
     {
-        multiboot_module_t *ramdev_module = (void *)mbt_info.mods_addr;
+        struct multiboot_tag_module *ramdev_module = NULL;
+
+        // Temporary: for convenience we assume there is only one module, which
+        // contains our initramfs
+        FOREACH_MULTIBOOT_TAG (tag, mbt_info) {
+            if (tag->type != MULTIBOOT_TAG_TYPE_MODULE)
+                continue;
+            ramdev_module = (void *)tag;
+            break;
+        }
+
+        if (ramdev_module == NULL)
+            log_err("mbt", "No module found");
+
         log_dbg("mbt", "ramdev@" LOG_FMT_32, ramdev_module);
         log_dbg("mbt", "ramdev[" LOG_FMT_32 ":" LOG_FMT_32 "]",
                 ramdev_module->mod_start, ramdev_module->mod_end);
@@ -171,6 +203,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
         dev_t *ramdev =
             device_new(ramdev_module->mod_start,
                        ramdev_module->mod_end - ramdev_module->mod_start + 1);
+
         error_t ret = vfs_mount_root("tarfs", ramdev);
         log_dbg("init", "mount_root: %s", err_to_str(ret));
         log_info("init", "Searching for '/bin/busybox'");

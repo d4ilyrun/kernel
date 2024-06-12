@@ -103,9 +103,18 @@ static inline int pmm_bitmap_read(paddr_t pageframe)
  */
 static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
 {
-    // If bit 6 in the flags uint16_t is set, then the mmap_* fields are valid
-    if (!BIT_READ(mbt->flags, 6)) {
-        log_err("PMM", "Multiboot structure does not support memory map.");
+    struct multiboot_tag_mmap *mmap = NULL;
+    multiboot_memory_map_t *entry;
+
+    FOREACH_MULTIBOOT_TAG (tag, mbt) {
+        if (tag->type == MULTIBOOT_TAG_TYPE_MMAP) {
+            mmap = (void *)tag;
+            break;
+        }
+    }
+
+    if (mmap == NULL) {
+        log_err("PMM", "Could not find memory map");
         return false;
     }
 
@@ -117,21 +126,19 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
     // Count the number of availabe pageframes
     u32 available_pageframes = 0;
 
-    multiboot_uint32_t i;
-    for (i = 0; i < mbt->mmap_length; i += sizeof(multiboot_memory_map_t)) {
-        multiboot_memory_map_t *ram =
-            (multiboot_memory_map_t *)(mbt->mmap_addr + i);
+    for (entry = mmap->entries; (void *)entry < multiboot_tag_end(mmap);
+         entry = (void *)entry + mmap->entry_size) {
 
         log_dbg("PMM",
                 "Start Addr: " LOG_FMT_64 " | Length: " LOG_FMT_64
-                " | Size: " LOG_FMT_32 " | Type: %s",
-                ram->addr, ram->len, ram->size,
-                (ram->type == 0x1) ? "AVAILABLE" : "UNAVAILABLE");
+                " | Type: %s",
+                entry->addr, entry->len,
+                (entry->type == 0x1) ? "AVAILABLE" : "UNAVAILABLE");
 
         // If the RAM range is marked as available, we can use the pages it
         // contains for memory allocation.
-        if (ram->type == MULTIBOOT_MEMORY_AVAILABLE) {
-            for (paddr_t addr = ram->addr; addr < ram->addr + ram->len;
+        if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
+            for (paddr_t addr = entry->addr; addr < entry->addr + entry->len;
                  addr += PAGE_SIZE) {
 
                 // We still need to check whether the pages are located inside
@@ -187,7 +194,10 @@ bool pmm_init(struct multiboot_info *mbt)
         return false;
     }
 
-    FOREACH_MULTIBOOT_MODULE (module, mbt) {
+    FOREACH_MULTIBOOT_TAG (tag, mbt) {
+        if (tag->type != MULTIBOOT_TAG_TYPE_MODULE)
+            continue;
+        struct multiboot_tag_module *module = (void *)tag;
         for (paddr_t page = module->mod_start; page <= module->mod_end;
              page += PAGE_SIZE) {
             pmm_allocator_allocate(&g_pmm_allocator, page);
