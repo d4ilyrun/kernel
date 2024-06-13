@@ -67,6 +67,11 @@ SECTIONS
         *(.data.vfs.filesystems)
         . = ALIGN(4);
         _kernel_filesystems_end = .;
+
+        /* Used to automatically load kernel drivers at startup */
+        _kernel_drivers_start = .;
+        *(.data.driver.init)
+        _kernel_drivers_end = .;
     }
 
     /* Uninitialized data and stack (RW) */

@@ -1,6 +1,7 @@
 #include <kernel/cpu.h>
 #include <kernel/device.h>
 #include <kernel/devices/acpi.h>
+#include <kernel/devices/driver.h>
 #include <kernel/devices/timer.h>
 #include <kernel/devices/uart.h>
 #include <kernel/interrupts.h>
@@ -112,6 +113,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     acpi_init(mbt_info);
     acpi_list_devices();
+    driver_load_drivers();
 
     ASM("int $0");
 
