@@ -100,9 +100,6 @@ void panic(u32 esp, const char *msg, ...)
     gdt_log();
     printf("\n");
 
-    idt_log();
-    printf("\n");
-
     // Halt the kernel's execution
 
 halt:

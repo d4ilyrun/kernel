@@ -165,7 +165,7 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
     // TODO: Refactor such calls (hooks, initcalls, there are better ways to do)
     //       Even more so for this one since we'll be updating the interrupt
     //       handler each time we create a new process!
-    interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault));
+    interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault), NULL);
 
     log_info("VMM",
              "Initialized VMM { start=" LOG_FMT_32 ", end=" LOG_FMT_32 " }",
@@ -509,11 +509,12 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
 {
     // The CR2 register holds the virtual address which caused the Page Fault
     vaddr_t faulty_address = read_cr2();
+    interrupt_frame *frame = data;
 
     vmm_t *vmm =
         IS_KERNEL_ADDRESS(faulty_address) ? &kernel_vmm : current_process->vmm;
     const vma_t *address_area = vmm_find(vmm, faulty_address);
-    page_fault_error error = *(page_fault_error *)&frame.error;
+    page_fault_error error = *(page_fault_error *)&frame->error;
 
     // Lazily allocate pageframes
     if (!error.present && address_area != NULL && address_area->allocated) {
@@ -523,7 +524,7 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
             if (address_area->flags & MAP_CLEAR)
                 memset((void *)address_area->start + off, 0, PAGE_SIZE);
         }
-        return;
+        return E_SUCCESS;
     }
 
     PANIC("PAGE FAULT at " LOG_FMT_32 ": %s access on a %s page %s",

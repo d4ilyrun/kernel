@@ -15,6 +15,7 @@
 
 #include <kernel/cpu.h>
 #include <kernel/devices/timer.h>
+#include <kernel/error.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/sched.h>
@@ -61,13 +62,13 @@ void timer_start(u32 frequency)
     // Setup the timer's IRQ handler
     // It is responsible for updating our internal timer representation
     interrupts_set_handler(PIC_MASTER_VECTOR + IRQ_TIMER,
-                           INTERRUPT_HANDLER(irq_timer));
+                           INTERRUPT_HANDLER(irq_timer), NULL);
     pic_enable_irq(IRQ_TIMER);
 }
 
 static DEFINE_INTERRUPT_HANDLER(irq_timer)
 {
-    UNUSED(frame);
+    UNUSED(data);
 
     if (timer_ticks_counter == UINT64_MAX) {
         log_warn("TIMER", "The internal timer has reached its max capacity.");
@@ -88,7 +89,7 @@ static DEFINE_INTERRUPT_HANDLER(irq_timer)
     // TODO: Don't mingle IRQ and scheduling
 
     if (!scheduler_initialized)
-        return;
+        return E_INVAL;
 
     const node_t *next_wakeup = llist_head(sleeping_tasks);
     while (next_wakeup &&
@@ -101,6 +102,8 @@ static DEFINE_INTERRUPT_HANDLER(irq_timer)
 
     if (current_process->running.preempt <= timer_ticks_counter)
         schedule();
+
+    return E_SUCCESS;
 }
 
 u64 timer_gettick(void)
