@@ -363,5 +363,5 @@ paddr_t mmu_find_physical(vaddr_t virtual)
     if (!page_table[address.pte].present)
         return -E_INVAL;
 
-    return FROM_PFN(page_table[address.pte].page_frame);
+    return FROM_PFN(page_table[address.pte].page_frame) + address.offset;
 }

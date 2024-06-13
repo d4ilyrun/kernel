@@ -13,8 +13,12 @@
 static volatile idt_descriptor idt[IDT_LENGTH];
 
 // Global addressable interrupt handler stub tables
-extern interrupt_handler interrupt_handler_stubs[];
-extern interrupt_handler irq_handler_stubs[PIC_IRQ_COUNT];
+extern interrupt_handler interrupt_handler_stubs[IDT_LENGTH];
+
+typedef struct {
+    interrupt_handler handler; // The interrupt handler
+    void *data;                // Data passed as an argument to the handler
+} interrupt_handler_callback;
 
 /*
  * Custom ISRs, defined at runtime and called by __stub_interrupt_handler
@@ -22,7 +26,7 @@ extern interrupt_handler irq_handler_stubs[PIC_IRQ_COUNT];
  *
  * These are set using \c interrupts_set_handler
  */
-static interrupt_handler custom_interrupt_handlers[IDT_LENGTH];
+static interrupt_handler_callback custom_interrupt_handlers[IDT_LENGTH];
 
 static const char *interrupt_names[] = {
     // Protected mode Interrupts and Exceptions (Table 6-1, Intel vol.3)
@@ -82,7 +86,7 @@ static const char *interrupt_names[] = {
 
 const char *interrupts_to_str(u8 nr)
 {
-    static const char *unknown = "Unknown Interrupt";
+    static const char *unknown = "Unnamed Interrupt";
 
     if (nr < (sizeof interrupt_names / sizeof interrupt_names[0]))
         return interrupt_names[nr];
@@ -90,11 +94,19 @@ const char *interrupts_to_str(u8 nr)
     return unknown;
 }
 
-void interrupts_set_handler(u8 nr, interrupt_handler handler)
+void interrupts_set_handler(u8 nr, interrupt_handler handler, void *data)
 {
     log_info("IDT", "Setting custom handler for '%s' (" LOG_FMT_8 ")",
              interrupts_to_str(nr), nr);
-    custom_interrupt_handlers[nr] = handler;
+    custom_interrupt_handlers[nr].handler = handler;
+    custom_interrupt_handlers[nr].data = data;
+}
+
+interrupt_handler interrupts_get_handler(u8 irq, void **pdata)
+{
+    if (pdata != NULL)
+        *pdata = custom_interrupt_handlers[irq].data;
+    return custom_interrupt_handlers[irq].handler;
 }
 
 static ALWAYS_INLINE idt_descriptor new_idt_entry(idt_gate_type type,
@@ -119,11 +131,11 @@ static ALWAYS_INLINE idt_descriptor new_idt_entry(idt_gate_type type,
     };
 }
 
-static inline void interrupts_set(u16 nr, idt_gate_type type,
-                                  interrupt_handler handler)
+static inline void interrupts_set_idt(u16 nr, idt_gate_type type,
+                                      interrupt_handler handler)
 {
     if (nr >= IDT_LENGTH) {
-        log_err("IDT", "interrupts_set: invalid index: " LOG_FMT_8, nr);
+        log_err("IDT", "interrupts_set: invalid index: " LOG_FMT_16, nr);
         return;
     }
 
@@ -142,20 +154,15 @@ void interrupts_init(void)
 
     // Empty descriptor slots in the IDT should have the present flag set to 0.
     // Fill the whole IDT with null descriptors
-    memset((void *)idt, 0, IDT_SIZE); // NOLINT
+    memset((void *)idt, 0, IDT_SIZE);
 
     // Empty the list of custom ISRs
     memset(custom_interrupt_handlers, 0, sizeof(custom_interrupt_handlers));
 
-    // Setup all known interrupts
     log_info("IDT", "Setting up interrupt handler stubs");
-    for (u8 i = 0; i <= 21; ++i)
-        interrupts_set(i, INTERRUPT_GATE_32B, interrupt_handler_stubs[i]);
-
-    log_info("IDT", "Setting up IRQ handler stubs");
-    for (pic_irq irq = IRQ_TIMER; irq <= IRQ_ATA_SECONDARY; ++irq)
-        interrupts_set(PIC_MASTER_VECTOR + irq, INTERRUPT_GATE_32B,
-                       irq_handler_stubs[irq]);
+    for (int i = 0; i < IDT_LENGTH; ++i) {
+        interrupts_set_idt(i, INTERRUPT_GATE_32B, interrupt_handler_stubs[i]);
+    }
 
     log_dbg("IDT", "Finished setting up the IDT");
 }
@@ -181,12 +188,14 @@ void idt_log(void)
     }
 }
 
-DEFINE_INTERRUPT_HANDLER(default_interrupt)
+void default_interrupt_handler(interrupt_frame frame)
 {
+    interrupt_handler_callback *handler = &custom_interrupt_handlers[frame.nr];
+
     // Call the custom handler, defined inside custom_interrupt_handlers,
     // if it exists. Else, we consider this interrupt as 'unsupported'.
 
-    if (custom_interrupt_handlers[frame.nr] == 0) {
+    if (handler->handler == NULL) {
         log_err("interrupt", "Unsupported interrupt: %s (" LOG_FMT_32 ")",
                 interrupts_to_str(frame.nr), frame.nr);
         log_dbg("interrupt", "ERROR=" LOG_FMT_32, frame.error);
@@ -198,5 +207,7 @@ DEFINE_INTERRUPT_HANDLER(default_interrupt)
         return;
     }
 
-    custom_interrupt_handlers[frame.nr](frame);
+    // Pass the frame as argument if no data was given
+    // This is done to not have to differiente CPU exceptions from custom IRQs
+    handler->handler(handler->data ? handler->data : &frame);
 }

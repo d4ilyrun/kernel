@@ -8,13 +8,35 @@
  * and identify our kernel as such.
  */
 
-#define MULTIBOOT_HEADER_FLAGS (MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO)
+#define MULTIBOOT_HEADER_SIZE (.multiboot_header_end - .multiboot_header_start)
 
 .section .multiboot
 .align MULTIBOOT_HEADER_ALIGN
-.long MULTIBOOT_HEADER_MAGIC
-.long MULTIBOOT_HEADER_FLAGS
-.long -(MULTIBOOT_HEADER_FLAGS + MULTIBOOT_HEADER_MAGIC)
+.multiboot_header_start:
+
+.long MULTIBOOT2_HEADER_MAGIC
+.long MULTIBOOT_ARCHITECTURE_I386
+.long MULTIBOOT_HEADER_SIZE
+.long -(MULTIBOOT_HEADER_SIZE + MULTIBOOT_ARCHITECTURE_I386 + MULTIBOOT2_HEADER_MAGIC)
+
+#define MULTIBOOT_TAG(type, flags, size) \
+    .align MULTIBOOT_TAG_ALIGN ; \
+    .word MULTIBOOT_HEADER_TAG_ ## type ; \
+    .word flags ; \
+    .long size ; \
+
+#define MULTIBOOT_INFO_REQUEST(type) \
+    .long MULTIBOOT_TAG_TYPE_ ## type
+
+MULTIBOOT_TAG(INFORMATION_REQUEST, 0, 20)
+MULTIBOOT_INFO_REQUEST(MMAP)
+MULTIBOOT_INFO_REQUEST(MODULE)
+MULTIBOOT_INFO_REQUEST(ACPI_NEW)
+
+MULTIBOOT_TAG(MODULE_ALIGN, 0, 8)
+MULTIBOOT_TAG(END, 0, 8)
+
+.multiboot_header_end:
 
 /*
  * The stack, required by C functions and not defined by default.

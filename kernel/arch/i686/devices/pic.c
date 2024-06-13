@@ -1,5 +1,6 @@
 #include <kernel/cpu.h>
 #include <kernel/devices/timer.h>
+#include <kernel/error.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/terminal.h>
@@ -56,7 +57,7 @@ void pic_reset()
     log_info("PIC", "Setting up custom IRQs handlers");
     pic_enable_irq(IRQ_KEYBOARD);
     interrupts_set_handler(PIC_MASTER_VECTOR + IRQ_KEYBOARD,
-                           INTERRUPT_HANDLER(irq_keyboard));
+                           INTERRUPT_HANDLER(irq_keyboard), NULL);
 }
 
 void pic_eoi(pic_irq irq)
@@ -86,7 +87,7 @@ void pic_disable_irq(pic_irq irq)
 
 static DEFINE_INTERRUPT_HANDLER(irq_keyboard)
 {
-    UNUSED(frame);
+    UNUSED(data);
 
     static const u8 ascii[128] = {
         0x0,  0x0,  '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-',  '=',
@@ -104,4 +105,6 @@ static DEFINE_INTERRUPT_HANDLER(irq_keyboard)
         tty_putchar(ascii[scan_code]);
 
     pic_eoi(IRQ_KEYBOARD);
+
+    return E_SUCCESS;
 }

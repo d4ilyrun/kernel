@@ -45,7 +45,6 @@ interrupt_error 11, segment_not_present
 interrupt_error 12, stack_segment_fault
 interrupt_error 13, general_protection
 interrupt_error 14, page_fault
-interrupt 15, intel_reserved
 interrupt 16, fpu_error
 interrupt_error 17, alignment_check
 interrupt 18, machine_check
@@ -74,11 +73,31 @@ interrupt 47, irq_ata_secondary
     dd __%1_stub_handler
 %endmacro
 
+; Interrupt handlers for custom irqs defined through interrupt_set_handler
+
+%macro interrupt_range_custom_irq 3
+%assign i %1
+%rep %2 - %1 + 1
+%3 i
+%assign i i+1
+%endrep
+%endmacro
+
+%macro define_custom_irq 1
+    interrupt %1, irq%1
+%endmacro
+
+%macro stub_custom_irq 1
+    stub irq%1
+%endmacro
+
+interrupt_range_custom_irq 47, 255, define_custom_irq
+
 ; addressable interrupt handler stubs tables
 global interrupt_handler_stubs
-global irq_handler_stubs
 
 interrupt_handler_stubs:
+  ; x86 protected mode exceptions
   stub division_error
   stub debug
   stub nmi
@@ -94,15 +113,18 @@ interrupt_handler_stubs:
   stub stack_segment_fault
   stub general_protection
   stub page_fault
-  stub intel_reserved
+  dd $0 ; Intel reserved: do not use
   stub fpu_error
   stub alignment_check
   stub machine_check
   stub smid_fp_exception
   stub virtualization
   stub control_protection
-
-irq_handler_stubs:
+  ; 22-31: Intel reserved: do not use
+%rep 10
+  dd $0
+%endrep
+  ; IRQs
   stub irq_timer
   stub irq_keyboard
   stub irq_com2
@@ -114,3 +136,5 @@ irq_handler_stubs:
   stub irq_fpu
   stub irq_ata_primary
   stub irq_ata_secondary
+  ; Custom IRQs
+  interrupt_range_custom_irq 47, 255, stub_custom_irq

@@ -2,6 +2,7 @@ arch = target_machine.cpu()
 
 kernel_compile_flags = [
   f'-DARCH=@arch@',
+  f'-DUACPI_FORMATTED_LOGGING',
 ]
 
 kernel_source_files = files([
@@ -18,6 +19,8 @@ kernel_source_files = files([
   'memory/pmm.c',
   'memory/vmm.c',
   'memory/kmalloc.c',
+  'devices/uacpi.c',
+  'devices/acpi.c',
 ])
 
 arch_source_files = {
@@ -44,21 +47,24 @@ arch_nasm_files = {
   ]),
 }
 
+uacpi_source_files = uacpi.get_variable('sources')
 
 kernel_linker_script = 'linker.ld'
 kernel_linker_flags = [ '-T', meson.project_source_root() / 'kernel' / kernel_linker_script ]
 
 kernel_headers = include_directories('../include')
+uacpi_headers = uacpi.get_variable('includes')
 
 kernel = executable(
   'kernel.bin',
   [
     f'arch/@arch@/crt0.S',
     kernel_source_files,
+    uacpi_source_files,
     arch_source_files.get(arch, []),
     nasm_gen.process(arch_nasm_files.get(arch,[])),
   ],
-  include_directories: [kernel_headers],
+  include_directories: [kernel_headers, uacpi_headers],
   c_args: kernel_compile_flags,
   link_depends: [kernel_linker_script],
   link_args: [kernel_linker_flags],

@@ -60,10 +60,28 @@ void interrupts_init(void);
 typedef struct interrupt_frame interrupt_frame;
 
 /** Function pointer to an interrupt handler */
-typedef void (*interrupt_handler)(interrupt_frame);
+typedef u32 (*interrupt_handler)(void *);
 
-/** Dynamically set an interrupt handler */
-void interrupts_set_handler(u8, interrupt_handler);
+/** Dynamically set an interrupt handler
+ *
+ *  @param irq The IRQ number to associate the handler with
+ *  @param handler The handler function called when the interrupt occurs
+ *  @param data Data passed to the interrupt handler
+ *
+ *  @info If \c data is NULL, the kernel will pass a pointer to the interrupt
+ *        frame (\ref interrup_frame) when calling the handler instead
+ */
+void interrupts_set_handler(u8 irq, interrupt_handler, void *);
+
+/** Retreive the current handler for a given IRQ
+ *
+ * @param irq The interrupt number
+ * @param[out] pdata If not NULL, the handler's associated data is stored inside
+ *                   this pointer (optional)
+ *
+ * @return The current handler function fo the IRQ
+ */
+interrupt_handler interrupts_get_handler(u8 irq, void **);
 
 /** Returns the name of an interrupt from its vector number */
 const char *interrupts_to_str(u8 nr);
@@ -76,7 +94,7 @@ const char *interrupts_to_str(u8 nr);
  * You must always use this function when defining an interrupt handler.
  */
 #define DEFINE_INTERRUPT_HANDLER(_interrupt) \
-    void INTERRUPT_HANDLER(_interrupt)(struct interrupt_frame frame)
+    u32 INTERRUPT_HANDLER(_interrupt)(void *data)
 
 /** @} */
 
