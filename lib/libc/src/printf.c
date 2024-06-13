@@ -18,6 +18,7 @@ static_assert(sizeof(int) == sizeof(long),
 #define TOK_ASCII 'c'
 #define TOK_DECIMAL 'd'
 #define TOK_HEX 'x'
+#define TOK_HEX_CAPITALIZED 'X'
 #define TOK_OCTAL 'o'
 #define TOK_UNSIGNED 'u'
 #define TOK_POINTER 'p'
@@ -73,6 +74,7 @@ typedef struct {
     length_modifier_t length;
     unsigned int field_with; ///< man 3 printf: Field width
     precision_t precision;
+    bool capitalize; ///< For %X conversions
 } printf_ctx_t;
 
 static inline bool __attribute__((always_inline)) isdigit(char c)
@@ -115,14 +117,19 @@ static void printf_utoa_base(register unsigned long long x,
                              register unsigned int base,
                              const printf_ctx_t *ctx, int *written)
 {
-    static const char digits[] = "0123456789abcdef";
+    static const char *digits[2] = {
+        "0123456789abcdef",
+        "0123456789ABCDEF",
+
+    };
+
     char buf[MAXBUF];
 
     register char *c = &buf[MAXBUF - 1];
     char *const end = c;
 
     do {
-        *c-- = digits[x % base];
+        *c-- = digits[ctx->capitalize][x % base];
         x /= base;
     } while (x != 0);
 
@@ -152,7 +159,10 @@ static void printf_utoa_base(register unsigned long long x,
             printf_char('0', written);
             break;
         case 16:
-            printf_puts("0x", NULL, written);
+            if (ctx->capitalize)
+                printf_puts("0X", NULL, written);
+            else
+                printf_puts("0x", NULL, written);
             break;
         default:
             break;
@@ -372,7 +382,7 @@ static void printf_unsigned(register int base, va_list *parameters,
 }
 
 static int printf_step(char c, int *written, va_list *parameters,
-                       const printf_ctx_t *ctx)
+                       printf_ctx_t *ctx)
 {
     switch (c) {
 
@@ -398,6 +408,10 @@ static int printf_step(char c, int *written, va_list *parameters,
         printf_unsigned(8, parameters, ctx, written);
         break;
 
+    case TOK_HEX_CAPITALIZED:
+        ctx->capitalize = true;
+        __attribute__((fallthrough));
+
     case TOK_HEX:
         printf_unsigned(16, parameters, ctx, written);
         break;
@@ -412,7 +426,7 @@ static int printf_step(char c, int *written, va_list *parameters,
         break;
 
     case TOK_STR:
-        printf_puts(va_arg(*parameters, char *), (printf_ctx_t *)ctx, written);
+        printf_puts(va_arg(*parameters, char *), ctx, written);
         break;
 
     case TOK_ASCII:
@@ -465,7 +479,7 @@ int vprintf(const char *format, va_list parameters)
         const precision_t precision = printf_precision(format, &i);
         const length_modifier_t length = printf_length_modifiers(format, &i);
 
-        const printf_ctx_t ctx = (printf_ctx_t){
+        printf_ctx_t ctx = (printf_ctx_t){
             .invalid = flags.invalid || length.invalid || precision.invalid,
             .flags = flags,
             .length = length,
