@@ -71,7 +71,7 @@ $ doxygen docs/doxygen/Doxyfile # Requires you to also pull the git submodules
     - [ ] Multiprocessor
 - Filesystems
     - [ ] ext2
-    - [ ] VFS
+    - [X] VFS
 - Userland
     - [ ] context switching
     - [ ] syscalls
