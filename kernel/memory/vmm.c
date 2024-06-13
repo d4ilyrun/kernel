@@ -357,7 +357,6 @@ vaddr_t vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
         *allocated = (vma_t){
             .start = MAX(addr, old->start),
             .size = size,
-            .allocated = true,
             .flags = flags,
         };
 
@@ -368,8 +367,17 @@ vaddr_t vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
 
     // Insert the allocated virtual address inside the AVL tree
     // note: we do not keep track of the allocated areas inside by_size
-    avl_insert(&vmm->vmas.by_address, &allocated->avl.by_address,
-               vma_compare_address);
+    allocated->avl.by_address = AVL_EMPTY_NODE;
+    avl_t *inserted = avl_insert(
+        &vmm->vmas.by_address, &allocated->avl.by_address, vma_compare_address);
+
+    if (IS_ERR(inserted)) {
+        log_err("vmm", "failed to insert new VMA inside the AVL: %s",
+                err_to_str(ERR_FROM_PTR(inserted)));
+        return VMM_INVALID;
+    }
+
+    allocated->allocated = true;
 
     return allocated->start;
 }
