@@ -224,7 +224,8 @@ static int vma_search_free_by_address_and_size(const avl_t *addr_avl,
 
     if (area->start >= addr->start ||
         IN_RANGE(addr->start, area->start, vma_end(area) - 1)) {
-        if (vma_end(area) >= MAX(area->start, addr->start) + addr->size)
+        if (!area->allocated &&
+            vma_end(area) >= MAX(area->start, addr->start) + addr->size)
             return 0;
         // We know all addresses higher than this one are valid,
         // we could do a best fit tho
