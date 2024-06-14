@@ -1,4 +1,6 @@
+#include <kernel/device.h>
 #include <kernel/devices/driver.h>
+#include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 
 #include <libalgo/linked_list.h>
@@ -78,6 +80,8 @@ const driver_t *driver_find_match(device_detection_method method,
 
 // TODO: Delete this POC driver
 
+static driver_t poc_driver;
+
 static const char *poc_compatible[] = {
     "PNP0103",
     "PNP0303",
@@ -87,6 +91,22 @@ static const char *poc_compatible[] = {
 static error_t poc_probe(const char *name, paddr_t addr)
 {
     log_dbg("poc-driver", "probing %s@" LOG_FMT_32, name, addr);
+
+    device_t *device = kcalloc(1, sizeof(device_t), KMALLOC_KERNEL);
+    if (device == NULL)
+        return E_NOMEM;
+
+    *device = (device_t){
+        .driver = &poc_driver,
+        .name = "poc-driver",
+    };
+
+    error_t ret = device_register(device);
+    if (ret != E_SUCCESS) {
+        kfree(device);
+        return ret;
+    }
+
     return E_SUCCESS;
 }
 
