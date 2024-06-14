@@ -39,17 +39,11 @@ union {
     struct multiboot_info mbt;
 } mbt_tmp;
 
-void kernel_task_timer(void *data)
-{
-    UNUSED(data);
-
-    log_dbg("TASK", "Started task: '%s'", current_process->name);
-
-    while (1) {
-        timer_wait_ms(1000);
-        log_info("TASK", "Elapsed miliseconds: %d", gettime());
-    }
-}
+// Tasks used for manually testing
+void kernel_task_timer(void *data);
+void kernel_task_mmap(void *data);
+void kernel_task_malloc(void *data);
+void kernel_task_rootfs(void *data);
 
 void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 {
@@ -114,6 +108,8 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     acpi_init(mbt_info);
     acpi_start_devices();
 
+    // Testing !
+
     ASM("int $0");
 
     u32 page = pmm_allocate(PMM_MAP_KERNEL);
@@ -131,117 +127,9 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     log_info("MAIN", "PRINTF ? (%s, " LOG_FMT_32 ")",
              kernel_symbol_name(symbol), symbol->address);
 
-    {
-        u32 *a = mmap(0, PAGE_SIZE, 0, 0);
-        u32 *b = mmap(0, PAGE_SIZE * 2, 0, 0);
-        u32 *c = mmap(0, PAGE_SIZE, 0, 0);
-        u32 *e = mmap((void *)0xd0000000, PAGE_SIZE, 0, 0);
-
-        u32 *addresses =
-            mmap((void *)0xa0000000, PAGE_SIZE * 5, PROT_READ | PROT_WRITE, 0);
-
-        for (int i = 0; i < 4; ++i)
-            addresses[i] = (u32)&addresses[i];
-
-        log_array("MAIN", addresses, 4);
-
-        munmap(a, PAGE_SIZE);
-        munmap(b, PAGE_SIZE * 2);
-        munmap(c, PAGE_SIZE);
-        munmap(e, PAGE_SIZE);
-        munmap(addresses, PAGE_SIZE * 5);
-    }
-
-    {
-        uint32_t *invalid_free = kcalloc(4, sizeof(uint32_t), KMALLOC_DEFAULT);
-        uint32_t *kmalloc_addresses =
-            kcalloc(4, sizeof(uint32_t), KMALLOC_DEFAULT);
-
-        UNUSED(kmalloc_addresses);
-
-        for (int i = 0; i < 4; ++i)
-            kfree(invalid_free); // test anti corruption free magic
-
-        for (int i = 0; i < 4; ++i)
-            kmalloc_addresses[i] = (uint32_t)&kmalloc_addresses[i];
-
-        log_array("MAIN", kmalloc_addresses, 4);
-
-        kfree(kmalloc_addresses);
-
-        kfree(kmalloc(4 * PAGE_SIZE, KMALLOC_DEFAULT));
-
-        uint8_t *tata = kmalloc(KERNEL_STACK_SIZE, KMALLOC_KERNEL);
-        tata[KERNEL_STACK_SIZE - 100] = 1;
-        kfree(tata);
-
-        uint32_t **blocks = kcalloc(8, sizeof(uint32_t *), KMALLOC_DEFAULT);
-        for (int i = 0; i < 8; ++i) {
-            blocks[i] = kmalloc(64 * sizeof(uint32_t), KMALLOC_DEFAULT);
-            for (int j = 0; j < 64; ++j)
-                blocks[i][j] = i * j;
-        }
-
-        for (int i = 0; i < 8; ++i)
-            kfree(blocks[i]);
-        kfree(blocks);
-    }
-
-    {
-        struct multiboot_tag_module *ramdev_module = NULL;
-
-        // Temporary: for convenience we assume there is only one module, which
-        // contains our initramfs
-        FOREACH_MULTIBOOT_TAG (tag, mbt_info) {
-            if (tag->type != MULTIBOOT_TAG_TYPE_MODULE)
-                continue;
-            ramdev_module = (void *)tag;
-            break;
-        }
-
-        if (ramdev_module == NULL)
-            log_err("mbt", "No module found");
-
-        log_dbg("mbt", "ramdev@" LOG_FMT_32, ramdev_module);
-        log_dbg("mbt", "ramdev[" LOG_FMT_32 ":" LOG_FMT_32 "]",
-                ramdev_module->mod_start, ramdev_module->mod_end);
-
-        // TMP: Should be replaced with a device or sth
-        u32 start = ramdev_module->mod_start;
-        u32 end = ramdev_module->mod_end + 1;
-
-        error_t ret = vfs_mount_root("tarfs", start, end);
-        log_dbg("init", "mount_root: %s", err_to_str(ret));
-        log_info("init", "Searching for '/bin/busybox'");
-        vnode_t *busybox = vfs_find_by_path("/bin/busybox");
-        if (IS_ERR(busybox))
-            log_err("init", "Could not find busybox: %s",
-                    err_to_str(ERR_FROM_PTR(busybox)));
-
-        ret = vfs_mount("/bin", "tarfs", start, end);
-        if (ret) {
-            log_err("rootfs", "Failed to mount into rootfs: %s",
-                    err_to_str(ret));
-        } else {
-            busybox = vfs_find_by_path("/bin/usr/bin");
-            if (IS_ERR(busybox))
-                log_err("rootfs",
-                        "Could not find requested path inside mounted fs: %s",
-                        err_to_str(ERR_FROM_PTR(busybox)));
-            busybox = vfs_find_by_path("/bin/busybox");
-            if (!IS_ERR(busybox)) {
-                log_err("rootfs", "Should not be able to find old busybox");
-                vfs_vnode_release(busybox);
-            }
-            if ((ret = vfs_unmount("/bin")))
-                log_err("rootfs", "Failed to unmount '/bin': %s",
-                        err_to_str(ret));
-            if ((ret = vfs_unmount("/bin") != E_INVAL))
-                log_err("rootfs", "Should not be able to unmount twice");
-            log_dbg("rootfs", "creating file: %s",
-                    err_to_str(vfs_create_at("/usr/bin/gcc///", VNODE_FILE)));
-        }
-    }
+    sched_new_process(process_create("kmmap_test", kernel_task_mmap, NULL));
+    sched_new_process(process_create("kmalloc_test", kernel_task_malloc, NULL));
+    sched_new_process(process_create("krootfs_test", kernel_task_rootfs, NULL));
 
     process_t *kernel_timer_test =
         process_create("ktimer_test", kernel_task_timer, NULL);
@@ -254,5 +142,136 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
         log_info("MAIN", "Elapsed miliseconds: %d", gettime());
         if (BETWEEN(gettime(), 5000, 6000))
             process_kill(kernel_timer_test);
+    }
+}
+
+// TASKS USED FOR MANUALLY TESTING FEATURES
+
+void kernel_task_rootfs(void *data)
+{
+    struct multiboot_tag_module *ramdev_module = NULL;
+
+    UNUSED(data);
+
+    // Temporary: for convenience we assume there is only one module, which
+    // contains our initramfs
+    FOREACH_MULTIBOOT_TAG (tag, mbt_info) {
+        if (tag->type != MULTIBOOT_TAG_TYPE_MODULE)
+            continue;
+        ramdev_module = (void *)tag;
+        break;
+    }
+
+    if (ramdev_module == NULL)
+        log_err("mbt", "No module found");
+
+    log_dbg("mbt", "ramdev@" LOG_FMT_32, ramdev_module);
+    log_dbg("mbt", "ramdev[" LOG_FMT_32 ":" LOG_FMT_32 "]",
+            ramdev_module->mod_start, ramdev_module->mod_end);
+
+    // TMP: Should be replaced with a device or sth
+    u32 start = ramdev_module->mod_start;
+    u32 end = ramdev_module->mod_end + 1;
+
+    error_t ret = vfs_mount_root("tarfs", start, end);
+    log_dbg("init", "mount_root: %s", err_to_str(ret));
+    log_info("init", "Searching for '/bin/busybox'");
+    vnode_t *busybox = vfs_find_by_path("/bin/busybox");
+    if (IS_ERR(busybox))
+        log_err("init", "Could not find busybox: %s",
+                err_to_str(ERR_FROM_PTR(busybox)));
+
+    ret = vfs_mount("/bin", "tarfs", start, end);
+    if (ret) {
+        log_err("rootfs", "Failed to mount into rootfs: %s", err_to_str(ret));
+    } else {
+        busybox = vfs_find_by_path("/bin/usr/bin");
+        if (IS_ERR(busybox))
+            log_err("rootfs",
+                    "Could not find requested path inside mounted fs: %s",
+                    err_to_str(ERR_FROM_PTR(busybox)));
+        busybox = vfs_find_by_path("/bin/busybox");
+        if (!IS_ERR(busybox)) {
+            log_err("rootfs", "Should not be able to find old busybox");
+            vfs_vnode_release(busybox);
+        }
+        if ((ret = vfs_unmount("/bin")))
+            log_err("rootfs", "Failed to unmount '/bin': %s", err_to_str(ret));
+        if ((ret = vfs_unmount("/bin") != E_INVAL))
+            log_err("rootfs", "Should not be able to unmount twice");
+        log_dbg("rootfs", "creating file: %s",
+                err_to_str(vfs_create_at("/usr/bin/gcc///", VNODE_FILE)));
+    }
+}
+
+void kernel_task_malloc(void *data)
+{
+    uint32_t *invalid_free = kcalloc(4, sizeof(uint32_t), KMALLOC_DEFAULT);
+    uint32_t *kmalloc_addresses = kcalloc(4, sizeof(uint32_t), KMALLOC_DEFAULT);
+
+    UNUSED(kmalloc_addresses);
+    UNUSED(data);
+
+    for (int i = 0; i < 4; ++i)
+        kfree(invalid_free); // test anti corruption free magic
+
+    for (int i = 0; i < 4; ++i)
+        kmalloc_addresses[i] = (uint32_t)&kmalloc_addresses[i];
+
+    log_array("MAIN", kmalloc_addresses, 4);
+
+    kfree(kmalloc_addresses);
+
+    kfree(kmalloc(4 * PAGE_SIZE, KMALLOC_DEFAULT));
+
+    uint8_t *tata = kmalloc(KERNEL_STACK_SIZE, KMALLOC_KERNEL);
+    tata[KERNEL_STACK_SIZE - 100] = 1;
+    kfree(tata);
+
+    uint32_t **blocks = kcalloc(8, sizeof(uint32_t *), KMALLOC_DEFAULT);
+    for (int i = 0; i < 8; ++i) {
+        blocks[i] = kmalloc(64 * sizeof(uint32_t), KMALLOC_DEFAULT);
+        for (int j = 0; j < 64; ++j)
+            blocks[i][j] = i * j;
+    }
+
+    for (int i = 0; i < 8; ++i)
+        kfree(blocks[i]);
+    kfree(blocks);
+}
+
+void kernel_task_mmap(void *data)
+{
+    UNUSED(data);
+
+    u32 *a = mmap(0, PAGE_SIZE, 0, 0);
+    u32 *b = mmap(0, PAGE_SIZE * 2, 0, 0);
+    u32 *c = mmap(0, PAGE_SIZE, 0, 0);
+    u32 *e = mmap((void *)0xd0000000, PAGE_SIZE, 0, 0);
+
+    u32 *addresses =
+        mmap((void *)0xa0000000, PAGE_SIZE * 5, PROT_READ | PROT_WRITE, 0);
+
+    for (int i = 0; i < 4; ++i)
+        addresses[i] = (u32)&addresses[i];
+
+    log_array("MAIN", addresses, 4);
+
+    munmap(a, PAGE_SIZE);
+    munmap(b, PAGE_SIZE * 2);
+    munmap(c, PAGE_SIZE);
+    munmap(e, PAGE_SIZE);
+    munmap(addresses, PAGE_SIZE * 5);
+}
+
+void kernel_task_timer(void *data)
+{
+    UNUSED(data);
+
+    log_dbg("TASK", "Started task: '%s'", current_process->name);
+
+    while (1) {
+        timer_wait_ms(1000);
+        log_info("TASK", "Elapsed miliseconds: %d", gettime());
     }
 }
