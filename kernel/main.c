@@ -24,7 +24,6 @@
 #include <string.h>
 
 void arch_setup(void);
-void acpi_list_devices(void);
 
 static struct multiboot_info *mbt_info;
 
@@ -111,9 +110,9 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     scheduler_init();
 
-    acpi_init(mbt_info);
-    acpi_list_devices();
     driver_load_drivers();
+    acpi_init(mbt_info);
+    acpi_start_devices();
 
     ASM("int $0");
 

@@ -66,8 +66,9 @@ typedef struct device_driver {
      */
     struct driver_operations {
         /// Bind the driver to the device
-        /// @param device The device to be associated with the driver
-        error_t (*probe)(dev_t *);
+        /// @param name The name of the matching physical device
+        /// @param addr The physical address of the device
+        error_t (*probe)(const char *, paddr_t addr);
     } operations; ///< Vector table of driver control operations
 
 } driver_t;
@@ -102,9 +103,14 @@ typedef void (*driver_init_t)(void);
     MAYBE_UNUSED                          \
     static driver_init_t __##_name##_driver_init = init_driver_##_name;
 
-/** Load all builtin drivers
+/** Load all builtin drivers.
  *  Builtin drivers are ones declared using \ref DECLARE_DRIVER
  */
 void driver_load_drivers(void);
+
+/** Retreive the driver that matches the given arguments.
+ *  @return A pointer to the driver, or one containing an eventual error code.
+ */
+const driver_t *driver_find_match(device_detection_method, const char *);
 
 /** @} */
