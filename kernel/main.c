@@ -206,11 +206,11 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
         log_dbg("mbt", "ramdev[" LOG_FMT_32 ":" LOG_FMT_32 "]",
                 ramdev_module->mod_start, ramdev_module->mod_end);
 
-        dev_t *ramdev =
-            device_new(ramdev_module->mod_start,
-                       ramdev_module->mod_end - ramdev_module->mod_start + 1);
+        // TMP: Should be replaced with a device or sth
+        u32 start = ramdev_module->mod_start;
+        u32 end = ramdev_module->mod_end + 1;
 
-        error_t ret = vfs_mount_root("tarfs", ramdev);
+        error_t ret = vfs_mount_root("tarfs", start, end);
         log_dbg("init", "mount_root: %s", err_to_str(ret));
         log_info("init", "Searching for '/bin/busybox'");
         vnode_t *busybox = vfs_find_by_path("/bin/busybox");
@@ -218,7 +218,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
             log_err("init", "Could not find busybox: %s",
                     err_to_str(ERR_FROM_PTR(busybox)));
 
-        ret = vfs_mount("/bin", "tarfs", ramdev);
+        ret = vfs_mount("/bin", "tarfs", start, end);
         if (ret) {
             log_err("rootfs", "Failed to mount into rootfs: %s",
                     err_to_str(ret));
