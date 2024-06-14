@@ -243,7 +243,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     }
 
     process_t *kernel_timer_test =
-        process_create("ktimer_test", kernel_task_timer);
+        process_create("ktimer_test", kernel_task_timer, NULL);
     sched_new_process(kernel_timer_test);
 
     log_dbg("TASK", "Re-started task: '%s'", current_process->name);

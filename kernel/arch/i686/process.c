@@ -20,7 +20,8 @@ void arch_process_entrypoint(void)
         log_err("SCHED", "Failed to initilize VMM (%s)", current_process->name);
 }
 
-bool arch_process_create(process_t *process, process_entry_t entrypoint)
+bool arch_process_create(process_t *process, process_entry_t entrypoint,
+                         void *data)
 {
     // Allocate a kernel stack for the new process
     u32 *kstack = kmalloc(KERNEL_STACK_SIZE, KMALLOC_KERNEL);
@@ -46,7 +47,7 @@ bool arch_process_create(process_t *process, process_entry_t entrypoint)
 #define KSTACK(_i) kstack[KERNEL_STACK_SIZE / sizeof(u32) - (_i)]
 
     // Stack frame for arch_process_entrypoint
-    KSTACK(0) = 0x1234;          // arg1(NULL)
+    KSTACK(0) = (u32)data;       // arg1
     KSTACK(1) = 0;               // nuke ebp
     KSTACK(2) = (u32)entrypoint; // eip
 

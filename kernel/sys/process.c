@@ -29,7 +29,7 @@ process_t *current_process = &kernel_startup_process;
  * * Create a new page directory
  * * Copy the kernel's page table
  */
-process_t *process_create(char *name, process_entry_t entrypoint)
+process_t *process_create(char *name, process_entry_t entrypoint, void *data)
 {
     process_t *new = kmalloc(sizeof(*new), KMALLOC_KERNEL);
     if (new == NULL) {
@@ -51,7 +51,7 @@ process_t *process_create(char *name, process_entry_t entrypoint)
     new->pid = g_highest_pid++;
     new->vmm = vmm;
 
-    if (!arch_process_create(new, entrypoint)) {
+    if (!arch_process_create(new, entrypoint, data)) {
         kfree(vmm);
         kfree(new);
     }

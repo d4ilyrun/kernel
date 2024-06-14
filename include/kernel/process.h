@@ -102,8 +102,9 @@ void process_switch(process_t *process);
  *
  * @param name The name of the process
  * @param entrypoint The function called when starting the process
+ * @param data Data passed to the entry function (can be NULL)
  */
-process_t *process_create(char *name, process_entry_t entrypoint);
+process_t *process_create(char *name, process_entry_t entrypoint, void *);
 
 /** Effectively kill a process
  *
@@ -134,12 +135,14 @@ void arch_process_switch(process_context_t *);
  *
  * @param process Pointer to process to initialize
  * @param entrypoint The entrypoint used for starting this process
+ * @param data Data passed to the entry function (can be NULL)
  *
  * @return Whether we succeded or not
  *
  * @warning Do not call this function directly! This should only be
  *          called by @ref process_create
  */
-bool arch_process_create(process_t *process, process_entry_t entrypoint);
+bool arch_process_create(process_t *process, process_entry_t entrypoint,
+                         void *);
 
 /** @} */
