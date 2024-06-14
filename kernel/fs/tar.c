@@ -158,8 +158,10 @@ static int tar_node_is(const void *this, const void *segment)
 }
 
 /* Initialize the file tree of the TAR archive contained inside the device */
-static tree_t tar_init_tree(dev_t *dev)
+static tree_t tar_init_tree(u32 start, u32 end)
 {
+    UNUSED(end);
+
     tar_node_t *tar_root = kcalloc(1, sizeof(tar_node_t), KMALLOC_KERNEL);
     if (IS_ERR(tar_root))
         return (tree_t)tar_root;
@@ -168,7 +170,7 @@ static tree_t tar_init_tree(dev_t *dev)
 
     // TODO: Read header from device
     tree_t root = &tar_root->this;
-    for (hdr_t *header = (void *)dev->start; header->filename[0] != '\0';) {
+    for (hdr_t *header = (void *)start; header->filename[0] != '\0';) {
 
         path_t path = NEW_DYNAMIC_PATH(header->filename);
         tree_node_t *current = root;
@@ -302,19 +304,18 @@ static vfs_ops_t tar_vfs_ops = {
     .delete = tar_vfs_delete,
 };
 
-vfs_t *tar_new(dev_t *dev)
+vfs_t *tar_new(u32 start, u32 end)
 {
-    log_info("tarfs", "mounting from [" LOG_FMT_32 ":" LOG_FMT_32 "]",
-             dev->start, dev->start + dev->size);
+    log_info("tarfs", "mounting from [" LOG_FMT_32 ":" LOG_FMT_32 "]", start,
+             end);
 
     vfs_t *vfs = kcalloc(1, sizeof(vfs_t), KMALLOC_KERNEL);
     if (vfs == NULL)
         return PTR_ERR(E_NOMEM);
 
-    vfs->dev = dev;
     vfs->operations = &tar_vfs_ops;
 
-    tree_t tree = tar_init_tree(dev);
+    tree_t tree = tar_init_tree(start, end);
     if (IS_ERR(tree)) {
         kfree(vfs);
         return (vfs_t *)tree;

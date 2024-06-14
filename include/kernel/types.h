@@ -46,5 +46,8 @@ typedef u64 timestamp_t;
  *  @return 0 if both are equal, -1 if left is inferior, +1 if it is superior
  */
 typedef int (*compare_t)(const void *left, const void *right);
+#define COMPARE_EQ 0
+#define COMPARE_LESS -1
+#define COMPARE_GREATER 1
 
 #endif /* KERNEL_TYPES_H */

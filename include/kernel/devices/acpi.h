@@ -29,6 +29,9 @@
  * @{
  */
 
+#pragma once
+
+#include <kernel/devices/driver.h>
 #include <kernel/error.h>
 
 #include <multiboot.h>
@@ -37,5 +40,9 @@
  *  @param mbt The multiboot info structure passed by the bootloader
  */
 error_t acpi_init(struct multiboot_info *mbt);
+
+/**
+ */
+void acpi_start_devices(void);
 
 /** @} */

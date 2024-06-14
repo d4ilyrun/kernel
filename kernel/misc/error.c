@@ -5,6 +5,7 @@
 static const char *const ERROR_DESCRIPTIONS[E_TOTAL_COUNT] = {
     [E_SUCCESS] = "Success",
     [E_NOENT] = "No such file or directory",
+    [E_NODEV] = "No such device",
     [E_NOMEM] = "Out of memory",
     [E_INVAL] = "Invalid argument",
     [E_NOT_IMPLEMENTED] = "Not implemented",
