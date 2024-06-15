@@ -420,6 +420,8 @@ void vmm_free(vmm_t *vmm, vaddr_t addr, size_t length)
     vma_t value = {.start = addr};
     avl_t *freed = avl_remove(&vmm->vmas.by_address, &value.avl.by_address,
                               vma_compare_address);
+    if (freed == NULL)
+        return;
 
     vma_t *area = container_of(freed, vma_t, avl.by_address);
     area->allocated = false;

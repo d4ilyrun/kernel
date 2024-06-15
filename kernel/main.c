@@ -247,7 +247,7 @@ void kernel_task_mmap(void *data)
     u32 *a = mmap(0, PAGE_SIZE, 0, 0);
     u32 *b = mmap(0, PAGE_SIZE * 2, 0, 0);
     u32 *c = mmap(0, PAGE_SIZE, 0, 0);
-    u32 *e = mmap((void *)0xd0000000, PAGE_SIZE, 0, 0);
+    u32 *e = mmap((void *)0x1000000, PAGE_SIZE, 0, 0);
 
     u32 *addresses =
         mmap((void *)0xa0000000, PAGE_SIZE * 5, PROT_READ | PROT_WRITE, 0);
