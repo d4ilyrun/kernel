@@ -87,6 +87,13 @@ bool mmu_map(vaddr_t virt, paddr_t physical, int prot);
  */
 paddr_t mmu_unmap(vaddr_t virt);
 
+/** Unmap a range of virtual addresses
+ *
+ * @param start The start of the virtual address
+ * @param end The end of the virtual address
+ */
+void mmu_unmap_range(vaddr_t start, vaddr_t end);
+
 /**
  * @brief Perform identity mapping inside a given virtual address range
  *

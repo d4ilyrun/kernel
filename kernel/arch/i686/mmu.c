@@ -340,6 +340,12 @@ paddr_t mmu_unmap(vaddr_t virtual)
     return physical;
 }
 
+void mmu_unmap_range(vaddr_t start, vaddr_t end)
+{
+    for (; start < end; start += PAGE_SIZE)
+        mmu_unmap(start);
+}
+
 static void mmu_offset_map(paddr_t start, paddr_t end, int64_t offset, int prot)
 {
     for (; start < end; start += PAGE_SIZE) {

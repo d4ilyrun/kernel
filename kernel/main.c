@@ -45,6 +45,25 @@ void kernel_task_mmap(void *data);
 void kernel_task_malloc(void *data);
 void kernel_task_rootfs(void *data);
 
+void kernel_relocate_module(struct multiboot_tag_module *module)
+{
+    u32 mod_size = module->mod_end - module->mod_start + 1;
+    mmu_identity_map(module->mod_start, module->mod_end, PROT_READ);
+
+    void *reloc =
+        (void *)vmm_allocate(&kernel_vmm, 0, mod_size, VMA_READ | VMA_WRITE);
+    if (reloc == NULL) {
+        log_err("startup", "failed to relocate module@" LOG_FMT_32 ": E_NOMEM",
+                module->mod_start);
+        return;
+    }
+
+    memcpy(reloc, (void *)module->mod_start, mod_size);
+    mmu_unmap_range(module->mod_start, module->mod_end);
+    module->mod_end = (u32)reloc + mod_size - 1;
+    module->mod_start = (u32)reloc;
+}
+
 void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 {
     if (magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
@@ -93,12 +112,12 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     mbt_info = kmalloc(mbt_tmp.mbt.total_size, KMALLOC_KERNEL);
     memcpy(mbt_info, mbt_tmp.raw, mbt_tmp.mbt.total_size);
 
-    // We need to identity map the content of the multiboot modules since they
-    // are marked as available inside the memory_map passed on by Grub.
+    // We need to relocate the content of the multiboot modules inside the
+    // kernel address space if we want them to be accessible from every
+    // processes
     FOREACH_MULTIBOOT_TAG (tag, mbt_info) {
         if (tag->type == MULTIBOOT_TAG_TYPE_MODULE) {
-            struct multiboot_tag_module *module = (void *)tag;
-            mmu_identity_map(module->mod_start, module->mod_end, PROT_READ);
+            kernel_relocate_module((struct multiboot_tag_module *)tag);
         }
     }
 
