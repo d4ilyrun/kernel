@@ -59,19 +59,25 @@ process_t *process_create(char *name, process_entry_t entrypoint, void *data)
     return new;
 }
 
+void arch_process_free(process_t *process);
+
 static void process_free(process_t *process)
 {
+    log_info("process", "terminating '%s'", process->name);
     vmm_destroy(process->vmm);
+    arch_process_free(process);
+    kfree(process);
 }
 
-void process_switch(process_t *process)
+bool process_switch(process_t *process)
 {
-    arch_process_switch(&process->context);
-
-    if (current_process->state == SCHED_KILLED) {
-        process_free(current_process);
-        schedule();
+    if (process->state == SCHED_KILLED) {
+        process_free(process);
+        return false;
     }
+
+    arch_process_switch(&process->context);
+    return true;
 }
 
 void process_kill(process_t *process)

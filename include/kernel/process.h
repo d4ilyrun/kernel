@@ -95,8 +95,9 @@ typedef void (*process_entry_t)(void *data);
 
 /** Switch the currently running process
  * @param process The new process to switch into
+ * @return \c false if the new process was previously killed
  */
-void process_switch(process_t *process);
+bool process_switch(process_t *process);
 
 /** Create and initialize a new process
  *

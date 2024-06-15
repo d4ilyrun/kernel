@@ -51,7 +51,8 @@ static void do_schedule(void)
 
     process_t *next = container_of(next_node, process_t, this);
 
-    if (current_process->state == SCHED_RUNNING)
+    if (current_process->state == SCHED_RUNNING ||
+        current_process->state == SCHED_KILLED)
         queue_enqueue(&scheduler.ready, &current_process->this);
 
     // If some tasks are ready, do not reschedule the idle task
@@ -63,7 +64,8 @@ static void do_schedule(void)
 
     next->running.preempt = timer_gettick() + SCHED_TIMESLICE;
 
-    process_switch(next);
+    if (!process_switch(next))
+        do_schedule();
 }
 
 void schedule(void)

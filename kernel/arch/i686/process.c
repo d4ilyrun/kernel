@@ -14,10 +14,14 @@
  * The return to the process's entry point is done implicitely through the
  * artificial stack setup in @arch_process_create.
  */
-void arch_process_entrypoint(void)
+void arch_process_entrypoint(process_entry_t entrypoint, void *data)
 {
     if (!vmm_init(current_process->vmm, USER_MEMORY_START, USER_MEMORY_END))
         log_err("SCHED", "Failed to initilize VMM (%s)", current_process->name);
+
+    entrypoint(data);
+
+    process_kill(current_process);
 }
 
 bool arch_process_create(process_t *process, process_entry_t entrypoint,
@@ -48,8 +52,8 @@ bool arch_process_create(process_t *process, process_entry_t entrypoint,
 
     // Stack frame for arch_process_entrypoint
     KSTACK(0) = (u32)data;       // arg1
-    KSTACK(1) = 0;               // nuke ebp
-    KSTACK(2) = (u32)entrypoint; // eip
+    KSTACK(1) = (u32)entrypoint; // eip
+    KSTACK(2) = 0;               // nuke ebp
 
     // Stack frame for arch_process_switch
     KSTACK(3) = (u32)arch_process_entrypoint;
@@ -65,4 +69,10 @@ bool arch_process_create(process_t *process, process_entry_t entrypoint,
 #undef KSTACK
 
     return process;
+}
+
+void arch_process_free(process_t *process)
+{
+    kfree((void *)process->context.esp0);
+    // TODO: release MMU
 }

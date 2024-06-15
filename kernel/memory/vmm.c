@@ -471,12 +471,15 @@ void vmm_destroy(vmm_t *vmm)
         return;
     }
 
+    // Freeing all the pages allocated for storing the VMAs
+    // See vma_reserved_allocate for an explanation of what's going on
     for (unsigned int i = 0; i < ARRAY_SIZE(vmm->reserved); i += 2) {
-        // See vma_reserved_allocate for an explanation of what's going on
         if (*(u64 *)&vmm->reserved[i] != 0) {
             vaddr_t addr =
                 VMM_RESERVED_START + (VMA_SIZE * i * BITMAP_BLOCK_SIZE);
-            pmm_free(mmu_unmap(addr));
+            paddr_t page = mmu_unmap(addr);
+            if (page != PMM_INVALID_PAGEFRAME)
+                pmm_free(page);
         }
     }
 
