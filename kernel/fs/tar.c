@@ -166,6 +166,12 @@ static tree_t tar_init_tree(u32 start, u32 end)
     if (IS_ERR(tar_root))
         return (tree_t)tar_root;
 
+    tar_root->header = kcalloc(1, sizeof(hdr_t), KMALLOC_KERNEL);
+    if (tar_root->header == NULL) {
+        kfree(tar_root);
+        return PTR_ERR(E_NOMEM);
+    }
+
     tar_root->header->type = TAR_TYPE_DIRECTORY;
 
     // TODO: Read header from device
