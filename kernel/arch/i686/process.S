@@ -1,3 +1,6 @@
+.global arch_process_switch
+.global arch_process_jump_to_userland
+
 /* extern process_t current_process */
 .extern current_process
 
@@ -5,9 +8,9 @@
 .extern kernel_tss
 
 .section .text
-.global arch_process_switch
 
 /* void arch_process_switch(struct x86_process *) */
+.type arch_process_switch, @function
 arch_process_switch:
 
     // retrieve first argument
@@ -46,3 +49,33 @@ arch_process_switch:
     popl %edi
     // Jump back into the process using the EIP pushed at EBP by the caller
     ret
+
+
+/* void arch_process_jump_to_userland(u32 entrypoint, u32 cs, u32 ds, u32 esp) */
+.type arch_process_jump_to_userland, @function
+arch_process_jump_to_userland:
+
+    // discard EIP, we will not be returning to kernel mode anyway
+    addl $4, %esp
+
+    popl %eax  // eax = entrypoint
+    popl %ebx  // ebx = cs
+    popl %ecx  // ecx = ds
+    popl %edx  // edx = esp
+
+    // setup data segments for userland
+    movl %ecx, %ds
+    movl %ecx, %es
+    movl %ecx, %fs
+    movl %ecx, %gs
+
+    // When switching to another privilege level, the following values are popped and updated
+    // from the stack by the cpu: eip -> cs -> eflags -> esp -> ss
+    pushl %ecx      // ss
+    pushl %edx      // esp
+    pushl $0x202    // eflags: IE
+    pushl %ebx      // cs
+    pushl %eax      // eip
+
+    // jump to userland !
+    iret

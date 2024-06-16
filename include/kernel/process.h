@@ -14,6 +14,7 @@
 #include <kernel/vmm.h>
 
 #include <libalgo/linked_list.h>
+#include <utils/compiler.h>
 
 #if ARCH == i686
 #include <kernel/arch/i686/process.h>
@@ -51,6 +52,7 @@ typedef struct process {
 
     char name[PROCESS_NAME_MAX_LEN]; /*!< The process's name */
     pid_t pid;                       /*!< The PID */
+    u32 flags; /*!< Combination of \ref process_flags values */
 
     vmm_t *vmm; /*!< The process's address space manager */
 
@@ -71,6 +73,17 @@ typedef struct process {
     };
 
 } process_t;
+
+/** @enum process_flags */
+typedef enum process_flags {
+    PROC_NONE,   ///< Default user mode process
+    PROC_KERNEL, ///< This process runs in kernel mode
+} process_flags;
+
+static ALWAYS_INLINE bool process_is_kernel(process_t *process)
+{
+    return process->flags & PROC_KERNEL;
+}
 
 /** Process used when starting up the kernel.
  *
@@ -101,11 +114,15 @@ bool process_switch(process_t *process);
 
 /** Create and initialize a new process
  *
+ * When starting a userland process, the \c data field is not passed
+ * to the entrypoint function.
+ *
  * @param name The name of the process
  * @param entrypoint The function called when starting the process
  * @param data Data passed to the entry function (can be NULL)
+ * @param flags Feature flags: a combination of \ref process_flags enum values
  */
-process_t *process_create(char *name, process_entry_t entrypoint, void *);
+process_t *process_create(char *name, process_entry_t entrypoint, void *, u32);
 
 /** Effectively kill a process
  *
@@ -119,31 +136,5 @@ void process_kill(process_t *);
  *
  *  @{
  */
-
-/** Arch specific, hardware level process switching
- *
- * This updates the content of the registers to effectively switch
- * into the desired process.
- *
- * @param context The next process's hardware context
- *
- * @warning Do not call this function directly! This should only be
- *          called by @ref process_switch_into
- */
-void arch_process_switch(process_context_t *);
-
-/** Arch specific, initialize the process's arch specific context
- *
- * @param process Pointer to process to initialize
- * @param entrypoint The entrypoint used for starting this process
- * @param data Data passed to the entry function (can be NULL)
- *
- * @return Whether we succeded or not
- *
- * @warning Do not call this function directly! This should only be
- *          called by @ref process_create
- */
-bool arch_process_create(process_t *process, process_entry_t entrypoint,
-                         void *);
 
 /** @} */

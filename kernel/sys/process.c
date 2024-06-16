@@ -16,10 +16,31 @@ static pid_t g_highest_pid = 0;
 
 process_t kernel_startup_process = {
     .name = "kstartup",
+    .flags = PROC_KERNEL,
     .pid = 0,
 };
 
 process_t *current_process = &kernel_startup_process;
+
+/** Arch specific, hardware level process switching
+ *
+ * This updates the content of the registers to effectively switch
+ * into the desired process.
+ *
+ * @param context The next process's hardware context
+ */
+void arch_process_switch(process_context_t *);
+
+/** Arch specific, initialize the process's arch specific context
+ *
+ * @param process Pointer to process to initialize
+ * @param entrypoint The entrypoint used for starting this process
+ * @param data Data passed to the entry function (can be NULL)
+ *
+ * @return Whether we succeded or not
+ */
+bool arch_process_create(process_t *process, process_entry_t entrypoint,
+                         void *);
 
 /*
  * To create a process we need to:
@@ -29,13 +50,16 @@ process_t *current_process = &kernel_startup_process;
  * * Create a new page directory
  * * Copy the kernel's page table
  */
-process_t *process_create(char *name, process_entry_t entrypoint, void *data)
+process_t *process_create(char *name, process_entry_t entrypoint, void *data,
+                          u32 flags)
 {
     process_t *new = kmalloc(sizeof(*new), KMALLOC_KERNEL);
     if (new == NULL) {
         log_err("SCHED", "Failed to allocate new process");
         return NULL;
     }
+
+    new->flags = flags;
 
     // The VMM cannot be initialized from within another process's address space
     // This process should be done by the arch specific wrapper responsible for

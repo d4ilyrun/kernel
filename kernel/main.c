@@ -44,6 +44,7 @@ void kernel_task_timer(void *data);
 void kernel_task_mmap(void *data);
 void kernel_task_malloc(void *data);
 void kernel_task_rootfs(void *data);
+void kernel_task_userland(void *data);
 
 void kernel_relocate_module(struct multiboot_tag_module *module)
 {
@@ -147,12 +148,15 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     log_info("MAIN", "PRINTF ? (%s, " LOG_FMT_32 ")",
              kernel_symbol_name(symbol), symbol->address);
 
-    sched_new_process(process_create("kmmap_test", kernel_task_mmap, NULL));
-    sched_new_process(process_create("kmalloc_test", kernel_task_malloc, NULL));
-    sched_new_process(process_create("krootfs_test", kernel_task_rootfs, NULL));
+    sched_new_process_create("kmmap_test", kernel_task_mmap, NULL, PROC_KERNEL);
+    sched_new_process_create("kmalloc_test", kernel_task_malloc, NULL,
+                             PROC_KERNEL);
+    sched_new_process_create("krootfs_test", kernel_task_rootfs, NULL,
+                             PROC_KERNEL);
+    sched_new_process_create("init", kernel_task_userland, NULL, PROC_NONE);
 
     process_t *kernel_timer_test =
-        process_create("ktimer_test", kernel_task_timer, NULL);
+        process_create("ktimer_test", kernel_task_timer, NULL, PROC_KERNEL);
     sched_new_process(kernel_timer_test);
 
     log_dbg("TASK", "Re-started task: '%s'", current_process->name);
@@ -294,4 +298,9 @@ void kernel_task_timer(void *data)
         timer_wait_ms(1000);
         log_info("TASK", "Elapsed miliseconds: %d", gettime());
     }
+}
+
+void kernel_task_userland(void *data)
+{
+    (void)data;
 }

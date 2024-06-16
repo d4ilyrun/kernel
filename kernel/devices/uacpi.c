@@ -293,7 +293,7 @@ uacpi_status uacpi_kernel_schedule_work(uacpi_work_type type,
 {
     UNUSED(type);
 
-    process_t *process = process_create("kuacpi", handler, ctx);
+    process_t *process = process_create("kuacpi", handler, ctx, PROC_KERNEL);
     if (process == NULL)
         return UACPI_STATUS_OUT_OF_MEMORY;
 
