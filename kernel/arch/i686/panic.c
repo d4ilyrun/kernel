@@ -2,6 +2,7 @@
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/memory.h>
+#include <kernel/process.h>
 #include <kernel/symbols.h>
 
 #include <kernel/arch/i686/gdt.h>
@@ -18,6 +19,12 @@ struct stackframe_t {
     struct stackframe_t *ebp;
     u32 eip;
 };
+
+static void panic_dump_process(void)
+{
+    log_err("PROC", "%s (PID: %d)", current_process->name,
+            current_process->pid);
+}
 
 static void panic_dump_registers(void)
 {
@@ -87,6 +94,9 @@ void panic(u32 esp, const char *msg, ...)
     printf(ANSI_RESET "\n\n");
 
     va_end(parameters);
+
+    panic_dump_process();
+    printf("\n");
 
     panic_dump_registers();
     printf("\n");

@@ -1,6 +1,7 @@
 #include <kernel/devices/uart.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
+#include <kernel/process.h>
 
 #include <kernel/arch/i686/devices/pic.h>
 #include <kernel/arch/i686/gdt.h>
@@ -198,6 +199,8 @@ void default_interrupt_handler(interrupt_frame frame)
     if (handler->handler == NULL) {
         log_err("interrupt", "Unsupported interrupt: %s (" LOG_FMT_32 ")",
                 interrupts_to_str(frame.nr), frame.nr);
+        log_dbg("interrupt", "Process: '%s' (PID=%ld)", current_process->name,
+                current_process->pid);
         log_dbg("interrupt", "ERROR=" LOG_FMT_32, frame.error);
         log_dbg("interrupt", "FLAGS=" LOG_FMT_32, frame.state.flags);
         log_dbg("interrupt", "CS=" LOG_FMT_32 ", SS=" LOG_FMT_32,
