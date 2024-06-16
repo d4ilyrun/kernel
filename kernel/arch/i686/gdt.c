@@ -26,7 +26,7 @@ static gdt_descriptor g_global_segments[] = {
     {0, 0xFFFFF, 0xFA, 0xC}, // User Mode code segment
     {0, 0xFFFFF, 0xF2, 0xC}, // User Mode data segment
     // Task State segment
-    {(u32)&kernel_tss, sizeof(tss_t), 0x80, 0x0},
+    {(u32)&kernel_tss, sizeof(tss_t), 0x89, 0x0},
 };
 
 void gdt_init(void)
@@ -53,6 +53,12 @@ void gdt_init(void)
     }
 
     reload_segment_registers();
+
+    segment_selector kstack = {.index = GDT_ENTRY_KERNEL_DATA};
+    kernel_tss.ss0 = kstack.raw;
+
+    segment_selector tr = {.index = GDT_ENTRY_TSS};
+    ASM("ltr %0" : : "r"(tr) : "memory");
 }
 
 void gdt_load_segment(gdt_descriptor segment, u16 index)
