@@ -60,7 +60,8 @@ void *uacpi_kernel_map(uacpi_phys_addr physical, uacpi_size len)
     paddr_t pageframe = align_down(physical, PAGE_SIZE);
 
     for (uacpi_size off = 0; off < len; off += PAGE_SIZE) {
-        if (!mmu_map(virtual + off, pageframe + off, PROT_READ | PROT_WRITE)) {
+        if (!mmu_map(virtual + off, pageframe + off,
+                     PROT_READ | PROT_WRITE | PROT_KERNEL)) {
             vmm_free(&kernel_vmm, virtual, len);
             return UACPI_NULL;
         }

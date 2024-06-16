@@ -209,13 +209,14 @@ bool mmu_init(void)
     // in physical)
     mmu_offset_map(KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_START),
                    KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_END),
-                   KERNEL_HIGHER_HALF_OFFSET, PROT_EXEC | PROT_READ);
+                   KERNEL_HIGHER_HALF_OFFSET,
+                   PROT_EXEC | PROT_READ | PROT_KERNEL);
 
     // Identity map the first MB, since it contains hardcoded addresses we still
     // use (console buffer for example).
     //
     // TODO: Check for possible alternatives? (MMIO?, map only what we need?)
-    mmu_identity_map(0x0, 0x100000, PROT_READ | PROT_WRITE);
+    mmu_identity_map(0x0, 0x100000, PROT_READ | PROT_WRITE | PROT_KERNEL);
 
     mmu_load_page_directory(kernel_startup_process.context.cr3);
 
@@ -284,8 +285,12 @@ bool mmu_map(vaddr_t virtual, vaddr_t pageframe, int prot)
 
     if (!page_directory[address.pde].present) {
         u32 page_table = pmm_allocate(PMM_MAP_KERNEL);
-        page_directory[address.pde].page_table = TO_PFN(page_table);
-        page_directory[address.pde].present = 1;
+        page_directory[address.pde] = (mmu_pde_t){
+            .present = 1,
+            .page_table = TO_PFN(page_table),
+            .writable = 1,
+            .user = 1,
+        };
         new_page_table = true;
     }
 
@@ -312,9 +317,8 @@ bool mmu_map(vaddr_t virtual, vaddr_t pageframe, int prot)
     page_table[address.pte] = (mmu_pte_t){
         .present = 1,
         .page_frame = TO_PFN(pageframe),
-        // cannot disable reading from x86 pages pages
         .writable = boolean(prot & PROT_WRITE),
-        .user = 0,
+        .user = !(prot & PROT_KERNEL),
     };
 
     return true;
