@@ -91,7 +91,7 @@ interrupt 47, irq_ata_secondary
     stub irq%1
 %endmacro
 
-interrupt_range_custom_irq 47, 255, define_custom_irq
+interrupt_range_custom_irq 48, 255, define_custom_irq
 
 ; addressable interrupt handler stubs tables
 global interrupt_handler_stubs
@@ -127,14 +127,19 @@ interrupt_handler_stubs:
   ; IRQs
   stub irq_timer
   stub irq_keyboard
+  stub irq_cascade
   stub irq_com2
   stub irq_com1
   stub irq_lpt2
   stub irq_floppy
+  stub irq_lpt1
   stub irq_cmos
+  stub irq_free1
+  stub irq_free2
+  stub irq_free3
   stub irq_ps2
   stub irq_fpu
   stub irq_ata_primary
   stub irq_ata_secondary
   ; Custom IRQs
-  interrupt_range_custom_irq 47, 255, stub_custom_irq
+  interrupt_range_custom_irq 48, 255, stub_custom_irq
