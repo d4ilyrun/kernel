@@ -207,10 +207,15 @@ bool mmu_init(void)
     // We remap our higher-half kernel.
     // The addresses over 0xC0000000 will point to our kernel's code (0x00000000
     // in physical)
+    //
+    // FIXME: The kernel code is currently accessible from userland.
+    //        This MUST be changed back to add PROT_KERNEL, but for now
+    //        we keep it as is, since it is the only way for us to test
+    //        our userland implementation until we port our first programs
+    //        (soon hopefully)
     mmu_offset_map(KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_START),
                    KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_END),
-                   KERNEL_HIGHER_HALF_OFFSET,
-                   PROT_EXEC | PROT_READ | PROT_KERNEL);
+                   KERNEL_HIGHER_HALF_OFFSET, PROT_EXEC | PROT_READ);
 
     // Identity map the first MB, since it contains hardcoded addresses we still
     // use (console buffer for example).

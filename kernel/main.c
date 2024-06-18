@@ -124,6 +124,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     }
 
     scheduler_init();
+    syscall_init();
 
     driver_load_drivers();
     acpi_init(mbt_info);
@@ -302,5 +303,10 @@ void kernel_task_timer(void *data)
 
 void kernel_task_userland(void *data)
 {
+    write_eax(SYS_WRITE);
+    ASM("int $0x80");
+
     (void)data;
+
+    while (1) {}
 }

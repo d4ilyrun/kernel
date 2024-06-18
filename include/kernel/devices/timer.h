@@ -44,4 +44,7 @@ u64 timer_to_ms(u64 ticks);
 /** Convert a number of ticks to a time in microseconds */
 u64 timer_to_us(u64 ticks);
 
+/** Get the number of time in ms elapsed since the machine started */
+uint64_t gettime(void);
+
 #endif /* KERNEL_DEVICES_TIMER_H */

@@ -22,7 +22,8 @@
         ASM("movl %0, %%" #_reg : : "r"(value));      \
     }
 
-#define CPU_32BIT_REGISTERS cr0, cr1, cr2, cr3, cr4, esp, cs, ds, es, fs, gs, ss
+#define CPU_32BIT_REGISTERS \
+    cr0, cr1, cr2, cr3, cr4, esp, cs, ds, es, fs, gs, ss, eax
 
 MAP(READ_REGISTER_OPS, CPU_32BIT_REGISTERS, )
 MAP(WRITE_REGISTER_OPS, CPU_32BIT_REGISTERS, )

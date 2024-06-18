@@ -241,6 +241,33 @@ const vma_t *vmm_find(vmm_t *, vaddr_t);
 /** Release all memory allocated by the current VMM */
 void vmm_destroy(vmm_t *vmm);
 
+/**
+ * Create a new mapping in the virtual address space of the calling process.
+ *
+ * @param addr The starting address of the new mapping
+ * @param length The length of the mapping (must be greater than 0)
+ * @param prot Protection flags for the mapping.
+ *             Must be a combination of @ref mmu_prot
+ * @param flags Feature flags for the mapping (mapping, sharing, etc ...).
+ *              Must be a combination of @ref vma_flags
+ */
+void *mmap(void *addr, size_t length, int prot, int flags);
+
+/**
+ * Delete a mapping for the specified address range
+ *
+ * @param addr The starting address of the range
+ * @param length The length of the range
+ *
+ * The starting address MUST be page aligned (EINVAL).
+ *
+ * @return A value of type @ref error_t
+ *
+ * @info Every page that the range is inside of will be unmaped, even if it's
+ *       only for one byte. Beware of overflows and mind the alignment!
+ */
+int munmap(void *addr, size_t length);
+
 #endif /* KERNEL_VMM_H */
 
 /** @} */

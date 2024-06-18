@@ -2,6 +2,7 @@
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/process.h>
+#include <kernel/syscalls.h>
 
 #include <kernel/arch/i686/devices/pic.h>
 #include <kernel/arch/i686/gdt.h>
@@ -164,6 +165,9 @@ void interrupts_init(void)
     for (int i = 0; i < IDT_LENGTH; ++i) {
         interrupts_set_idt(i, INTERRUPT_GATE_32B, interrupt_handler_stubs[i]);
     }
+
+    // Mark syscall interrupt as callable from userland
+    idt[SYSCALL_INTERRUPT_NR].access |= (3 << 5);
 
     log_dbg("IDT", "Finished setting up the IDT");
 }
