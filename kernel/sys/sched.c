@@ -42,7 +42,7 @@ static process_t *idle_process;
  *
  * @see scheduler_lock scheduler_unlock
  */
-static void do_schedule(void)
+static void do_schedule(bool reschedule)
 {
     node_t *next_node = queue_dequeue(&scheduler.ready);
 
@@ -51,9 +51,10 @@ static void do_schedule(void)
 
     process_t *next = container_of(next_node, process_t, this);
 
-    if (current_process->state == SCHED_RUNNING ||
-        current_process->state == SCHED_KILLED)
-        queue_enqueue(&scheduler.ready, &current_process->this);
+    if (reschedule) {
+        if (current_process->state == SCHED_RUNNING)
+            queue_enqueue(&scheduler.ready, &current_process->this);
+    }
 
     // If some tasks are ready, do not reschedule the idle task
     if (next == idle_process && queue_peek(&scheduler.ready)) {
@@ -64,14 +65,15 @@ static void do_schedule(void)
 
     next->running.preempt = timer_gettick() + SCHED_TIMESLICE;
 
-    if (!process_switch(next))
-        do_schedule();
+    if (!process_switch(next)) {
+        do_schedule(false);
+    }
 }
 
 void schedule(void)
 {
     const bool old_if = scheduler_lock();
-    do_schedule();
+    do_schedule(true);
     scheduler_unlock(old_if);
 }
 
@@ -123,7 +125,7 @@ void sched_block_current_process(void)
 {
     const bool old_if = scheduler_lock();
     current_process->state = SCHED_WAITING;
-    do_schedule();
+    do_schedule(true);
     scheduler_unlock(old_if);
 }
 
@@ -139,7 +141,7 @@ void sched_unblock_process(process_t *process)
 
     // give the least time possible to the IDLE task
     if (current_process == idle_process)
-        do_schedule();
+        do_schedule(true);
 
     scheduler_unlock(old_if);
 }

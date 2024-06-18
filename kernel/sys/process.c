@@ -61,7 +61,7 @@ process_t *process_create(char *name, process_entry_t entrypoint, void *data)
 
 void arch_process_free(process_t *process);
 
-static void process_free(process_t *process)
+MAYBE_UNUSED static void process_free(process_t *process)
 {
     log_info("process", "terminating '%s'", process->name);
     vmm_destroy(process->vmm);
@@ -72,7 +72,11 @@ static void process_free(process_t *process)
 bool process_switch(process_t *process)
 {
     if (process->state == SCHED_KILLED) {
-        process_free(process);
+        // FIXME: Find a way to free the process on exit
+        //        By doing it this way, referencing the freed process
+        //        causes a #PF when rescheduling the next process.
+        //
+        // process_free(process);
         return false;
     }
 
