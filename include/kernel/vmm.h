@@ -188,6 +188,12 @@ typedef enum mmap_flags {
  */
 extern vmm_t kernel_vmm;
 
+/** Check whether a virtual address has been allocated using @ref kernel_vmm
+ *  @ingroup vmm_internals
+ */
+#define IS_KERNEL_ADDRESS(_addr) \
+    IN_RANGE((vaddr_t)(_addr), KERNEL_MEMORY_START, KERNEL_MEMORY_END)
+
 /**
  * @brief Initialize a VMM instance
  *

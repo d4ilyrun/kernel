@@ -35,12 +35,6 @@ static DEFINE_INTERRUPT_HANDLER(page_fault);
 
 vmm_t kernel_vmm;
 
-/** Check whether a virtual address has been allocated using @ref kernel_vmm
- *  @ingroup vmm_internals
- */
-#define IS_KERNEL_ADDRESS(_addr) \
-    IN_RANGE((vaddr_t)(_addr), KERNEL_MEMORY_START, KERNEL_MEMORY_END)
-
 /** Compute the end address of a VMA.
  * @ingroup vmm_internals
  */

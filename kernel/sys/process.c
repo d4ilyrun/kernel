@@ -53,7 +53,7 @@ bool arch_process_create(process_t *process, process_entry_t entrypoint,
 process_t *process_create(char *name, process_entry_t entrypoint, void *data,
                           u32 flags)
 {
-    process_t *new = kmalloc(sizeof(*new), KMALLOC_KERNEL);
+    process_t *new = kcalloc(1, sizeof(*new), KMALLOC_KERNEL);
     if (new == NULL) {
         log_err("SCHED", "Failed to allocate new process");
         return NULL;

@@ -2,6 +2,7 @@
 #include <kernel/kmalloc.h>
 #include <kernel/memory.h>
 #include <kernel/mmu.h>
+#include <kernel/process.h>
 #include <kernel/syscalls.h>
 #include <kernel/types.h>
 #include <kernel/vmm.h>
@@ -149,9 +150,12 @@ void *kmalloc(size_t size, int flags)
     size = align_up(size, KMALLOC_ALIGNMENT);
     size = bit_next_pow32(size);
 
-    bucket_t *bucket = bucket_find(kmalloc_buckets, size, flags);
+    llist_t *buckets =
+        (flags & KMALLOC_KERNEL) ? &kmalloc_buckets : &current_process->kmalloc;
+
+    bucket_t *bucket = bucket_find(*buckets, size, flags);
     if (bucket == NULL)
-        bucket = bucket_create(&kmalloc_buckets, size, flags);
+        bucket = bucket_create(buckets, size, flags);
 
     if (bucket == NULL)
         return NULL;
@@ -176,7 +180,9 @@ void kfree(void *ptr)
     if (ptr == NULL)
         return;
 
-    bucket_free_block(bucket_from_block(ptr), ptr, &kmalloc_buckets);
+    bucket_free_block(bucket_from_block(ptr), ptr,
+                      IS_KERNEL_ADDRESS(ptr) ? &kmalloc_buckets
+                                             : &current_process->kmalloc);
 }
 
 void *krealloc(void *ptr, size_t size, int flags)

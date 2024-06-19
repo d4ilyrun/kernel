@@ -35,6 +35,8 @@ typedef enum process_state {
                          ///< resources to be disposed of
 } process_state_t;
 
+typedef llist_t kmalloc_t;
+
 /**
  * @brief A single process.
  * @struct process
@@ -54,7 +56,9 @@ typedef struct process {
     pid_t pid;                       /*!< The PID */
     u32 flags; /*!< Combination of \ref process_flags values */
 
-    vmm_t *vmm; /*!< The process's address space manager */
+    vmm_t *vmm;        /*!< The process's address space manager */
+    kmalloc_t kmalloc; /*!< Opaque struct used by the memory allocator to
+                          allocate memory blocks inside the user area */
 
     node_t this; /*!< Intrusive linked list used by the scheduler */
 
