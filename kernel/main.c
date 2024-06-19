@@ -109,7 +109,11 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     log_info("START", "Initializing kernel VMM");
     vmm_init(&kernel_vmm, KERNEL_MEMORY_START, KERNEL_MEMORY_END);
-    kernel_startup_process.vmm = &kernel_vmm;
+
+    // Manually "create" a kernel_startup process, this should be reworked later
+    // once add a proper startup sequence. But for now it should do ...
+    kernel_startup_process.vmm = kmalloc(sizeof(vmm_t), KMALLOC_KERNEL);
+    vmm_init(kernel_startup_process.vmm, USER_MEMORY_START, USER_MEMORY_END);
 
     mbt_info = kmalloc(mbt_tmp.mbt.total_size, KMALLOC_KERNEL);
     memcpy(mbt_info, mbt_tmp.raw, mbt_tmp.mbt.total_size);
