@@ -140,3 +140,9 @@ u64 timer_to_us(u64 ticks)
 {
     return (US(ticks)) / timer_kernel_frequency;
 }
+
+uint64_t gettime(void)
+{
+    // FIXME: replace with timer_get_ms() or sth along those lines
+    return timer_to_ms(timer_gettick());
+}

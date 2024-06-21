@@ -73,8 +73,8 @@ $ doxygen docs/doxygen/Doxyfile # Requires you to also pull the git submodules
     - [ ] ext2
     - [X] VFS
 - Userland
-    - [ ] context switching
-    - [ ] syscalls
+    - [X] jumping to userland
+    - [X] syscalls
 - Porting
     - [ ] Load/Execute ELF programs
     - [ ] Porting an already existing program (Can it run DOOM?)

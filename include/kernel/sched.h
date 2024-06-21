@@ -55,6 +55,8 @@
 
 #include <kernel/process.h>
 
+#include <utils/compiler.h>
+
 // TODO: Remove this once we implemented another timer for the scheduler
 extern bool scheduler_initialized;
 
@@ -81,6 +83,17 @@ void scheduler_unlock(bool old_if_flag);
  *  When adding a new process, its state will be set to @ref SCHED_RUNNING
  */
 void sched_new_process(process_t *);
+
+/** Create a new process and instantly schedule it
+ *  @see \ref sched_new_process
+ *       \ref process_create
+ */
+static ALWAYS_INLINE void sched_new_process_create(char *name,
+                                                   process_entry_t entrypoint,
+                                                   void *data, u32 flags)
+{
+    sched_new_process(process_create(name, entrypoint, data, flags));
+}
 
 /** Initialize this cpu's scheduler */
 void scheduler_init(void);

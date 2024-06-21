@@ -108,7 +108,7 @@ static void idle_task(void *data __attribute__((unused)))
 
 void scheduler_init(void)
 {
-    idle_process = process_create("<< IDLE >>", idle_task, NULL);
+    idle_process = process_create("<< IDLE >>", idle_task, NULL, PROC_KERNEL);
     // use the largest PID possible to avoid any conflict later on
     idle_process->pid = (pid_t)-1;
     sched_new_process(idle_process);
@@ -117,6 +117,9 @@ void scheduler_init(void)
 
 void sched_new_process(process_t *process)
 {
+    if (process == NULL)
+        return;
+
     process->state = SCHED_RUNNING;
     queue_enqueue(&scheduler.ready, &process->this);
 }

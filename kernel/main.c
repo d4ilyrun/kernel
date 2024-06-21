@@ -44,11 +44,13 @@ void kernel_task_timer(void *data);
 void kernel_task_mmap(void *data);
 void kernel_task_malloc(void *data);
 void kernel_task_rootfs(void *data);
+void kernel_task_userland(void *data);
 
 void kernel_relocate_module(struct multiboot_tag_module *module)
 {
     u32 mod_size = module->mod_end - module->mod_start + 1;
-    mmu_identity_map(module->mod_start, module->mod_end, PROT_READ);
+    mmu_identity_map(module->mod_start, module->mod_end,
+                     PROT_READ | PROT_KERNEL);
 
     void *reloc =
         (void *)vmm_allocate(&kernel_vmm, 0, mod_size, VMA_READ | VMA_WRITE);
@@ -107,7 +109,11 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     log_info("START", "Initializing kernel VMM");
     vmm_init(&kernel_vmm, KERNEL_MEMORY_START, KERNEL_MEMORY_END);
-    kernel_startup_process.vmm = &kernel_vmm;
+
+    // Manually "create" a kernel_startup process, this should be reworked later
+    // once add a proper startup sequence. But for now it should do ...
+    kernel_startup_process.vmm = kmalloc(sizeof(vmm_t), KMALLOC_KERNEL);
+    vmm_init(kernel_startup_process.vmm, USER_MEMORY_START, USER_MEMORY_END);
 
     mbt_info = kmalloc(mbt_tmp.mbt.total_size, KMALLOC_KERNEL);
     memcpy(mbt_info, mbt_tmp.raw, mbt_tmp.mbt.total_size);
@@ -122,6 +128,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     }
 
     scheduler_init();
+    syscall_init();
 
     driver_load_drivers();
     acpi_init(mbt_info);
@@ -146,12 +153,15 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     log_info("MAIN", "PRINTF ? (%s, " LOG_FMT_32 ")",
              kernel_symbol_name(symbol), symbol->address);
 
-    sched_new_process(process_create("kmmap_test", kernel_task_mmap, NULL));
-    sched_new_process(process_create("kmalloc_test", kernel_task_malloc, NULL));
-    sched_new_process(process_create("krootfs_test", kernel_task_rootfs, NULL));
+    sched_new_process_create("kmmap_test", kernel_task_mmap, NULL, PROC_KERNEL);
+    sched_new_process_create("kmalloc_test", kernel_task_malloc, NULL,
+                             PROC_KERNEL);
+    sched_new_process_create("krootfs_test", kernel_task_rootfs, NULL,
+                             PROC_KERNEL);
+    sched_new_process_create("init", kernel_task_userland, NULL, PROC_NONE);
 
     process_t *kernel_timer_test =
-        process_create("ktimer_test", kernel_task_timer, NULL);
+        process_create("ktimer_test", kernel_task_timer, NULL, PROC_KERNEL);
     sched_new_process(kernel_timer_test);
 
     log_dbg("TASK", "Re-started task: '%s'", current_process->name);
@@ -293,4 +303,14 @@ void kernel_task_timer(void *data)
         timer_wait_ms(1000);
         log_info("TASK", "Elapsed miliseconds: %d", gettime());
     }
+}
+
+void kernel_task_userland(void *data)
+{
+    write_eax(SYS_WRITE);
+    ASM("int $0x80");
+
+    (void)data;
+
+    while (1) {}
 }

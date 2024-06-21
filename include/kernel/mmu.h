@@ -35,7 +35,8 @@ typedef enum mmu_prot {
     PROT_EXEC = 0x1, /*!< Pages may be executed */
     PROT_READ = 0x2, /*!< Pages may be read */
     // TODO: NX bit for PROT_EXEC
-    PROT_WRITE = 0x4, /*!< Pages may be written */
+    PROT_WRITE = 0x4,  /*!< Pages may be written */
+    PROT_KERNEL = 0x8, /*!< Pages should be accessible only from the kernel */
 } mmu_prot;
 
 /** Initialize the MMU's paging system
@@ -78,8 +79,8 @@ bool mmu_map(vaddr_t virt, paddr_t physical, int prot);
 /**
  * @brief Unmap a virtual address
  *
- * @warning After calling this, referencing the given virtual address may cause
- * the CPU to raise an exception.
+ * @warning After calling this, referencing the given virtual address may
+ * cause the CPU to raise an exception.
  *
  * @param virt The virtual address
  *

@@ -35,12 +35,6 @@ static DEFINE_INTERRUPT_HANDLER(page_fault);
 
 vmm_t kernel_vmm;
 
-/** Check whether a virtual address has been allocated using @ref kernel_vmm
- *  @ingroup vmm_internals
- */
-#define IS_KERNEL_ADDRESS(_addr) \
-    IN_RANGE((vaddr_t)(_addr), KERNEL_MEMORY_START, KERNEL_MEMORY_END)
-
 /** Compute the end address of a VMA.
  * @ingroup vmm_internals
  */
@@ -87,7 +81,8 @@ static vaddr_t vma_reserved_allocate(vmm_t *vmm)
 
     if (!page_already_allocated) {
         paddr_t pageframe = pmm_allocate(PMM_MAP_KERNEL);
-        if (!mmu_map(address, pageframe, PROT_WRITE | PROT_READ)) {
+        if (!mmu_map(address, pageframe,
+                     PROT_WRITE | PROT_READ | PROT_KERNEL)) {
             log_err("VMM",
                     "Virtual address for VMA already in use: " LOG_FMT_32,
                     address);

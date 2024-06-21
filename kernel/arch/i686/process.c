@@ -4,7 +4,13 @@
 #include <kernel/mmu.h>
 #include <kernel/process.h>
 
+#include <kernel/arch/i686/gdt.h>
+
 #include <utils/compiler.h>
+
+void arch_process_jump_to_userland(process_entry_t entrypoint,
+                                   segment_selector cs, segment_selector ds,
+                                   u32 esp);
 
 /** Finish setting up the process before jumping to its entrypoint
  *
@@ -19,7 +25,22 @@ void arch_process_entrypoint(process_entry_t entrypoint, void *data)
     if (!vmm_init(current_process->vmm, USER_MEMORY_START, USER_MEMORY_END))
         log_err("SCHED", "Failed to initilize VMM (%s)", current_process->name);
 
-    entrypoint(data);
+    if (process_is_kernel(current_process)) {
+        entrypoint(data);
+    } else {
+        void *user_stack =
+            kcalloc(KERNEL_STACK_SIZE, sizeof(u8), KMALLOC_DEFAULT);
+        if (user_stack == NULL) {
+            log_err("process", "failed to allocate user stack for '%s'",
+                    current_process->name);
+        } else {
+            segment_selector ds = {.index = GDT_ENTRY_USER_DATA, .rpl = 3};
+            segment_selector cs = {.index = GDT_ENTRY_USER_CODE, .rpl = 3};
+            log_info("process", "jump to userland");
+            arch_process_jump_to_userland(entrypoint, cs, ds, (u32)user_stack);
+            __builtin_unreachable();
+        }
+    }
 
     process_kill(current_process);
 }
@@ -51,8 +72,8 @@ bool arch_process_create(process_t *process, process_entry_t entrypoint,
 #define KSTACK(_i) kstack[KERNEL_STACK_SIZE / sizeof(u32) - (_i)]
 
     // Stack frame for arch_process_entrypoint
-    KSTACK(0) = (u32)data;       // arg1
-    KSTACK(1) = (u32)entrypoint; // eip
+    KSTACK(0) = (u32)data;       // arg2
+    KSTACK(1) = (u32)entrypoint; // arg1
     KSTACK(2) = 0;               // nuke ebp
 
     // Stack frame for arch_process_switch
