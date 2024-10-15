@@ -1,9 +1,8 @@
 #ifndef KERNEL_TYPES_H
 #define KERNEL_TYPES_H
 
-#define _SYS_TYPES_H // To avoid incompatibility with glibc during tests
+#define _SYS_TYPES_H 1 // To avoid incompatibility with glibc during tests
 
-#include <arch.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -24,22 +23,15 @@ typedef double f64; //< 64b floating point value
 
 typedef long int ssize_t;
 
-/** Guaranteed to be the size of a native word, regardless of the architecture
- */
-#ifdef ARCH_IS_32_BITS
-typedef u32 native_t;
-#elif defined(ARCH_IS_64_BITS)
+/** Guaranteed to be the size of a native word, regardless of the architecture */
 typedef u64 native_t;
-#else
-#error Unsuported architecture
-#endif
 
 /// Architecture independent type for physical addresses
 typedef native_t paddr_t;
 /// Architecture independent type for virtual addresses
 typedef native_t vaddr_t;
 
-typedef u32 pid_t;
+typedef int pid_t;
 typedef u64 timestamp_t;
 
 /** Comparison function over two generic objects
