@@ -48,7 +48,7 @@ void kernel_task_userland(void *data);
 
 void kernel_relocate_module(struct multiboot_tag_module *module)
 {
-    u32 mod_size = module->mod_end - module->mod_start + 1;
+    u32 mod_size = module->mod_end - module->mod_start;
     mmu_identity_map(module->mod_start, module->mod_end,
                      PROT_READ | PROT_KERNEL);
 
