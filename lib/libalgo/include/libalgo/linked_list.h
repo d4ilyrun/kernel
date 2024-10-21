@@ -163,8 +163,8 @@ static inline void llist_insert_sorted(llist_t *head, node_t *new,
 static inline node_t *llist_find_first(llist_t head, void *data,
                                        compare_t compare)
 {
-    FOREACH_LLIST (node, head) {
-        if (!compare(head, data))
+    for (node_t *node = (head); node; node = node->next) {
+        if (!compare(node, data))
             return node;
     }
 
