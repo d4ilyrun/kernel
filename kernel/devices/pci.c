@@ -22,6 +22,8 @@
 #define PCI_HEADER_ID_SIZE sizeof(uint32_t)
 #define PCI_HEADER_TYPE_OFFSET 0xE
 #define PCI_HEADER_TYPE_SIZE sizeof(uint8_t)
+#define PCI_HEADER_BAR_OFFSET(_bar) (0x10 + (_bar)*PCI_HEADER_BAR_SIZE)
+#define PCI_HEADER_BAR_SIZE sizeof(uint32_t)
 
 #define PCI_HEADER_BRIDGE_OFFSET 0x18
 #define PCI_HEADER_BRIDGE_SIZE (3 * sizeof(uint8_t))
@@ -124,6 +126,21 @@ static inline struct pci_device_id pci_device_read_id(struct pci_bus *bus,
     uint32_t id = pci_device_read_register(bus, device, PCI_HEADER_ID_OFFSET,
                                            PCI_HEADER_ID_SIZE);
     return *(struct pci_device_id *)&id;
+}
+
+error_t pci_device_register(struct pci_device *device)
+{
+    uint32_t bar;
+
+    for (int i = 0; i < PCI_MAX_BAR_COUNT; ++i) {
+        bar = pci_device_read_register(device->bus, device->number,
+                                       PCI_HEADER_BAR_OFFSET(i),
+                                       PCI_HEADER_BAR_SIZE);
+        log_info("pci", "BAR%d @ %02X = " LOG_FMT_32, i,
+                 PCI_HEADER_BAR_OFFSET(i), bar);
+    }
+
+    return E_SUCCESS;
 }
 
 static error_t pci_bus_probe(struct pci_bus *bus);

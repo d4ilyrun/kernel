@@ -7,7 +7,7 @@ static error_t rtl8139_probe(struct device *dev)
 {
     UNUSED(dev);
     log_info("rtl8139", "probing");
-    return E_SUCCESS;
+    return pci_device_register(to_pci_dev(dev));
 }
 
 struct pci_driver rtl8139_driver = {

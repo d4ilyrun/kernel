@@ -51,6 +51,16 @@ struct pci_device {
     uint8_t number;          ///< The device number on its bus
     struct pci_bus *bus;     ///< The bus to which the device is connected
     struct pci_device_id id; ///< The PCI device's vendor/device ID
+
+#define PCI_MAX_BAR_COUNT 6
+
+    struct {
+        u64 value;
+        enum {
+            PCI_BAR_MEMORY,
+            PCI_BAR_IO
+        } type;
+    } bars[PCI_MAX_BAR_COUNT];
 };
 
 #define to_pci_drv(_this) container_of(_this, struct pci_driver, driver)
@@ -61,6 +71,9 @@ void pci_driver_register(struct pci_driver *);
 
 #define PCI_DECLARE_DRIVER(_name, _driver) \
     DECLARE_DRIVER(_name, _driver, pci_driver_register)
+
+/** Register a PCI device */
+error_t pci_device_register(struct pci_device *);
 
 #endif /* KERNEL_DEVICES_PCI_H */
 
