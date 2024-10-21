@@ -18,6 +18,7 @@
 
 /** Generate the nth power of 2 (nth bit set) */
 #define BIT(_n) (1 << (_n))
+#define BIT64(_n) (1ULL << (_n))
 
 /** Clear the nth bit */
 #define BIT_CLEAR(_x, _n) ((_x) & ~BIT((_n)))
