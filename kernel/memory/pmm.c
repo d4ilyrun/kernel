@@ -121,7 +121,7 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
     // Mark all pages as UNAVAILABLE
     memset(g_pmm_free_bitmap, PMM_UNAVAILABLE, sizeof(g_pmm_free_bitmap));
 
-    log_info("PMM", "Looking for available pageframes");
+    log_info("PMM", "Memory ranges:");
 
     // Count the number of availabe pageframes
     u32 available_pageframes = 0;
@@ -129,11 +129,14 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
     for (entry = mmap->entries; (void *)entry < multiboot_tag_end(mmap);
          entry = (void *)entry + mmap->entry_size) {
 
-        log_dbg("PMM",
-                "Start Addr: " LOG_FMT_64 " | Length: " LOG_FMT_64 " | Type: "
-                "%s",
-                entry->addr, entry->len,
-                (entry->type == 0x1) ? "AVAILABLE" : "UNAVAILABLE");
+        if (entry->type == MULTIBOOT_MEMORY_AVAILABLE ||
+            entry->type == MULTIBOOT_MEMORY_RESERVED) {
+            log_info("PMM", "  %s [" LOG_FMT_32 "-" LOG_FMT_32 "]",
+                     (entry->type == MULTIBOOT_MEMORY_RESERVED) ? "reserved "
+                                                                : "available",
+                     (uint32_t)entry->addr,
+                     (uint32_t)(entry->addr + entry->len));
+        }
 
         // If the RAM range is marked as available, we can use the pages it
         // contains for memory allocation.
