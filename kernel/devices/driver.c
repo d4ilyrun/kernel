@@ -46,78 +46,29 @@ void driver_register(driver_t *driver)
     llist_add(&loaded_drivers, &driver->this);
 }
 
-static int driver_is_match(const void *this, const void *data)
+error_t driver_probe(driver_t *driver, device_t *device)
 {
-    driver_t *driver = to_driver(this);
-    const struct driver_match *match = data;
-
-    if (driver->match.method != match->method)
-        return COMPARE_EQ;
-
-    for (int i = 0; driver->match.compatible[i]; i++) {
-        if (!strcmp(driver->match.compatible[i], match->compatible[0]))
-            return COMPARE_EQ;
+    error_t status = driver->operations.probe(device);
+    if (status) {
+        log_variable(driver->name);
+        log_warn("driver", "Failed to probe '%s': %s", driver->name,
+                 err_to_str(status));
     }
 
-    return !COMPARE_EQ;
+    return status;
 }
 
-const driver_t *
-driver_find_match(device_detection_method method, const char *data)
+static int __driver_is_match(const void *this, const void *data)
 {
-    const char *compatible[] = {data, NULL};
-    struct driver_match match = {
-        .compatible = compatible,
-        .method = method,
-    };
+    const driver_t *driver = this;
+    return driver->operations.match(this, data) ? COMPARE_EQ : !COMPARE_EQ;
+}
 
-    node_t *driver = llist_find_first(loaded_drivers, &match, driver_is_match);
+driver_t *driver_find_match(device_t *dev)
+{
+    node_t *driver = llist_find_first(loaded_drivers, dev, __driver_is_match);
     if (driver == NULL)
         return NULL;
 
     return to_driver(driver);
 }
-
-// TODO: Delete this POC driver
-
-static driver_t poc_driver;
-
-static const char *poc_compatible[] = {
-    "PNP0103",
-    "PNP0303",
-    NULL,
-};
-
-static error_t poc_probe(const char *name, paddr_t addr)
-{
-    log_dbg("poc-driver", "probing %s@" LOG_FMT_32, name, addr);
-
-    device_t *device = kcalloc(1, sizeof(device_t), KMALLOC_KERNEL);
-    if (device == NULL)
-        return E_NOMEM;
-
-    *device = (device_t){
-        .driver = &poc_driver,
-        .name = "poc-driver",
-    };
-
-    error_t ret = device_register(device);
-    if (ret != E_SUCCESS) {
-        kfree(device);
-        return ret;
-    }
-
-    return E_SUCCESS;
-}
-
-static driver_t poc_driver = {
-    .name = "poc-driver",
-    .operations.probe = poc_probe,
-    .match =
-        {
-            .method = DRIVER_TYPE_ACPI,
-            .compatible = poc_compatible,
-        },
-};
-
-DECLARE_DRIVER(poc, &poc_driver);
