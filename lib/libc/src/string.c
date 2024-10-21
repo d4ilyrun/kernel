@@ -22,6 +22,17 @@ char *strncpy(char *dst, const char *src, size_t n)
     return dst;
 }
 
+char *strlcpy(char *dst, const char *src, size_t n)
+{
+    if (n == 0)
+        return dst;
+
+    strncpy(dst, src, n - 1);
+    dst[n - 1] = '\0';
+
+    return dst;
+}
+
 int strcmp(const char *s1, const char *s2)
 {
     for (; *s1 && *s2; s1++, s2++) {

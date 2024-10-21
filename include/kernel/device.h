@@ -60,7 +60,18 @@
 typedef struct device_driver driver_t;
 
 /** @struct device
- *  @brief Represents a device inside the kernel
+ *
+ * @brief Represents a device inside the kernel
+ *
+ * This structure is tipically embedded in a more specific "per-bus"
+ * device-structure. It contains the basic information shared across all types
+ * of device, necessary for enumeration, synchronization, etc.
+ *
+ * The bulk of the interactions should be performed through the device's bus's
+ * API (e.g. there could exist a `pci_read(struct pci_device *dev)` function to
+ * read from a pci device).
+ *
+ * @see device_driver for en example of this concept applied to drivers
  */
 typedef struct device {
 

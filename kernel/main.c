@@ -132,7 +132,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     driver_load_drivers();
     acpi_init(mbt_info);
-    acpi_start_devices();
+    acpi_probe_devices();
 
     // Testing !
 
