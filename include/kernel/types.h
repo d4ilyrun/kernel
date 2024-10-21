@@ -9,6 +9,14 @@
 
 #define boolean(_x) (!!(_x))
 
+/*
+ * These macros have no real effect.
+ * They are just here to make it visually clear
+ * when a variable uses a specific endianness.
+ */
+#define __be /** Specify that a variable uses big endianness */
+#define __le /** Specify that a variable uses little endianness */
+
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
