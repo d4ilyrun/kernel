@@ -13,6 +13,7 @@ kernel_source_files = files([
   'sys/sched.c',
   'sys/syscalls.c',
   'sys/process.c',
+  'sys/pci.c',
   'misc/logger.c',
   'misc/symbols.c',
   'misc/error.c',
@@ -22,6 +23,7 @@ kernel_source_files = files([
   'devices/driver.c',
   'devices/uacpi.c',
   'devices/acpi.c',
+  'devices/pci.c',
 ])
 
 arch_source_files = {

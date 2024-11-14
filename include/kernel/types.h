@@ -5,8 +5,8 @@
 
 #include <arch.h>
 #include <stdbool.h>
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #define boolean(_x) (!!(_x))
 
