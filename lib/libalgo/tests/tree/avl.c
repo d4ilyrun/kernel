@@ -72,9 +72,9 @@ static void avl_equal(avl_t *got, avl_t *expected, const avl_t *parent)
 
     cr_assert_eq(got->height, expected->height);
 
-    cr_assert_eq(
-        got->parent == NULL, parent == NULL,
-        "Only the top root of a tree can (and must) not have a parent node");
+    cr_assert_eq(got->parent == NULL, parent == NULL,
+                 "Only the top root of a tree can (and must) not have a parent "
+                 "node");
 
     cr_assert_eq(got->parent, parent,
                  "Parent pointer does not point to the actual parent");
@@ -202,8 +202,8 @@ Test(Insert, Rotation_Left)
     // Need to perform a left rotation on the right child to re-balance this
     // tree, or else it would look like 1 <- 2 -> 3 -> 4 -> 5 (bf = 2)
 
-    test_data *expected =
-        AVL(root, &data2, &data1, AVL(right, &data4, &data3, &data5));
+    test_data *expected = AVL(root, &data2, &data1,
+                              AVL(right, &data4, &data3, &data5));
 
     avl_t *got = &got2.avl;
 
@@ -222,8 +222,8 @@ Test(Insert, Rotation_Right)
     // Need to perform a left rotation on the right child to re-balance this
     // tree, or else it would look like 1 <- 2 <- 3 <- 4 -> 5 (bf = -2)
 
-    test_data *expected =
-        AVL(root, &data4, AVL(left, &data2, &data1, &data3), &data5);
+    test_data *expected = AVL(root, &data4, AVL(left, &data2, &data1, &data3),
+                              &data5);
 
     avl_t *got = &got4.avl;
 
@@ -253,8 +253,8 @@ Test(Insert, Rotation_LeftRight)
 {
     SETUP(2, 4, 6, 7, 8, 9);
 
-    test_data *expected =
-        AVL(root, &data7, AVL(left, &data4, &data2, &data6), &data8);
+    test_data *expected = AVL(root, &data7, AVL(left, &data4, &data2, &data6),
+                              &data8);
 
     // We can only build complete trees with the AVL macro ...
     data8.avl.right = &data9.avl;
@@ -276,8 +276,8 @@ Test(Insert, Rotation_RightLeft)
 {
     SETUP(2, 4, 6, 7, 8, 9);
 
-    test_data *expected =
-        AVL(root, &data6, &data4, AVL(right, &data8, &data7, &data9));
+    test_data *expected = AVL(root, &data6, &data4,
+                              AVL(right, &data8, &data7, &data9));
 
     // We can only build complete trees with the AVL macro ...
     data4.avl.left = &data2.avl;

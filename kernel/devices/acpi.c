@@ -66,6 +66,32 @@ error_t acpi_init(struct multiboot_info *mbt)
     return E_SUCCESS;
 }
 
+static driver_t *acpi_driver_find_by_id(const char *id)
+{
+    struct acpi_device dev;
+    strlcpy(dev.id, id, ACPI_ID_MAX_LEN);
+    return driver_find_match(&dev.device);
+}
+
+static error_t acpi_device_probe_with_id(driver_t *drv, const char *id)
+{
+    struct acpi_device *dev;
+    error_t ret;
+
+    dev = kmalloc(sizeof(*dev), KMALLOC_KERNEL);
+    if (dev == NULL)
+        return E_NOMEM;
+
+    strlcpy(dev->id, id, ACPI_ID_MAX_LEN);
+    dev->device.driver = drv;
+
+    ret = driver_probe(drv, &dev->device);
+    if (ret)
+        kfree(dev);
+
+    return ret;
+}
+
 static uacpi_ns_iteration_decision
 acpi_start_one_device(void *ctx, uacpi_namespace_node *node)
 {
@@ -92,8 +118,8 @@ acpi_start_one_device(void *ctx, uacpi_namespace_node *node)
 
         if (driver == NULL && (info->flags & UACPI_NS_NODE_INFO_HAS_CID)) {
             for (u32 i = 0; i < info->cid.num_ids; ++i) {
-                driver =
-                    driver_find_match(DRIVER_TYPE_ACPI, info->cid.ids[i].value);
+                driver = driver_find_match(DRIVER_TYPE_ACPI,
+                                           info->cid.ids[i].value);
                 if (driver != NULL) {
                     name = info->cid.ids[i].value;
                     break;

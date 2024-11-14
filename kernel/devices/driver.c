@@ -62,8 +62,8 @@ static int driver_is_match(const void *this, const void *data)
     return !COMPARE_EQ;
 }
 
-const driver_t *driver_find_match(device_detection_method method,
-                                  const char *data)
+const driver_t *
+driver_find_match(device_detection_method method, const char *data)
 {
     const char *compatible[] = {data, NULL};
     struct driver_match match = {

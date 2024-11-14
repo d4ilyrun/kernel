@@ -25,8 +25,8 @@ tree_node_t *tree_remove(tree_node_t *node)
     return node;
 }
 
-tree_node_t *tree_find_child(tree_node_t *node, compare_t compare,
-                             const void *data)
+tree_node_t *
+tree_find_child(tree_node_t *node, compare_t compare, const void *data)
 {
     FOREACH_CHILDREN (child, node) {
         if (!compare(child, data))

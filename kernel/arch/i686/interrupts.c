@@ -133,8 +133,8 @@ static ALWAYS_INLINE idt_descriptor new_idt_entry(idt_gate_type type,
     };
 }
 
-static inline void interrupts_set_idt(u16 nr, idt_gate_type type,
-                                      interrupt_handler handler)
+static inline void
+interrupts_set_idt(u16 nr, idt_gate_type type, interrupt_handler handler)
 {
     if (nr >= IDT_LENGTH) {
         log_err("IDT", "interrupts_set: invalid index: " LOG_FMT_16, nr);

@@ -18,8 +18,8 @@
 
 /* For simplicity, we will allocate 64B for each VMA structure */
 #define VMA_SIZE (64)
-static_assert(sizeof(vma_t) <= VMA_SIZE,
-              "Update the allocated size for VMA structures!");
+static_assert(sizeof(vma_t) <= VMA_SIZE, "Update the allocated size for VMA "
+                                         "structures!");
 
 static DEFINE_INTERRUPT_HANDLER(page_fault);
 
@@ -74,8 +74,8 @@ static vaddr_t vma_reserved_allocate(vmm_t *vmm)
         return 0;
     }
 
-    vaddr_t address =
-        (vmm == &kernel_vmm) ? KERNEL_VMM_RESERVED_START : VMM_RESERVED_START;
+    vaddr_t address = (vmm == &kernel_vmm) ? KERNEL_VMM_RESERVED_START
+                                           : VMM_RESERVED_START;
 
     address += offset;
 
@@ -177,8 +177,8 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
  */
 
 /* Determine if an area \c requested can be allocated from \c area */
-static int vma_search_free_by_size(const avl_t *requested_avl,
-                                   const avl_t *area_avl)
+static int
+vma_search_free_by_size(const avl_t *requested_avl, const avl_t *area_avl)
 {
     vma_t *requested = container_of(requested_avl, vma_t, avl.by_size);
     vma_t *area = container_of(area_avl, vma_t, avl.by_size);
@@ -191,8 +191,8 @@ static int vma_search_free_by_size(const avl_t *requested_avl,
 }
 
 /* Similar to @vma_search_free_by_size, but for the by_address tree */
-static int vma_search_free_by_address(const avl_t *addr_avl,
-                                      const avl_t *area_avl)
+static int
+vma_search_free_by_address(const avl_t *addr_avl, const avl_t *area_avl)
 {
     const vma_t *addr = container_of(addr_avl, vma_t, avl.by_address);
     const vma_t *area = container_of(area_avl, vma_t, avl.by_address);
@@ -257,8 +257,8 @@ static int vma_compare_address(const avl_t *left_avl, const avl_t *right_avl)
 }
 
 /* Similar to @vma_compare_address but for the by_size tree */
-static int vma_compare_address_inside_size(const avl_t *left_avl,
-                                           const avl_t *right_avl)
+static int
+vma_compare_address_inside_size(const avl_t *left_avl, const avl_t *right_avl)
 {
     vma_t *left = container_of(left_avl, vma_t, avl.by_size);
     vma_t *right = container_of(right_avl, vma_t, avl.by_size);
@@ -296,8 +296,8 @@ void vmm_split_vma(vmm_t *vmm, vma_t *original, vma_t *requested)
                    vma_compare_address);
     }
 
-    vaddr_t new_start =
-        MAX(original->start, requested->start) + requested->size;
+    vaddr_t new_start = MAX(original->start, requested->start) +
+                        requested->size;
     original->size -= (new_start - original->start);
     original->start = new_start;
     // cannot insert an old node in a tree, so reset it before doing so
@@ -470,8 +470,8 @@ void vmm_destroy(vmm_t *vmm)
     // See vma_reserved_allocate for an explanation of what's going on
     for (unsigned int i = 0; i < ARRAY_SIZE(vmm->reserved); i += 2) {
         if (*(u64 *)&vmm->reserved[i] != 0) {
-            vaddr_t addr =
-                VMM_RESERVED_START + (VMA_SIZE * i * BITMAP_BLOCK_SIZE);
+            vaddr_t addr = VMM_RESERVED_START +
+                           (VMA_SIZE * i * BITMAP_BLOCK_SIZE);
             paddr_t page = mmu_unmap(addr);
             if (page != PMM_INVALID_PAGEFRAME)
                 pmm_free(page);
@@ -511,8 +511,8 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
     vaddr_t faulty_address = read_cr2();
     interrupt_frame *frame = data;
 
-    vmm_t *vmm =
-        IS_KERNEL_ADDRESS(faulty_address) ? &kernel_vmm : current_process->vmm;
+    vmm_t *vmm = IS_KERNEL_ADDRESS(faulty_address) ? &kernel_vmm
+                                                   : current_process->vmm;
     const vma_t *address_area = vmm_find(vmm, faulty_address);
     page_fault_error error = *(page_fault_error *)&frame->error;
 

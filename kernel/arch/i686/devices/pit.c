@@ -62,14 +62,14 @@ static void pit_set_divider(pit_channel channel, u32 value)
         break;
     case PIT_RW_MSB:
         outb(counter, MSB(value));
-        pit_channel_frequencies[channel] =
-            PIT_INTERNAL_FREQUENCY / (MSB(value) << 8);
+        pit_channel_frequencies[channel] = PIT_INTERNAL_FREQUENCY /
+                                           (MSB(value) << 8);
         break;
     case PIT_RW:
         outb(counter, LSB(value));
         outb(counter, MSB(value));
-        pit_channel_frequencies[channel] =
-            PIT_INTERNAL_FREQUENCY / (value & 0xFFFF);
+        pit_channel_frequencies[channel] = PIT_INTERNAL_FREQUENCY /
+                                           (value & 0xFFFF);
         break;
     }
 

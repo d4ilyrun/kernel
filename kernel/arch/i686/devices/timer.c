@@ -57,8 +57,8 @@ static DECLARE_LLIST(sleeping_tasks);
  */
 void timer_start(u32 frequency)
 {
-    timer_kernel_frequency =
-        pit_config_channel(PIT_CHANNEL_TIMER, frequency, PIT_RATE_GENERATOR);
+    timer_kernel_frequency = pit_config_channel(PIT_CHANNEL_TIMER, frequency,
+                                                PIT_RATE_GENERATOR);
 
     // Setup the timer's IRQ handler
     // It is responsible for updating our internal timer representation

@@ -345,9 +345,11 @@ typedef struct uacpi_irq_handle {
     void *data;
 } uacpi_irq_handle;
 
-uacpi_status uacpi_kernel_install_interrupt_handler(
-    uacpi_u32 irq, uacpi_interrupt_handler handler, uacpi_handle ctx,
-    uacpi_handle *out_irq_handle)
+uacpi_status
+uacpi_kernel_install_interrupt_handler(uacpi_u32 irq,
+                                       uacpi_interrupt_handler handler,
+                                       uacpi_handle ctx,
+                                       uacpi_handle *out_irq_handle)
 {
     if (irq > IDT_LENGTH)
         return UACPI_STATUS_INVALID_ARGUMENT;

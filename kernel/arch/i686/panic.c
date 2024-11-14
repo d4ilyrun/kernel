@@ -63,8 +63,8 @@ static void panic_unwind_stack(void)
         // We substract the size of the call instruction to avoid getting an
         // invalid symbol when at the ned of a function marked with the
         // attribute noreturn
-        const kernel_symbol_t *symbol =
-            kernel_symbol_from_address(frame->eip - sizeof(u16));
+        const kernel_symbol_t *symbol = kernel_symbol_from_address(frame->eip -
+                                                                   sizeof(u16));
         log_err("TRACE", "#%d  " LOG_FMT_32 " in <%s%+d>", i, frame->eip,
                 kernel_symbol_name(symbol), frame->eip - symbol->address);
     }

@@ -110,8 +110,8 @@ typedef struct vma {
 
 /* For simplicity, we will allocate 64B for each VMA structure */
 #define VMA_SIZE (64)
-static_assert(sizeof(vma_t) <= VMA_SIZE,
-              "Update the allocated size for VMA structures!");
+static_assert(sizeof(vma_t) <= VMA_SIZE, "Update the allocated size for VMA "
+                                         "structures!");
 
 /**
  * @struct vmm

@@ -18,6 +18,14 @@ AllowShortBlocksOnASingleLine: Empty
 AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: Never
 
+PenaltyBreakAssignment: 50
+PenaltyBreakBeforeFirstCallParameter: 20
+PenaltyBreakComment: 10
+PenaltyBreakFirstLessLess: 0
+PenaltyBreakString: 10
+PenaltyExcessCharacter: 100
+PenaltyReturnTypeOnItsOwnLine: 10
+
 BreakBeforeBraces: Linux
 SpaceBeforeParens: ControlStatements
 SpaceInEmptyParentheses: false

@@ -214,8 +214,8 @@ static vnode_t *tar_vnode_lookup(vnode_t *node, const path_segment_t *child)
         return PTR_ERR(E_NOT_IMPLEMENTED);
 
     tar_node_t *tar_node = node->pdata;
-    tree_node_t *tar_child =
-        tree_find_child(&tar_node->this, tar_node_is, child);
+    tree_node_t *tar_child = tree_find_child(&tar_node->this, tar_node_is,
+                                             child);
 
     if (tar_child == NULL)
         return PTR_ERR(E_NOENT);
@@ -280,8 +280,8 @@ static vnode_t *tar_get_vnode(tar_node_t *node, vfs_t *fs)
     return node->vnode;
 }
 
-static error_t tar_vnode_create(vnode_t *vnode, const char *name,
-                                vnode_type type)
+static error_t
+tar_vnode_create(vnode_t *vnode, const char *name, vnode_type type)
 {
     UNUSED(vnode);
     UNUSED(name);

@@ -144,8 +144,8 @@ static inline const node_t *llist_tail(llist_t head)
 }
 
 /** Insert a new item inside a sorted list in asending order */
-static inline void llist_insert_sorted(llist_t *head, node_t *new,
-                                       compare_t compare)
+static inline void
+llist_insert_sorted(llist_t *head, node_t *new, compare_t compare)
 {
     node_t *prev = NULL;
 
@@ -160,8 +160,8 @@ static inline void llist_insert_sorted(llist_t *head, node_t *new,
 }
 
 /** Retreive the first matching element inside the list (or NULL) */
-static inline node_t *llist_find_first(llist_t head, void *data,
-                                       compare_t compare)
+static inline node_t *
+llist_find_first(llist_t head, void *data, compare_t compare)
 {
     for (node_t *node = (head); node; node = node->next) {
         if (!compare(node, data))

@@ -38,8 +38,8 @@ static vfs_t *vfs_root_fs()
     return container_of(llist_head(vfs_mountpoints), vfs_t, this);
 }
 
-static error_t vfs_mount_at(vnode_t *vnode, const char *fs_type, u32 start,
-                            u32 end)
+static error_t
+vfs_mount_at(vnode_t *vnode, const char *fs_type, u32 start, u32 end)
 {
     const vfs_fs_t *fs = vfs_find_fs(fs_type);
     if (fs == NULL)
@@ -66,8 +66,8 @@ error_t vfs_mount_root(const char *fs_type, u32 start, u32 end)
     return vfs_mount_at(NULL, fs_type, start, end);
 }
 
-error_t vfs_mount(const char *mount_path, const char *fs_type, u32 start,
-                  u32 end)
+error_t
+vfs_mount(const char *mount_path, const char *fs_type, u32 start, u32 end)
 {
     vnode_t *mountpoint = vfs_find_by_path(mount_path);
     if (IS_ERR(mountpoint))

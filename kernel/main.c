@@ -52,8 +52,8 @@ void kernel_relocate_module(struct multiboot_tag_module *module)
     mmu_identity_map(module->mod_start, module->mod_end,
                      PROT_READ | PROT_KERNEL);
 
-    void *reloc =
-        (void *)vmm_allocate(&kernel_vmm, 0, mod_size, VMA_READ | VMA_WRITE);
+    void *reloc = (void *)vmm_allocate(&kernel_vmm, 0, mod_size,
+                                       VMA_READ | VMA_WRITE);
     if (reloc == NULL) {
         log_err("startup", "failed to relocate module@" LOG_FMT_32 ": E_NOMEM",
                 module->mod_start);
@@ -148,8 +148,8 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     log_variable(*(volatile u8 *)0xFFFF1235);
     mmu_unmap(0xFFFF1000);
 
-    const kernel_symbol_t *symbol =
-        kernel_symbol_from_address((u32)printf + 32);
+    const kernel_symbol_t *symbol = kernel_symbol_from_address((u32)printf +
+                                                               32);
     log_info("MAIN", "PRINTF ? (%s, " LOG_FMT_32 ")",
              kernel_symbol_name(symbol), symbol->address);
 
@@ -160,8 +160,8 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
                              PROC_KERNEL);
     sched_new_process_create("init", kernel_task_userland, NULL, PROC_NONE);
 
-    process_t *kernel_timer_test =
-        process_create("ktimer_test", kernel_task_timer, NULL, PROC_KERNEL);
+    process_t *kernel_timer_test = process_create(
+        "ktimer_test", kernel_task_timer, NULL, PROC_KERNEL);
     sched_new_process(kernel_timer_test);
 
     log_dbg("TASK", "Re-started task: '%s'", current_process->name);
@@ -278,8 +278,8 @@ void kernel_task_mmap(void *data)
     u32 *c = mmap(0, PAGE_SIZE, 0, 0);
     u32 *e = mmap((void *)0x1000000, PAGE_SIZE, 0, 0);
 
-    u32 *addresses =
-        mmap((void *)0xa0000000, PAGE_SIZE * 5, PROT_READ | PROT_WRITE, 0);
+    u32 *addresses = mmap((void *)0xa0000000, PAGE_SIZE * 5,
+                          PROT_READ | PROT_WRITE, 0);
 
     for (int i = 0; i < 4; ++i)
         addresses[i] = (u32)&addresses[i];

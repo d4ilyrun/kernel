@@ -28,8 +28,8 @@ void arch_process_entrypoint(process_entry_t entrypoint, void *data)
     if (process_is_kernel(current_process)) {
         entrypoint(data);
     } else {
-        void *user_stack =
-            kcalloc(KERNEL_STACK_SIZE, sizeof(u8), KMALLOC_DEFAULT);
+        void *user_stack = kcalloc(KERNEL_STACK_SIZE, sizeof(u8),
+                                   KMALLOC_DEFAULT);
         if (user_stack == NULL) {
             log_err("process", "failed to allocate user stack for '%s'",
                     current_process->name);

@@ -179,30 +179,35 @@ void mmu_load_page_directory(paddr_t page_directory)
  *     mmu_offset_map(0x0000, 0x00FF, 0xFF) will remap the physical range
  *     [0x0000; 0x00FF] to the virtual range [0xFF00; 0xFFFF]
  */
-static void mmu_offset_map(paddr_t start, paddr_t end, int64_t offset,
-                           int prot);
+static void
+mmu_offset_map(paddr_t start, paddr_t end, int64_t offset, int prot);
 
 bool mmu_init(void)
 {
+    paddr_t page_table;
+
     if (paging_enabled) {
         log_warn("MMU", "Trying to re-enable paging. Skipping.");
         return false;
     }
 
     // Initialize the kernel's page directory
-    kernel_startup_process.context.cr3 =
-        KERNEL_HIGHER_HALF_PHYSICAL(kernel_startup_page_directory);
+    kernel_startup_process.context.cr3 = KERNEL_HIGHER_HALF_PHYSICAL(
+        kernel_startup_page_directory);
 
     // Mark all PDEs as "absent" (present = 0), and writable
     for (size_t entry = 0; entry < MMU_PDE_COUNT; entry++) {
-        kernel_startup_page_directory[entry] = (mmu_pde_t){.writable = 1};
+        kernel_startup_page_directory[entry] = (mmu_pde_t){
+            .present = false,
+            .writable = true,
+        };
     }
 
     // Setup recursive page tables
     // @link https://medium.com/@connorstack/recursive-page-tables-ad1e03b20a85
     kernel_startup_page_directory[MMU_PDE_COUNT - 1].present = 1;
-    kernel_startup_page_directory[MMU_PDE_COUNT - 1].page_table =
-        TO_PFN(kernel_startup_process.context.cr3);
+    kernel_startup_page_directory[MMU_PDE_COUNT - 1].page_table = TO_PFN(
+        kernel_startup_process.context.cr3);
 
     // We remap our higher-half kernel.
     // The addresses over 0xC0000000 will point to our kernel's code (0x00000000
@@ -244,8 +249,8 @@ bool mmu_init(void)
  */
 paddr_t mmu_new_page_directory(void)
 {
-    page_directory_t new =
-        mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_CLEAR);
+    page_directory_t new = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
+                                MAP_CLEAR);
     if (new == NULL) {
         log_err("MMU", "Failed to allocate page for the new page directory");
         return -E_NOMEM;
@@ -258,8 +263,8 @@ paddr_t mmu_new_page_directory(void)
            MMU_PDE_KERNEL_COUNT * sizeof(mmu_pte_t));
 
     paddr_t new_physical = mmu_find_physical((vaddr_t) new);
-    new[MMU_PDE_COUNT - 1].page_table =
-        TO_PFN(new_physical); // Setup recursive mapping
+    // Setup recursive mapping
+    new[MMU_PDE_COUNT - 1].page_table = TO_PFN(new_physical);
 
     // Unmap new page directory from current address space, but do not release
     // the pageframe
@@ -303,8 +308,8 @@ bool mmu_map(vaddr_t virtual, vaddr_t pageframe, int prot)
     if (paging_enabled) {
         page_table = MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde);
     } else {
-        page_table =
-            (page_table_t)FROM_PFN(page_directory[address.pde].page_table);
+        page_table = (page_table_t)FROM_PFN(
+            page_directory[address.pde].page_table);
     }
 
     // clear the page table to avoid having residual values corrupt our mappings

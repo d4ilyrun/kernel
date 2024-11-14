@@ -50,8 +50,8 @@ bool arch_process_create(process_t *process, process_entry_t entrypoint,
  * * Create a new page directory
  * * Copy the kernel's page table
  */
-process_t *process_create(char *name, process_entry_t entrypoint, void *data,
-                          u32 flags)
+process_t *
+process_create(char *name, process_entry_t entrypoint, void *data, u32 flags)
 {
     process_t *new = kcalloc(1, sizeof(*new), KMALLOC_KERNEL);
     if (new == NULL) {

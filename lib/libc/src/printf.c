@@ -8,8 +8,8 @@
 #include <stddef.h>
 #include <stdio.h>
 
-static_assert(sizeof(int) == sizeof(long),
-              "Unsupported architecture: sizeof(long) != sizeof(int)");
+static_assert(sizeof(int) == sizeof(long), "Unsupported architecture: "
+                                           "sizeof(long) != sizeof(int)");
 
 #define TOK_DELIMITER '%'
 
@@ -381,8 +381,8 @@ static void printf_unsigned(register int base, va_list *parameters,
         printf_utoa_base(va_arg(*parameters, unsigned int), base, ctx, written);
 }
 
-static int printf_step(char c, int *written, va_list *parameters,
-                       printf_ctx_t *ctx)
+static int
+printf_step(char c, int *written, va_list *parameters, printf_ctx_t *ctx)
 {
     switch (c) {
 

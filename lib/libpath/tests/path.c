@@ -27,8 +27,8 @@ static void libpath_test(struct path_test_params params)
     }
 
     cr_assert(path_walk_first(&path, &segment));
-    cr_assert_not(path_walk_prev(&segment),
-                  "Should not be able to walk before the first segment");
+    cr_assert_not(path_walk_prev(&segment), "Should not be able to walk before "
+                                            "the first segment");
 
     for (size_t i = 0; i < params.count; ++i) {
         cr_assert(path_segment_is(params.components[i], &segment));
@@ -47,8 +47,8 @@ static void libpath_test(struct path_test_params params)
     }
 
     cr_assert(path_walk_last(&path, &segment));
-    cr_assert_not(path_walk_next(&segment),
-                  "Should not be able to walk past the last segment");
+    cr_assert_not(path_walk_next(&segment), "Should not be able to walk past "
+                                            "the last segment");
 
     for (size_t i = params.count; i > 0; --i) {
         cr_assert(path_segment_is(params.components[i - 1], &segment));

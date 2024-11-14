@@ -130,8 +130,8 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
          entry = (void *)entry + mmap->entry_size) {
 
         log_dbg("PMM",
-                "Start Addr: " LOG_FMT_64 " | Length: " LOG_FMT_64
-                " | Type: %s",
+                "Start Addr: " LOG_FMT_64 " | Length: " LOG_FMT_64 " | Type: "
+                "%s",
                 entry->addr, entry->len,
                 (entry->type == 0x1) ? "AVAILABLE" : "UNAVAILABLE");
 
@@ -169,8 +169,8 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
     return true;
 }
 
-static void pmm_allocator_allocate(pmm_frame_allocator *allocator,
-                                   paddr_t address)
+static void
+pmm_allocator_allocate(pmm_frame_allocator *allocator, paddr_t address)
 {
     pmm_bitmap_set(address, PMM_UNAVAILABLE);
 

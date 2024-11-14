@@ -59,8 +59,8 @@ typedef struct bucket_meta {
     char data[] __attribute__((aligned(KMALLOC_ALIGNMENT)));
 } bucket_t;
 
-static_assert(sizeof(bucket_t) <= KMALLOC_ALIGNMENT,
-              "Bucket metadata MUST fit into a single block");
+static_assert(sizeof(bucket_t) <= KMALLOC_ALIGNMENT, "Bucket metadata MUST fit "
+                                                     "into a single block");
 
 /** Find a bucket containing with at least one free block of the given size */
 static bucket_t *bucket_find(llist_t buckets, size_t size, const u16 flags)
@@ -86,12 +86,12 @@ static void *bucket_get_free_block(bucket_t *bucket)
 }
 
 /** Create a new empty bucket for blocks of size @c block_size */
-static struct bucket_meta *bucket_create(llist_t *buckets, size_t block_size,
-                                         const u16 flags)
+static struct bucket_meta *
+bucket_create(llist_t *buckets, size_t block_size, const u16 flags)
 {
     size_t bucket_size = align_up(KMALLOC_ALIGNMENT + block_size, PAGE_SIZE);
-    bucket_t *bucket =
-        mmap(NULL, bucket_size, PROT_READ | PROT_WRITE, MAP_CLEAR | flags);
+    bucket_t *bucket = mmap(NULL, bucket_size, PROT_READ | PROT_WRITE,
+                            MAP_CLEAR | flags);
 
     if (bucket == NULL)
         return NULL;
@@ -150,8 +150,8 @@ void *kmalloc(size_t size, int flags)
     size = align_up(size, KMALLOC_ALIGNMENT);
     size = bit_next_pow32(size);
 
-    llist_t *buckets =
-        (flags & KMALLOC_KERNEL) ? &kmalloc_buckets : &current_process->kmalloc;
+    llist_t *buckets = (flags & KMALLOC_KERNEL) ? &kmalloc_buckets
+                                                : &current_process->kmalloc;
 
     bucket_t *bucket = bucket_find(*buckets, size, flags);
     if (bucket == NULL)

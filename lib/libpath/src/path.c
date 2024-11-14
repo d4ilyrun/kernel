@@ -19,8 +19,8 @@ static const char *find_first(const char *s, bool (*predicate)(char))
  * @param start The start of the string to look into
  * @param end The end of the string to look into
  */
-static const char *find_first_reverse(const char *start, const char *end,
-                                      bool (*predicate)(char))
+static const char *
+find_first_reverse(const char *start, const char *end, bool (*predicate)(char))
 {
     if (start == NULL || end == NULL)
         return NULL;
