@@ -82,20 +82,29 @@ typedef enum pmm_flags {
 bool pmm_init(struct multiboot_info *);
 
 /**
- * \brief Allocate a previously unused pageframe
+ * @brief Allocate previously unused pageframes
  *
- * @return The pageframe's **physical** address, PMM_INVALID_PAGEFRAME on error
+ * @info The returned pageframes are guaranteed to be contiguous
+ *
+ * @param size The size of the area to allocate (must me a multiple of
+ * PAGE_SIZE)
+ * @param flags Allocation flags
+ *
+ * @return The pageframe range's **physical** address, PMM_INVALID_PAGEFRAME on
+ * error
  */
-paddr_t pmm_allocate(int flags);
+paddr_t pmm_allocate_pages(size_t size, int flags);
+
+/** Release previously allocated contiguous pageframes */
+void pmm_free_pages(paddr_t pageframe, size_t size);
 
 /**
- * \brief Allocate a previously unused pageframe
- *
- * @todo Take pagetable settings as parameter (writable, user, ...)
- *
- * @return The pageframe's **physical** address
+ * @brief Allocate a previously unused pageframe
+ * @return The pageframe's **physical** address, PMM_INVALID_PAGEFRAME on error
  */
-void pmm_free(paddr_t pageframe);
+#define pmm_allocate(flags) pmm_allocate_pages(PAGE_SIZE, flags)
+
+#define pmm_free(pageframe) pmm_free_pages(pageframe, PAGE_SIZE)
 
 #endif /* KERNEL_PMM_H */
 

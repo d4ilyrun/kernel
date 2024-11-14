@@ -1,7 +1,9 @@
 #include <kernel/error.h>
 #include <kernel/kmalloc.h>
+#include <kernel/logger.h>
 #include <kernel/memory.h>
 #include <kernel/mmu.h>
+#include <kernel/pmm.h>
 #include <kernel/process.h>
 #include <kernel/syscalls.h>
 #include <kernel/types.h>
@@ -218,4 +220,61 @@ void *krealloc_carray(void *ptr, size_t nmemb, size_t size, int flags)
         return ptr;
 
     return krealloc(ptr, size, flags);
+}
+
+void *kmalloc_at(paddr_t phys, size_t size)
+{
+    vaddr_t virt;
+
+    size = align_up(size, PAGE_SIZE);
+
+    virt = vmm_allocate(&kernel_vmm, 0, size, VMA_KERNEL);
+    if (!virt)
+        return NULL;
+
+    /* TODO: Forced to be rw. Should be modified when revamping the alloc API
+     *       The flag system is currently a huge mess of
+     * un-necessary/unused/leaked values. Even I am not sure what flag should be
+     * used ... FFS please rework this mess!
+     */
+    if (!mmu_map_range(virt, phys, size, PROT_READ | PROT_WRITE | PROT_KERNEL))
+        return NULL;
+
+    return (void *)virt;
+}
+
+void *kmalloc_dma(size_t size)
+{
+    paddr_t physical;
+
+    physical = pmm_allocate_pages(size, PMM_MAP_KERNEL);
+    if (physical == PMM_INVALID_PAGEFRAME)
+        return NULL;
+
+    return kmalloc_at(physical, size);
+}
+
+void *kmalloc_dma_at(paddr_t dma_buffer, size_t size)
+{
+    return kmalloc_at(dma_buffer, size);
+}
+
+void kfree_at(void *ptr, size_t size)
+{
+    vaddr_t virt = (vaddr_t)ptr;
+
+    mmu_unmap_range(virt, virt + size);
+    vmm_free(&kernel_vmm, virt, size);
+}
+
+void kfree_dma(void *dma_ptr, size_t size)
+{
+    vaddr_t virt = (vaddr_t)dma_ptr;
+    paddr_t phys = mmu_find_physical(virt);
+
+    if (phys == PMM_INVALID_PAGEFRAME)
+        return;
+
+    kfree_at(dma_ptr, size);
+    pmm_free_pages(phys, size);
 }
