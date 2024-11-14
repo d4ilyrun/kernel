@@ -24,6 +24,7 @@ kernel_source_files = files([
   'devices/uacpi.c',
   'devices/acpi.c',
   'devices/pci.c',
+  'devices/rtl8139.c',
 ])
 
 arch_source_files = {

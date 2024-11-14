@@ -68,7 +68,7 @@ alias_target('iso', iso)
 qemu = find_program('qemu-system-i386', required: false)
 if qemu.found()
   run_target('qemu',
-    command: [qemu, '-cdrom', iso, '-nographic']
+    command: [qemu, '-cdrom', iso, '-net', 'nic,model=rtl8139', '-nographic']
   )
 endif
 
@@ -81,7 +81,7 @@ if qemu.found()
   custom_target('qemu-server',
     input: [],
     output: ['qemu-server'],
-    command: [qemu, '-cdrom', iso, '-daemonize', '-s', '-S'],
+    command: [qemu, '-cdrom', iso, '-net', 'nic,model=rtl8139', '-daemonize', '-s', '-S'],
   )
 endif
 
