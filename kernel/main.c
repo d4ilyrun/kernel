@@ -158,7 +158,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
                              PROC_KERNEL);
     sched_new_process_create("krootfs_test", kernel_task_rootfs, NULL,
                              PROC_KERNEL);
-    sched_new_process_create("init", kernel_task_userland, NULL, PROC_NONE);
+    // sched_new_process_create("init", kernel_task_userland, NULL, PROC_NONE);
 
     process_t *kernel_timer_test = process_create(
         "ktimer_test", kernel_task_timer, NULL, PROC_KERNEL);
@@ -305,7 +305,7 @@ void kernel_task_timer(void *data)
     }
 }
 
-void kernel_task_userland(void *data)
+MAYBE_UNUSED void kernel_task_userland(void *data)
 {
     write_eax(SYS_WRITE);
     ASM("int $0x80");
