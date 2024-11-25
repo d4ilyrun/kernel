@@ -3,6 +3,9 @@
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
+#include <kernel/net.h>
+#include <kernel/net/ethernet.h>
+#include <kernel/net/packet.h>
 
 #include <utils/bits.h>
 #include <utils/macro.h>
@@ -63,6 +66,11 @@ static inline bool rtl8139_is_rev_supported(enum rtl8139_revision rev)
 enum rtl8139_register {
     ID0 = 0x00, /** MAC address, higher 4 bytes */
     ID4 = 0x04, /** MAC address, lower 2 bytes */
+    TSD0 = 0x10,
+    TSD1 = 0x14,
+    TSD2 = 0x18,
+    TSD3 = 0x1C,
+    TX_STATUS_DESCRIPTOR = TSD0, /** TX buffers status */
     TSAD0 = 0x20,
     TSAD1 = 0x24,
     TSAD2 = 0x28,
@@ -83,6 +91,7 @@ enum rtl8139_register {
 #define RTL8139_COMMAND_RX_ENABLE BIT(2)
 #define RTL8139_COMMAND_TX_ENABLE BIT(3)
 #define RTL8139_COMMAND_RESET BIT(4)
+#define RTL8139_TX_STATUS_OWN BIT(13)
 #define RTL8139_RECEIVE_CFG_NO_WRAP BIT(7)
 #define RTL8139_RECEIVE_CFG_PHYSICAL BIT(1)
 #define RTL8139_RECEIVE_CFG_MULTICAST_OFFSET 2
@@ -146,10 +155,52 @@ static void rtl8139_enable_transfer(struct rtl8139 *rtl8139, bool enable)
     rtl8139_writeb(rtl8139, COMMAND, cmd);
 }
 
+static void rtl8139_get_mac(struct ethernet_device *device, mac_address_t mac)
+{
+    struct rtl8139 *rtl8139 = ethernet_device_priv(device);
+    uint64_t mac_raw;
+
+    mac_raw = be32toh(rtl8139_readl(rtl8139, ID0));
+    mac_raw <<= 16;
+    mac_raw |= be16toh(rtl8139_readw(rtl8139, ID4));
+
+    ethernet_fill_mac(mac, mac_raw);
+}
+
+static error_t rtl8139_send_packet_to_descriptor(struct rtl8139 *rtl8139,
+                                                 size_t descriptor,
+                                                 struct packet *packet)
+{
+    if (descriptor > RTL8139_TX_DESCRIPTOR_COUNT)
+        return E_INVAL;
+
+    if (packet_size(packet) > RTL8139_TX_DESCRIPTOR_SIZE)
+        return E_INVAL;
+
+    memcpy(rtl8139->tx_descriptors[descriptor], packet_start(packet),
+           packet_size(packet));
+
+    rtl8139_writel(rtl8139,
+                   TX_STATUS_DESCRIPTOR + (descriptor * sizeof(uint32_t)),
+                   packet_size(packet));
+
+    return E_SUCCESS;
+}
+
+static error_t
+rtl8139_send_packet(struct ethernet_device *dev, struct packet *packet)
+{
+    /* TODO: Backpressure */
+    struct rtl8139 *rtl8139 = ethernet_device_priv(dev);
+    int descriptor = rtl8139->tx_current_decriptor++;
+    return rtl8139_send_packet_to_descriptor(rtl8139, descriptor, packet);
+}
+
 static error_t rtl8139_receive_packet(struct rtl8139 *rtl8139)
 {
     struct rtl8139_rx_packet *rx_packet;
     error_t ret = E_SUCCESS;
+    struct packet *packet;
     size_t packet_length;
 
     rx_packet = rtl8139->rx_buffer + rtl8139->rx_packet_offset;
@@ -159,7 +210,15 @@ static error_t rtl8139_receive_packet(struct rtl8139 *rtl8139)
      *
      * - We explicitely use NO wrapping, so no need to check for out of bounds
      */
-    log_info("rtl8139", "received packet");
+    packet = packet_new(packet_length);
+    if (IS_ERR(packet)) {
+        log_warn("rtl8139", "failed to copy received packet's content");
+        ret = ERR_FROM_PTR(packet);
+    } else {
+        packet->netdev = rtl8139->netdev;
+        packet_put(packet, rx_packet->packet, packet_length);
+        ret = ethernet_receive_packet(packet);
+    }
 
     /* 4. Tell the NIC where to read the next packet
      *
@@ -222,6 +281,7 @@ static error_t rtl8139_enable_capability(struct ethernet_device *device,
 }
 
 static struct ethernet_operations rtl8139_operations = {
+    .send_packet = rtl8139_send_packet,
     .enable_capability = rtl8139_enable_capability,
 };
 
