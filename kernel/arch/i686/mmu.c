@@ -241,6 +241,19 @@ bool mmu_init(void)
 
     paging_enabled = true;
 
+    // Pre-allocate all shared kernel page table entries
+    // We NEED to allocate them now for them to be present inside the IDLE
+    // task's page table.
+    for (size_t i = MMU_PDE_KERNEL_FIRST; i < MMU_PDE_COUNT - 1; i++) {
+        if (kernel_startup_page_directory[i].present)
+            continue;
+        page_table = pmm_allocate(PMM_MAP_KERNEL);
+        kernel_startup_page_directory[i].page_table = TO_PFN(page_table);
+        kernel_startup_page_directory[i].present = true;
+        kernel_startup_page_directory[i].user = false;
+        memset(MMU_RECURSIVE_PAGE_TABLE_ADDRESS(i), 0, PAGE_SIZE);
+    }
+
     return true;
 }
 
