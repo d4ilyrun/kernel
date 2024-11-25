@@ -20,6 +20,7 @@ kernel_source_files = files([
   'memory/pmm.c',
   'memory/vmm.c',
   'net/ethernet.c',
+  'net/arp.c',
   'net/packet.c',
   'memory/kmalloc.c',
   'devices/driver.c',
