@@ -1,5 +1,7 @@
 #include <kernel/devices/ethernet.h>
 #include <kernel/kmalloc.h>
+#include <kernel/logger.h>
+#include <kernel/net/interface.h>
 
 #include <utils/container_of.h>
 
@@ -27,16 +29,27 @@ void ethernet_device_free(struct ethernet_device *device)
     kfree(device);
 }
 
-void ethernet_device_register(struct ethernet_device *device)
+error_t ethernet_device_register(struct ethernet_device *device)
 {
     /* TODO: kasprintf("eth%d", registered_devices++) */
+    struct net_interface *interface;
     const char *name = "eth0";
 
     if (!ethernet_device_name(device))
         ethernet_device_set_name(device, name);
 
+    interface = net_interface_new(device, ethernet_device_name(device));
+    if (IS_ERR(interface)) {
+        log_warn("ethdev", "Failed to allocate interface");
+        return ERR_FROM_PTR(interface);
+    }
+
+    device->interface = interface;
+
     llist_add(&ethernet_registered_devices, &device->this);
     device_register(&device->device);
+
+    return E_SUCCESS;
 }
 
 static int __ethernet_device_match_name(const void *dev_node, const void *data)

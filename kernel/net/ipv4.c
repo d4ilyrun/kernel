@@ -1,6 +1,7 @@
 #include <kernel/net.h>
 #include <kernel/net/arp.h>
 #include <kernel/net/ethernet.h>
+#include <kernel/net/interface.h>
 #include <kernel/net/ipv4.h>
 #include <kernel/net/packet.h>
 
@@ -58,6 +59,16 @@ static uint16_t ipv4_compute_checksum(struct ipv4_header *iphdr)
 void ipv4_fill_packet(struct packet *packet, struct ipv4_header *iphdr)
 {
     const mac_address_t *dst_mac = arp_get(iphdr->saddr);
+    const struct subnet *subnet;
+
+    /* routing: find the destination address's subnet
+     * its source ip and network device shall be used for the packet */
+    subnet = net_interface_find_subnet(ntoh(iphdr->daddr));
+    if (subnet == NULL)
+        return; // Network unreachable
+
+    packet->netdev = subnet->interface->netdev;
+    iphdr->saddr = hton(subnet->ip);
 
     if (dst_mac == NULL) {
         /* TODO: ARP request */

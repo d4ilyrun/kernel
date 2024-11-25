@@ -23,6 +23,7 @@
 #include <utils/math.h>
 
 struct ethernet_device;
+struct net_interface;
 
 /** Ethernet device capabilities */
 enum ethernet_capability {
@@ -55,6 +56,7 @@ struct ethernet_device {
     /** Device capability bitfields @see ethernet_device_capabilities*/
     uint32_t capabilities;
 
+    struct net_interface *interface; /** The netdevice's interface */
     LLIST_NODE(this); /** Node inside the linked list of registered devices */
 };
 
@@ -73,7 +75,7 @@ struct ethernet_device *ethernet_device_alloc(size_t priv_size);
 void ethernet_device_free(struct ethernet_device *);
 
 /** Register a new ethernet device */
-void ethernet_device_register(struct ethernet_device *);
+error_t ethernet_device_register(struct ethernet_device *);
 
 /** @return The matching ethernet device, or NULL */
 struct ethernet_device *ethernet_device_find_by_name(const char *);

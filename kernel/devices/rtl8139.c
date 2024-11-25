@@ -5,6 +5,8 @@
 #include <kernel/mmu.h>
 #include <kernel/net.h>
 #include <kernel/net/ethernet.h>
+#include <kernel/net/interface.h>
+#include <kernel/net/ipv4.h>
 #include <kernel/net/packet.h>
 
 #include <utils/bits.h>
@@ -381,7 +383,11 @@ static error_t rtl8139_probe(struct device *dev)
         goto probe_failed;
 
     rtl8139_enable_transfer(rtl8139, true);
-    ethernet_device_register(eth_dev);
+    ret = ethernet_device_register(eth_dev);
+    if (ret)
+        goto probe_failed;
+
+    net_interface_add_subnet(eth_dev->interface, IPV4(192, 168, 1, 42), 24);
 
     return E_SUCCESS;
 
