@@ -89,4 +89,41 @@ typedef struct device {
  */
 error_t device_register(device_t *);
 
+/** Generate generic functions used to read/write a device's regsiters
+ *
+ * The functions are named: prefix_[read,write][b,w,l]
+ *
+ * @param _pfx The device's functions' prefix
+ * @param _dev_type The device's type
+ * @param _reg_field The name of the fields pointing to the device's registers
+ * @param _off_type The type used for the offset variable
+ *
+ * @info \c _off_type must be indirectly castable into an integer
+ */
+#define generate_device_rw_functions(_pfx, _dev_type, _reg_field, _off_type)   \
+    __device_read(u8, b, _pfx, _dev_type, _reg_field, _off_type)               \
+        __device_write(u8, b, _pfx, _dev_type, _reg_field, _off_type)          \
+            __device_read(u16, w, _pfx, _dev_type, _reg_field, _off_type)      \
+                __device_write(u16, w, _pfx, _dev_type, _reg_field, _off_type) \
+                    __device_read(u32, l, _pfx, _dev_type, _reg_field,         \
+                                  _off_type)                                   \
+                        __device_write(u32, l, _pfx, _dev_type, _reg_field,    \
+                                       _off_type)
+
+#define __device_read(_type, _type_pfx, _pfx, _device_type, _device_reg_field, \
+                      _offset_type)                                            \
+    static MAYBE_UNUSED inline _type _pfx##_read##_type_pfx(                   \
+        _device_type *device, _offset_type offset)                             \
+    {                                                                          \
+        return *(_type *)(device->_device_reg_field + offset);                 \
+    }
+
+#define __device_write(_type, _type_pfx, _pfx, _device_type,  \
+                       _device_reg_field, _offset_type)       \
+    static MAYBE_UNUSED inline void _pfx##_write##_type_pfx(  \
+        _device_type *device, _offset_type offset, _type val) \
+    {                                                         \
+        *(_type *)(device->_device_reg_field + offset) = val; \
+    }
+
 /** @} */
