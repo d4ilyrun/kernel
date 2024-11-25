@@ -66,7 +66,7 @@ typedef struct device {
 
     node_t this; ///< Used to list devices, internal use only
 
-    char *name;       ///< The name of the device
+    const char *name; ///< The name of the device
     driver_t *driver; ///< The driver for this device
 
 } device_t;

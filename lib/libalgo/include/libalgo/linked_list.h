@@ -161,7 +161,7 @@ llist_insert_sorted(llist_t *head, node_t *new, compare_t compare)
 
 /** Retreive the first matching element inside the list (or NULL) */
 static inline node_t *
-llist_find_first(llist_t head, void *data, compare_t compare)
+llist_find_first(llist_t head, const void *data, compare_t compare)
 {
     for (node_t *node = (head); node; node = node->next) {
         if (!compare(node, data))
