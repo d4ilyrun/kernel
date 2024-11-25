@@ -5,12 +5,14 @@
 
 static const char *const ERROR_DESCRIPTIONS[E_TOTAL_COUNT] = {
     [E_SUCCESS] = "Success",
-    [E_NOENT] = "No such file or directory",
+    [E_NOENT] = "Entry not found",
+    [E_BUSY] = "Device or resource already in use",
     [E_NODEV] = "No such device",
     [E_NOMEM] = "Out of memory",
     [E_INVAL] = "Invalid argument",
     [E_NOT_IMPLEMENTED] = "Not implemented",
     [E_NOT_SUPPORTED] = "Operation not supported",
+    [E_NO_BUFFER_SPACE] = "Not enough buffer space",
 };
 
 const char *err_to_str(error_t err)

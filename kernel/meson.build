@@ -19,6 +19,7 @@ kernel_source_files = files([
   'misc/error.c',
   'memory/pmm.c',
   'memory/vmm.c',
+  'net/packet.c',
   'memory/kmalloc.c',
   'devices/driver.c',
   'devices/uacpi.c',
