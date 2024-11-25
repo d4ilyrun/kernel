@@ -51,6 +51,9 @@ typedef native_t vaddr_t;
 typedef u32 pid_t;
 typedef u64 timestamp_t;
 
+/** An IPv4 address */
+typedef uint32_t ipv4_t;
+
 /** Comparison function over two generic objects
  *  @return 0 if both are equal, -1 if left is inferior, +1 if it is superior
  */

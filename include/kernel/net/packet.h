@@ -30,6 +30,7 @@ struct ethernet_device;
 /* L2 headers */
 struct ethernet_header;
 /* L3 headers */
+struct ipv4_header;
 struct arp_header;
 
 /** A network packet.
@@ -62,6 +63,7 @@ struct packet {
     /** The packet's network layer header */
     union {
         void *raw;
+        struct ipv4_header *ipv4;
         struct arp_header *arp;
     } l3;
 };
