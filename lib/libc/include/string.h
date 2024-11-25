@@ -10,6 +10,7 @@ char *strlcpy(char *dst, const char *src, size_t);
 
 void *memset(void *s, int c, size_t n);
 void *memcpy(void *restrict dest, const void *restrict src, size_t n);
+int memcmp(const void *, const void *, size_t);
 
 int strcmp(const char *, const char *);
 int strncmp(const char *, const char *, size_t);
