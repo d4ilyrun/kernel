@@ -19,12 +19,14 @@ kernel_source_files = files([
   'misc/error.c',
   'memory/pmm.c',
   'memory/vmm.c',
+  'net/ethernet.c',
   'net/packet.c',
   'memory/kmalloc.c',
   'devices/driver.c',
   'devices/uacpi.c',
   'devices/acpi.c',
   'devices/pci.c',
+  'devices/ethernet.c',
   'devices/rtl8139.c',
 ])
 

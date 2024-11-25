@@ -27,7 +27,8 @@ struct packet *packet_new(size_t packet_size)
 
 error_t packet_send(struct packet *packet)
 {
-    log_warn("packet", "TODO: packet_send");
+    struct ethernet_device *ethernet = packet->netdev;
+    return ethernet->ops->send_packet(ethernet, packet);
 }
 
 error_t packet_put(struct packet *skb, const void *data, size_t size)

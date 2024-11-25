@@ -1,3 +1,4 @@
+#include <kernel/devices/ethernet.h>
 #include <kernel/devices/pci.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
@@ -15,6 +16,7 @@
 
 struct rtl8139 {
     void *registers;
+    struct ethernet_device *netdev;
     struct pci_device *pci;
     void *tx_descriptors[RTL8139_TX_DESCRIPTOR_COUNT];
     int tx_current_decriptor : 2;
@@ -192,9 +194,41 @@ static error_t rtl8139_interrupt_handler(void *data)
     return E_SUCCESS;
 }
 
+static error_t rtl8139_enable_capability(struct ethernet_device *device,
+                                         enum ethernet_capability cap,
+                                         bool enable)
+{
+    struct rtl8139 *rtl8139 = ethernet_device_priv(device);
+    uint32_t cfg;
+
+    cfg = rtl8139_readl(rtl8139, RECEIVE_CFG);
+
+    switch (cap) {
+    case ETHERNET_CAP_BROADCAST:
+        cfg = BIT_ENABLE(cfg, RTL8139_RECEIVE_CFG_BROADCAST_OFFSET, enable);
+        break;
+    case ETHERNET_CAP_MULTICAST:
+        cfg = BIT_ENABLE(cfg, RTL8139_RECEIVE_CFG_MULTICAST_OFFSET, enable);
+        break;
+
+    default:
+        return E_NOT_SUPPORTED;
+    }
+
+    device->capabilities = BIT_ENABLE(device->capabilities, cap, enable);
+    rtl8139_writel(rtl8139, RECEIVE_CFG, cfg);
+
+    return E_SUCCESS;
+}
+
+static struct ethernet_operations rtl8139_operations = {
+    .enable_capability = rtl8139_enable_capability,
+};
+
 static error_t rtl8139_probe(struct device *dev)
 {
     struct pci_device *pdev = to_pci_dev(dev);
+    struct ethernet_device *eth_dev;
     struct rtl8139 *rtl8139;
     void *rx_buffer;
     uint32_t tx_cfg;
@@ -211,12 +245,19 @@ static error_t rtl8139_probe(struct device *dev)
         return E_INVAL;
     }
 
-    rtl8139 = kmalloc(sizeof(*rtl8139), KMALLOC_KERNEL);
+    eth_dev = ethernet_device_alloc(sizeof(*rtl8139));
+    if (IS_ERR(eth_dev))
+        return ERR_FROM_PTR(eth_dev);
+
+    eth_dev->mtu = RTL8139_MTU;
+
+    rtl8139 = ethernet_device_priv(eth_dev);
     if (rtl8139 == NULL)
         return E_NOMEM;
 
     memset(rtl8139, 0, sizeof(*rtl8139));
     rtl8139->registers = pdev->bars[RTL8139_PCI_BAR_MEM].data;
+    rtl8139->netdev = eth_dev;
     rtl8139->pci = pdev;
 
     pci_device_enable_memory(pdev, true);
@@ -231,8 +272,12 @@ static error_t rtl8139_probe(struct device *dev)
     tx_cfg = rtl8139_readl(rtl8139, TRANSMIT_CFG);
     if (!rtl8139_is_rev_supported(tx_cfg & RTL8139_REV_MASK)) {
         log_err("rtl8139", "invalid revision: %x", tx_cfg & RTL8139_REV_MASK);
+        ethernet_device_free(eth_dev);
         return E_NOT_SUPPORTED;
     }
+
+    eth_dev->ops = &rtl8139_operations;
+    rtl8139_get_mac(eth_dev, eth_dev->mac);
 
     /** Configure RX: (@see 6.9)
      *  - buffer size = 8K
@@ -242,11 +287,13 @@ static error_t rtl8139_probe(struct device *dev)
     rx_buffer = kmalloc_dma(RTL8139_RX_BUFFER_SIZE + RTL8139_MTU);
     if (rx_buffer == NULL) {
         log_err("rtl8139", "Failed to allocate RX FIFO");
+        ethernet_device_free(eth_dev);
         return E_NOMEM;
     }
 
     rtl8139->rx_buffer = rx_buffer;
     rtl8139->rx_buffer_size = RTL8139_RX_BUFFER_SIZE;
+    eth_dev->capabilities = ETHERNET_CAP_BROADCAST | ETHERNET_CAP_MULTICAST;
     rx_cfg = RTL8139_RECEIVE_CFG_MULTICAST | RTL8139_RECEIVE_CFG_BROADCAST |
              RTL8139_RECEIVE_CFG_PHYSICAL | RTL8139_RECEIVE_CFG_NO_WRAP |
              RTL8139_RECEIVE_CFG_BUFFER_LENGTH(RTL8139_RX_BUFFER_SIZE);
@@ -274,12 +321,14 @@ static error_t rtl8139_probe(struct device *dev)
         goto probe_failed;
 
     rtl8139_enable_transfer(rtl8139, true);
+    ethernet_device_register(eth_dev);
 
     return E_SUCCESS;
 
 probe_failed:
     if (rtl8139->rx_buffer)
         kfree_dma(rtl8139->rx_buffer, rtl8139->rx_buffer_size);
+    ethernet_device_free(eth_dev);
     return ret;
 }
 

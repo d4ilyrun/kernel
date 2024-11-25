@@ -89,6 +89,18 @@ typedef struct device {
  */
 error_t device_register(device_t *);
 
+/** Set the name of the device */
+static inline void device_set_name(struct device *dev, const char *name)
+{
+    dev->name = name;
+}
+
+/** @return The name of the device */
+static inline const char *device_name(struct device *dev)
+{
+    return dev->name;
+}
+
 /** Generate generic functions used to read/write a device's regsiters
  *
  * The functions are named: prefix_[read,write][b,w,l]

@@ -26,6 +26,10 @@
 
 #include <utils/math.h>
 
+struct ethernet_device;
+/* L2 headers */
+struct ethernet_header;
+
 /** A network packet.
  *
  * @struct packet
@@ -44,9 +48,13 @@ struct packet {
     size_t allocated_size; ///< Size allocated for the packet
     size_t packet_size;    ///< Size of the contained packet
 
+    /** The internet device this packet went/is going through */
+    struct ethernet_device *netdev;
+
     /** The packet's link layer header */
     union {
         void *raw;
+        struct ethernet_header *ethernet;
     } l2;
 
     /** The packet's network layer header */
