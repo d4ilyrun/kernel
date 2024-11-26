@@ -1,3 +1,4 @@
+#include <kernel/memory.h>
 #include <kernel/terminal.h>
 
 #include <stddef.h>
@@ -61,7 +62,7 @@ void tty_init(void)
         .column = 0,
         .row = 0,
         .color = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK),
-        .buffer = TTY_BUFFER_START,
+        .buffer = (uint16_t *)KERNEL_HIGHER_HALF_VIRTUAL(TTY_BUFFER_START),
     };
 
     // Fill the whole buffer with a ' ' character, written grey on black.

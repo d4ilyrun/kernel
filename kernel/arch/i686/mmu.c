@@ -218,15 +218,8 @@ bool mmu_init(void)
     //        we keep it as is, since it is the only way for us to test
     //        our userland implementation until we port our first programs
     //        (soon hopefully)
-    mmu_offset_map(KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_START),
-                   KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_END),
+    mmu_offset_map(0, KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_END),
                    KERNEL_HIGHER_HALF_OFFSET, PROT_EXEC | PROT_READ);
-
-    // Identity map the first MB, since it contains hardcoded addresses we still
-    // use (console buffer for example).
-    //
-    // TODO: Check for possible alternatives? (MMIO?, map only what we need?)
-    mmu_identity_map(0x0, 0x100000, PROT_READ | PROT_WRITE | PROT_KERNEL);
 
     mmu_load_page_directory(kernel_startup_process.context.cr3);
 

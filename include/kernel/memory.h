@@ -35,10 +35,8 @@
  *                  |                  |
  *                  |                  |
  *                  |                  |
- *      0x0110_0000 |------------------|
+ *      0x0010_0000 |------------------|
  *                  |   VMM Reserved   |
- *      0x0100_0000 |------------------|
- *                  |     Reserved     |
  *      0x0000_0000 --------------------
  *
  * @{
@@ -100,7 +98,7 @@
  * Any byte written after this address **WILL** overwrite our kernel's
  * executable binary.
  *
- * @info this address is defined inside the kernel's linker scrpit.
+ * @note this address is defined inside the kernel's linker scrpit.
  */
 extern u32 _kernel_code_start;
 #define KERNEL_CODE_START ((u32)&_kernel_code_start)
@@ -111,7 +109,7 @@ extern u32 _kernel_code_start;
  * Any byte written after this address will not overwrite our kernel's
  * executable binary.
  *
- * @info this address is defined inside the kernel's linker scrpit.
+ * @note this address is defined inside the kernel's linker scrpit.
  */
 extern u32 _kernel_code_end;
 #define KERNEL_CODE_END ((u32)&_kernel_code_end)
@@ -138,12 +136,11 @@ extern u32 _kernel_code_end;
  * @brief Size of the area reserved fo rallovation memory management structures
  *
  * 1MiB Virtual memory range reserved for allocating VMA structures.
- * We place this area first thing first thing after our bootstrap code.
  *
  * @see @ref vmm
  */
 #define VMM_RESERVED_SIZE 0x100000UL
-#define VMM_RESERVED_START KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_START)
+#define VMM_RESERVED_START 0x00000000
 #define VMM_RESERVED_END (VMM_RESERVED_START + VMM_RESERVED_SIZE)
 
 #endif /* KERNEL_MEMORY_H */
