@@ -83,6 +83,12 @@ void interrupts_set_handler(u8 irq, interrupt_handler, void *);
  */
 interrupt_handler interrupts_get_handler(u8 irq, void **);
 
+/** Return wether a custom interrupt has been installed for the given vector */
+static inline bool interrupts_has_been_installed(u8 irq)
+{
+    return interrupts_get_handler(irq, NULL) != NULL;
+}
+
 /** Returns the name of an interrupt from its vector number */
 const char *interrupts_to_str(u8 nr);
 

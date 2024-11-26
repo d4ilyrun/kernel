@@ -44,4 +44,9 @@
         return (_tmp_x < _tmp_y) ? -1 : 1; \
     } while (0);
 
+#define CONCAT(_x, _y) _x##_y
+#define CONCAT3(_x, _y, _z) _x##_y##_z
+
+#define ALL_ONES (-1)
+
 #endif /* UTILS_MACRO_H */

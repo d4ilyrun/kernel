@@ -77,6 +77,19 @@ void mmu_load_page_directory(paddr_t);
 bool mmu_map(vaddr_t virt, paddr_t physical, int prot);
 
 /**
+ * @brief Map a range of virtual addresses to physical ones
+ *
+ * @param virt The start of the virtual address range
+ * @param physical Its physical equivalent
+ * @param size The size of the region to map
+ * @param prot Protection rule in use for this page.
+ *             A combination of @ref mmu_prot flags.
+ *
+ * @return False if the address was already mapped before
+ */
+bool mmu_map_range(vaddr_t virt, paddr_t physical, size_t size, int prot);
+
+/**
  * @brief Unmap a virtual address
  *
  * @warning After calling this, referencing the given virtual address may

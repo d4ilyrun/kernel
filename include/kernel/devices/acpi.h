@@ -36,13 +36,37 @@
 
 #include <multiboot.h>
 
+/** Per-bus driver struct for ACPI drivers
+ *  @see device_driver
+ */
+struct acpi_driver {
+    struct device_driver driver;
+    ///< The ACPI ID of the device compatible with this driver
+    const char *const compatible;
+};
+
+#define ACPI_ID_MAX_LEN 8
+
+/** Per-bus device struct for ACPI devices
+ *  @see device
+ */
+struct acpi_device {
+    device_t device;
+    char id[ACPI_ID_MAX_LEN]; ///< The device's ACPI id
+};
+
+/** Register an ACPI device driver */
+void acpi_driver_register(struct acpi_driver *);
+
+#define ACPI_DECLARE_DRIVER(_name, _driver) \
+    DECLARE_DRIVER(_name, _driver, acpi_driver_register)
+
 /** Initialize the ACPI environment
  *  @param mbt The multiboot info structure passed by the bootloader
  */
 error_t acpi_init(struct multiboot_info *mbt);
 
-/**
- */
-void acpi_start_devices(void);
+/** Probe all ACPI devices which correspond to a loaded ACPI driver */
+void acpi_probe_devices(void);
 
 /** @} */

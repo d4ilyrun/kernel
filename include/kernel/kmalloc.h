@@ -1,5 +1,3 @@
-#pragma once
-
 /**
  * @brief Dynamic allocator for the kernel
  *
@@ -49,7 +47,9 @@
  * @{
  */
 
-#include <stddef.h>
+#pragma once
+
+#include <kernel/types.h>
 
 /**
  * @enum kmalloc_flags
@@ -113,3 +113,45 @@ void *krealloc(void *ptr, size_t size, int flags);
  * @ref krealloc
  */
 void *krealloc_carray(void *ptr, size_t nmemb, size_t size, int flags);
+
+/**
+ * Map a known physical address into virtual memory
+ *
+ * @param phys The physical address of the buffer
+ * @param size The size of the buffer
+ * @param flags The allocation flags
+ *
+ * @note Buffer to arbitrary physical address are ALWAYS mapped inside
+ *       the kernel's address space
+ *
+ * @return A virtual address mapped to the given physical buffer
+ */
+void *kmalloc_at(paddr_t phys_start, size_t size);
+
+/**
+ * Allocate an addressable memory buffer suitable for DMA operations
+ *
+ * @param size The size of the buffer
+ *
+ * @note DMA regions are by design always located inside the kernel's space
+ * @see kmalloc_at
+ *
+ * @return A buffer whose physical pageframes are contiguous
+ */
+void *kmalloc_dma(size_t size);
+
+/**
+ * Map a physical buffer suitable for DMA into vitrual memory
+ *
+ * @see kmalloc_dma
+ * @see kmalloc_at
+ */
+void *kmalloc_dma_at(paddr_t dma_buffer, size_t size);
+
+/** Free a buffer allocated through @ref kmalloc_at */
+void kfree_at(void *ptr, size_t size);
+
+/** Free a buffer allocated through @ref kmalloc_dma */
+void kfree_dma(void *dma_ptr, size_t size);
+
+/** @} */

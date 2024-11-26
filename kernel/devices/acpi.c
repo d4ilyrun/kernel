@@ -1,5 +1,7 @@
+#include <kernel/devices/acpi.h>
 #include <kernel/devices/driver.h>
 #include <kernel/error.h>
+#include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
 
@@ -9,6 +11,17 @@
 #include <utils/macro.h>
 
 #include <multiboot.h>
+#include <string.h>
+
+static inline struct acpi_driver *to_acpi_drv(driver_t *drv)
+{
+    return (struct acpi_driver *)drv;
+}
+
+static inline struct acpi_device *to_acpi_dev(device_t *dev)
+{
+    return (struct acpi_device *)dev;
+}
 
 error_t acpi_init(struct multiboot_info *mbt)
 {
@@ -98,8 +111,8 @@ acpi_start_one_device(void *ctx, uacpi_namespace_node *node)
     UNUSED(ctx);
 
     uacpi_namespace_node_info *info;
-    const driver_t *driver = NULL;
-    const char *name;
+    driver_t *driver = NULL;
+    const char *id;
 
     uacpi_status ret = uacpi_get_namespace_node_info(node, &info);
     if (uacpi_unlikely_error(ret)) {
@@ -111,35 +124,46 @@ acpi_start_one_device(void *ctx, uacpi_namespace_node *node)
 
     if (info->type == UACPI_OBJECT_DEVICE) {
         if (info->flags & UACPI_NS_NODE_INFO_HAS_HID) {
-            driver = driver_find_match(DRIVER_TYPE_ACPI, info->hid.value);
+            driver = acpi_driver_find_by_id(info->hid.value);
             if (driver != NULL)
-                name = info->hid.value;
+                id = info->hid.value;
         }
 
         if (driver == NULL && (info->flags & UACPI_NS_NODE_INFO_HAS_CID)) {
             for (u32 i = 0; i < info->cid.num_ids; ++i) {
-                driver = driver_find_match(DRIVER_TYPE_ACPI,
-                                           info->cid.ids[i].value);
+                driver = acpi_driver_find_by_id(info->cid.ids[i].value);
                 if (driver != NULL) {
-                    name = info->cid.ids[i].value;
+                    id = info->cid.ids[i].value;
                     break;
                 }
             }
         }
     }
 
-    if (driver != NULL) {
-        log_info("acpi", "probing driver '%s'", driver->name);
-        driver->operations.probe(name, info->adr);
-    }
+    if (driver != NULL)
+        acpi_device_probe_with_id(driver, id);
 
 out:
     uacpi_free_namespace_node_info(info);
     return UACPI_NS_ITERATION_DECISION_CONTINUE;
 }
 
-void acpi_start_devices(void)
+void acpi_probe_devices(void)
 {
     uacpi_namespace_for_each_node_depth_first(
         uacpi_namespace_root(), acpi_start_one_device, UACPI_NULL);
+}
+
+static bool acpi_driver_match_device(const driver_t *drv, const device_t *dev)
+{
+    struct acpi_driver *acpi_drv = to_acpi_drv((driver_t *)drv);
+    struct acpi_device *acpi_dev = to_acpi_dev((device_t *)dev);
+
+    return !strcmp(acpi_dev->id, acpi_drv->compatible);
+}
+
+void acpi_driver_register(struct acpi_driver *driver)
+{
+    driver->driver.operations.match = acpi_driver_match_device;
+    driver_register(&driver->driver);
 }

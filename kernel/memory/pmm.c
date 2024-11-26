@@ -76,15 +76,21 @@ static pmm_frame_allocator g_pmm_allocator = {
 #define BITMAP_INDEX(address) (address / PAGE_SIZE)
 
 /** Mark a pageframe as PMM_AVAILABLE or PMM_UNAVAILABLE */
-static inline void pmm_bitmap_set(paddr_t pf, u8 availability)
+static inline void pmm_set_availability(paddr_t pf, u8 availability)
 {
     bitmap_assign(g_pmm_free_bitmap, BITMAP_INDEX(pf), availability);
 }
 
 /** Return a pageframe's state according to the allocator's bitmap */
-static inline int pmm_bitmap_read(paddr_t pageframe)
+static inline int pmm_is_available(paddr_t pageframe)
 {
     return bitmap_read(g_pmm_free_bitmap, BITMAP_INDEX(pageframe));
+}
+
+static inline bool
+pmm_is_last_pageframe(pmm_frame_allocator *allocator, paddr_t pageframe)
+{
+    return pageframe == (allocator->end - PAGE_SIZE);
 }
 
 /**
@@ -150,7 +156,7 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
                 if (IN_RANGE(KERNEL_HIGHER_HALF_VIRTUAL(addr),
                              KERNEL_CODE_START, KERNEL_CODE_END))
                     continue;
-                pmm_bitmap_set(addr, PMM_AVAILABLE);
+                pmm_set_availability(addr, PMM_AVAILABLE);
                 available_pageframes += 1;
 
                 pmm_frame_allocator *allocator = &g_pmm_allocator;
@@ -172,19 +178,26 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
     return true;
 }
 
-static void
-pmm_allocator_allocate(pmm_frame_allocator *allocator, paddr_t address)
+static void pmm_allocator_allocate_at(pmm_frame_allocator *allocator,
+                                      paddr_t address, size_t size)
 {
-    pmm_bitmap_set(address, PMM_UNAVAILABLE);
+    for (size_t off = 0; off < size; off += PAGE_SIZE)
+        pmm_set_availability(address + off, PMM_UNAVAILABLE);
 
+    // Need to update the first available pageframe
     if (address != allocator->first_available)
         return;
 
-    // Compute the next available pageframe
+    for (address += size; !pmm_is_last_pageframe(allocator, address);
+         address += PAGE_SIZE) {
+        if (pmm_is_available(address))
+            break;
+    }
+
+    if (!pmm_is_available(address))
+        allocator->first_available = PMM_INVALID_PAGEFRAME;
+
     allocator->first_available = address;
-    while (allocator->first_available <= 0xFFFFFFFF &&
-           pmm_bitmap_read(allocator->first_available) != PMM_AVAILABLE)
-        allocator->first_available += PAGE_SIZE;
 }
 
 /** @} */
@@ -201,41 +214,71 @@ bool pmm_init(struct multiboot_info *mbt)
         if (tag->type != MULTIBOOT_TAG_TYPE_MODULE)
             continue;
         struct multiboot_tag_module *module = (void *)tag;
-        for (paddr_t page = module->mod_start; page <= module->mod_end;
-             page += PAGE_SIZE) {
-            pmm_allocator_allocate(&g_pmm_allocator, page);
-        }
+        pmm_allocator_allocate_at(&g_pmm_allocator, module->mod_start,
+                                  module->mod_end - module->mod_start);
     }
 
     return true;
 }
 
-paddr_t pmm_allocate(int flags)
+paddr_t pmm_allocate_pages(size_t size, int flags)
 {
     pmm_frame_allocator *allocator = &g_pmm_allocator;
+    bool found = false;
+    paddr_t address;
 
     UNUSED(flags);
 
     if (!allocator->initialized) {
         log_err("PMM", "Trying to allocate using an uninitialized allocator");
-        return PMM_INVALID_PAGEFRAME; // EINVAL
+        return PMM_INVALID_PAGEFRAME;
     }
 
-    u64 address = allocator->first_available;
-    if (address > 0xFFFFFFFF)
-        return PMM_INVALID_PAGEFRAME; // ENOMEM
+    if (allocator->first_available == PMM_INVALID_PAGEFRAME) {
+        log_err("PMM", "No available pageframe left");
+        return PMM_INVALID_PAGEFRAME;
+    }
 
-    pmm_allocator_allocate(allocator, address);
+    /*
+     * Minimum allocatable size is a page.
+     * Always allocate more than requested when necessary.
+     */
+    size = align_up(size, PAGE_SIZE);
 
-    return (u32)address;
+    address = allocator->first_available;
+
+    while (!found && address >= allocator->first_available) {
+        found = true;
+        /* Find first next available */
+        while (!pmm_is_available(address))
+            address += PAGE_SIZE;
+        /* Check if enough pageframes are available starting at this address */
+        for (size_t off = 0; off < size; off += PAGE_SIZE) {
+            if (!pmm_is_available(address + off)) {
+                found = false;
+                address += off; /* Continue searching after this */
+                break;
+            }
+        }
+    }
+
+    if (!found)
+        return PMM_INVALID_PAGEFRAME;
+
+    pmm_allocator_allocate_at(allocator, address, size);
+
+    return address;
 }
 
-void pmm_free(paddr_t pageframe)
+void pmm_free_pages(paddr_t pageframe, size_t size)
 {
-    if (IN_RANGE(KERNEL_HIGHER_HALF_VIRTUAL(pageframe), KERNEL_CODE_END,
-                 KERNEL_CODE_START)) {
-        log_err("PMM", "Trying to free kernel code pages: " LOG_FMT_32,
-                pageframe);
+    if (RANGES_OVERLAP(KERNEL_HIGHER_HALF_VIRTUAL(pageframe),
+                       KERNEL_HIGHER_HALF_VIRTUAL(pageframe) + size,
+                       KERNEL_CODE_END, KERNEL_CODE_START)) {
+        log_err("PMM",
+                "Trying to free kernel code pages: [" LOG_FMT_32 "-" LOG_FMT_32
+                "]",
+                pageframe, pageframe + size);
         return;
     }
 
@@ -249,8 +292,10 @@ void pmm_free(paddr_t pageframe)
 
     pmm_frame_allocator *allocator = &g_pmm_allocator;
 
-    pmm_bitmap_set(pageframe, PMM_AVAILABLE);
+    for (size_t off = 0; off < size; off += PAGE_SIZE)
+        pmm_set_availability(pageframe + off, PMM_AVAILABLE);
 
-    if (pageframe < allocator->first_available)
+    if (allocator->first_available == PMM_INVALID_PAGEFRAME ||
+        pageframe < allocator->first_available)
         allocator->first_available = pageframe;
 }

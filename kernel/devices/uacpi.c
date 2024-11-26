@@ -14,6 +14,7 @@
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
+#include <kernel/pci.h>
 #include <kernel/process.h>
 #include <kernel/sched.h>
 #include <kernel/spinlock.h>
@@ -421,17 +422,11 @@ void uacpi_kernel_reset_event(uacpi_handle handle)
     event->semaphore -= 1;
 }
 
-/* ----- UNIMPLEMENTED uACPI FUNCTIONS ----- */
-
-#define WARN_UNIMPLEMENTED() \
-    log_warn("uacpi", "Unimplemented: %s", __FUNCTION__);
-
 uacpi_status uacpi_kernel_pci_read(uacpi_pci_address *address,
                                    uacpi_size offset, uacpi_u8 byte_width,
                                    uacpi_u64 *value)
 {
-    MAP(UNUSED, address, offset, byte_width, value);
-    WARN_UNIMPLEMENTED();
+    *value = pci_read_config(address->bus, address->device, offset, byte_width);
     return UACPI_STATUS_OK;
 }
 
@@ -439,10 +434,14 @@ uacpi_status uacpi_kernel_pci_write(uacpi_pci_address *address,
                                     uacpi_size offset, uacpi_u8 byte_width,
                                     uacpi_u64 value)
 {
-    MAP(UNUSED, address, offset, byte_width, value);
-    WARN_UNIMPLEMENTED();
+    pci_write_config(address->bus, address->device, offset, byte_width, value);
     return UACPI_STATUS_OK;
 }
+
+/* ----- UNIMPLEMENTED uACPI FUNCTIONS ----- */
+
+#define WARN_UNIMPLEMENTED() \
+    log_warn("uacpi", "Unimplemented: %s", __FUNCTION__);
 
 uacpi_status uacpi_kernel_handle_firmware_request(uacpi_firmware_request *req)
 {

@@ -340,6 +340,28 @@ bool mmu_map(vaddr_t virtual, vaddr_t pageframe, int prot)
     return true;
 }
 
+bool mmu_map_range(vaddr_t virtual, paddr_t physical, size_t size, int prot)
+{
+    size_t range;
+
+    if (size % PAGE_SIZE) {
+        log_warn("MMU", "map_range: the range's size must be page-aligned");
+        return false;
+    }
+
+    for (range = 0; range < size; range += PAGE_SIZE) {
+        if (!mmu_map(virtual + range, physical + range, prot))
+            break;
+    }
+
+    if (range < size) {
+        mmu_unmap_range(virtual, virtual + range);
+        return false;
+    }
+
+    return true;
+}
+
 paddr_t mmu_unmap(vaddr_t virtual)
 {
     mmu_decode_t address = {.raw = virtual};
