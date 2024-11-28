@@ -37,6 +37,7 @@
  */
 
 #include <kernel/error.h>
+#include <kernel/file.h>
 #include <kernel/types.h>
 
 #include <lib/path.h>
@@ -179,6 +180,9 @@ typedef struct vnode_operations {
 
     /** Remove a child from a directory */
     error_t (*remove)(vnode_t *node, const char *child);
+
+    /** Create a new opened file corresponding to this vnode  */
+    struct file *(*open)(vnode_t *vnode);
 
     /** Called by the VFS driver before deleting a vnode (optional).
      *  This is responsible for freeing/updating any necessary internal
