@@ -143,8 +143,9 @@ static tar_node_t *tar_create_node(const path_segment_t *segment, hdr_t *header)
 static void tar_free_node(tree_node_t *node)
 {
     tar_node_t *tar_node = container_of(node, tar_node_t, this);
+    /* Do not free vnode, let it be free's by vnode_release */
     if (tar_node->vnode)
-        kfree(tar_node->vnode);
+        tar_node->vnode->pdata = NULL;
     kfree(node);
 }
 
@@ -226,7 +227,10 @@ static vnode_t *tar_vnode_lookup(vnode_t *node, const path_segment_t *child)
 static void tar_vnode_release(vnode_t *vnode)
 {
     tar_node_t *node = vnode->pdata;
-    node->vnode = NULL;
+
+    /* Can be null if unmounted when still holding a reference */
+    if (node != NULL)
+        node->vnode = NULL;
 }
 
 static vnode_t *tar_vfs_root(vfs_t *fs)
