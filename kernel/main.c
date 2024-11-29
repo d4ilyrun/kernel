@@ -90,7 +90,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     interrupts_disable();
 
-    uart_reset();
+    uart_init();
     tty_init();
 
     arch_setup();
@@ -117,6 +117,14 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     mbt_info = kmalloc(mbt_tmp.mbt.total_size, KMALLOC_KERNEL);
     memcpy(mbt_info, mbt_tmp.raw, mbt_tmp.mbt.total_size);
+
+    struct file *uart = device_open(device_find("uart"));
+    if (uart == NULL)
+        log_warn("main", "failed to open uart");
+    else {
+        file_write(uart, "Hello, World!\n", sizeof("Hello, World!\n"));
+        file_close(uart);
+    }
 
     // We need to relocate the content of the multiboot modules inside the
     // kernel address space if we want them to be accessible from every

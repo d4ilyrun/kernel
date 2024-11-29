@@ -7,7 +7,10 @@
  */
 
 #include <kernel/cpu.h>
+#include <kernel/device.h>
+#include <kernel/devices/driver.h>
 #include <kernel/devices/uart.h>
+#include <kernel/file.h>
 
 #include <utils/bits.h>
 #include <utils/compiler.h>
@@ -49,8 +52,26 @@ static ALWAYS_INLINE uint16_t uart_div_latch_value(const uint16_t baudrate)
     return (UART_CLOCK_HZ / baudrate);
 }
 
-void uart_reset()
+int uart_putc(const char c)
 {
+    /* Wait until transfer buffer is empty */
+    WAIT_FOR(BIT_READ(inb(UART_REG(LSR)), 5));
+
+    outb(UART_REG(THR), c);
+    return 0;
+}
+
+static char uart_getc(void)
+{
+    /* Wait until data is available to be read */
+    WAIT_FOR(BIT_READ(inb(UART_REG(LSR)), 0));
+    return inb(UART_REG(THR));
+}
+
+static error_t uart_open(struct file *file)
+{
+    UNUSED(file);
+
     /* Clear interrupts */
     outb(UART_REG(IER), 0x00);
 
@@ -68,35 +89,47 @@ void uart_reset()
     /* Clear and enable FIFOs (interrupt triggered when 14B inside buffer) */
     outb(UART_REG(FCR), 0xC7);
     outb(UART_REG(IER), 0x01);
+
+    return E_SUCCESS;
 }
 
-int uart_putc(const char c)
+static error_t uart_write(struct file *file, const char *buf, size_t length)
 {
-    /* Wait until transfer buffer is empty */
-    WAIT_FOR(BIT_READ(inb(UART_REG(LSR)), 5));
-
-    outb(UART_REG(THR), c);
-    return 0;
-}
-
-int uart_write(const char *buf, size_t length)
-{
-    for (size_t i = 0; i < length; i++)
+    for (size_t i = 0; i < length; i++) {
+        file->pos += 1;
         uart_putc(buf[i]);
-    return length;
+    }
+
+    return E_SUCCESS;
 }
 
-char uart_getc()
+static error_t uart_read(struct file *file, char *buf, size_t length)
 {
-    /* Wait until data is available to be read */
-    WAIT_FOR(BIT_READ(inb(UART_REG(LSR)), 0));
-
-    return inb(UART_REG(THR));
-}
-
-size_t uart_read(char *buf, size_t length)
-{
-    for (size_t i = 0; i < length; i++)
+    for (size_t i = 0; i < length; i++) {
+        file->pos += 1;
         buf[i] = uart_getc();
-    return length;
+    }
+
+    return E_SUCCESS;
+}
+
+struct file_operations uart_file_ops = {
+    .write = uart_write,
+    .read = uart_read,
+    .open = uart_open,
+};
+
+static struct device_driver uart_driver = {
+    .name = "uart",
+};
+
+static struct device uart_device = {
+    .name = "uart",
+    .fops = &uart_file_ops,
+    .driver = &uart_driver,
+};
+
+error_t uart_init(void)
+{
+    return device_register(&uart_device);
 }

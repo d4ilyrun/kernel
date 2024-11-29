@@ -1,14 +1,12 @@
 #ifndef KERNEL_DEVICES_UART_H
 #define KERNEL_DEVICES_UART_H
 
-#include <stddef.h>
+#include <kernel/error.h>
 
-void uart_reset();
+/* TODO: Initcall */
+error_t uart_init(void);
 
+/* TODO: console use device */
 int uart_putc(const char c);
-int uart_write(const char *buf, size_t length);
-
-char uart_getc();
-size_t uart_read(char *buf, size_t length);
 
 #endif /* KERNEL_DEVICES_UART_H */
