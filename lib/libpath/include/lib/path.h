@@ -204,7 +204,7 @@ bool path_walk_next(path_segment_t *segment);
 bool path_walk_prev(path_segment_t *segment);
 
 /** @return \c true if the segment name corresponds to the string */
-bool path_segment_is(const char *, path_segment_t *);
+bool path_segment_is(const char *, const path_segment_t *);
 
 /** @} */
 

@@ -37,6 +37,7 @@
  */
 
 #include <kernel/error.h>
+#include <kernel/file.h>
 #include <kernel/types.h>
 
 #include <lib/path.h>
@@ -92,7 +93,7 @@ typedef struct vfs {
  *          * E_INVAL - another filesystem is mounted at the requested path
  *          * E_NOENT - the path is invalid
  */
-error_t vfs_mount(const char *path, const char *fs_type, u32, u32);
+error_t vfs_mount(const char *path, const char *fs_type, u32 start, u32 end);
 
 /** Mount a filesystem at the root of the VFS.
  *
@@ -172,13 +173,14 @@ typedef struct vnode_operations {
      */
     vnode_t *(*lookup)(vnode_t *, const path_segment_t *);
 
-    /** Add a new child to the vnode.
-     *  @returns E_INVAL - the parent vnode cannot have children (e.g. a file)
-     */
+    /** Add a new child to the vnode. */
     error_t (*create)(vnode_t *node, const char *name, vnode_type);
 
     /** Remove a child from a directory */
     error_t (*remove)(vnode_t *node, const char *child);
+
+    /** Create a new opened file corresponding to this vnode  */
+    struct file *(*open)(vnode_t *vnode);
 
     /** Called by the VFS driver before deleting a vnode (optional).
      *  This is responsible for freeing/updating any necessary internal

@@ -167,7 +167,7 @@ bool path_walk_prev(path_segment_t *segment)
     return true;
 }
 
-bool path_segment_is(const char *name, path_segment_t *segment)
+bool path_segment_is(const char *name, const path_segment_t *segment)
 {
     size_t len = path_segment_length(segment);
     return strncmp(name, segment->start, len) == 0 && name[len] == '\0';

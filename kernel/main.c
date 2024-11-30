@@ -90,7 +90,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     interrupts_disable();
 
-    uart_reset();
+    uart_init();
     tty_init();
 
     arch_setup();
@@ -117,6 +117,14 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     mbt_info = kmalloc(mbt_tmp.mbt.total_size, KMALLOC_KERNEL);
     memcpy(mbt_info, mbt_tmp.raw, mbt_tmp.mbt.total_size);
+
+    struct file *uart = device_open(device_find("uart"));
+    if (uart == NULL)
+        log_warn("main", "failed to open uart");
+    else {
+        file_write(uart, "Hello, World!\n", sizeof("Hello, World!\n"));
+        file_close(uart);
+    }
 
     // We need to relocate the content of the multiboot modules inside the
     // kernel address space if we want them to be accessible from every
@@ -195,24 +203,24 @@ void kernel_task_rootfs(void *data)
     error_t ret = vfs_mount_root("tarfs", start, end);
     log_dbg("init", "mount_root: %s", err_to_str(ret));
     log_info("init", "Searching for '/bin/busybox'");
-    vnode_t *busybox = vfs_find_by_path("/bin/busybox");
-    if (IS_ERR(busybox))
+    vnode_t *vnode = vfs_find_by_path("/bin/busybox");
+    if (IS_ERR(vnode))
         log_err("init", "Could not find busybox: %s",
-                err_to_str(ERR_FROM_PTR(busybox)));
+                err_to_str(ERR_FROM_PTR(vnode)));
 
     ret = vfs_mount("/bin", "tarfs", start, end);
     if (ret) {
         log_err("rootfs", "Failed to mount into rootfs: %s", err_to_str(ret));
     } else {
-        busybox = vfs_find_by_path("/bin/usr/bin");
-        if (IS_ERR(busybox))
+        vnode = vfs_find_by_path("/bin/usr/bin");
+        if (IS_ERR(vnode))
             log_err("rootfs",
                     "Could not find requested path inside mounted fs: %s",
-                    err_to_str(ERR_FROM_PTR(busybox)));
-        busybox = vfs_find_by_path("/bin/busybox");
-        if (!IS_ERR(busybox)) {
+                    err_to_str(ERR_FROM_PTR(vnode)));
+        vnode = vfs_find_by_path("/bin/busybox");
+        if (!IS_ERR(vnode)) {
             log_err("rootfs", "Should not be able to find old busybox");
-            vfs_vnode_release(busybox);
+            vfs_vnode_release(vnode);
         }
         if ((ret = vfs_unmount("/bin")))
             log_err("rootfs", "Failed to unmount '/bin': %s", err_to_str(ret));
@@ -221,6 +229,11 @@ void kernel_task_rootfs(void *data)
         log_dbg("rootfs", "creating file: %s",
                 err_to_str(vfs_create_at("/usr/bin/gcc///", VNODE_FILE)));
     }
+
+    ret = vfs_mount("/dev", "devtmpfs", 0, 0);
+    log_info("rootfs", "mounting devtmpfs: %s", err_to_str(ret));
+    vnode = vfs_find_by_path("/dev/eth0");
+    log_info("rootfs", "/dev/eth0: %s", err_to_str(ERR_FROM_PTR(vnode)));
 }
 
 void kernel_task_malloc(void *data)

@@ -57,13 +57,15 @@
 
 #include <stddef.h>
 
+struct file_operations;
+
 typedef struct device_driver driver_t;
 
 /** @struct device
  *
  * @brief Represents a device inside the kernel
  *
- * This structure is tipically embedded in a more specific "per-bus"
+ * This structure is typically embedded in a more specific "per-bus"
  * device-structure. It contains the basic information shared across all types
  * of device, necessary for enumeration, synchronization, etc.
  *
@@ -80,6 +82,17 @@ typedef struct device {
     const char *name; ///< The name of the device
     driver_t *driver; ///< The driver for this device
 
+    /** Operations applied to the device's underlying file
+     *
+     *  Used by the VFS when interacting with a file opened from the devtmpfs.
+     *  This should be generally filled in by the driver-type API, and not by
+     *  the device's driver's init function.
+     *
+     *  @see file_operations
+     */
+    const struct file_operations *fops;
+    struct vnode *vnode; ///< This device's vnode, used by the VFS
+
 } device_t;
 
 /** Register a new device.
@@ -88,6 +101,12 @@ typedef struct device {
  * corresponding driver.
  */
 error_t device_register(device_t *);
+
+/** Find a registered device by name */
+struct device *device_find(const char *name);
+
+/** Open a device for interacting with it. */
+struct file *device_open(device_t *);
 
 /** Set the name of the device */
 static inline void device_set_name(struct device *dev, const char *name)
