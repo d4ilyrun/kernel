@@ -26,13 +26,15 @@
  * @brief All the error types used in ths project
  */
 typedef enum error {
-    E_SUCCESS,              ///< No error
-    E_NOENT = 2,            ///< No such file or directory
-    E_NOMEM = 12,           ///< Out of memory
-    E_NODEV = 19,           ///< No such device
-    E_INVAL = 22,           ///< Invalid argument
-    E_NOT_IMPLEMENTED = 38, ///< Function not implemented
-    E_NOT_SUPPORTED = 95,   ///< Operation not supported
+    E_SUCCESS,               ///< No error
+    E_NOENT = 2,             ///< Entry not found
+    E_NOMEM = 12,            ///< Out of memory
+    E_BUSY = 16,             ///< Device or resource busy
+    E_NODEV = 19,            ///< No such device
+    E_INVAL = 22,            ///< Invalid argument
+    E_NOT_IMPLEMENTED = 38,  ///< Function not implemented
+    E_NOT_SUPPORTED = 95,    ///< Operation not supported
+    E_NO_BUFFER_SPACE = 105, ///< Not enough buffer space
     E_TOTAL_COUNT, ///< Total number of error codes, only used as a reference
 } error_t;
 

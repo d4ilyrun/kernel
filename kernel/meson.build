@@ -19,11 +19,18 @@ kernel_source_files = files([
   'misc/error.c',
   'memory/pmm.c',
   'memory/vmm.c',
+  'net/packet.c',
+  'net/ethernet.c',
+  'net/ipv4.c',
+  'net/arp.c',
+  'net/interface.c',
   'memory/kmalloc.c',
   'devices/driver.c',
   'devices/uacpi.c',
   'devices/acpi.c',
   'devices/pci.c',
+  'devices/ethernet.c',
+  'devices/rtl8139.c',
 ])
 
 arch_source_files = {

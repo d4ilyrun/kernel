@@ -38,6 +38,9 @@ typedef node_t *llist_t;
 /** Declare a head to an empty linked list */
 #define DECLARE_LLIST(_name) llist_t _name = NULL
 
+/** Declare an intrusive list node. Should be put inside a struct definition. */
+#define LLIST_NODE(_name) node_t _name
+
 /** Loop over each element inside a linked list
  *  @param _name The name of the current node
  *  @param _head The head of the linked list
