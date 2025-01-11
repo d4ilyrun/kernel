@@ -37,7 +37,7 @@
 #define ANSI_INFO "\033[39m"
 #define ANSI_RESET "\033[0m"
 
-#include <stdio.h>
+#include <kernel/printk.h>
 
 /**
  * @brief Print a log message onto the terminal.
@@ -132,10 +132,10 @@ void panic(u32 esp, const char *msg, ...) __attribute__((__noreturn__));
 #define log_array_fmt(_domain, _arr, _len, _fmt) \
     {                                            \
         log_dbg(_domain, stringify(_arr));       \
-        printf("{ ");                            \
+        printk("{ ");                            \
         for (size_t i = 0; i < (_len); ++i)      \
-            printf("" _fmt ", ", (_arr)[i]);     \
-        printf("}\n");                           \
+            printk("" _fmt ", ", (_arr)[i]);     \
+        printk("}\n");                           \
     }
 
 /**

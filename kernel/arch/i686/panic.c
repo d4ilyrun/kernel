@@ -2,6 +2,7 @@
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/memory.h>
+#include <kernel/printk.h>
 #include <kernel/process.h>
 #include <kernel/symbols.h>
 
@@ -11,7 +12,6 @@
 
 #include <stdarg.h>
 #include <stddef.h>
-#include <stdio.h>
 
 #define KERNEL_PANIC_STACK_DUMP_SIZE 64
 
@@ -89,26 +89,26 @@ void panic(u32 esp, const char *msg, ...)
     va_list parameters;
     va_start(parameters, msg);
 
-    printf("\n\033[31;1;4m!!! KERNEL PANIC !!!" ANSI_RESET "\033[31;1m\n\n");
-    vprintf(msg, parameters);
-    printf(ANSI_RESET "\n\n");
+    printk("\n\033[31;1;4m!!! KERNEL PANIC !!!" ANSI_RESET "\033[31;1m\n\n");
+    vprintk(msg, parameters);
+    printk(ANSI_RESET "\n\n");
 
     va_end(parameters);
 
     panic_dump_process();
-    printf("\n");
+    printk("\n");
 
     panic_dump_registers();
-    printf("\n");
+    printk("\n");
 
     panic_unwind_stack();
-    printf("\n");
+    printk("\n");
 
     panic_dump_stack(esp, KERNEL_PANIC_STACK_DUMP_SIZE);
-    printf("\n");
+    printk("\n");
 
     gdt_log();
-    printf("\n");
+    printk("\n");
 
     // Halt the kernel's execution
 

@@ -1,5 +1,6 @@
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
+#include <kernel/printk.h>
 
 #include <kernel/arch/i686/gdt.h>
 
@@ -98,7 +99,7 @@ void gdt_log(void)
         // Load segment from index
         u8 *segment = (u8 *)gdt[index];
 
-        printf("%hd = { base: " LOG_FMT_32 ", limit: " LOG_FMT_32
+        printk("%hd = { base: " LOG_FMT_32 ", limit: " LOG_FMT_32
                ", access: " LOG_FMT_8 ", flags: " LOG_FMT_8 " }\n",
                index,
                /* base */

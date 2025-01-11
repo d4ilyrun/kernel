@@ -1,6 +1,7 @@
 #include <kernel/devices/uart.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
+#include <kernel/printk.h>
 #include <kernel/process.h>
 #include <kernel/syscalls.h>
 
@@ -186,7 +187,7 @@ void idt_log(void)
         if (interrupt.segment.raw == 0)
             continue; // Uninitialized
 
-        printf(LOG_FMT_8 " = { offset: " LOG_FMT_32 ", segment: " LOG_FMT_16
+        printk(LOG_FMT_8 " = { offset: " LOG_FMT_32 ", segment: " LOG_FMT_16
                          ", access: " LOG_FMT_8 " } <%s>\n",
                i, interrupt.offset_low | (interrupt.offset_high << 16),
                interrupt.segment, interrupt.access, interrupts_to_str(i));

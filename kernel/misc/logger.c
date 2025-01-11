@@ -1,9 +1,9 @@
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
+#include <kernel/printk.h>
 #include <kernel/terminal.h>
 
 #include <stdarg.h>
-#include <stdio.h>
 
 void log(const char *type, const char *domain, const char *msg, ...)
 {
@@ -16,7 +16,7 @@ void log(const char *type, const char *domain, const char *msg, ...)
 void log_vlog(const char *type, const char *domain, const char *msg,
               va_list parameters)
 {
-    printf("%s%s" ANSI_RESET " \t\033[0;2m", type, domain);
-    vprintf(msg, parameters);
-    printf(ANSI_RESET "\n");
+    printk("%s%s" ANSI_RESET " \t\033[0;2m", type, domain);
+    vprintk(msg, parameters);
+    printk(ANSI_RESET "\n");
 }

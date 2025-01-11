@@ -149,11 +149,6 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     ASM("int $0");
 
-    const kernel_symbol_t *symbol = kernel_symbol_from_address((u32)printf +
-                                                               32);
-    log_info("MAIN", "PRINTF ? (%s, " LOG_FMT_32 ")",
-             kernel_symbol_name(symbol), symbol->address);
-
     sched_new_process_create("kmmap_test", kernel_task_mmap, NULL, PROC_KERNEL);
     sched_new_process_create("kmalloc_test", kernel_task_malloc, NULL,
                              PROC_KERNEL);

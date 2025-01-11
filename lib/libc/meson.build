@@ -5,7 +5,6 @@ sources = [
   'src/string.c',
   'src/memcpy.c',
   'src/memset.c',
-  'src/printf.c',
 ]
 
 libc = library('libc', sources,
