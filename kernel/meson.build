@@ -16,6 +16,7 @@ kernel_source_files = files([
   'sys/process.c',
   'sys/pci.c',
   'misc/logger.c',
+  'misc/console.c',
   'misc/symbols.c',
   'misc/error.c',
   'memory/pmm.c',

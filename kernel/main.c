@@ -90,7 +90,10 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     interrupts_disable();
 
-    uart_init();
+    if (uart_init() != E_SUCCESS) {
+        // TODO: arch_reboot();
+    }
+
     tty_init();
 
     arch_setup();
