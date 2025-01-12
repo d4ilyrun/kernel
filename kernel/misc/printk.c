@@ -11,6 +11,11 @@
 static_assert(sizeof(int) == sizeof(long), "Unsupported architecture: "
                                            "sizeof(long) != sizeof(int)");
 
+#define BUFFER_SIZE 64
+
+static char printk_buffer[BUFFER_SIZE];
+static size_t printk_buffer_index = 0;
+
 #define TOK_DELIMITER '%'
 
 // supported tokens
@@ -82,6 +87,21 @@ static inline bool __attribute__((always_inline)) isdigit(char c)
     return '0' <= (c) && (c) <= '9';
 }
 
+static void printk_buffer_flush(void)
+{
+    uart_write(printk_buffer, printk_buffer_index + 1);
+    printk_buffer_index = 0;
+}
+
+static void printk_buffer_put(char c)
+{
+    if (printk_buffer_index == BUFFER_SIZE - 1) {
+        printk_buffer_flush();
+    }
+
+    printk_buffer[printk_buffer_index++] = c;
+}
+
 /// PRINTERS
 ///
 /// These functions are used to print the string and arguments according to the
@@ -93,7 +113,11 @@ static inline bool __attribute__((always_inline)) isdigit(char c)
 static inline void __attribute__((always_inline))
 printk_char(register char c, int *written)
 {
-    uart_putc(c);
+    printk_buffer_put(c);
+
+    if (c == '\n' || c == '\r')
+        printk_buffer_flush();
+
     *written += 1;
 }
 
