@@ -1,3 +1,4 @@
+#include <kernel/console.h>
 #include <kernel/devices/uart.h>
 #include <kernel/printk.h>
 #include <kernel/types.h>
@@ -89,7 +90,7 @@ static inline bool __attribute__((always_inline)) isdigit(char c)
 
 static void printk_buffer_flush(void)
 {
-    uart_write(printk_buffer, printk_buffer_index + 1);
+    console_write(printk_buffer, printk_buffer_index + 1);
     printk_buffer_index = 0;
 }
 
