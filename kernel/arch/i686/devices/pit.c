@@ -1,3 +1,5 @@
+#define LOG_DOMAIN "pit"
+
 #include <kernel/cpu.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
@@ -47,9 +49,8 @@ static void pit_set_divider(pit_channel channel, u32 value)
     // of this overflow (a frequency of 1Hz being faster than 1MHz for example).
 
     if (value > UINT16_MAX) {
-        log_warn("PIT", "Divider value does not fit into 16 bits: " LOG_FMT_32,
-                 value);
-        log_warn("PIT", "Using divider of UINT16_MAX (18.2Hz)");
+        log_warn("Divider value does not fit into 16 bits: " LOG_FMT_32, value);
+        log_warn("Using divider of UINT16_MAX (18.2Hz)");
         value = UINT16_MAX;
     }
 
@@ -77,33 +78,30 @@ static void pit_set_divider(pit_channel channel, u32 value)
     if (PIT_INTERNAL_FREQUENCY % value > value / 2)
         pit_channel_frequencies[channel] += 1;
 
-    log_dbg("PIT", "New frequency divisor value for channel %d: %d (%d Hz)",
-            channel, value, pit_channel_frequencies[channel]);
+    log_dbg("New frequency divisor value for channel %d: %d (%d Hz)", channel,
+            value, pit_channel_frequencies[channel]);
 }
 
 u32 pit_config_channel(pit_channel channel, u32 frequency, pit_mode mode)
 {
     if (frequency == 0) {
-        log_err("PIT",
-                "Trying to configure channel %d using NULL frequency. Skip.",
+        log_err("Trying to configure channel %d using NULL frequency. Skip.",
                 channel);
         return pit_channel_frequencies[channel];
     }
 
     if (frequency > PIT_MAX_CHANNEL_FREQUENCY) {
-        log_warn("PIT",
-                 "Timer's frequency is higher than the maximum possible value "
+        log_warn("Timer's frequency is higher than the maximum possible value "
                  "frequency (" LOG_FMT_32 " > " LOG_FMT_32 ")",
                  frequency, PIT_MAX_CHANNEL_FREQUENCY);
 
         frequency = PIT_MAX_CHANNEL_FREQUENCY;
-        log_warn("PIT",
-                 "Limiting frequency to the maximum value (" LOG_FMT_32 ")",
+        log_warn("Limiting frequency to the maximum value (" LOG_FMT_32 ")",
                  frequency);
     }
 
     if (channel >= PIT_CHANNELS_COUNT) {
-        log_err("PIT", "Invalid channel: " LOG_FMT_8, channel);
+        log_err("Invalid channel: " LOG_FMT_8, channel);
         return -1;
     }
 

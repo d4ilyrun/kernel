@@ -1,3 +1,5 @@
+#define LOG_DOMAIN "process"
+
 #include <kernel/error.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
@@ -55,7 +57,7 @@ process_create(char *name, process_entry_t entrypoint, void *data, u32 flags)
 {
     process_t *new = kcalloc(1, sizeof(*new), KMALLOC_KERNEL);
     if (new == NULL) {
-        log_err("SCHED", "Failed to allocate new process");
+        log_err("Failed to allocate new process");
         return NULL;
     }
 
@@ -66,7 +68,7 @@ process_create(char *name, process_entry_t entrypoint, void *data, u32 flags)
     // first starting up the process.
     vmm_t *vmm = kmalloc(sizeof(*vmm), KMALLOC_KERNEL);
     if (vmm == NULL) {
-        log_err("SCHED", "Failed to allocate VMM");
+        log_err("Failed to allocate VMM");
         kfree(new);
         return NULL;
     }
@@ -87,7 +89,7 @@ void arch_process_free(process_t *process);
 
 MAYBE_UNUSED static void process_free(process_t *process)
 {
-    log_info("process", "terminating '%s'", process->name);
+    log_info("terminating '%s'", process->name);
     vmm_destroy(process->vmm);
     arch_process_free(process);
     kfree(process);

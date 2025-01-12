@@ -90,7 +90,7 @@ static inline bool __attribute__((always_inline)) isdigit(char c)
 
 static void printk_buffer_flush(void)
 {
-    console_write(printk_buffer, printk_buffer_index + 1);
+    console_write(printk_buffer, printk_buffer_index);
     printk_buffer_index = 0;
 }
 

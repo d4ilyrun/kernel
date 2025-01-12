@@ -1,3 +1,5 @@
+#define LOG_DOMAIN "syscalls"
+
 #include <kernel/devices/timer.h>
 #include <kernel/devices/uart.h>
 #include <kernel/error.h>
@@ -33,7 +35,7 @@ static u32 syscall(void *frame)
     syscall_arch_get_args(frame, &args);
 
     if (args.nr >= SYSCALL_COUNT || !syscalls[args.nr].handler) {
-        log_err("syscall", "Unimplemented syscall: '%s' (%d)",
+        log_err("Unimplemented syscall: '%s' (%d)",
                 syscall_linux_syscalls[args.nr], args.nr);
         return -E_NOT_IMPLEMENTED;
     }

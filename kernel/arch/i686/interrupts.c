@@ -1,3 +1,5 @@
+#define LOG_DOMAIN "interrupt"
+
 #include <kernel/devices/uart.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
@@ -99,7 +101,7 @@ const char *interrupts_to_str(u8 nr)
 
 void interrupts_set_handler(u8 nr, interrupt_handler handler, void *data)
 {
-    log_info("IDT", "Setting custom handler for '%s' (" LOG_FMT_8 ")",
+    log_info("Setting custom handler for '%s' (" LOG_FMT_8 ")",
              interrupts_to_str(nr), nr);
     custom_interrupt_handlers[nr].handler = handler;
     custom_interrupt_handlers[nr].data = data;
@@ -138,7 +140,7 @@ static inline void
 interrupts_set_idt(u16 nr, idt_gate_type type, interrupt_handler handler)
 {
     if (nr >= IDT_LENGTH) {
-        log_err("IDT", "interrupts_set: invalid index: " LOG_FMT_16, nr);
+        log_err("interrupts_set: invalid index: " LOG_FMT_16, nr);
         return;
     }
 
@@ -162,7 +164,7 @@ void interrupts_init(void)
     // Empty the list of custom ISRs
     memset(custom_interrupt_handlers, 0, sizeof(custom_interrupt_handlers));
 
-    log_info("IDT", "Setting up interrupt handler stubs");
+    log_info("Setting up interrupt handler stubs");
     for (int i = 0; i < IDT_LENGTH; ++i) {
         interrupts_set_idt(i, INTERRUPT_GATE_32B, interrupt_handler_stubs[i]);
     }
@@ -170,17 +172,17 @@ void interrupts_init(void)
     // Mark syscall interrupt as callable from userland
     idt[SYSCALL_INTERRUPT_NR].access |= (3 << 5);
 
-    log_dbg("IDT", "Finished setting up the IDT");
+    log_dbg("Finished setting up the IDT");
 }
 
 void idt_log(void)
 {
     idtr idtr;
     ASM("sidt %0" : "=m"(idtr) : : "memory");
-    log_info("IDT", "IDTR = { size: " LOG_FMT_16 ", offset:" LOG_FMT_32 " }",
+    log_info("IDTR = { size: " LOG_FMT_16 ", offset:" LOG_FMT_32 " }",
              idtr.size, idtr.offset);
 
-    log_info("IDT", "Interrupt descriptors");
+    log_info("Interrupt descriptors");
 
     for (size_t i = 0; i < IDT_LENGTH; ++i) {
         idt_descriptor interrupt = idt[i];
@@ -202,16 +204,16 @@ void default_interrupt_handler(interrupt_frame frame)
     // if it exists. Else, we consider this interrupt as 'unsupported'.
 
     if (handler->handler == NULL) {
-        log_err("interrupt", "Unsupported interrupt: %s (" LOG_FMT_32 ")",
+        log_err("Unsupported interrupt: %s (" LOG_FMT_32 ")",
                 interrupts_to_str(frame.nr), frame.nr);
-        log_dbg("interrupt", "Process: '%s' (PID=%ld)", current_process->name,
+        log_dbg("Process: '%s' (PID=%ld)", current_process->name,
                 current_process->pid);
-        log_dbg("interrupt", "ERROR=" LOG_FMT_32, frame.error);
-        log_dbg("interrupt", "FLAGS=" LOG_FMT_32, frame.state.flags);
-        log_dbg("interrupt", "CS=" LOG_FMT_32 ", SS=" LOG_FMT_32,
-                frame.state.cs, frame.state.ss);
-        log_dbg("interrupt", "EIP=" LOG_FMT_32 ", ESP=" LOG_FMT_32,
-                frame.state.eip, frame.state.esp);
+        log_dbg("ERROR=" LOG_FMT_32, frame.error);
+        log_dbg("FLAGS=" LOG_FMT_32, frame.state.flags);
+        log_dbg("CS=" LOG_FMT_32 ", SS=" LOG_FMT_32, frame.state.cs,
+                frame.state.ss);
+        log_dbg("EIP=" LOG_FMT_32 ", ESP=" LOG_FMT_32, frame.state.eip,
+                frame.state.esp);
         return;
     }
 

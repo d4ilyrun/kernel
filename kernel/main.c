@@ -1,3 +1,5 @@
+#define LOG_DOMAIN "main"
+
 #include <kernel/cpu.h>
 #include <kernel/device.h>
 #include <kernel/devices/acpi.h>
@@ -55,7 +57,7 @@ void kernel_relocate_module(struct multiboot_tag_module *module)
     void *reloc = (void *)vmm_allocate(&kernel_vmm, 0, mod_size,
                                        VMA_READ | VMA_WRITE);
     if (reloc == NULL) {
-        log_err("startup", "failed to relocate module@" LOG_FMT_32 ": E_NOMEM",
+        log_err("failed to relocate module@" LOG_FMT_32 ": E_NOMEM",
                 module->mod_start);
         return;
     }
@@ -106,11 +108,11 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     if (!pmm_init(mbt))
         PANIC("Could not initialize the physical memory manager");
 
-    log_info("START", "Initializing MMU");
+    log_info("Initializing MMU");
     if (!mmu_init())
         PANIC("Failed to initialize virtual address space");
 
-    log_info("START", "Initializing kernel VMM");
+    log_info("Initializing kernel VMM");
     vmm_init(&kernel_vmm, KERNEL_MEMORY_START, KERNEL_MEMORY_END);
 
     // Manually "create" a kernel_startup process, this should be reworked later
@@ -123,7 +125,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     struct file *uart = device_open(device_find("uart"));
     if (uart == NULL)
-        log_warn("main", "failed to open uart");
+        log_warn("failed to open uart");
     else {
         file_write(uart, "Hello, World!\n", sizeof("Hello, World!\n"));
         file_close(uart);
@@ -160,17 +162,20 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
         "ktimer_test", kernel_task_timer, NULL, PROC_KERNEL);
     sched_new_process(kernel_timer_test);
 
-    log_dbg("TASK", "Re-started task: '%s'", current_process->name);
+    log_dbg("Re-started task: '%s'", current_process->name);
 
     while (1) {
         timer_wait_ms(1000);
-        log_info("MAIN", "Elapsed miliseconds: %d", gettime());
+        log_info("Elapsed miliseconds: %d", gettime());
         if (BETWEEN(gettime(), 5000, 6000))
             process_kill(kernel_timer_test);
     }
 }
 
 // TASKS USED FOR MANUALLY TESTING FEATURES
+
+#undef LOG_DOMAIN
+#define LOG_DOMAIN "krootfs"
 
 void kernel_task_rootfs(void *data)
 {
@@ -188,50 +193,48 @@ void kernel_task_rootfs(void *data)
     }
 
     if (ramdev_module == NULL)
-        log_err("mbt", "No module found");
+        log_err("No module found");
 
-    log_dbg("mbt", "ramdev@" LOG_FMT_32, ramdev_module);
-    log_dbg("mbt", "ramdev[" LOG_FMT_32 ":" LOG_FMT_32 "]",
-            ramdev_module->mod_start, ramdev_module->mod_end);
+    log_dbg("ramdev@" LOG_FMT_32, ramdev_module);
+    log_dbg("ramdev[" LOG_FMT_32 ":" LOG_FMT_32 "]", ramdev_module->mod_start,
+            ramdev_module->mod_end);
 
     // TMP: Should be replaced with a device or sth
     u32 start = ramdev_module->mod_start;
     u32 end = ramdev_module->mod_end + 1;
 
     error_t ret = vfs_mount_root("tarfs", start, end);
-    log_dbg("init", "mount_root: %s", err_to_str(ret));
-    log_info("init", "Searching for '/bin/busybox'");
+    log_dbg("mount_root: %s", err_to_str(ret));
+    log_info("Searching for '/bin/busybox'");
     vnode_t *vnode = vfs_find_by_path("/bin/busybox");
     if (IS_ERR(vnode))
-        log_err("init", "Could not find busybox: %s",
-                err_to_str(ERR_FROM_PTR(vnode)));
+        log_err("Could not find busybox: %s", err_to_str(ERR_FROM_PTR(vnode)));
 
     ret = vfs_mount("/bin", "tarfs", start, end);
     if (ret) {
-        log_err("rootfs", "Failed to mount into rootfs: %s", err_to_str(ret));
+        log_err("Failed to mount into rootfs: %s", err_to_str(ret));
     } else {
         vnode = vfs_find_by_path("/bin/usr/bin");
         if (IS_ERR(vnode))
-            log_err("rootfs",
-                    "Could not find requested path inside mounted fs: %s",
+            log_err("Could not find requested path inside mounted fs: %s",
                     err_to_str(ERR_FROM_PTR(vnode)));
         vnode = vfs_find_by_path("/bin/busybox");
         if (!IS_ERR(vnode)) {
-            log_err("rootfs", "Should not be able to find old busybox");
+            log_err("Should not be able to find old busybox");
             vfs_vnode_release(vnode);
         }
         if ((ret = vfs_unmount("/bin")))
-            log_err("rootfs", "Failed to unmount '/bin': %s", err_to_str(ret));
+            log_err("Failed to unmount '/bin': %s", err_to_str(ret));
         if ((ret = vfs_unmount("/bin") != E_INVAL))
-            log_err("rootfs", "Should not be able to unmount twice");
-        log_dbg("rootfs", "creating file: %s",
+            log_err("Should not be able to unmount twice");
+        log_dbg("creating file: %s",
                 err_to_str(vfs_create_at("/usr/bin/gcc///", VNODE_FILE)));
     }
 
     ret = vfs_mount("/dev", "devtmpfs", 0, 0);
-    log_info("rootfs", "mounting devtmpfs: %s", err_to_str(ret));
+    log_info("mounting devtmpfs: %s", err_to_str(ret));
     vnode = vfs_find_by_path("/dev/eth0");
-    log_info("rootfs", "/dev/eth0: %s", err_to_str(ERR_FROM_PTR(vnode)));
+    log_info("/dev/eth0: %s", err_to_str(ERR_FROM_PTR(vnode)));
 }
 
 void kernel_task_malloc(void *data)
@@ -248,7 +251,7 @@ void kernel_task_malloc(void *data)
     for (int i = 0; i < 4; ++i)
         kmalloc_addresses[i] = (uint32_t)&kmalloc_addresses[i];
 
-    log_array("MAIN", kmalloc_addresses, 4);
+    log_array(kmalloc_addresses, 4);
 
     kfree(kmalloc_addresses);
 
@@ -285,7 +288,7 @@ void kernel_task_mmap(void *data)
     for (int i = 0; i < 4; ++i)
         addresses[i] = (u32)&addresses[i];
 
-    log_array("MAIN", addresses, 4);
+    log_array(addresses, 4);
 
     munmap(a, PAGE_SIZE);
     munmap(b, PAGE_SIZE * 2);
@@ -294,15 +297,18 @@ void kernel_task_mmap(void *data)
     munmap(addresses, PAGE_SIZE * 5);
 }
 
+#undef LOG_DOMAIN
+#define LOG_DOMAIN "ktask"
+
 void kernel_task_timer(void *data)
 {
     UNUSED(data);
 
-    log_dbg("TASK", "Started task: '%s'", current_process->name);
+    log_dbg("Started task: '%s'", current_process->name);
 
     while (1) {
         timer_wait_ms(1000);
-        log_info("TASK", "Elapsed miliseconds: %d", gettime());
+        log_info("Elapsed miliseconds: %d", gettime());
     }
 }
 

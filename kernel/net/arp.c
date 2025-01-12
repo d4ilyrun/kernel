@@ -1,3 +1,5 @@
+#define LOG_DOMAIN "arp"
+
 #include <kernel/devices/ethernet.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
@@ -66,7 +68,7 @@ static error_t arp_add(__be ipv4_t ip, mac_address_t mac)
         llist_add(&arp_table, &entry->this);
     }
 
-    log_dbg("arp", LOG_FMT_IP " -> " LOG_FMT_MAC, LOG_IP(ip), LOG_MAC_ARG(mac));
+    log_dbg(LOG_FMT_IP " -> " LOG_FMT_MAC, LOG_IP(ip), LOG_MAC_ARG(mac));
     memcpy(entry->hw_addr, mac, sizeof(mac_address_t));
 
     return E_SUCCESS;
@@ -105,13 +107,12 @@ error_t arp_receive_packet(struct packet *packet)
     const mac_address_t *reply_mac;
 
     if (ntoh(arp->hw_type) != ARP_HW_ETHERNET) {
-        log_warn("arp", "Unsupported hardware type: " LOG_FMT_16,
-                 ntoh(arp->hw_type));
+        log_warn("Unsupported hardware type: " LOG_FMT_16, ntoh(arp->hw_type));
         return E_NOT_SUPPORTED;
     }
 
     if (ntoh(arp->prot_type) != ETH_PROTO_IP) {
-        log_warn("arp", "Unsupported protocol type: " LOG_FMT_16,
+        log_warn("Unsupported protocol type: " LOG_FMT_16,
                  ntoh(arp->prot_type));
         return E_NOT_SUPPORTED;
     }
@@ -139,7 +140,7 @@ error_t arp_receive_packet(struct packet *packet)
         return arp_send_packet(&reply);
     }
 
-    log_warn("arp", "Received invalid ARP operation: " LOG_FMT_16,
+    log_warn("Received invalid ARP operation: " LOG_FMT_16,
              ntoh(arp->operation));
 
     return E_INVAL;

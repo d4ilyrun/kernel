@@ -1,3 +1,5 @@
+#define LOG_DOMAIN "netif"
+
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/net/interface.h>
@@ -14,7 +16,7 @@ net_interface_new(struct ethernet_device *netdev, const char *name)
 
     interface = kcalloc(1, sizeof(struct net_interface), KMALLOC_KERNEL);
     if (interface == NULL) {
-        log_warn("netif", "failed to allocate new interface: %s", name);
+        log_warn("failed to allocate new interface: %s", name);
         return PTR_ERR(E_NOMEM);
     }
 

@@ -1,3 +1,5 @@
+#define LOG_DOMAIN "ethdev"
+
 #include <kernel/devices/ethernet.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
@@ -40,7 +42,7 @@ error_t ethernet_device_register(struct ethernet_device *device)
 
     interface = net_interface_new(device, ethernet_device_name(device));
     if (IS_ERR(interface)) {
-        log_warn("ethdev", "Failed to allocate interface");
+        log_warn("Failed to allocate interface");
         return ERR_FROM_PTR(interface);
     }
 

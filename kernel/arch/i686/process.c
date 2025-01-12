@@ -1,3 +1,5 @@
+#define LOG_DOMAIN "process"
+
 #include <kernel/error.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
@@ -23,7 +25,7 @@ void arch_process_jump_to_userland(process_entry_t entrypoint,
 void arch_process_entrypoint(process_entry_t entrypoint, void *data)
 {
     if (!vmm_init(current_process->vmm, USER_MEMORY_START, USER_MEMORY_END))
-        log_err("SCHED", "Failed to initilize VMM (%s)", current_process->name);
+        log_err("Failed to initilize VMM (%s)", current_process->name);
 
     if (process_is_kernel(current_process)) {
         entrypoint(data);
@@ -31,12 +33,12 @@ void arch_process_entrypoint(process_entry_t entrypoint, void *data)
         void *user_stack = kcalloc(KERNEL_STACK_SIZE, sizeof(u8),
                                    KMALLOC_DEFAULT);
         if (user_stack == NULL) {
-            log_err("process", "failed to allocate user stack for '%s'",
+            log_err("failed to allocate user stack for '%s'",
                     current_process->name);
         } else {
             segment_selector ds = {.index = GDT_ENTRY_USER_DATA, .rpl = 3};
             segment_selector cs = {.index = GDT_ENTRY_USER_CODE, .rpl = 3};
-            log_info("process", "jump to userland");
+            log_info("jump to userland");
             arch_process_jump_to_userland(entrypoint, cs, ds, (u32)user_stack);
             __builtin_unreachable();
         }
@@ -51,13 +53,13 @@ bool arch_process_create(process_t *process, process_entry_t entrypoint,
     // Allocate a kernel stack for the new process
     u32 *kstack = kmalloc(KERNEL_STACK_SIZE, KMALLOC_KERNEL);
     if (kstack == NULL) {
-        log_err("SCHED", "Failed to allocate new kernel stack");
+        log_err("Failed to allocate new kernel stack");
         return false;
     }
 
     paddr_t cr3 = mmu_new_page_directory();
     if (IS_ERR(cr3)) {
-        log_err("SCHED", "Failed to create new page directory");
+        log_err("Failed to create new page directory");
         kfree(kstack);
         return false;
     }

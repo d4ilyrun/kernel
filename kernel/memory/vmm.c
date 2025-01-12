@@ -1,3 +1,5 @@
+#define LOG_DOMAIN "vmm"
+
 #include <kernel/error.h>
 #include <kernel/interrupts.h>
 #include <kernel/kmalloc.h>
@@ -70,7 +72,7 @@ static vaddr_t vma_reserved_allocate(vmm_t *vmm)
     }
 
     if (offset == (vaddr_t)-1) {
-        log_err("VMM", "No space left in reserved memory");
+        log_err("No space left in reserved memory");
         return 0;
     }
 
@@ -83,8 +85,7 @@ static vaddr_t vma_reserved_allocate(vmm_t *vmm)
         paddr_t pageframe = pmm_allocate(PMM_MAP_KERNEL);
         if (!mmu_map(address, pageframe,
                      PROT_WRITE | PROT_READ | PROT_KERNEL)) {
-            log_err("VMM",
-                    "Virtual address for VMA already in use: " LOG_FMT_32,
+            log_err("Virtual address for VMA already in use: " LOG_FMT_32,
                     address);
             pmm_free(pageframe);
             return 0;
@@ -120,14 +121,12 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
 {
     // The VMM can only allocate address for pages
     if (start > end || end - start < PAGE_SIZE) {
-        log_err("VMM", "init: VMM address space has invalid size (%ld)",
-                end - start);
+        log_err("init: VMM address space has invalid size (%ld)", end - start);
         return false;
     }
 
     if (start % PAGE_SIZE || end % PAGE_SIZE) {
-        log_err("VMM",
-                "init: start and end address must be page aligned (" LOG_FMT_32
+        log_err("init: start and end address must be page aligned (" LOG_FMT_32
                 " -> " LOG_FMT_32 ")",
                 start, end);
         return false;
@@ -137,8 +136,7 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
     if (start < VMM_RESERVED_END ||
         RANGES_OVERLAP(start, end - 1, KERNEL_VMM_RESERVED_START,
                        KERNEL_VMM_RESERVED_END - 1)) {
-        log_err("VMM",
-                "init: invalid VMM range: [" LOG_FMT_32 ":" LOG_FMT_32 "]",
+        log_err("init: invalid VMM range: [" LOG_FMT_32 ":" LOG_FMT_32 "]",
                 start, end);
         return false;
     }
@@ -162,8 +160,7 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
     //       handler each time we create a new process!
     interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault), NULL);
 
-    log_info("VMM",
-             "Initialized VMM { start=" LOG_FMT_32 ", end=" LOG_FMT_32 " }",
+    log_info("Initialized VMM { start=" LOG_FMT_32 ", end=" LOG_FMT_32 " }",
              vmm->start, vmm->end);
 
     return true;
@@ -330,7 +327,7 @@ vaddr_t vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
     }
 
     if (area_avl == NULL) {
-        log_err("VMM", "Failed to allocate");
+        log_err("Failed to allocate");
         return VMM_INVALID;
     }
 
@@ -368,7 +365,7 @@ vaddr_t vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
         &vmm->vmas.by_address, &allocated->avl.by_address, vma_compare_address);
 
     if (IS_ERR(inserted)) {
-        log_err("vmm", "failed to insert new VMA inside the AVL: %s",
+        log_err("failed to insert new VMA inside the AVL: %s",
                 err_to_str(ERR_FROM_PTR(inserted)));
         return VMM_INVALID;
     }
@@ -462,7 +459,7 @@ const vma_t *vmm_find(vmm_t *vmm, vaddr_t addr)
 void vmm_destroy(vmm_t *vmm)
 {
     if (vmm == &kernel_vmm) {
-        log_err("VMM", "Trying to free the kernel VMM. Skipping.");
+        log_err("Trying to free the kernel VMM. Skipping.");
         return;
     }
 

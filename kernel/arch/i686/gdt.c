@@ -1,3 +1,5 @@
+#define LOG_DOMAIN "gdt"
+
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/printk.h>
@@ -65,11 +67,11 @@ void gdt_init(void)
 void gdt_load_segment(gdt_descriptor segment, u16 index)
 {
     if (!BETWEEN(index, 0, GDT_LENGTH)) {
-        log_err("GDT", "Cannot insert: Invalid index");
+        log_err("Cannot insert: Invalid index");
         return;
     }
 
-    log_dbg("GDT", "Loading segment descriptor");
+    log_dbg("Loading segment descriptor");
     gdt[index][0] = LSB(segment.limit);
     gdt[index][1] = MSB(segment.limit);
     gdt[index][2] = LSB(segment.base);
@@ -85,13 +87,13 @@ void gdt_log(void)
     // Print the content of the GDTR
     gdtr gdtr;
     ASM("sgdt %0" : "=m"(gdtr) : : "memory");
-    log_info("GDT", "GDTR = { size: " LOG_FMT_16 ", offset: " LOG_FMT_32 "}",
+    log_info("GDTR = { size: " LOG_FMT_16 ", offset: " LOG_FMT_32 "}",
              gdtr.size, gdtr.offset);
 
     // Print each global segment
     // We don't support adding sectors manually for now so we are good
     // printing those only.
-    log_info("GDT", "Global segment descriptors");
+    log_info("Global segment descriptors");
 
     for (u16 index = 0;
          index < sizeof(g_global_segments) / sizeof(gdt_descriptor); ++index) {

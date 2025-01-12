@@ -1,3 +1,5 @@
+#define LOG_DOMAIN "pci"
+
 #include <kernel/devices/acpi.h>
 #include <kernel/devices/pci.h>
 #include <kernel/kmalloc.h>
@@ -148,7 +150,7 @@ static struct pci_bus *pci_bridge_register(struct pci_device *device)
                                 PCI_HEADER_BRIDGE_SECONDARY(bridge->number) |
                                 PCI_HEADER_BRIDGE_PRIMARY(parent->number));
 
-    log_dbg("pci", "registered bridge %d [parent: %d, subordinate: %d]",
+    log_dbg("registered bridge %d [parent: %d, subordinate: %d]",
             bridge->number, parent->number, subordinate->number);
 
     return bridge;
@@ -176,7 +178,7 @@ static void pci_device_setup_bars(struct pci_device *device)
         switch (device->bars[i].type) {
         case PCI_BAR_MEMORY:
             if ((bar & PCI_BAR_MEMORY_TYPE_MASK) != PCI_BAR_MEMORY_32B) {
-                log_warn("pci", "%d.%d: unsupported memory bar[%d] type",
+                log_warn("%d.%d: unsupported memory bar[%d] type",
                          device->bus->number, device->number, i);
                 continue;
             }
@@ -230,8 +232,7 @@ error_t pci_device_register_interrupt_handler(struct pci_device *pdev,
 
     /* TODO: Implement MSI (+ remove dependency on arch-specifi IRQ) */
     if (interrupts_has_been_installed(interrupt)) {
-        log_warn("pci",
-                 "another interrupt has already been installed on the "
+        log_warn("another interrupt has already been installed on the "
                  "interrupt line (" LOG_FMT_8 ")",
                  interrupt);
         return E_BUSY;
@@ -305,7 +306,7 @@ static error_t pci_bus_probe(struct pci_bus *bus)
 
         header_type = pci_read_header(bus->number, i, TYPE);
         if (header_type & PCI_HEADER_TYPE_MULTI_FUNCTION)
-            log_warn("pci", "Not implemented: multi function host controller");
+            log_warn("Not implemented: multi function host controller");
 
         device = kcalloc(1, sizeof(*device), KMALLOC_KERNEL);
         if (device == NULL)
