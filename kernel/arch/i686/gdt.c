@@ -87,7 +87,7 @@ void gdt_log(void)
     // Print the content of the GDTR
     gdtr gdtr;
     ASM("sgdt %0" : "=m"(gdtr) : : "memory");
-    log_info("GDTR = { size: " LOG_FMT_16 ", offset: " LOG_FMT_32 "}",
+    log_info("GDTR = { size: " FMT16 ", offset: " FMT32 "}",
              gdtr.size, gdtr.offset);
 
     // Print each global segment
@@ -101,8 +101,8 @@ void gdt_log(void)
         // Load segment from index
         u8 *segment = (u8 *)gdt[index];
 
-        printk("%hd = { base: " LOG_FMT_32 ", limit: " LOG_FMT_32
-               ", access: " LOG_FMT_8 ", flags: " LOG_FMT_8 " }\n",
+        printk("%hd = { base: " FMT32 ", limit: " FMT32
+               ", access: " FMT8 ", flags: " FMT8 " }\n",
                index,
                /* base */
                segment[2] | segment[3] << 8 | segment[4] << 16 |

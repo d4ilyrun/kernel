@@ -38,10 +38,10 @@
 #define LOG_DOMAIN NULL
 #endif
 
-#define LOG_FMT_8 "%#02hhx"
-#define LOG_FMT_16 "%#04hx"
-#define LOG_FMT_32 "%#08x"
-#define LOG_FMT_64 "%#016llx"
+#define FMT8 "%#02hhx"
+#define FMT16 "%#04hx"
+#define FMT32 "%#08x"
+#define FMT64 "%#016llx"
 
 #include <kernel/printk.h>
 
@@ -126,13 +126,13 @@ void panic(u32 esp, const char *msg, ...) __attribute__((__noreturn__));
  * @{
  */
 #define log_variable(_var) \
-    log(LOG_LEVEL_DEBUG, "variable", "%s=" LOG_FMT_32, stringify(_var), _var)
+    log(LOG_LEVEL_DEBUG, "variable", "%s=" FMT32, stringify(_var), _var)
 #define log_variable_8(_var) \
-    log(LOG_LEVEL_DEBUG, "variable", "%s=" LOG_FMT_8, stringify(_var), _var)
+    log(LOG_LEVEL_DEBUG, "variable", "%s=" FMT8, stringify(_var), _var)
 #define log_variable_16(_var) \
-    log(LOG_LEVEL_DEBUG, "variable", "%s=" LOG_FMT_16, stringify(_var), _var)
+    log(LOG_LEVEL_DEBUG, "variable", "%s=" FMT16, stringify(_var), _var)
 #define log_variable_64(_var) \
-    log(LOG_LEVEL_DEBUG, "variable", "%s=" LOG_FMT_64, stringify(_var), _var)
+    log(LOG_LEVEL_DEBUG, "variable", "%s=" FMT64, stringify(_var), _var)
 #define log_variable_str(_var) \
     log(LOG_LEVEL_DEBUG, "variable", "%s=%s", stringify(_var), _var)
 /** @} */
@@ -162,10 +162,10 @@ void panic(u32 esp, const char *msg, ...) __attribute__((__noreturn__));
  * @ref log_array_fmt
  * @{
  */
-#define log_array(_arr, _len) log_array_fmt(_arr, _len, LOG_FMT_32)
-#define log_array_8(_arr, _len) log_array_fmt(_arr, _len, LOG_FMT_8)
-#define log_array_16(_arr, _len) log_array_fmt(_arr, _len, LOG_FMT_16)
-#define log_array_64(_arr, _len) log_array_fmt(_arr, _len, LOG_FMT_64)
+#define log_array(_arr, _len) log_array_fmt(_arr, _len, FMT32)
+#define log_array_8(_arr, _len) log_array_fmt(_arr, _len, FMT8)
+#define log_array_16(_arr, _len) log_array_fmt(_arr, _len, FMT16)
+#define log_array_64(_arr, _len) log_array_fmt(_arr, _len, FMT64)
 #define log_array_str(_arr, _len) log_array_fmt(_arr, _len, "%s")
 /** @} */
 

@@ -233,7 +233,7 @@ error_t pci_device_register_interrupt_handler(struct pci_device *pdev,
     /* TODO: Implement MSI (+ remove dependency on arch-specifi IRQ) */
     if (interrupts_has_been_installed(interrupt)) {
         log_warn("another interrupt has already been installed on the "
-                 "interrupt line (" LOG_FMT_8 ")",
+                 "interrupt line (" FMT8 ")",
                  interrupt);
         return E_BUSY;
     }

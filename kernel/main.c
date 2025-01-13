@@ -57,7 +57,7 @@ void kernel_relocate_module(struct multiboot_tag_module *module)
     void *reloc = (void *)vmm_allocate(&kernel_vmm, 0, mod_size,
                                        VMA_READ | VMA_WRITE);
     if (reloc == NULL) {
-        log_err("failed to relocate module@" LOG_FMT_32 ": E_NOMEM",
+        log_err("failed to relocate module@" FMT32 ": E_NOMEM",
                 module->mod_start);
         return;
     }
@@ -72,7 +72,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 {
     if (magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
         PANIC("Invalid magic number recieved from multiboot "
-              "bootloader: " LOG_FMT_32,
+              "bootloader: " FMT32,
               magic);
     }
 
@@ -196,7 +196,7 @@ void kernel_task_rootfs(void *data)
         log_err("No module found");
 
     log_dbg("ramdev@%p", ramdev_module);
-    log_dbg("ramdev[" LOG_FMT_32 ":" LOG_FMT_32 "]", ramdev_module->mod_start,
+    log_dbg("ramdev[" FMT32 ":" FMT32 "]", ramdev_module->mod_start,
             ramdev_module->mod_end);
 
     // TMP: Should be replaced with a device or sth

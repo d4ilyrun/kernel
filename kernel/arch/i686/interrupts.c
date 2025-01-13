@@ -101,7 +101,7 @@ const char *interrupts_to_str(u8 nr)
 
 void interrupts_set_handler(u8 nr, interrupt_handler handler, void *data)
 {
-    log_info("Setting custom handler for '%s' (" LOG_FMT_8 ")",
+    log_info("Setting custom handler for '%s' (" FMT8 ")",
              interrupts_to_str(nr), nr);
     custom_interrupt_handlers[nr].handler = handler;
     custom_interrupt_handlers[nr].data = data;
@@ -140,7 +140,7 @@ static inline void
 interrupts_set_idt(u16 nr, idt_gate_type type, interrupt_handler handler)
 {
     if (nr >= IDT_LENGTH) {
-        log_err("interrupts_set: invalid index: " LOG_FMT_16, nr);
+        log_err("interrupts_set: invalid index: " FMT16, nr);
         return;
     }
 
@@ -179,7 +179,7 @@ void idt_log(void)
 {
     idtr idtr;
     ASM("sidt %0" : "=m"(idtr) : : "memory");
-    log_info("IDTR = { size: " LOG_FMT_16 ", offset:" LOG_FMT_32 " }",
+    log_info("IDTR = { size: " FMT16 ", offset:" FMT32 " }",
              idtr.size, idtr.offset);
 
     log_info("Interrupt descriptors");
@@ -189,8 +189,8 @@ void idt_log(void)
         if (interrupt.segment.raw == 0)
             continue; // Uninitialized
 
-        printk("%ld = { offset: " LOG_FMT_32 ", segment: " LOG_FMT_16
-                         ", access: " LOG_FMT_8 " } <%s>\n",
+        printk("%ld = { offset: " FMT32 ", segment: " FMT16
+                         ", access: " FMT8 " } <%s>\n",
                i, interrupt.offset_low | (interrupt.offset_high << 16),
                interrupt.segment.raw, interrupt.access, interrupts_to_str(i));
     }
@@ -204,15 +204,15 @@ void default_interrupt_handler(interrupt_frame frame)
     // if it exists. Else, we consider this interrupt as 'unsupported'.
 
     if (handler->handler == NULL) {
-        log_err("Unsupported interrupt: %s (" LOG_FMT_32 ")",
+        log_err("Unsupported interrupt: %s (" FMT32 ")",
                 interrupts_to_str(frame.nr), frame.nr);
         log_dbg("Process: '%s' (PID=%d)", current_process->name,
                 current_process->pid);
-        log_dbg("ERROR=" LOG_FMT_32, frame.error);
-        log_dbg("FLAGS=" LOG_FMT_32, frame.state.flags);
-        log_dbg("CS=" LOG_FMT_32 ", SS=" LOG_FMT_32, frame.state.cs,
+        log_dbg("ERROR=" FMT32, frame.error);
+        log_dbg("FLAGS=" FMT32, frame.state.flags);
+        log_dbg("CS=" FMT32 ", SS=" FMT32, frame.state.cs,
                 frame.state.ss);
-        log_dbg("EIP=" LOG_FMT_32 ", ESP=" LOG_FMT_32, frame.state.eip,
+        log_dbg("EIP=" FMT32 ", ESP=" FMT32, frame.state.eip,
                 frame.state.esp);
         return;
     }

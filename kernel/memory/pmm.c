@@ -139,7 +139,7 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
 
         if (entry->type == MULTIBOOT_MEMORY_AVAILABLE ||
             entry->type == MULTIBOOT_MEMORY_RESERVED) {
-            log_info("  %s [" LOG_FMT_32 "-" LOG_FMT_32 "]",
+            log_info("  %s [" FMT32 "-" FMT32 "]",
                      (entry->type == MULTIBOOT_MEMORY_RESERVED) ? "reserved "
                                                                 : "available",
                      (uint32_t)entry->addr,
@@ -173,7 +173,7 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
     log_info("Found %d available pageframes (~%dMiB)", available_pageframes,
              (available_pageframes * PAGE_SIZE) / (2 << 19));
     log_dbg("Total pageframes: %lld", TOTAL_PAGEFRAMES_COUNT);
-    log_dbg("First available pageframe: " LOG_FMT_32,
+    log_dbg("First available pageframe: " FMT32,
             g_pmm_allocator.first_available);
 
     return true;
@@ -276,7 +276,7 @@ void pmm_free_pages(paddr_t pageframe, size_t size)
     if (RANGES_OVERLAP(KERNEL_HIGHER_HALF_VIRTUAL(pageframe),
                        KERNEL_HIGHER_HALF_VIRTUAL(pageframe) + size,
                        KERNEL_CODE_END, KERNEL_CODE_START)) {
-        log_err("Trying to free kernel code pages: [" LOG_FMT_32 "-" LOG_FMT_32
+        log_err("Trying to free kernel code pages: [" FMT32 "-" FMT32
                 "]",
                 pageframe, pageframe + (native_t)size);
         return;
@@ -284,7 +284,7 @@ void pmm_free_pages(paddr_t pageframe, size_t size)
 
     if (pageframe % PAGE_SIZE) {
         log_err("free: pageframe physical address is not aligned on "
-                "pagesize: " LOG_FMT_32,
+                "pagesize: " FMT32,
                 pageframe);
         return;
     }

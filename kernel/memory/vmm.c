@@ -85,7 +85,7 @@ static vaddr_t vma_reserved_allocate(vmm_t *vmm)
         paddr_t pageframe = pmm_allocate(PMM_MAP_KERNEL);
         if (!mmu_map(address, pageframe,
                      PROT_WRITE | PROT_READ | PROT_KERNEL)) {
-            log_err("Virtual address for VMA already in use: " LOG_FMT_32,
+            log_err("Virtual address for VMA already in use: " FMT32,
                     address);
             pmm_free(pageframe);
             return 0;
@@ -126,8 +126,8 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
     }
 
     if (start % PAGE_SIZE || end % PAGE_SIZE) {
-        log_err("init: start and end address must be page aligned (" LOG_FMT_32
-                " -> " LOG_FMT_32 ")",
+        log_err("init: start and end address must be page aligned (" FMT32
+                " -> " FMT32 ")",
                 start, end);
         return false;
     }
@@ -136,7 +136,7 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
     if (start < VMM_RESERVED_END ||
         RANGES_OVERLAP(start, end - 1, KERNEL_VMM_RESERVED_START,
                        KERNEL_VMM_RESERVED_END - 1)) {
-        log_err("init: invalid VMM range: [" LOG_FMT_32 ":" LOG_FMT_32 "]",
+        log_err("init: invalid VMM range: [" FMT32 ":" FMT32 "]",
                 start, end);
         return false;
     }
@@ -160,7 +160,7 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
     //       handler each time we create a new process!
     interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault), NULL);
 
-    log_info("Initialized VMM { start=" LOG_FMT_32 ", end=" LOG_FMT_32 " }",
+    log_info("Initialized VMM { start=" FMT32 ", end=" FMT32 " }",
              vmm->start, vmm->end);
 
     return true;
@@ -524,7 +524,7 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
         return E_SUCCESS;
     }
 
-    PANIC("PAGE FAULT at " LOG_FMT_32 ": %s access on a %s page %s",
+    PANIC("PAGE FAULT at " FMT32 ": %s access on a %s page %s",
           faulty_address, error.write ? "write" : "read",
           error.present ? "protected" : "non-present",
           error.user ? "while in user-mode" : "");

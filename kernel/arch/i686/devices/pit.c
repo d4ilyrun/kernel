@@ -49,7 +49,7 @@ static void pit_set_divider(pit_channel channel, u32 value)
     // of this overflow (a frequency of 1Hz being faster than 1MHz for example).
 
     if (value > UINT16_MAX) {
-        log_warn("Divider value does not fit into 16 bits: " LOG_FMT_32, value);
+        log_warn("Divider value does not fit into 16 bits: " FMT32, value);
         log_warn("Using divider of UINT16_MAX (18.2Hz)");
         value = UINT16_MAX;
     }
@@ -92,16 +92,16 @@ u32 pit_config_channel(pit_channel channel, u32 frequency, pit_mode mode)
 
     if (frequency > PIT_MAX_CHANNEL_FREQUENCY) {
         log_warn("Timer's frequency is higher than the maximum possible value "
-                 "frequency (" LOG_FMT_32 " > " LOG_FMT_32 ")",
+                 "frequency (" FMT32 " > " FMT32 ")",
                  frequency, PIT_MAX_CHANNEL_FREQUENCY);
 
         frequency = PIT_MAX_CHANNEL_FREQUENCY;
-        log_warn("Limiting frequency to the maximum value (" LOG_FMT_32 ")",
+        log_warn("Limiting frequency to the maximum value (" FMT32 ")",
                  frequency);
     }
 
     if (channel >= PIT_CHANNELS_COUNT) {
-        log_err("Invalid channel: " LOG_FMT_8, channel);
+        log_err("Invalid channel: " FMT8, channel);
         return -1;
     }
 

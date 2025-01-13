@@ -65,7 +65,7 @@ static inline void ethernet_fill_mac(mac_address_t mac, uint64_t mac_raw)
 }
 
 #define LOG_MAC_ARG(_mac) mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]
-#define LOG_FMT_MAC "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx"
+#define FMT_MAC "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx"
 
 #endif /* KERNEL_NET_ETHERNET_H */
 

@@ -319,7 +319,7 @@ static vfs_ops_t tar_vfs_ops = {
 
 vfs_t *tar_new(u32 start, u32 end)
 {
-    log_info("mounting from [" LOG_FMT_32 ":" LOG_FMT_32 "]", start, end);
+    log_info("mounting from [" FMT32 ":" FMT32 "]", start, end);
 
     vfs_t *vfs = kcalloc(1, sizeof(vfs_t), KMALLOC_KERNEL);
     if (vfs == NULL)

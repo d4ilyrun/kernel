@@ -325,7 +325,7 @@ bool mmu_map(vaddr_t virtual, vaddr_t pageframe, int prot)
         memset((void *)page_table, 0, PAGE_SIZE);
 
     if (page_table[address.pte].present) {
-        log_err("Allocating already allocated virtual address: " LOG_FMT_32,
+        log_err("Allocating already allocated virtual address: " FMT32,
                 virtual);
         return false;
     }
