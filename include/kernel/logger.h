@@ -31,6 +31,7 @@
 
 #include <kernel/cpu.h> // read_esp
 
+#include <utils/compiler.h>
 #include <utils/stringify.h>
 
 #ifndef LOG_DOMAIN
@@ -71,6 +72,7 @@ enum log_level {
  * @param domain Used as a prefix to the error message.
  * @param msg The actual message
  */
+FORMAT(printf, 3, 4)
 void log(enum log_level, const char *domain, const char *msg, ...);
 
 void log_vlog(enum log_level, const char *domain, const char *msg,

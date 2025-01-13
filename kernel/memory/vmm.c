@@ -121,7 +121,7 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
 {
     // The VMM can only allocate address for pages
     if (start > end || end - start < PAGE_SIZE) {
-        log_err("init: VMM address space has invalid size (%ld)", end - start);
+        log_err("init: VMM address space has invalid size (%d)", end - start);
         return false;
     }
 

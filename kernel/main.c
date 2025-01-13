@@ -166,7 +166,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     while (1) {
         timer_wait_ms(1000);
-        log_info("Elapsed miliseconds: %d", gettime());
+        log_info("Elapsed miliseconds: %lld", gettime());
         if (BETWEEN(gettime(), 5000, 6000))
             process_kill(kernel_timer_test);
     }
@@ -195,7 +195,7 @@ void kernel_task_rootfs(void *data)
     if (ramdev_module == NULL)
         log_err("No module found");
 
-    log_dbg("ramdev@" LOG_FMT_32, ramdev_module);
+    log_dbg("ramdev@%p", ramdev_module);
     log_dbg("ramdev[" LOG_FMT_32 ":" LOG_FMT_32 "]", ramdev_module->mod_start,
             ramdev_module->mod_end);
 
@@ -308,7 +308,7 @@ void kernel_task_timer(void *data)
 
     while (1) {
         timer_wait_ms(1000);
-        log_info("Elapsed miliseconds: %d", gettime());
+        log_info("Elapsed miliseconds: %lld", gettime());
     }
 }
 

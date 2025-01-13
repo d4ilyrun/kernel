@@ -300,7 +300,7 @@ static error_t rtl8139_probe(struct device *dev)
     error_t ret;
 
     if (pdev->bars[RTL8139_PCI_BAR_MEM].size != RTL8139_REGISTERS_SIZE) {
-        log_err("invalid register size: %d", pdev->bars[0].size);
+        log_err("invalid register size: %ld", pdev->bars[0].size);
         return E_INVAL;
     }
 

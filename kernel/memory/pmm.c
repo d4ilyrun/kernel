@@ -170,9 +170,9 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
         }
     }
 
-    log_info("Found %ld available pageframes (~%ldMiB)", available_pageframes,
+    log_info("Found %d available pageframes (~%dMiB)", available_pageframes,
              (available_pageframes * PAGE_SIZE) / (2 << 19));
-    log_dbg("Total pageframes: %ld", TOTAL_PAGEFRAMES_COUNT);
+    log_dbg("Total pageframes: %lld", TOTAL_PAGEFRAMES_COUNT);
     log_dbg("First available pageframe: " LOG_FMT_32,
             g_pmm_allocator.first_available);
 
@@ -278,7 +278,7 @@ void pmm_free_pages(paddr_t pageframe, size_t size)
                        KERNEL_CODE_END, KERNEL_CODE_START)) {
         log_err("Trying to free kernel code pages: [" LOG_FMT_32 "-" LOG_FMT_32
                 "]",
-                pageframe, pageframe + size);
+                pageframe, pageframe + (native_t)size);
         return;
     }
 

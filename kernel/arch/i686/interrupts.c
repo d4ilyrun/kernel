@@ -189,10 +189,10 @@ void idt_log(void)
         if (interrupt.segment.raw == 0)
             continue; // Uninitialized
 
-        printk(LOG_FMT_8 " = { offset: " LOG_FMT_32 ", segment: " LOG_FMT_16
+        printk("%ld = { offset: " LOG_FMT_32 ", segment: " LOG_FMT_16
                          ", access: " LOG_FMT_8 " } <%s>\n",
                i, interrupt.offset_low | (interrupt.offset_high << 16),
-               interrupt.segment, interrupt.access, interrupts_to_str(i));
+               interrupt.segment.raw, interrupt.access, interrupts_to_str(i));
     }
 }
 
@@ -206,7 +206,7 @@ void default_interrupt_handler(interrupt_frame frame)
     if (handler->handler == NULL) {
         log_err("Unsupported interrupt: %s (" LOG_FMT_32 ")",
                 interrupts_to_str(frame.nr), frame.nr);
-        log_dbg("Process: '%s' (PID=%ld)", current_process->name,
+        log_dbg("Process: '%s' (PID=%d)", current_process->name,
                 current_process->pid);
         log_dbg("ERROR=" LOG_FMT_32, frame.error);
         log_dbg("FLAGS=" LOG_FMT_32, frame.state.flags);
