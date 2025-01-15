@@ -1,3 +1,5 @@
+#define LOG_DOMAIN "ethernet"
+
 #include <kernel/devices/ethernet.h>
 #include <kernel/logger.h>
 #include <kernel/net.h>
@@ -35,7 +37,7 @@ error_t ethernet_receive_packet(struct packet *packet)
     case ETH_PROTO_ARP:
         return arp_receive_packet(packet);
     case ETH_PROTO_IP:
-        log_warn("eth", "Not implemented: IPv4");
+        log_warn("Not implemented: IPv4");
         return E_NOT_IMPLEMENTED;
     }
 

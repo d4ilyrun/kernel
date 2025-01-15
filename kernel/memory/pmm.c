@@ -1,3 +1,5 @@
+#define PFX_DOMAIN "pmm"
+
 #include <kernel/cpu.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
@@ -120,14 +122,14 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
     }
 
     if (mmap == NULL) {
-        log_err("PMM", "Could not find memory map");
+        log_err("Could not find memory map");
         return false;
     }
 
     // Mark all pages as UNAVAILABLE
     memset(g_pmm_free_bitmap, PMM_UNAVAILABLE, sizeof(g_pmm_free_bitmap));
 
-    log_info("PMM", "Memory ranges:");
+    log_info("Memory ranges:");
 
     // Count the number of availabe pageframes
     u32 available_pageframes = 0;
@@ -137,7 +139,7 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
 
         if (entry->type == MULTIBOOT_MEMORY_AVAILABLE ||
             entry->type == MULTIBOOT_MEMORY_RESERVED) {
-            log_info("PMM", "  %s [" LOG_FMT_32 "-" LOG_FMT_32 "]",
+            log_info("  %s [" FMT32 "-" FMT32 "]",
                      (entry->type == MULTIBOOT_MEMORY_RESERVED) ? "reserved "
                                                                 : "available",
                      (uint32_t)entry->addr,
@@ -168,11 +170,10 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
         }
     }
 
-    log_info("PMM", "Found %ld available pageframes (~%ldMiB)",
-             available_pageframes,
+    log_info("Found %d available pageframes (~%dMiB)", available_pageframes,
              (available_pageframes * PAGE_SIZE) / (2 << 19));
-    log_dbg("PMM", "Total pageframes: %ld", TOTAL_PAGEFRAMES_COUNT);
-    log_dbg("PMM", "First available pageframe: " LOG_FMT_32,
+    log_dbg("Total pageframes: %lld", TOTAL_PAGEFRAMES_COUNT);
+    log_dbg("First available pageframe: " FMT32,
             g_pmm_allocator.first_available);
 
     return true;
@@ -204,7 +205,7 @@ static void pmm_allocator_allocate_at(pmm_frame_allocator *allocator,
 
 bool pmm_init(struct multiboot_info *mbt)
 {
-    log_info("PMM", "Initializing pageframe allocator");
+    log_info("Initializing pageframe allocator");
 
     if (!pmm_initialize_bitmap(mbt)) {
         return false;
@@ -230,12 +231,12 @@ paddr_t pmm_allocate_pages(size_t size, int flags)
     UNUSED(flags);
 
     if (!allocator->initialized) {
-        log_err("PMM", "Trying to allocate using an uninitialized allocator");
+        log_err("Trying to allocate using an uninitialized allocator");
         return PMM_INVALID_PAGEFRAME;
     }
 
     if (allocator->first_available == PMM_INVALID_PAGEFRAME) {
-        log_err("PMM", "No available pageframe left");
+        log_err("No available pageframe left");
         return PMM_INVALID_PAGEFRAME;
     }
 
@@ -275,17 +276,15 @@ void pmm_free_pages(paddr_t pageframe, size_t size)
     if (RANGES_OVERLAP(KERNEL_HIGHER_HALF_VIRTUAL(pageframe),
                        KERNEL_HIGHER_HALF_VIRTUAL(pageframe) + size,
                        KERNEL_CODE_END, KERNEL_CODE_START)) {
-        log_err("PMM",
-                "Trying to free kernel code pages: [" LOG_FMT_32 "-" LOG_FMT_32
+        log_err("Trying to free kernel code pages: [" FMT32 "-" FMT32
                 "]",
-                pageframe, pageframe + size);
+                pageframe, pageframe + (native_t)size);
         return;
     }
 
     if (pageframe % PAGE_SIZE) {
-        log_err("PMM",
-                "free: pageframe physical address is not aligned on "
-                "pagesize: " LOG_FMT_32,
+        log_err("free: pageframe physical address is not aligned on "
+                "pagesize: " FMT32,
                 pageframe);
         return;
     }

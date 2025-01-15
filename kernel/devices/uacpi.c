@@ -8,6 +8,8 @@
  * https://github.com/UltraOS/uACPI?tab=readme-ov-file#3-implement-kernel-api
  */
 
+#define LOG_DOMAIN "uacpi"
+
 #include <kernel/cpu.h>
 #include <kernel/devices/timer.h>
 #include <kernel/interrupts.h>
@@ -218,7 +220,7 @@ uacpi_handle uacpi_kernel_create_spinlock(void)
 {
     spinlock_t *spinlock = kmalloc(sizeof(*spinlock), KMALLOC_DEFAULT);
     if (spinlock == NULL) {
-        log_err("uacpi", "Failed to allocate spinlock");
+        log_err("Failed to allocate spinlock");
         return NULL;
     }
 
@@ -323,19 +325,17 @@ void uacpi_kernel_vlog(uacpi_log_level level, const uacpi_char *format,
 
     switch (level) {
     case UACPI_LOG_DEBUG:
-        log_vlog(ANSI_DBG "DEBUG" ANSI_RESET " ", "uacpi", format, va_args);
-        break;
     case UACPI_LOG_TRACE:
-        log_vlog(ANSI_INFO "TRACE" ANSI_RESET " ", "uacpi", format, va_args);
+        log_vlog(LOG_LEVEL_DEBUG, "uacpi", format, va_args);
         break;
     case UACPI_LOG_INFO:
-        log_vlog(ANSI_INFO "INFO" ANSI_RESET "  ", "uacpi", format, va_args);
+        log_vlog(LOG_LEVEL_INFO, "uacpi", format, va_args);
         break;
     case UACPI_LOG_WARN:
-        log_vlog(ANSI_WARN "WARN" ANSI_RESET "  ", "uacpi", format, va_args);
+        log_vlog(LOG_LEVEL_WARN, "uacpi", format, va_args);
         break;
     case UACPI_LOG_ERROR:
-        log_vlog(ANSI_ERR "ERROR" ANSI_RESET " ", "uacpi", format, va_args);
+        log_vlog(LOG_LEVEL_ERR, "uacpi", format, va_args);
         break;
     }
 }
@@ -440,8 +440,7 @@ uacpi_status uacpi_kernel_pci_write(uacpi_pci_address *address,
 
 /* ----- UNIMPLEMENTED uACPI FUNCTIONS ----- */
 
-#define WARN_UNIMPLEMENTED() \
-    log_warn("uacpi", "Unimplemented: %s", __FUNCTION__);
+#define WARN_UNIMPLEMENTED() log_warn("Unimplemented: %s", __FUNCTION__);
 
 uacpi_status uacpi_kernel_handle_firmware_request(uacpi_firmware_request *req)
 {

@@ -18,7 +18,7 @@ static const char *const ERROR_DESCRIPTIONS[E_TOTAL_COUNT] = {
 const char *err_to_str(error_t err)
 {
     if (err >= E_TOTAL_COUNT) {
-        log_dbg("errors", "Invalid error code %d", err);
+        log_dbg("Invalid error code %d", err);
         return "Invalid error code";
     }
 

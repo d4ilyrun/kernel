@@ -1,4 +1,6 @@
+#include <kernel/console.h>
 #include <kernel/devices/uart.h>
+#include <kernel/printk.h>
 #include <kernel/types.h>
 
 #include <utils/compiler.h>
@@ -6,10 +8,14 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdio.h>
 
 static_assert(sizeof(int) == sizeof(long), "Unsupported architecture: "
                                            "sizeof(long) != sizeof(int)");
+
+#define BUFFER_SIZE 64
+
+static char printk_buffer[BUFFER_SIZE];
+static size_t printk_buffer_index = 0;
 
 #define TOK_DELIMITER '%'
 
@@ -75,11 +81,26 @@ typedef struct {
     unsigned int field_with; ///< man 3 printf: Field width
     precision_t precision;
     bool capitalize; ///< For %X conversions
-} printf_ctx_t;
+} printk_ctx_t;
 
 static inline bool __attribute__((always_inline)) isdigit(char c)
 {
     return '0' <= (c) && (c) <= '9';
+}
+
+static void printk_buffer_flush(void)
+{
+    console_write(printk_buffer, printk_buffer_index);
+    printk_buffer_index = 0;
+}
+
+static void printk_buffer_put(char c)
+{
+    if (printk_buffer_index == BUFFER_SIZE - 1) {
+        printk_buffer_flush();
+    }
+
+    printk_buffer[printk_buffer_index++] = c;
 }
 
 /// PRINTERS
@@ -91,17 +112,21 @@ static inline bool __attribute__((always_inline)) isdigit(char c)
 /// after we are done with the PARSERS functions.
 
 static inline void __attribute__((always_inline))
-printf_char(register char c, int *written)
+printk_char(register char c, int *written)
 {
-    uart_putc(c);
+    printk_buffer_put(c);
+
+    if (c == '\n' || c == '\r')
+        printk_buffer_flush();
+
     *written += 1;
 }
 
 // NOLINTNEXTLINE(misc-no-recursion)
-static void printf_puts(register char *str, printf_ctx_t *ctx, int *written)
+static void printk_puts(register char *str, printk_ctx_t *ctx, int *written)
 {
     if (str == NULL) {
-        printf_puts("(null)", NULL, written);
+        printk_puts("(null)", NULL, written);
         return;
     }
 
@@ -109,13 +134,13 @@ static void printf_puts(register char *str, printf_ctx_t *ctx, int *written)
         // precision: the maximum number of character to be printed
         if (ctx && ctx->precision.present && ctx->precision.precision-- == 0)
             break;
-        printf_char(*str++, written);
+        printk_char(*str++, written);
     }
 }
 
-static void printf_utoa_base(register unsigned long long x,
+static void printk_utoa_base(register unsigned long long x,
                              register unsigned int base,
-                             const printf_ctx_t *ctx, int *written)
+                             const printk_ctx_t *ctx, int *written)
 {
     static const char *digits[2] = {
         "0123456789abcdef",
@@ -145,7 +170,7 @@ static void printf_utoa_base(register unsigned long long x,
     if (ctx->flags.alternate_form) {
         switch (base) {
         case 2:
-            printf_char('b', written);
+            printk_char('b', written);
             break;
         case 8:
             // For o conversions, the first character of the output string
@@ -156,13 +181,13 @@ static void printf_utoa_base(register unsigned long long x,
                 ctx->flags.pad_char == PADDING_ZERO &&
                 total_length < ctx->field_with)
                 break;
-            printf_char('0', written);
+            printk_char('0', written);
             break;
         case 16:
             if (ctx->capitalize)
-                printf_puts("0X", NULL, written);
+                printk_puts("0X", NULL, written);
             else
-                printf_puts("0x", NULL, written);
+                printk_puts("0x", NULL, written);
             break;
         default:
             break;
@@ -172,34 +197,34 @@ static void printf_utoa_base(register unsigned long long x,
     if (ctx->flags.pad_side == PADDING_RIGHT) {
         // prepend enough '0' to match minimum precision
         while (length++ < total_length)
-            printf_char('0', written);
+            printk_char('0', written);
         while (++c != &buf[MAXBUF])
-            printf_char(*c, written);
+            printk_char(*c, written);
     }
 
     if (total_length < ctx->field_with) {
         for (unsigned int i = total_length; i < ctx->field_with; ++i)
-            printf_char(ctx->flags.pad_char, written);
+            printk_char(ctx->flags.pad_char, written);
     }
 
     if (ctx->flags.pad_side == PADDING_LEFT) {
         // prepend enough '0' to match minimum precision
         while (length++ < total_length)
-            printf_char('0', written);
+            printk_char('0', written);
         while (++c != &buf[MAXBUF])
-            printf_char(*c, written);
+            printk_char(*c, written);
     }
 }
 
-static void printf_itoa(register int x, const printf_ctx_t *ctx, int *written)
+static void printk_itoa(register int x, const printk_ctx_t *ctx, int *written)
 {
     if (x < 0) {
-        printf_char('-', written);
-        printf_utoa_base(-x, 10, ctx, written);
+        printk_char('-', written);
+        printk_utoa_base(-x, 10, ctx, written);
     } else {
         if (ctx->flags.sign_character != SIGN_MINUS_ONLY)
-            printf_char(ctx->flags.sign_character, written);
-        printf_utoa_base(x, 10, ctx, written);
+            printk_char(ctx->flags.sign_character, written);
+        printk_utoa_base(x, 10, ctx, written);
     }
 }
 
@@ -208,7 +233,7 @@ static void printf_itoa(register int x, const printf_ctx_t *ctx, int *written)
 /// These functions are used to parse the printing context from the
 /// given format (padding, flags, size of fields, ...).
 
-static flags_t printf_flags_characters(const char *format, int *index)
+static flags_t printk_flags_characters(const char *format, int *index)
 {
     flags_t flags = {
         .pad_char = PADDING_SPACE,
@@ -251,7 +276,7 @@ static flags_t printf_flags_characters(const char *format, int *index)
     return flags;
 }
 
-static unsigned int printf_field_width(const char *format, int *index)
+static unsigned int printk_field_width(const char *format, int *index)
 {
     unsigned int width = 0;
 
@@ -263,7 +288,7 @@ static unsigned int printf_field_width(const char *format, int *index)
     return width;
 }
 
-static precision_t printf_precision(const char *format, int *index)
+static precision_t printk_precision(const char *format, int *index)
 {
     precision_t precision = {
         .present = false,
@@ -288,7 +313,7 @@ static precision_t printf_precision(const char *format, int *index)
 
         *index += 1;
         if (isdigit(format[*index])) {
-            precision.argument = printf_field_width(format, index);
+            precision.argument = printk_field_width(format, index);
             if (format[*(index++)] != '$')
                 precision.invalid = true;
         }
@@ -306,7 +331,7 @@ static precision_t printf_precision(const char *format, int *index)
         __attribute__((fallthrough));
 
     default:
-        precision.precision = printf_field_width(format, index);
+        precision.precision = printk_field_width(format, index);
         break;
     }
 
@@ -316,7 +341,7 @@ static precision_t printf_precision(const char *format, int *index)
     return precision;
 }
 
-static length_modifier_t printf_length_modifiers(const char *format, int *index)
+static length_modifier_t printk_length_modifiers(const char *format, int *index)
 {
     length_modifier_t length = {0};
 
@@ -359,30 +384,30 @@ static length_modifier_t printf_length_modifiers(const char *format, int *index)
     return length;
 }
 
-static void printf_unsigned(register int base, va_list *parameters,
-                            const printf_ctx_t *ctx, int *written)
+static void printk_unsigned(register int base, va_list *parameters,
+                            const printk_ctx_t *ctx, int *written)
 {
     // Here we know that sizeof(int) == sizeof(long) anyway and skip the
     // case were we only have a single 'l' modifier (cf. static_assert)
     if (ctx->length.ell >= 2)
-        printf_utoa_base(va_arg(*parameters, unsigned long long), base, ctx,
+        printk_utoa_base(va_arg(*parameters, unsigned long long), base, ctx,
                          written);
     else if (ctx->length.h == 1)
-        printf_utoa_base((unsigned short)va_arg(*parameters, unsigned int),
+        printk_utoa_base((unsigned short)va_arg(*parameters, unsigned int),
                          base, ctx, written);
     else if (ctx->length.h >= 2)
-        printf_utoa_base((unsigned char)va_arg(*parameters, unsigned int), base,
+        printk_utoa_base((unsigned char)va_arg(*parameters, unsigned int), base,
                          ctx, written);
     else if (ctx->length.z)
-        printf_utoa_base(va_arg(*parameters, size_t), base, ctx, written);
+        printk_utoa_base(va_arg(*parameters, size_t), base, ctx, written);
     else if (ctx->length.t)
-        printf_utoa_base(va_arg(*parameters, ptrdiff_t), base, ctx, written);
+        printk_utoa_base(va_arg(*parameters, ptrdiff_t), base, ctx, written);
     else
-        printf_utoa_base(va_arg(*parameters, unsigned int), base, ctx, written);
+        printk_utoa_base(va_arg(*parameters, unsigned int), base, ctx, written);
 }
 
 static int
-printf_step(char c, int *written, va_list *parameters, printf_ctx_t *ctx)
+printk_step(char c, int *written, va_list *parameters, printk_ctx_t *ctx)
 {
     switch (c) {
 
@@ -391,21 +416,21 @@ printf_step(char c, int *written, va_list *parameters, printf_ctx_t *ctx)
     // static_assert)
     case TOK_DECIMAL:
         if (ctx->length.ell < 2)
-            printf_itoa(va_arg(*parameters, int), ctx, written);
+            printk_itoa(va_arg(*parameters, int), ctx, written);
         else if (ctx->length.z)
-            printf_itoa(va_arg(*parameters, ssize_t), ctx, written);
+            printk_itoa(va_arg(*parameters, ssize_t), ctx, written);
         else if (ctx->length.t)
-            printf_itoa(va_arg(*parameters, ptrdiff_t), ctx, written);
+            printk_itoa(va_arg(*parameters, ptrdiff_t), ctx, written);
         else
-            printf_itoa(va_arg(*parameters, long long), ctx, written);
+            printk_itoa(va_arg(*parameters, long long), ctx, written);
         break;
 
     case TOK_UNSIGNED:
-        printf_unsigned(10, parameters, ctx, written);
+        printk_unsigned(10, parameters, ctx, written);
         break;
 
     case TOK_OCTAL:
-        printf_unsigned(8, parameters, ctx, written);
+        printk_unsigned(8, parameters, ctx, written);
         break;
 
     case TOK_HEX_CAPITALIZED:
@@ -413,28 +438,28 @@ printf_step(char c, int *written, va_list *parameters, printf_ctx_t *ctx)
         __attribute__((fallthrough));
 
     case TOK_HEX:
-        printf_unsigned(16, parameters, ctx, written);
+        printk_unsigned(16, parameters, ctx, written);
         break;
 
     case TOK_BINARY:
-        printf_unsigned(2, parameters, ctx, written);
+        printk_unsigned(2, parameters, ctx, written);
         break;
 
     case TOK_POINTER:
-        printf_utoa_base((unsigned int)va_arg(*parameters, void *), 16, ctx,
+        printk_utoa_base((unsigned int)va_arg(*parameters, void *), 16, ctx,
                          written);
         break;
 
     case TOK_STR:
-        printf_puts(va_arg(*parameters, char *), ctx, written);
+        printk_puts(va_arg(*parameters, char *), ctx, written);
         break;
 
     case TOK_ASCII:
-        printf_char(va_arg(*parameters, int), written);
+        printk_char(va_arg(*parameters, int), written);
         break;
 
     case TOK_ESCAPE:
-        printf_char(TOK_DELIMITER, written);
+        printk_char(TOK_DELIMITER, written);
         break;
 
     default:
@@ -451,7 +476,7 @@ printf_step(char c, int *written, va_list *parameters, printf_ctx_t *ctx)
 /// They use both the PARSERS and the PRINTERS to print the final
 /// result.
 
-int vprintf(const char *format, va_list parameters)
+int vprintk(const char *format, va_list parameters)
 {
     int written = 0;
     int error = 0;
@@ -463,7 +488,7 @@ int vprintf(const char *format, va_list parameters)
 
         // Also print in case we reached the end of the format string
         if (c != TOK_DELIMITER) {
-            printf_char(c, &written);
+            printk_char(c, &written);
             continue;
         }
 
@@ -474,12 +499,12 @@ int vprintf(const char *format, va_list parameters)
         // Refer to man 3 printf and the corresponding parsers for more
         // detailed explanations.
 
-        const flags_t flags = printf_flags_characters(format, &i);
-        const unsigned int width = printf_field_width(format, &i);
-        const precision_t precision = printf_precision(format, &i);
-        const length_modifier_t length = printf_length_modifiers(format, &i);
+        const flags_t flags = printk_flags_characters(format, &i);
+        const unsigned int width = printk_field_width(format, &i);
+        const precision_t precision = printk_precision(format, &i);
+        const length_modifier_t length = printk_length_modifiers(format, &i);
 
-        printf_ctx_t ctx = (printf_ctx_t){
+        printk_ctx_t ctx = (printk_ctx_t){
             .invalid = flags.invalid || length.invalid || precision.invalid,
             .flags = flags,
             .length = length,
@@ -492,8 +517,8 @@ int vprintf(const char *format, va_list parameters)
             continue;
         }
 
-        if (printf_step(format[i], &written, &parameters, &ctx) == -1) {
-            printf_char(format[i], &written);
+        if (printk_step(format[i], &written, &parameters, &ctx) == -1) {
+            printk_char(format[i], &written);
             error = 1;
             continue;
         }
@@ -504,11 +529,11 @@ int vprintf(const char *format, va_list parameters)
     return error ? -1 : written;
 }
 
-int printf(const char *format, ...)
+int printk(const char *format, ...)
 {
     va_list parameters;
     va_start(parameters, format);
-    int res = vprintf(format, parameters);
+    int res = vprintk(format, parameters);
     va_end(parameters);
     return res;
 }

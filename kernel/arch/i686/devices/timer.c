@@ -13,6 +13,8 @@
  * @{
  */
 
+#define LOG_DOMAIN "timer"
+
 #include <kernel/cpu.h>
 #include <kernel/devices/timer.h>
 #include <kernel/error.h>
@@ -72,8 +74,8 @@ static DEFINE_INTERRUPT_HANDLER(irq_timer)
     UNUSED(data);
 
     if (timer_ticks_counter == UINT64_MAX) {
-        log_warn("TIMER", "The internal timer has reached its max capacity.");
-        log_warn("TIMER", "THIS WILL CAUSE AN OVERFLOW!");
+        log_warn("The internal timer has reached its max capacity.");
+        log_warn("THIS WILL CAUSE AN OVERFLOW!");
     }
 
     timer_ticks_counter += 1;

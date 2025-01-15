@@ -1,3 +1,5 @@
+#define LOG_DOMAIN "rtl8139"
+
 #include <kernel/devices/ethernet.h>
 #include <kernel/devices/pci.h>
 #include <kernel/kmalloc.h>
@@ -214,7 +216,7 @@ static error_t rtl8139_receive_packet(struct rtl8139 *rtl8139)
      */
     packet = packet_new(packet_length);
     if (IS_ERR(packet)) {
-        log_warn("rtl8139", "failed to copy received packet's content");
+        log_warn("failed to copy received packet's content");
         ret = ERR_FROM_PTR(packet);
     } else {
         packet->netdev = rtl8139->netdev;
@@ -298,12 +300,12 @@ static error_t rtl8139_probe(struct device *dev)
     error_t ret;
 
     if (pdev->bars[RTL8139_PCI_BAR_MEM].size != RTL8139_REGISTERS_SIZE) {
-        log_err("rtl8139", "invalid register size: %d", pdev->bars[0].size);
+        log_err("invalid register size: %ld", pdev->bars[0].size);
         return E_INVAL;
     }
 
     if (pdev->bars[RTL8139_PCI_BAR_MEM].type != PCI_BAR_MEMORY) {
-        log_err("rtl8139", "invalid register type");
+        log_err("invalid register type");
         return E_INVAL;
     }
 
@@ -333,7 +335,7 @@ static error_t rtl8139_probe(struct device *dev)
 
     tx_cfg = rtl8139_readl(rtl8139, TRANSMIT_CFG);
     if (!rtl8139_is_rev_supported(tx_cfg & RTL8139_REV_MASK)) {
-        log_err("rtl8139", "invalid revision: %x", tx_cfg & RTL8139_REV_MASK);
+        log_err("invalid revision: %x", tx_cfg & RTL8139_REV_MASK);
         ethernet_device_free(eth_dev);
         return E_NOT_SUPPORTED;
     }
@@ -348,7 +350,7 @@ static error_t rtl8139_probe(struct device *dev)
      */
     rx_buffer = kmalloc_dma(RTL8139_RX_BUFFER_SIZE + RTL8139_MTU);
     if (rx_buffer == NULL) {
-        log_err("rtl8139", "Failed to allocate RX FIFO");
+        log_err("Failed to allocate RX FIFO");
         ethernet_device_free(eth_dev);
         return E_NOMEM;
     }

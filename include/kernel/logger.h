@@ -8,13 +8,20 @@
  *
  * ## Usage
  *
- * When using the logger, one must specify a domain
- * used as a prefix to the message.
+ * When using the logger, one must specify a domain used as a prefix for the
+ * message. The domain name is specified by defining the LOG_DOMAIN macro. If
+ * this macro is not defined, no prefix will be prefixed to the message.
  *
- * For example, when logging an error related to serial devices,
- * the caller could call the logger the following way:
+ * For example, when logging an error related to serial devices, the caller
+ * could include this header file as follows:
  *
- *   log_err("serial", "error message goes here");
+ * @code
+ * #define LOG_DOMAIN "serial"
+ * #include <kernel/logger.h>
+ *
+ * // Then call one of the provided log function
+ * log_err("error message goes here");
+ * @endcode
  *
  * @{
  */
@@ -24,20 +31,35 @@
 
 #include <kernel/cpu.h> // read_esp
 
+#include <utils/compiler.h>
 #include <utils/stringify.h>
 
-#define LOG_FMT_8 "%#02hhx"
-#define LOG_FMT_16 "%#04hx"
-#define LOG_FMT_32 "%#08x"
-#define LOG_FMT_64 "%#016llx"
+#ifndef LOG_DOMAIN
+#define LOG_DOMAIN NULL
+#endif
 
-#define ANSI_ERR "\033[31;1;4m"
-#define ANSI_WARN "\033[33;1m"
-#define ANSI_DBG "\033[36m"
-#define ANSI_INFO "\033[39m"
+#define FMT8 "%#02hhx"
+#define FMT16 "%#04hx"
+#define FMT32 "%#08x"
+#define FMT64 "%#016llx"
+
+#include <kernel/printk.h>
+
+/** @brief The different available logging levels
+ *  @note The lower a level numerical representation is the more important it is
+ */
+enum log_level {
+    LOG_LEVEL_ERR,   /** error messages */
+    LOG_LEVEL_WARN,  /** warning messages*/
+    LOG_LEVEL_INFO,  /** standard messages */
+    LOG_LEVEL_DEBUG, /** debug messages */
+
+    /* Used for indexing purposes only */
+    LOG_LEVEL_COUNT,
+    LOG_LEVEL_ALL = LOG_LEVEL_COUNT,
+};
+
 #define ANSI_RESET "\033[0m"
-
-#include <stdio.h>
 
 /**
  * @brief Print a log message onto the terminal.
@@ -46,13 +68,14 @@
  * specified domain name. The latter will change color
  * depending on the logging level.
  *
- * @param type The prefixed log type
+ * @param level The level of the log
  * @param domain Used as a prefix to the error message.
  * @param msg The actual message
  */
-void log(const char *type, const char *domain, const char *msg, ...);
+FORMAT(printf, 3, 4)
+void log(enum log_level, const char *domain, const char *msg, ...);
 
-void log_vlog(const char *type, const char *domain, const char *msg,
+void log_vlog(enum log_level, const char *domain, const char *msg,
               va_list parameters);
 
 /**
@@ -69,6 +92,9 @@ void log_vlog(const char *type, const char *domain, const char *msg,
  */
 void panic(u32 esp, const char *msg, ...) __attribute__((__noreturn__));
 
+/** @brief Change the maximum log level to display */
+void log_set_level(enum log_level);
+
 /** @brief Call the panic function with the appropriate parameters */
 #define PANIC(...)                   \
     {                                \
@@ -78,25 +104,18 @@ void panic(u32 esp, const char *msg, ...) __attribute__((__noreturn__));
         } while (0);                 \
     }
 
-// TODO: LOG_LEVEL filter
-
 /**
- * @brief Print a log message to the kernel's console
- *
- * When printing a message, you must specify a domain. This domain name will be
- * used as a prefix to te message, and its color ill change depending on the
- * level of log used.
- *
+ * Print a log message to the kernel's console
  * @{
  */
-#define log_err(domain, ...) \
-    log(ANSI_ERR "ERROR" ANSI_RESET " ", domain, __VA_ARGS__)
-#define log_warn(domain, ...) \
-    log(ANSI_WARN "WARN" ANSI_RESET "  ", domain, __VA_ARGS__)
-#define log_dbg(domain, ...) \
-    log(ANSI_DBG "DEBUG" ANSI_RESET " ", domain, __VA_ARGS__)
-#define log_info(domain, ...) \
-    log(ANSI_INFO "INFO" ANSI_RESET "  ", domain, __VA_ARGS__)
+#define log_err(format, ...) \
+    log(LOG_LEVEL_ERR, LOG_DOMAIN, format __VA_OPT__(, ) __VA_ARGS__)
+#define log_warn(format, ...) \
+    log(LOG_LEVEL_WARN, LOG_DOMAIN, format __VA_OPT__(, ) __VA_ARGS__)
+#define log_info(format, ...) \
+    log(LOG_LEVEL_INFO, LOG_DOMAIN, format __VA_OPT__(, ) __VA_ARGS__)
+#define log_dbg(format, ...) \
+    log(LOG_LEVEL_DEBUG, LOG_DOMAIN, format __VA_OPT__(, ) __VA_ARGS__)
 /** @} */
 
 /**
@@ -104,38 +123,37 @@ void panic(u32 esp, const char *msg, ...) __attribute__((__noreturn__));
  *
  * The name of the variable will be prefixed to the message.
  *
- * There exists different version of this macro, dependin on the type (numeric
- * or string), and bit size (for numerics) of the variable.
+ * There exists different version of this macro, depending on the type
+ * (numeric or string), and bit size (for numerics) of the variable.
  *
  * @{
  */
 #define log_variable(_var) \
-    log_dbg("variable", "%s=" LOG_FMT_32, stringify(_var), _var)
+    log(LOG_LEVEL_DEBUG, "variable", "%s=" FMT32, stringify(_var), _var)
 #define log_variable_8(_var) \
-    log_dbg("variable", "%s=" LOG_FMT_8, stringify(_var), _var)
+    log(LOG_LEVEL_DEBUG, "variable", "%s=" FMT8, stringify(_var), _var)
 #define log_variable_16(_var) \
-    log_dbg("variable", "%s=" LOG_FMT_16, stringify(_var), _var)
+    log(LOG_LEVEL_DEBUG, "variable", "%s=" FMT16, stringify(_var), _var)
 #define log_variable_64(_var) \
-    log_dbg("variable", "%s=" LOG_FMT_64, stringify(_var), _var)
+    log(LOG_LEVEL_DEBUG, "variable", "%s=" FMT64, stringify(_var), _var)
 #define log_variable_str(_var) \
-    log_dbg("variable", "%s=%s", stringify(_var), _var)
+    log(LOG_LEVEL_DEBUG, "variable", "%s=%s", stringify(_var), _var)
 /** @} */
 
 /**
  * @brief Print the content of an array
  *
- * @param _domain log domain's string name
  * @param _arr The array to print
  * @param _len The number of elements inside the array
  * @param _fmt The format to use for the elements (LOG_FMT_*)
  */
-#define log_array_fmt(_domain, _arr, _len, _fmt) \
-    {                                            \
-        log_dbg(_domain, stringify(_arr));       \
-        printf("{ ");                            \
-        for (size_t i = 0; i < (_len); ++i)      \
-            printf("" _fmt ", ", (_arr)[i]);     \
-        printf("}\n");                           \
+#define log_array_fmt(_arr, _len, _fmt)      \
+    {                                        \
+        log_dbg(stringify(_arr));            \
+        printk("{ ");                        \
+        for (size_t i = 0; i < (_len); ++i)  \
+            printk("" _fmt ", ", (_arr)[i]); \
+        printk("}\n");                       \
     }
 
 /**
@@ -145,16 +163,15 @@ void panic(u32 esp, const char *msg, ...) __attribute__((__noreturn__));
  * types inside the array.
  *
  * @ref log_array_fmt
+ * @{
  */
-#define log_array(_domain, _arr, _len) \
-    log_array_fmt(_domain, _arr, _len, LOG_FMT_32)
-#define log_array_8(_domain, _arr, _len) \
-    log_array_fmt(_domain, _arr, _len, LOG_FMT_8)
-#define log_array_16(_domain, _arr, _len) \
-    log_array_fmt(_domain, _arr, _len, LOG_FMT_16)
-#define log_array_64(_domain, _arr, _len) \
-    log_array_fmt(_domain, _arr, _len, LOG_FMT_64)
-#define log_array_str(_domain, _arr, _len) \
-    log_array_fmt(_domain, _arr, _len, "%s")
+#define log_array(_arr, _len) log_array_fmt(_arr, _len, FMT32)
+#define log_array_8(_arr, _len) log_array_fmt(_arr, _len, FMT8)
+#define log_array_16(_arr, _len) log_array_fmt(_arr, _len, FMT16)
+#define log_array_64(_arr, _len) log_array_fmt(_arr, _len, FMT64)
+#define log_array_str(_arr, _len) log_array_fmt(_arr, _len, "%s")
+/** @} */
 
 #endif /* KERNEL_LOGGER_H */
+
+/** @} */

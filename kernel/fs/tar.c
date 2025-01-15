@@ -15,6 +15,9 @@
  *
  * @{
  */
+
+#define LOG_DOMAIN "tarfs"
+
 #include <kernel/error.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
@@ -114,7 +117,7 @@ static tar_node_t *tar_create_node(const path_segment_t *segment, hdr_t *header)
 {
     tar_node_t *new = kmalloc(sizeof(tar_node_t), KMALLOC_KERNEL);
     if (new == NULL) {
-        log_err("tarfs", "Failed to allocate memory for a new node (%s)",
+        log_err("Failed to allocate memory for a new node (%s)",
                 segment->start);
         return PTR_ERR(E_NOMEM);
     }
@@ -123,7 +126,7 @@ static tar_node_t *tar_create_node(const path_segment_t *segment, hdr_t *header)
     char *name = kmalloc(name_len + 1, KMALLOC_KERNEL);
     if (name == NULL) {
         kfree(new);
-        log_err("tarfs", "Failed to allocate memory for a new node (%s)",
+        log_err("Failed to allocate memory for a new node (%s)",
                 segment->start);
         return PTR_ERR(E_NOMEM);
     }
@@ -316,8 +319,7 @@ static vfs_ops_t tar_vfs_ops = {
 
 vfs_t *tar_new(u32 start, u32 end)
 {
-    log_info("tarfs", "mounting from [" LOG_FMT_32 ":" LOG_FMT_32 "]", start,
-             end);
+    log_info("mounting from [" FMT32 ":" FMT32 "]", start, end);
 
     vfs_t *vfs = kcalloc(1, sizeof(vfs_t), KMALLOC_KERNEL);
     if (vfs == NULL)

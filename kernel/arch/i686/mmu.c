@@ -47,6 +47,8 @@
  * @{
  */
 
+#define LOG_DOMAIN "mmu"
+
 #include <kernel/cpu.h>
 #include <kernel/error.h>
 #include <kernel/logger.h>
@@ -187,7 +189,7 @@ bool mmu_init(void)
     paddr_t page_table;
 
     if (paging_enabled) {
-        log_warn("MMU", "Trying to re-enable paging. Skipping.");
+        log_warn("Trying to re-enable paging. Skipping.");
         return false;
     }
 
@@ -258,7 +260,7 @@ paddr_t mmu_new_page_directory(void)
     page_directory_t new = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
                                 MAP_CLEAR);
     if (new == NULL) {
-        log_err("MMU", "Failed to allocate page for the new page directory");
+        log_err("Failed to allocate page for the new page directory");
         return -E_NOMEM;
     }
 
@@ -323,8 +325,7 @@ bool mmu_map(vaddr_t virtual, vaddr_t pageframe, int prot)
         memset((void *)page_table, 0, PAGE_SIZE);
 
     if (page_table[address.pte].present) {
-        log_err("MMU",
-                "Allocating already allocated virtual address: " LOG_FMT_32,
+        log_err("Allocating already allocated virtual address: " FMT32,
                 virtual);
         return false;
     }
@@ -345,7 +346,7 @@ bool mmu_map_range(vaddr_t virtual, paddr_t physical, size_t size, int prot)
     size_t range;
 
     if (size % PAGE_SIZE) {
-        log_warn("MMU", "map_range: the range's size must be page-aligned");
+        log_warn("map_range: the range's size must be page-aligned");
         return false;
     }
 

@@ -1,3 +1,5 @@
+#define LOG_DOMAIN "driver"
+
 #include <kernel/device.h>
 #include <kernel/devices/driver.h>
 #include <kernel/kmalloc.h>
@@ -42,7 +44,7 @@ void driver_load_drivers(void)
 
 void driver_register(driver_t *driver)
 {
-    log_dbg("driver", "loading driver '%s'", driver->name);
+    log_dbg("loading driver '%s'", driver->name);
     llist_add(&loaded_drivers, &driver->this);
 }
 
@@ -50,9 +52,8 @@ error_t driver_probe(driver_t *driver, device_t *device)
 {
     error_t status = driver->operations.probe(device);
     if (status) {
-        log_variable(driver->name);
-        log_warn("driver", "Failed to probe '%s': %s", driver->name,
-                 err_to_str(status));
+        log_variable_str(driver->name);
+        log_warn("Failed to probe '%s': %s", driver->name, err_to_str(status));
     }
 
     return status;

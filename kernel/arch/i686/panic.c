@@ -2,6 +2,7 @@
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/memory.h>
+#include <kernel/printk.h>
 #include <kernel/process.h>
 #include <kernel/symbols.h>
 
@@ -11,7 +12,6 @@
 
 #include <stdarg.h>
 #include <stddef.h>
-#include <stdio.h>
 
 #define KERNEL_PANIC_STACK_DUMP_SIZE 64
 
@@ -22,8 +22,8 @@ struct stackframe_t {
 
 static void panic_dump_process(void)
 {
-    log_err("PROC", "%s (PID: %d)", current_process->name,
-            current_process->pid);
+    log(LOG_LEVEL_ERR, "PROC", "%s (PID: %d)", current_process->name,
+        current_process->pid);
 }
 
 static void panic_dump_registers(void)
@@ -31,11 +31,14 @@ static void panic_dump_registers(void)
     // We only dump useful registers, or else it will become unreadable
     // Registers deemed "useful" are subject to change in the future
 
-    log_err("REGS", "Summary of registers");
+    log(LOG_LEVEL_ERR, "REGS", "Summary of registers");
 
-    log_err("REGS", "CR0=" LOG_FMT_32 " CR2=" LOG_FMT_32 " CR3=" LOG_FMT_32,
-            read_cr0(), read_cr2(), read_cr3());
-    log_err("REGS", "CS=" LOG_FMT_16 " SS=" LOG_FMT_16, read_cs(), read_ss());
+    log(LOG_LEVEL_ERR, "REGS",
+        "CR0=" FMT32 " CR2=" FMT32 " CR3=" FMT32, read_cr0(),
+        read_cr2(), read_cr3());
+
+    log(LOG_LEVEL_ERR, "REGS", "CS=" FMT16 " SS=" FMT16, read_cs(),
+        read_ss());
 }
 
 static void panic_unwind_stack(void)
@@ -47,7 +50,7 @@ static void panic_unwind_stack(void)
     struct stackframe_t *frame = __builtin_frame_address(0);
 
     if (frame == NULL) {
-        log_err("TRACE", "Corrupted stack frame.");
+        log(LOG_LEVEL_ERR, "TRACE", "Corrupted stack frame.");
         return;
     }
 
@@ -65,21 +68,23 @@ static void panic_unwind_stack(void)
         // attribute noreturn
         const kernel_symbol_t *symbol = kernel_symbol_from_address(frame->eip -
                                                                    sizeof(u16));
-        log_err("TRACE", "#%d  " LOG_FMT_32 " in <%s%+d>", i, frame->eip,
-                kernel_symbol_name(symbol), frame->eip - symbol->address);
+        log(LOG_LEVEL_ERR, "TRACE", "#%d  " FMT32 " in <%s%+d>", i,
+            frame->eip, kernel_symbol_name(symbol),
+            frame->eip - symbol->address);
     }
 }
 
 static void panic_dump_stack(u32 esp, u32 size)
 {
-    log_err("STACK", "** start of stack: at esp=" LOG_FMT_32 " **", esp);
+    log(LOG_LEVEL_ERR, "STACK", "** start of stack: at esp=" FMT32 " **",
+        esp);
 
     for (u32 offset = 0; offset < size; offset += sizeof(u32)) {
-        log_err("STACK", "esp+%-3d: " LOG_FMT_32, offset,
+        log_err("esp+%-3d: " FMT32, offset,
                 *(volatile u32 *)(esp + offset));
     }
 
-    log_err("STACK", "** end of stack **");
+    log(LOG_LEVEL_ERR, "STACK", "** end of stack **");
 }
 
 void panic(u32 esp, const char *msg, ...)
@@ -89,26 +94,26 @@ void panic(u32 esp, const char *msg, ...)
     va_list parameters;
     va_start(parameters, msg);
 
-    printf("\n\033[31;1;4m!!! KERNEL PANIC !!!" ANSI_RESET "\033[31;1m\n\n");
-    vprintf(msg, parameters);
-    printf(ANSI_RESET "\n\n");
+    printk("\n\033[31;1;4m!!! KERNEL PANIC !!!" ANSI_RESET "\033[31;1m\n\n");
+    vprintk(msg, parameters);
+    printk(ANSI_RESET "\n\n");
 
     va_end(parameters);
 
     panic_dump_process();
-    printf("\n");
+    printk("\n");
 
     panic_dump_registers();
-    printf("\n");
+    printk("\n");
 
     panic_unwind_stack();
-    printf("\n");
+    printk("\n");
 
     panic_dump_stack(esp, KERNEL_PANIC_STACK_DUMP_SIZE);
-    printf("\n");
+    printk("\n");
 
     gdt_log();
-    printf("\n");
+    printk("\n");
 
     // Halt the kernel's execution
 

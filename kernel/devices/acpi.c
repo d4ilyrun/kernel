@@ -1,3 +1,5 @@
+#define LOG_DOMAIN "acpi"
+
 #include <kernel/devices/acpi.h>
 #include <kernel/devices/driver.h>
 #include <kernel/error.h>
@@ -37,7 +39,7 @@ error_t acpi_init(struct multiboot_info *mbt)
     }
 
     if (acpi_tag == NULL) {
-        log_err("acpi", "No ACPI tag present inside the multiboot structure");
+        log_err("No ACPI tag present inside the multiboot structure");
         return E_INVAL;
     }
 
@@ -50,28 +52,27 @@ error_t acpi_init(struct multiboot_info *mbt)
 
     ret = uacpi_initialize(&init_params);
     if (uacpi_unlikely_error(ret)) {
-        log_err("acpi", "Failed to initialize uACPI: %s",
-                uacpi_status_to_string(ret));
+        log_err("Failed to initialize uACPI: %s", uacpi_status_to_string(ret));
         return E_INVAL;
     }
 
     ret = uacpi_namespace_load();
     if (uacpi_unlikely_error(ret)) {
-        log_err("acpi", "Failed to load AML namespace: %s",
+        log_err("Failed to load AML namespace: %s",
                 uacpi_status_to_string(ret));
         return E_INVAL;
     }
 
     ret = uacpi_namespace_initialize();
     if (uacpi_unlikely_error(ret)) {
-        log_err("acpi", "Failed to initialize AML namespace: %s",
+        log_err("Failed to initialize AML namespace: %s",
                 uacpi_status_to_string(ret));
         return E_INVAL;
     }
 
     ret = uacpi_finalize_gpe_initialization();
     if (uacpi_unlikely_error(ret)) {
-        log_err("acpi", "Failed to finalize GPE initialization: %s",
+        log_err("Failed to finalize GPE initialization: %s",
                 uacpi_status_to_string(ret));
         return E_INVAL;
     }
@@ -117,7 +118,7 @@ acpi_start_one_device(void *ctx, uacpi_namespace_node *node)
     uacpi_status ret = uacpi_get_namespace_node_info(node, &info);
     if (uacpi_unlikely_error(ret)) {
         const char *path = uacpi_namespace_node_generate_absolute_path(node);
-        log_err("acpi", "failed to retrieve node %s information: %s", path,
+        log_err("failed to retrieve node %s information: %s", path,
                 uacpi_status_to_string(ret));
         goto out;
     }

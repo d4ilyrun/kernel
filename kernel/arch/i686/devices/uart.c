@@ -6,6 +6,7 @@
  * specifications.
  */
 
+#include <kernel/console.h>
 #include <kernel/cpu.h>
 #include <kernel/device.h>
 #include <kernel/devices/driver.h>
@@ -68,10 +69,8 @@ static char uart_getc(void)
     return inb(UART_REG(THR));
 }
 
-static error_t uart_open(struct file *file)
+static error_t uart_reset(void)
 {
-    UNUSED(file);
-
     /* Clear interrupts */
     outb(UART_REG(IER), 0x00);
 
@@ -93,24 +92,42 @@ static error_t uart_open(struct file *file)
     return E_SUCCESS;
 }
 
-static error_t uart_write(struct file *file, const char *buf, size_t length)
+static error_t __uart_write(const char *buf, size_t length, size_t *pos)
 {
     for (size_t i = 0; i < length; i++) {
-        file->pos += 1;
+        if (pos)
+            *pos += 1;
         uart_putc(buf[i]);
     }
 
     return E_SUCCESS;
 }
 
-static error_t uart_read(struct file *file, char *buf, size_t length)
+static error_t __uart_read(char *buf, size_t length, size_t *pos)
 {
     for (size_t i = 0; i < length; i++) {
-        file->pos += 1;
+        if (pos)
+            *pos += 1;
         buf[i] = uart_getc();
     }
 
     return E_SUCCESS;
+}
+
+static error_t uart_open(struct file *file)
+{
+    UNUSED(file);
+    return uart_reset();
+}
+
+static error_t uart_write(struct file *file, const char *buf, size_t length)
+{
+    return __uart_write(buf, length, &file->pos);
+}
+
+static error_t uart_read(struct file *file, char *buf, size_t length)
+{
+    return __uart_read(buf, length, &file->pos);
 }
 
 struct file_operations uart_file_ops = {
@@ -129,7 +146,33 @@ static struct device uart_device = {
     .driver = &uart_driver,
 };
 
+static error_t uart_early_init(void *pdata)
+{
+    UNUSED(pdata);
+    return uart_reset();
+}
+
+static error_t uart_early_write(const char *buffer, size_t size, void *pdata)
+{
+    return __uart_write(buffer, size, pdata);
+}
+
+static struct early_console uart_early_console = {
+    .init = uart_early_init,
+    .write = uart_early_write,
+};
+
 error_t uart_init(void)
 {
-    return device_register(&uart_device);
+    error_t ret;
+
+    ret = console_early_setup(&uart_early_console, NULL);
+    if (ret != E_SUCCESS)
+        return ret;
+
+    ret = device_register(&uart_device);
+    if (ret == E_SUCCESS)
+        return ret;
+
+    return ret;
 }
