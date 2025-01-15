@@ -45,9 +45,8 @@
 
 #include <kernel/printk.h>
 
-/**
- * @brief The different available logging levels
- *  TODO: LOG level filtering
+/** @brief The different available logging levels
+ *  @note The lower a level numerical representation is the more important it is
  */
 enum log_level {
     LOG_LEVEL_ERR,   /** error messages */
@@ -57,6 +56,7 @@ enum log_level {
 
     /* Used for indexing purposes only */
     LOG_LEVEL_COUNT,
+    LOG_LEVEL_ALL = LOG_LEVEL_COUNT,
 };
 
 #define ANSI_RESET "\033[0m"
@@ -91,6 +91,9 @@ void log_vlog(enum log_level, const char *domain, const char *msg,
  * @info This function's implementation is arch-specific
  */
 void panic(u32 esp, const char *msg, ...) __attribute__((__noreturn__));
+
+/** @brief Change the maximum log level to display */
+void log_set_level(enum log_level);
 
 /** @brief Call the panic function with the appropriate parameters */
 #define PANIC(...)                   \

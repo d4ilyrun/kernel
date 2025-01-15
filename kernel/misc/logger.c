@@ -18,6 +18,13 @@ static const struct log_level_format log_level[LOG_LEVEL_COUNT] = {
     [LOG_LEVEL_DEBUG] = {"\033[36m", "DEBUG "},
 };
 
+static enum log_level max_log_level = LOG_LEVEL_ALL;
+
+void log_set_level(enum log_level level)
+{
+    max_log_level = level;
+}
+
 void log(enum log_level level, const char *domain, const char *msg, ...)
 {
     va_list parameters;
@@ -30,6 +37,9 @@ void log(enum log_level level, const char *domain, const char *msg, ...)
 void log_vlog(enum log_level level, const char *domain, const char *format,
               va_list parameters)
 {
+    if (level > max_log_level)
+        return;
+
     if (log_level[level].color)
         printk("%s%s%s%s", ANSI_RESET, log_level[level].color,
                log_level[level].name, ANSI_RESET);
