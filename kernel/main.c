@@ -47,6 +47,7 @@ void kernel_task_mmap(void *data);
 void kernel_task_malloc(void *data);
 void kernel_task_rootfs(void *data);
 void kernel_task_userland(void *data);
+void kernel_task_elf(void *data);
 
 void kernel_relocate_module(struct multiboot_tag_module *module)
 {
