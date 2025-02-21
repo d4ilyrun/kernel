@@ -47,6 +47,8 @@ struct file_operations {
     error_t (*write)(struct file *, const char *, size_t);
     /** Read the content at the current position in the file. */
     error_t (*read)(struct file *, char *, size_t);
+    /** Compute the file's total size in memory */
+    size_t (*size)(struct file *);
 };
 
 /** Create a new file structure */
@@ -54,6 +56,14 @@ struct file *file_open(struct vnode *, const struct file_operations *);
 
 /** Free a file struct and release its content */
 void file_close(struct file *);
+
+static inline size_t file_size(struct file *file)
+{
+    if (!file->ops->size)
+        return 0;
+
+    return file->ops->size(file);
+}
 
 static inline error_t file_write(struct file *file, const char *buf, size_t len)
 {
