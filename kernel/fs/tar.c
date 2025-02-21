@@ -114,6 +114,8 @@ static size_t tar_read_number(const char *field, size_t len)
 {
     size_t count = 0;
     for (size_t i = 0; i < len; ++i) {
+        if (field[i] == '\0')
+            break;
         count *= 8;
         count += field[i] - '0';
     }
