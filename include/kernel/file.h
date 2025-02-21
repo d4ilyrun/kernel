@@ -73,6 +73,14 @@ static inline error_t file_write(struct file *file, const char *buf, size_t len)
     return file->ops->write(file, buf, len);
 }
 
+static inline error_t file_read(struct file *file, char *buf, size_t len)
+{
+    if (!file->ops->read)
+        return E_NOT_SUPPORTED;
+
+    return file->ops->read(file, buf, len);
+}
+
 #endif /* KERNEL_FILE_H */
 
 /** @} */
