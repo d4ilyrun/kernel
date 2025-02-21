@@ -62,6 +62,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+struct file;
+
 /*
  * TODO: For now we only use a single static VMM.
  *       To allow for multiprocessing, which would require one VMM per process,
@@ -159,6 +161,7 @@ typedef struct vmm {
 
 /** Returned by VMM functions in case of error */
 #define VMM_INVALID ((vaddr_t)NULL)
+#define MMAP_INVALID NULL
 
 /** @enum vma_flags
  * @brief Feature flags for VMAs
@@ -258,6 +261,18 @@ void vmm_destroy(vmm_t *vmm);
  *              Must be a combination of @ref vma_flags
  */
 void *mmap(void *addr, size_t length, int prot, int flags);
+
+/**
+ * Map a file into memory
+ *
+ * @note TODO: This should be modified to take a file descriptor as parameter
+ *             instead. it should also be merge together with mmap theoretically
+ *             but I don't think mmap is destined to be kept inside the kernel's
+ *             API so we'll see about that.
+ *
+ * @see mmap
+ */
+void *mmap_file(void *addr, size_t length, int prot, int flags, struct file *);
 
 /**
  * Delete a mapping for the specified address range
