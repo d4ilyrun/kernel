@@ -37,6 +37,8 @@
  *                  |                  |
  *      0x0010_0000 |------------------|
  *                  |   VMM Reserved   |
+ *      0x0001_0000 --------------------
+ *                  |     NULL Page    |
  *      0x0000_0000 --------------------
  *
  * @{
@@ -133,14 +135,19 @@ extern u32 _kernel_code_end;
 #define USER_MEMORY_START VMM_RESERVED_END
 
 /**
- * @brief Size of the area reserved fo rallovation memory management structures
+ * @brief Size of the area reserved for allocating memory management structures
  *
- * 1MiB Virtual memory range reserved for allocating VMA structures.
+ * ~1MiB Virtual memory range reserved for allocating VMA structures.
  *
  * @see @ref vmm
  */
-#define VMM_RESERVED_SIZE 0x100000UL
-#define VMM_RESERVED_START 0x00000000
-#define VMM_RESERVED_END (VMM_RESERVED_START + VMM_RESERVED_SIZE)
+#define VMM_RESERVED_END 0x100000UL
+#define VMM_RESERVED_START NULL_PAGE_END
+#define VMM_RESERVED_SIZE (VMM_RESERVED_END + VMM_RESERVED_START)
+
+/** @brief A single page of memory reserved to detect NULL references. */
+#define NULL_PAGE_SIZE PAGE_SIZE
+#define NULL_PAGE_START 0x0
+#define NULL_PAGE_END (NULL_PAGE_START + NULL_PAGE_SIZE)
 
 #endif /* KERNEL_MEMORY_H */
