@@ -35,6 +35,7 @@
 
 static vfs_ops_t tar_vfs_ops;
 static vnode_ops_t tar_vnode_ops;
+static struct file_operations tar_file_ops;
 
 /** Pathname length inside a TAR format is limited to 99 characters (size
  *  includes the NULL terminating byte)
@@ -73,6 +74,12 @@ typedef struct tar_header {
 
 } hdr_t ALIGNED(TAR_HEADER_SIZE);
 
+/** Compute the start of a file's content */
+static inline void *tar_file(const struct tar_header *tar)
+{
+    return (void *)tar + TAR_HEADER_SIZE;
+}
+
 /** @struct tar_filesystem
  *  @brief Filesystem dependant data for a TAR archive
  *
@@ -92,6 +99,7 @@ typedef struct tar_node {
     const char *name; ///< The name of this file
     hdr_t *header;    ///< The TAR header corresponding to this file
     vnode_t *vnode;   ///< The vnode corresponding to this file (if referenced)
+    size_t size;      ///< The file's size
 } tar_node_t;
 
 static vnode_t *tar_get_vnode(tar_node_t *node, vfs_t *fs);
@@ -252,16 +260,18 @@ static void tar_vfs_delete(vfs_t *vfs)
 
 static vnode_t *tar_get_vnode(tar_node_t *node, vfs_t *fs)
 {
+    struct tar_header *header = node->header;
     bool new;
 
     node->vnode = vfs_vnode_acquire(node->vnode, &new);
+    node->size = tar_read_number(header->size, sizeof(header->size));
 
     if (new) {
         node->vnode->fs = fs;
         node->vnode->operations = &tar_vnode_ops;
         node->vnode->pdata = node;
 
-        switch (node->header->type) {
+        switch (header->type) {
         case TAR_TYPE_FILE:
             node->vnode->type = VNODE_FILE;
             break;
@@ -305,16 +315,49 @@ static error_t tar_vnode_remove(vnode_t *vnode, const char *name)
     return E_NOT_SUPPORTED;
 }
 
+static struct file *tar_vnode_open(vnode_t *vnode)
+{
+    return file_open(vnode, &tar_file_ops);
+}
+
 static vnode_ops_t tar_vnode_ops = {
     .lookup = tar_vnode_lookup,
     .release = tar_vnode_release,
     .create = tar_vnode_create,
+    .open = tar_vnode_open,
     .remove = tar_vnode_remove,
 };
 
 static vfs_ops_t tar_vfs_ops = {
     .root = tar_vfs_root,
     .delete = tar_vfs_delete,
+};
+
+static size_t tar_file_size(struct file *file)
+{
+    vnode_t *vnode = file->vnode;
+    tar_node_t *tar_node = vnode->pdata;
+
+    return tar_node->size;
+}
+
+static error_t tar_file_read(struct file *file, char *buffer, size_t len)
+{
+    vnode_t *vnode = file->vnode;
+    tar_node_t *tar_node = vnode->pdata;
+    void *file_start = tar_file(tar_node->header);
+
+    if (len > tar_node->size)
+        return E_INVAL;
+
+    memcpy(buffer, file_start, len);
+
+    return E_SUCCESS;
+}
+
+static struct file_operations tar_file_ops = {
+    .size = tar_file_size,
+    .read = tar_file_read,
 };
 
 vfs_t *tar_new(u32 start, u32 end)
