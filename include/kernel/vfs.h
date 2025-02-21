@@ -143,6 +143,11 @@ error_t vfs_create_at(const char *path, vnode_type type);
  */
 error_t vfs_remove_at(const char *path);
 
+/** Open the file located at the given path
+ *  @return The file's struct, or a pointed encoded error
+ */
+struct file *vfs_open_at(const char *path);
+
 /** @} */
 
 /** @defgroup fs_vfs_vnode Virtual nodes
