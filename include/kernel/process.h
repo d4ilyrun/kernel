@@ -128,6 +128,21 @@ bool process_switch(process_t *process);
  */
 process_t *process_create(char *name, process_entry_t entrypoint, void *, u32);
 
+/** Start executing code in userland
+ *
+ * This function resets the user execution context (eip, stack content).
+ * It then changes the privilege level to be that of userland, and jumps
+ * onto the given address.
+ *
+ * @info This serves as a temporary equivalent to the execve syscall for testing
+ *       purposes.
+ *
+ * @param entrypoint The entrypoint address to jump onto
+ * @param data       The data passed as an argument to the 'entrypoint' function
+ *                   (ignored)
+ */
+NO_RETURN void process_jump_to_userland(process_entry_t, void *);
+
 /** Effectively kill a process
  *
  *  * Free all private memory used by the process

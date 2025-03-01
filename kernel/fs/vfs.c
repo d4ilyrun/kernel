@@ -221,6 +221,19 @@ error_t vfs_remove_at(const char *raw_path)
     return ret;
 }
 
+struct file *vfs_open_at(const char *raw_path)
+{
+    vnode_t *vnode = vfs_find_by_path(raw_path);
+
+    if (IS_ERR(vnode))
+        return (void *)vnode;
+
+    if (!vnode->operations->open)
+        return PTR_ERR(E_NOT_SUPPORTED);
+
+    return vnode->operations->open(vnode);
+}
+
 vnode_t *vfs_vnode_acquire(vnode_t *node, bool *new)
 {
     if (node == NULL) {

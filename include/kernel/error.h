@@ -45,7 +45,7 @@ static ALWAYS_INLINE void *PTR_ERR(error_t err)
 }
 
 /** Extract the error value contained inside a pointer  */
-static ALWAYS_INLINE error_t ERR_FROM_PTR(void *ptr)
+static ALWAYS_INLINE error_t ERR_FROM_PTR(const void *ptr)
 {
     return -(error_t)ptr;
 }

@@ -6,6 +6,8 @@
 #include <kernel/devices/driver.h>
 #include <kernel/devices/timer.h>
 #include <kernel/devices/uart.h>
+#include <kernel/elf32.h>
+#include <kernel/execfmt.h>
 #include <kernel/interrupts.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
@@ -47,6 +49,7 @@ void kernel_task_mmap(void *data);
 void kernel_task_malloc(void *data);
 void kernel_task_rootfs(void *data);
 void kernel_task_userland(void *data);
+void kernel_task_elf(void *data);
 
 void kernel_relocate_module(struct multiboot_tag_module *module)
 {
@@ -235,6 +238,32 @@ void kernel_task_rootfs(void *data)
     log_info("mounting devtmpfs: %s", err_to_str(ret));
     vnode = vfs_find_by_path("/dev/eth0");
     log_info("/dev/eth0: %s", err_to_str(ERR_FROM_PTR(vnode)));
+
+    sched_new_process_create("kelf_test", kernel_task_elf, NULL, PROC_KERNEL);
+}
+
+#undef LOG_DOMAIN
+#define LOG_DOMAIN "kelf"
+void kernel_task_elf(MAYBE_UNUSED void *data)
+{
+    struct file *busybox;
+    error_t err;
+
+    err = elf32_init();
+    if (err) {
+        log_err("failed to register elf32 executable format: %s",
+                err_to_str(err));
+        return;
+    }
+
+    busybox = vfs_open_at("/bin/busybox");
+    if (IS_ERR(busybox)) {
+        log_err("failed to open binary");
+        return;
+    }
+
+    err = execfmt_execute(busybox);
+    log_info("busybox execution: %s", err_to_str(err));
 }
 
 void kernel_task_malloc(void *data)

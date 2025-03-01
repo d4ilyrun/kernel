@@ -20,6 +20,8 @@ kernel_source_files = files([
   'misc/console.c',
   'misc/symbols.c',
   'misc/error.c',
+  'misc/execfmt.c',
+  'misc/elf32.c',
   'memory/pmm.c',
   'memory/vmm.c',
   'net/packet.c',

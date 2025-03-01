@@ -263,6 +263,9 @@ void kfree_at(void *ptr, size_t size)
 {
     vaddr_t virt = (vaddr_t)ptr;
 
+    if (ptr == NULL)
+        return;
+
     mmu_unmap_range(virt, virt + size);
     vmm_free(&kernel_vmm, virt, size);
 }
@@ -270,9 +273,13 @@ void kfree_at(void *ptr, size_t size)
 void kfree_dma(void *dma_ptr, size_t size)
 {
     vaddr_t virt = (vaddr_t)dma_ptr;
-    paddr_t phys = mmu_find_physical(virt);
+    paddr_t phys;
 
-    if (phys == PMM_INVALID_PAGEFRAME)
+    if (dma_ptr == NULL)
+        return;
+
+    phys = mmu_find_physical(virt);
+    if (IS_ERR(phys))
         return;
 
     kfree_at(dma_ptr, size);

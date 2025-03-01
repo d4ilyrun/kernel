@@ -1,6 +1,7 @@
 #define LOG_DOMAIN "vmm"
 
 #include <kernel/error.h>
+#include <kernel/file.h>
 #include <kernel/interrupts.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
@@ -524,10 +525,29 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
         return E_SUCCESS;
     }
 
-    PANIC("PAGE FAULT at " FMT32 ": %s access on a %s page %s",
-          faulty_address, error.write ? "write" : "read",
+    PANIC("PAGE FAULT at " FMT32 ": %s access on a %s page %s", faulty_address,
+          error.write ? "write" : "read",
           error.present ? "protected" : "non-present",
           error.user ? "while in user-mode" : "");
+}
+
+void *
+mmap_file(void *addr, size_t length, int prot, int flags, struct file *file)
+{
+    void *memory;
+    error_t err;
+
+    memory = mmap(addr, length, prot, flags);
+    if (memory == MMAP_INVALID)
+        return memory;
+
+    err = file_read(file, memory, length);
+    if (err) {
+        munmap(memory, length);
+        return MMAP_INVALID;
+    }
+
+    return memory;
 }
 
 /**
@@ -549,6 +569,9 @@ int munmap(void *addr, size_t length)
 {
     if ((vaddr_t)addr % PAGE_SIZE)
         return -E_INVAL;
+
+    if (addr == MMAP_INVALID)
+        return E_SUCCESS;
 
     // Mark virtual address as free
     vmm_t *vmm = IS_KERNEL_ADDRESS(addr) ? &kernel_vmm : current_process->vmm;

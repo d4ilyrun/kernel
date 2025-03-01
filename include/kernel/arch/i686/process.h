@@ -30,6 +30,12 @@ typedef struct x86_process {
      */
     u32 esp0;
 
+    /**
+     * @brief Address of the top of the user stack
+     * This is only valid for user processes.
+     */
+    u32 esp_user;
+
     u32 esp; ///< The current stack pointer of the process
 
 } process_context_t;

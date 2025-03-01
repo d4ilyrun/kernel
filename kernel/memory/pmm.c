@@ -276,8 +276,7 @@ void pmm_free_pages(paddr_t pageframe, size_t size)
     if (RANGES_OVERLAP(KERNEL_HIGHER_HALF_VIRTUAL(pageframe),
                        KERNEL_HIGHER_HALF_VIRTUAL(pageframe) + size,
                        KERNEL_CODE_END, KERNEL_CODE_START)) {
-        log_err("Trying to free kernel code pages: [" FMT32 "-" FMT32
-                "]",
+        log_err("Trying to free kernel code pages: [" FMT32 "-" FMT32 "]",
                 pageframe, pageframe + (native_t)size);
         return;
     }

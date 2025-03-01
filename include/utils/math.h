@@ -53,6 +53,9 @@
  */
 #define align_down(_value, _power) ((_value) & ~__align_mask(_value, _power))
 
+/** @return Whether a value is aligned onto a given boundary */
+#define is_aligned(_value, _alignment) (!((_value) % (_alignment)))
+
 /** @brief Round @c value to the next multiple of @c alignment
  *
  *  When rounding to a power of two, prefere using @ref align_up instead.

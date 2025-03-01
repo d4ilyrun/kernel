@@ -9,10 +9,33 @@
 #include <kernel/arch/i686/gdt.h>
 
 #include <utils/compiler.h>
+#include <utils/macro.h>
 
-void arch_process_jump_to_userland(process_entry_t entrypoint,
-                                   segment_selector cs, segment_selector ds,
-                                   u32 esp);
+#include <string.h>
+
+/* defined in process.S */
+NO_RETURN void __arch_process_jump_to_userland(process_entry_t entrypoint,
+                                               segment_selector cs,
+                                               segment_selector ds, u32 esp);
+
+NO_RETURN void
+arch_process_jump_to_userland(process_entry_t entrypoint, void *data)
+{
+    segment_selector ds = {.index = GDT_ENTRY_USER_DATA, .rpl = 3};
+    segment_selector cs = {.index = GDT_ENTRY_USER_CODE, .rpl = 3};
+    u32 ustack_top;
+
+    UNUSED(data);
+
+    /* Reset user stack */
+    memset((void *)current_process->context.esp_user, 0, KERNEL_STACK_SIZE);
+
+    log_dbg("jump to userland");
+    ustack_top = current_process->context.esp_user + KERNEL_STACK_SIZE;
+    __arch_process_jump_to_userland(entrypoint, cs, ds, ustack_top);
+
+    assert_not_reached();
+}
 
 /** Finish setting up the process before jumping to its entrypoint
  *
@@ -21,47 +44,66 @@ void arch_process_jump_to_userland(process_entry_t entrypoint,
  *
  * The return to the process's entry point is done implicitely through the
  * artificial stack setup in @arch_process_create.
+ *
+ * FIXME: We should not take an entrypoint when creating a new process.
+ *
+ * The logic behind that is :
+ * 1- There should be only one kernel process, and many kernel threads
+ * 2- The only way to create a new process is to fork. Forking duplicates
+ *    the running process's execution context, and continue the execution
+ *    where it left => No need to specify an entrypoint, just exit out of
+ *    the syscall
+ * 3- When wanting to run a new executable, the forked process uses the
+ *    execve syscall. This is where the real entrypoint is. Once again,
+ *    no need to create a new process, simply free VMMs and FDs (man 2),
+ *    setup a new stack and return to userland. But in no way do we create
+ *    a new process to run the executable!
+ *
+ * This should be fixed when refactoring the task model (add threads & delayed
+ * work).
  */
 void arch_process_entrypoint(process_entry_t entrypoint, void *data)
 {
+    u32 *ustack = NULL;
+
     if (!vmm_init(current_process->vmm, USER_MEMORY_START, USER_MEMORY_END))
         log_err("Failed to initilize VMM (%s)", current_process->name);
+
+    ustack = kcalloc(KERNEL_STACK_SIZE, 1, KMALLOC_DEFAULT);
+    if (ustack == NULL) {
+        log_err("Failed to allocate new user stack");
+        goto error_exit;
+    }
+
+    current_process->context.esp_user = (u32)ustack;
 
     if (process_is_kernel(current_process)) {
         entrypoint(data);
     } else {
-        void *user_stack = kcalloc(KERNEL_STACK_SIZE, sizeof(u8),
-                                   KMALLOC_DEFAULT);
-        if (user_stack == NULL) {
-            log_err("failed to allocate user stack for '%s'",
-                    current_process->name);
-        } else {
-            segment_selector ds = {.index = GDT_ENTRY_USER_DATA, .rpl = 3};
-            segment_selector cs = {.index = GDT_ENTRY_USER_CODE, .rpl = 3};
-            log_info("jump to userland");
-            arch_process_jump_to_userland(entrypoint, cs, ds, (u32)user_stack);
-            __builtin_unreachable();
-        }
+        arch_process_jump_to_userland(entrypoint, data);
     }
 
+error_exit:
     process_kill(current_process);
 }
 
 bool arch_process_create(process_t *process, process_entry_t entrypoint,
                          void *data)
 {
+    u32 *kstack = NULL;
+    paddr_t cr3;
+
     // Allocate a kernel stack for the new process
-    u32 *kstack = kmalloc(KERNEL_STACK_SIZE, KMALLOC_KERNEL);
+    kstack = kcalloc(KERNEL_STACK_SIZE, 1, KMALLOC_KERNEL);
     if (kstack == NULL) {
         log_err("Failed to allocate new kernel stack");
         return false;
     }
 
-    paddr_t cr3 = mmu_new_page_directory();
+    cr3 = mmu_new_page_directory();
     if (IS_ERR(cr3)) {
         log_err("Failed to create new page directory");
-        kfree(kstack);
-        return false;
+        goto release_kernel_stack;
     }
 
     process->context.cr3 = cr3;
@@ -91,7 +133,11 @@ bool arch_process_create(process_t *process, process_entry_t entrypoint,
 
 #undef KSTACK
 
-    return process;
+    return true;
+
+release_kernel_stack:
+    kfree(kstack);
+    return false;
 }
 
 void arch_process_free(process_t *process)
