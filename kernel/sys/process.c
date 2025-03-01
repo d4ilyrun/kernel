@@ -116,3 +116,11 @@ void process_kill(process_t *process)
     if (process == current_process)
         schedule();
 }
+
+NO_RETURN void
+arch_process_jump_to_userland(process_entry_t entrypoint, void *data);
+
+NO_RETURN void process_jump_to_userland(process_entry_t entrypoint, void *data)
+{
+    arch_process_jump_to_userland(entrypoint, data);
+}

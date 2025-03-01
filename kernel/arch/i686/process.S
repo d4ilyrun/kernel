@@ -1,5 +1,5 @@
 .global arch_process_switch
-.global arch_process_jump_to_userland
+.global __arch_process_jump_to_userland
 
 /* extern process_t current_process */
 .extern current_process
@@ -26,11 +26,11 @@ arch_process_switch:
     movl (current_process), %esi
     movl %cr3, %ebx
     movl %ebx, 0x0(%esi)
-    movl %esp, 0x8(%esi)
+    movl %esp, 0xc(%esi)
 
     // Load next process
     movl %edi, current_process
-    movl 0x8(%edi), %esp    // switch stack
+    movl 0xc(%edi), %esp    // switch stack
     movl 0x0(%edi), %eax    // eax=cr3
     movl 0x4(%edi), %edi    // edi=esp0
     // write kernel stack into TSS.ESP0
@@ -51,9 +51,9 @@ arch_process_switch:
     ret
 
 
-/* void arch_process_jump_to_userland(u32 entrypoint, u32 cs, u32 ds, u32 esp) */
-.type arch_process_jump_to_userland, @function
-arch_process_jump_to_userland:
+/* void __arch_process_jump_to_userland(u32 entrypoint, u32 cs, u32 ds, u32 esp) */
+.type __arch_process_jump_to_userland, @function
+__arch_process_jump_to_userland:
 
     // discard EIP, we will not be returning to kernel mode anyway
     addl $4, %esp

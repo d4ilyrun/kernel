@@ -9,10 +9,33 @@
 #include <kernel/arch/i686/gdt.h>
 
 #include <utils/compiler.h>
+#include <utils/macro.h>
 
-void arch_process_jump_to_userland(process_entry_t entrypoint,
-                                   segment_selector cs, segment_selector ds,
-                                   u32 esp);
+#include <string.h>
+
+/* defined in process.S */
+NO_RETURN void __arch_process_jump_to_userland(process_entry_t entrypoint,
+                                               segment_selector cs,
+                                               segment_selector ds, u32 esp);
+
+NO_RETURN void
+arch_process_jump_to_userland(process_entry_t entrypoint, void *data)
+{
+    segment_selector ds = {.index = GDT_ENTRY_USER_DATA, .rpl = 3};
+    segment_selector cs = {.index = GDT_ENTRY_USER_CODE, .rpl = 3};
+    u32 ustack_top;
+
+    UNUSED(data);
+
+    /* Reset user stack */
+    memset((void *)current_process->context.esp_user, 0, KERNEL_STACK_SIZE);
+
+    log_dbg("jump to userland");
+    ustack_top = current_process->context.esp_user + KERNEL_STACK_SIZE;
+    __arch_process_jump_to_userland(entrypoint, cs, ds, ustack_top);
+
+    assert_not_reached();
+}
 
 /** Finish setting up the process before jumping to its entrypoint
  *
@@ -52,14 +75,12 @@ void arch_process_entrypoint(process_entry_t entrypoint, void *data)
         goto error_exit;
     }
 
+    current_process->context.esp_user = (u32)ustack;
+
     if (process_is_kernel(current_process)) {
         entrypoint(data);
     } else {
-        segment_selector ds = {.index = GDT_ENTRY_USER_DATA, .rpl = 3};
-        segment_selector cs = {.index = GDT_ENTRY_USER_CODE, .rpl = 3};
-        log_info("jump to userland");
-        arch_process_jump_to_userland(entrypoint, cs, ds, (u32)ustack);
-        __builtin_unreachable();
+        arch_process_jump_to_userland(entrypoint, data);
     }
 
 error_exit:
