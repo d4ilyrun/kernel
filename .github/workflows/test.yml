@@ -28,4 +28,4 @@ jobs:
 
     - name: Test
       run: |
-        nix develop .#test --command meson test -C build --print-errorlogs
+        nix develop .#test --command make check
