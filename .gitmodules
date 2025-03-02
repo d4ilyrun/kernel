@@ -7,3 +7,6 @@
 [submodule "subprojects/uACPI"]
 	path = subprojects/uACPI
 	url = git@github.com:UltraOS/uACPI.git
+[submodule "lib/uacpi/uACPI"]
+	path = lib/uacpi/uACPI
+	url = git@github.com:UltraOS/uACPI.git
