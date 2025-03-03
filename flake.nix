@@ -1,5 +1,5 @@
 {
-  description = "A very basic flake";
+  description = "Kernel";
 
   inputs = {
 
@@ -22,60 +22,40 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
-        pkgs-i686 = pkgs.pkgsCross.i686-embedded;
       in
-      rec {
-        packages = rec {
-          kernel = pkgs-i686.stdenv.mkDerivation {
-            name = "kernel";
-            src = self;
-            version = "0.1.0";
-            inherit (devShells.kernel) nativeBuildInputs;
-
-            # FIXME: cannot execute ISO from target script inside nix derivation
-            installPhase = ''
-              mkdir -p $out
-              cp -v kernel/kernel.bin $out
-            '';
-          };
-
-          default = kernel;
-        };
-
+      {
         devShells =
           let
             native_build_required = with pkgs; [ gnumake ];
           in
           rec {
             default = kernel;
-            kernel = pkgs.mkShell.override { inherit (pkgs-i686) stdenv; } {
+            kernel = pkgs.mkShell {
               nativeBuildInputs = with pkgs; [
                 # building
                 grub2
                 libisoburn
-                binutils
                 nasm
                 mtools
                 # QOL
                 bear
                 shellcheck
+                clang-tools
                 qemu
                 doxygen
                 graphviz
               ] ++ native_build_required;
 
-              buildInputs = [ pkgs.pkgsi686Linux.glibc ];
               hardeningDisable = [ "fortify" ];
 
               shellHook = ''
                 export ARCH=i686
-                export CROSS_COMPILE=i686-elf-
+                export CROSS_COMPILE=toolchain/opt/bin/i686-elf-
               '';
             };
 
             test = pkgs.mkShell rec {
               nativeBuildInputs = with pkgs; [
-                # Testing
                 criterion.out
                 criterion.dev
                 gcovr
