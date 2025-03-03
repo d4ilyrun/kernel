@@ -2,6 +2,9 @@
 build
 compile_commands.json
 
+*.tar
+*.tar.*
+
 docs/doxygen/doc
 
 initramfs.*
