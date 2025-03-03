@@ -22,13 +22,8 @@ for symbol in "$@"; do
     BREAKPOINTS+=("-ex" "break $symbol")
 done
 
-if [ ! -d "build" ]; then
-    echo "[INFO] build dir not found, setting up meson project"
-    meson setup build --cross-file "scripts/meson_cross.ini" --reconfigure -Dbuildtype=debug
-fi
-
 echo "[INFO] Starting a debugging session"
-ninja -C build qemu-server || exit
+make qemu-server || exit
 gdb --symbol ./build/kernel/kernel.sym \
     -iex "set pagination of" \
     -iex "target remote localhost:1234" \
