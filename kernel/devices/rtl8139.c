@@ -242,7 +242,7 @@ static error_t rtl8139_receive_packet(struct rtl8139 *rtl8139)
     return ret;
 }
 
-static error_t rtl8139_interrupt_handler(void *data)
+static u32 rtl8139_interrupt_handler(void *data)
 {
     struct rtl8139 *rtl8139 = data;
     uint16_t isr = rtl8139_readw(rtl8139, INTERRUPT_STATUS);

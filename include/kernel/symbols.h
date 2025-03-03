@@ -24,8 +24,6 @@
 
 #include <utils/compiler.h>
 
-#include <wchar.h>
-
 /**
  * @struct kernel_symbol
  * @brief A single symbol entry inside the symbol table

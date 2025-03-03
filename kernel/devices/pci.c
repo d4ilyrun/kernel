@@ -200,7 +200,7 @@ static void pci_device_setup_bars(struct pci_device *device)
     }
 }
 
-static error_t __pci_device_handle_interrupt(void *device)
+static u32 __pci_device_handle_interrupt(void *device)
 {
     struct pci_device *pdev = device;
     error_t ret;
