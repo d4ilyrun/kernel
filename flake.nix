@@ -85,6 +85,26 @@
               hardeningDisable = [ "fortify" ];
             };
 
+            # Useful to build our gcc target
+            gcc = pkgs.mkShell {
+              hardeningDisable = [ "all" ];
+              buildInputs = with pkgs; [
+                # Required executables
+                pkgs.gcc
+                gnumake
+                pkg-config
+                autoconf-archive
+                autoconf
+                automake
+                # Required libraries
+                gmp
+                libmpc
+                mpfr
+                flex
+                bison
+                isl
+              ];
+            };
           };
       }
     );
