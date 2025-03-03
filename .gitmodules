@@ -4,9 +4,6 @@
 [submodule "docs/doxygen/doxygen-awesome-css"]
 	path = docs/doxygen/doxygen-awesome-css
 	url = https://github.com/jothepro/doxygen-awesome-css.git
-[submodule "subprojects/uACPI"]
-	path = subprojects/uACPI
-	url = git@github.com:UltraOS/uACPI.git
 [submodule "lib/uacpi/uACPI"]
 	path = lib/uacpi/uACPI
 	url = git@github.com:UltraOS/uACPI.git
