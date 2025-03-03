@@ -12,7 +12,6 @@
 #include <utils/macro.h>
 #include <utils/math.h>
 
-#include <assert.h>
 #include <multiboot.h>
 #include <stddef.h>
 #include <string.h>
