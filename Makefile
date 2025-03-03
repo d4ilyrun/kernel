@@ -16,17 +16,24 @@ else
   $(info Compiling using host toolchain)
 endif
 
+NCORES ?= $(shell nproc)
+$(info Compiling sub-targets using $(NCORES) cores)
+
+WGET := wget --no-verbose --show-progress
+MAKE := $(MAKE) -j$(NCORES) --no-print-directory
+
 ifneq ($(VERBOSE),y)
 SILENT := @
 SILENT_OUTPUT := 1> /dev/null 2> /dev/null
 endif
 
-BUILD_DIR   := build
-INC_DIR     := include
-LIB_DIR     := lib
-KERNEL_DIR  := kernel
-SCRIPTS_DIR := scripts
-DOCS_DIR    := docs
+BUILD_DIR     	:= build
+INC_DIR       	:= include
+LIB_DIR       	:= lib
+KERNEL_DIR    	:= kernel
+SCRIPTS_DIR   	:= scripts
+DOCS_DIR      	:= docs
+TOOLCHAIN_DIR 	:= toolchain
 
 DEBUG ?= y
 
@@ -68,8 +75,25 @@ define ASSERT_EXE_EXISTS
 	)
 endef
 
+define REDIRECT_OUTPUT
+  1> $(1).log 2> $(1).err
+endef
+
+ifeq ($(VERBOSE),y)
+define MAKE_RECURSIVE
+  $(call LOG,MAKE,$(3)$(2))
+  $(SILENT)$(MAKE) -C $(1) $(2)
+endef
+else
+define MAKE_RECURSIVE
+  $(call LOG,MAKE,$(3)$(2))
+  $(SILENT)$(MAKE) -C $(1) $(2) $(call REDIRECT_OUTPUT,$(1)/make)
+endef
+endif
+
 all: kernel
 
+include $(TOOLCHAIN_DIR)/build.mk
 include $(LIB_DIR)/build.mk
 include $(KERNEL_DIR)/build.mk
 include $(DOCS_DIR)/build.mk
@@ -95,8 +119,13 @@ compile_commands.json:
 	$(call ASSERT_EXE_EXISTS,bear)
 	$(SILENT)bear -- $(MAKE) -B all
 
-.PHONY: clean
 clean:
 	$(RM) -rf $(BUILD_DIR)
+
+distclean: clean
+	$(RM) -rf $(TOOLCHAIN_LOCATION)
+	$(RM) -rf $(BINUTILS_DIR) $(GCC_DIR)
+
+.PHONY: clean distclean
 
 -include $(DEPS)
