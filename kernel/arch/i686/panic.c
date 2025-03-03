@@ -22,7 +22,7 @@ struct stackframe_t {
 
 static void panic_dump_process(void)
 {
-    log(LOG_LEVEL_ERR, "PROC", "%s (PID: %d)", current_process->name,
+    log(LOG_LEVEL_ERR, "PROC", "%s (PID: %ld)", current_process->name,
         current_process->pid);
 }
 
@@ -37,8 +37,8 @@ static void panic_dump_registers(void)
         "CR0=" FMT32 " CR2=" FMT32 " CR3=" FMT32, read_cr0(),
         read_cr2(), read_cr3());
 
-    log(LOG_LEVEL_ERR, "REGS", "CS=" FMT16 " SS=" FMT16, read_cs(),
-        read_ss());
+    log(LOG_LEVEL_ERR, "REGS", "CS=" FMT16 " SS=" FMT16, (uint16_t)read_cs(),
+        (uint16_t)read_ss());
 }
 
 static void panic_unwind_stack(void)
@@ -68,7 +68,7 @@ static void panic_unwind_stack(void)
         // attribute noreturn
         const kernel_symbol_t *symbol = kernel_symbol_from_address(frame->eip -
                                                                    sizeof(u16));
-        log(LOG_LEVEL_ERR, "TRACE", "#%d  " FMT32 " in <%s%+d>", i,
+        log(LOG_LEVEL_ERR, "TRACE", "#%d  " FMT32 " in <%s%+ld>", i,
             frame->eip, kernel_symbol_name(symbol),
             frame->eip - symbol->address);
     }
@@ -80,7 +80,7 @@ static void panic_dump_stack(u32 esp, u32 size)
         esp);
 
     for (u32 offset = 0; offset < size; offset += sizeof(u32)) {
-        log_err("esp+%-3d: " FMT32, offset,
+        log_err("esp+%-3ld: " FMT32, offset,
                 *(volatile u32 *)(esp + offset));
     }
 

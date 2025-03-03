@@ -39,8 +39,8 @@
 #endif
 
 #define FMT8 "%#02hhx"
-#define FMT16 "%#04hx"
-#define FMT32 "%#08x"
+#define FMT16 "%#04x"
+#define FMT32 "%#08lx"
 #define FMT64 "%#016llx"
 
 #include <kernel/printk.h>

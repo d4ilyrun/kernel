@@ -191,7 +191,7 @@ void idt_log(void)
 
         printk("%ld = { offset: " FMT32 ", segment: " FMT16
                          ", access: " FMT8 " } <%s>\n",
-               i, interrupt.offset_low | (interrupt.offset_high << 16),
+               i, (u32)interrupt.offset_low | (interrupt.offset_high << 16),
                interrupt.segment.raw, interrupt.access, interrupts_to_str(i));
     }
 }
@@ -206,7 +206,7 @@ void default_interrupt_handler(interrupt_frame frame)
     if (handler->handler == NULL) {
         log_err("Unsupported interrupt: %s (" FMT32 ")",
                 interrupts_to_str(frame.nr), frame.nr);
-        log_dbg("Process: '%s' (PID=%d)", current_process->name,
+        log_dbg("Process: '%s' (PID=%ld)", current_process->name,
                 current_process->pid);
         log_dbg("ERROR=" FMT32, frame.error);
         log_dbg("FLAGS=" FMT32, frame.state.flags);
