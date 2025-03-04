@@ -27,13 +27,13 @@ SILENT := @
 SILENT_OUTPUT := 1> /dev/null 2> /dev/null
 endif
 
-BUILD_DIR     	:= build
-INC_DIR       	:= include
-LIB_DIR       	:= lib
-KERNEL_DIR    	:= kernel
-SCRIPTS_DIR   	:= scripts
-DOCS_DIR      	:= docs
-TOOLCHAIN_DIR 	:= toolchain
+BUILD_DIR		:= build
+INC_DIR			:= include
+LIB_DIR			:= lib
+KERNEL_DIR		:= kernel
+SCRIPTS_DIR		:= scripts
+DOCS_DIR		:= docs
+TOOLCHAIN_DIR	:= toolchain
 
 DEBUG ?= y
 
