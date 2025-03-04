@@ -73,8 +73,9 @@
                 gnumake
                 pkg-config
                 autoconf-archive
-                autoconf
-                automake
+                autoconf269 # newlib requires using v2.69 exactly
+                automake115x
+                autogen
                 # Required libraries
                 gmp.dev
                 libmpc
