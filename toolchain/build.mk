@@ -1,7 +1,7 @@
 TOOLCHAIN_LOCATION     := $(TOOLCHAIN_DIR)/opt
 TOOLCHAIN_SYSROOT      := $(TOOLCHAIN_DIR)/sysroot
 
-TARGET ?= $(ARCH)-elf
+TARGET ?= $(ARCH)-dailyrun
 HOST   ?= $(shell uname -m)-linux
 PREFIX ?= $(PWD)/$(TOOLCHAIN_LOCATION)
 

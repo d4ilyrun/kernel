@@ -26,7 +26,8 @@ $ nix develop .#kernel
 ## Building
 
 ```bash
-$ export CROSS_COMPILE=i686-elf- # The target architecturea toolchain's prefix
+$ # Use our custom toolchain for building
+$ export CROSS_COMPILE=toolchain/opt/i686-dailyrun/bin/i686-dailyrun-
 $ export ARCH=i686               # The architecture's name
 $ make iso      # builds the kernel.iso file
 $ make qemu     # boots up qemu using the iso file
