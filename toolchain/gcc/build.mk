@@ -20,6 +20,8 @@ gcc/prepare: $(GCC_DIR)
 $(GCC_DIR): $(GCC_TAR)
 	$(call COMPILE,EXTRACT,$@)
 	$(SILENT)tar xf $(GCC_TAR) -C $(dir $@)
+	$(call LOG,PATCH,$@)
+	$(SILENT)cp -rf $(GCC_TOOLCHAIN_DIR)/target/* $@
 
 gcc/configure: $(GCC_BUILD_DIR)/config.status
 $(GCC_BUILD_DIR)/config.status: $(GCC_DIR) binutils
@@ -27,7 +29,8 @@ $(GCC_BUILD_DIR)/config.status: $(GCC_DIR) binutils
 	$(SILENT)\
 		cd $(dir $@) && \
 		$(PWD)/$(GCC_DIR)/configure \
-			--disable-nls --enable-languages=c --without-headers --disable-multilib \
+			--disable-nls --enable-languages=c \
+			--with-sysroot=$(PWD)/$(ROOT_DIR) \
 			--host="$(HOST)" \
 			--target="$(TARGET)" \
 			--prefix="$(PREFIX)" \

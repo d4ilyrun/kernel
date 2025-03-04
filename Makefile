@@ -26,13 +26,14 @@ ifneq ($(VERBOSE),y)
 SILENT := @
 endif
 
-BUILD_DIR     	:= build
-INC_DIR       	:= include
-LIB_DIR       	:= lib
-KERNEL_DIR    	:= kernel
-SCRIPTS_DIR   	:= scripts
-DOCS_DIR      	:= docs
-TOOLCHAIN_DIR 	:= toolchain
+BUILD_DIR		:= build
+INC_DIR			:= include
+LIB_DIR			:= lib
+KERNEL_DIR		:= kernel
+SCRIPTS_DIR		:= scripts
+DOCS_DIR		:= docs
+TOOLCHAIN_DIR	:= toolchain
+ROOT_DIR		:= root
 
 DEBUG ?= y
 
