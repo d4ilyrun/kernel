@@ -33,6 +33,17 @@ $ make iso      # builds the kernel.iso file
 $ make qemu     # boots up qemu using the iso file
 ```
 
+### Toolchain
+
+If you do not already have an available `i686-elf` toolchain, a custom GCC target for this kernel (i686-dailyrun)
+is available for you to build inside the `toolchain` directory. Note that using this toolchain is required when
+building userland executables destined to be used with this kernel.
+
+```bash
+$ make gcc TARGET=i686-dailyrun ARCH= CROSS_COMPILE=
+$ make libc ARCH=i686 CROSS_COMPILE=
+```
+
 ## Testing
 
 I don't know how I can test kernel code, so all tests are performed manually for the time being ...
