@@ -15,6 +15,8 @@ binutils/prepare: $(BINUTILS_DIR)
 $(BINUTILS_DIR): $(BINUTILS_TAR)
 	$(call COMPILE,EXTRACT,$@)
 	$(SILENT)tar xf $(BINUTILS_TAR) -C $(dir $@)
+	$(call LOG,PATCH,$@)
+	$(SILENT)cp -rf $(TOOLCHAIN_BINUTILS_DIR)/target/* $@
 
 binutils/configure: $(BINUTILS_BUILD_DIR)/config.status
 $(BINUTILS_BUILD_DIR)/config.status: $(BINUTILS_DIR)
@@ -22,7 +24,8 @@ $(BINUTILS_BUILD_DIR)/config.status: $(BINUTILS_DIR)
 	$(SILENT)\
 		cd $(dir $@) && \
 		$(PWD)/$(BINUTILS_DIR)/configure \
-			--with-sysroot --disable-nls --disable-werror \
+			--disable-nls --disable-werror \
+			--with-sysroot=$(PWD)/$(TOOLCHAIN_SYSROOT) \
 			--host="$(HOST)" \
 			--target="$(TARGET)" \
 			--prefix="$(PREFIX)" \

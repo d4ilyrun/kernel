@@ -1,4 +1,5 @@
 TOOLCHAIN_LOCATION     := $(TOOLCHAIN_DIR)/opt
+TOOLCHAIN_SYSROOT      := $(TOOLCHAIN_DIR)/sysroot
 
 TARGET ?= $(ARCH)-elf
 HOST   ?= $(shell uname -m)-linux
