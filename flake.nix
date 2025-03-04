@@ -44,7 +44,7 @@
 
         devShells =
           let
-            native_build_required = with pkgs; [ ninja meson ];
+            native_build_required = with pkgs; [ gnumake ];
           in
           rec {
             default = kernel;
@@ -55,6 +55,7 @@
                 libisoburn
                 binutils
                 nasm
+                mtools
                 # QOL
                 bear
                 shellcheck
@@ -67,18 +68,13 @@
               hardeningDisable = [ "fortify" ];
 
               shellHook = ''
-                export BUILD_DIR=build
-                meson setup --cross-file ./scripts/meson_cross.ini --reconfigure -Dbuildtype=debug "./$BUILD_DIR"
+                export ARCH=i686
+                export CROSS_COMPILE=i686-elf-
               '';
             };
 
             test = pkgs.mkShell rec {
               nativeBuildInputs = with pkgs; [
-                # Bulding
-                gnumake
-                ninja
-                meson
-                nasm
                 # Testing
                 criterion.out
                 criterion.dev
@@ -87,11 +83,6 @@
 
               LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath nativeBuildInputs;
               hardeningDisable = [ "fortify" ];
-
-              shellHook = ''
-                export BUILD_DIR=build
-                meson setup --cross-file ./scripts/meson_cross.ini --reconfigure -Dbuildtype=debug "./$BUILD_DIR"
-              '';
             };
 
           };
