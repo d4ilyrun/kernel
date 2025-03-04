@@ -26,6 +26,36 @@ jobs:
         extra_nix_config: |
           access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
+    # Performing the wget on the GCC and sources takes almost 45min !
+    # So we try caching it.
+    #
+    # NOTE: If ever changing the GCC version, do not forget to also
+    #       update the cached version's release parameter (same for binutils).
+
+    - name: Cache GCC sources
+      id: cache-gcc
+      uses: actions/cache@v4
+      env:
+        cache-name: gcc-sources
+        release: 12.3.0
+      with:
+        key: ${{ runner.os }}-${{ env.cache-name }}-${{ env.release }}
+        path: toolchain/gcc/gcc-${{ env.release }}.tar.gz
+
+    - name: Cache binutils/gdb sources
+      id: cache-binutils
+      uses: actions/cache@v4
+      env:
+        cache-name: binutils-sources
+        release: 2.44
+      with:
+        key: ${{ runner.os }}-${{ env.cache-name }}-${{ env.release }}
+        path: toolchain/binutils/binutils-${{ env.release }}.tar.gz
+
+    - name: Build Toolchain
+      run: |
+        nix develop .#gcc --command make gcc TARGET=i686-dailyrun ARCH= CROSS_COMPILE=
+
     - name: Build Kernel
       run: |
         nix develop --command make kernel
