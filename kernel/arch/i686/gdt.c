@@ -105,10 +105,10 @@ void gdt_log(void)
                ", access: " FMT8 ", flags: " FMT8 " }\n",
                index,
                /* base */
-               (u32)segment[2] | segment[3] << 8 | segment[4] << 16 |
+               segment[2] | segment[3] << 8 | segment[4] << 16 |
                    segment[7] << 24,
                /* limit */
-               (u32)segment[0] | (segment[1] << 8) | (segment[6] & 0xF) << 16,
+               segment[0] | (segment[1] << 8) | (segment[6] & 0xF) << 16,
                segment[5], (segment[6] & 0xF0) >> 4);
     }
 }

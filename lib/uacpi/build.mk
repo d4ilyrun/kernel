@@ -1,5 +1,3 @@
-libuacpi_CFLAGS := -Wno-format
-
 $(eval $(call DEFINE_STATIC_LIBRARY_AT,libuacpi,uacpi/uACPI,include,source,\
     tables.c \
     types.c \

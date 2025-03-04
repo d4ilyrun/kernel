@@ -35,7 +35,7 @@ static u32 syscall(void *frame)
     syscall_arch_get_args(frame, &args);
 
     if (args.nr >= SYSCALL_COUNT || !syscalls[args.nr].handler) {
-        log_err("Unimplemented syscall: '%s' (%ld)",
+        log_err("Unimplemented syscall: '%s' (%d)",
                 syscall_linux_syscalls[args.nr], args.nr);
         return -E_NOT_IMPLEMENTED;
     }

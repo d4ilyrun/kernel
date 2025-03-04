@@ -90,7 +90,7 @@ bool elf32_is_loadable(const struct elf32_ehdr *elf)
     }
 
     if (elf->e_version != EV_CURRENT) {
-        log_warn("unsupported version: %ld", elf->e_version);
+        log_warn("unsupported version: %d", elf->e_version);
         return false;
     }
 
@@ -134,15 +134,14 @@ static error_t elf32_load_segment(const struct elf32_ehdr *elf,
         if ((segment->p_vaddr % segment->p_align) !=
             (segment->p_offset % segment->p_align)) {
             log_dbg("p_vaddr and p_offset should be congruent modulo p_align "
-                    "(" FMT32 " === " FMT32 " %% " FMT32 ")",
+                    "(%x === %x %% %x)",
                     segment->p_vaddr, segment->p_offset, segment->p_align);
             return E_INVAL;
         }
     }
 
     if (segment->p_memsz < segment->p_filesz) {
-        log_dbg("size in memory inferior to size in file (" FMT32 " < " FMT32
-                ")",
+        log_dbg("size in memory inferior to size in file (%d < %d)",
                 segment->p_memsz, segment->p_filesz);
         return E_INVAL;
     }
@@ -154,8 +153,8 @@ static error_t elf32_load_segment(const struct elf32_ehdr *elf,
     if (segment->p_pflags & PF_X)
         prot |= PROT_EXEC;
 
-    log_dbg("allocating segment @ " FMT32 " (size= " FMT32 ", flags=%d)",
-            segment->p_vaddr, segment->p_memsz, prot);
+    log_dbg("allocating segment @ %p (size=%04x, flags=%x)",
+            (void *)segment->p_vaddr, segment->p_memsz, prot);
 
     /* NOTE: We also alocate the start of the containing page when vaddr is not
      * aligned. This is necessary because mmap will automatically align up the
@@ -237,8 +236,8 @@ static error_t elf32_load_section(const struct elf32_ehdr *elf,
     /* Values 0 and 1 mean the section has no alignment constraints */
     if (section->sh_addralign > 1) {
         if (!is_aligned(section->sh_addr, section->sh_addralign)) {
-            log_dbg("invalid alignment (" FMT32 " %% " FMT32 ")",
-                    section->sh_addr, section->sh_addralign);
+            log_dbg("invalid alignment (%d %% %d)", section->sh_addr,
+                    section->sh_addralign);
             return E_INVAL;
         }
     }

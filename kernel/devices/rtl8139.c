@@ -335,7 +335,7 @@ static error_t rtl8139_probe(struct device *dev)
 
     tx_cfg = rtl8139_readl(rtl8139, TRANSMIT_CFG);
     if (!rtl8139_is_rev_supported(tx_cfg & RTL8139_REV_MASK)) {
-        log_err("invalid revision: " FMT32, tx_cfg & RTL8139_REV_MASK);
+        log_err("invalid revision: %x", tx_cfg & RTL8139_REV_MASK);
         ethernet_device_free(eth_dev);
         return E_NOT_SUPPORTED;
     }

@@ -78,7 +78,7 @@ static void pit_set_divider(pit_channel channel, u32 value)
     if (PIT_INTERNAL_FREQUENCY % value > value / 2)
         pit_channel_frequencies[channel] += 1;
 
-    log_dbg("New frequency divisor value for channel %d: %ld (%ld Hz)", channel,
+    log_dbg("New frequency divisor value for channel %d: %d (%d Hz)", channel,
             value, pit_channel_frequencies[channel]);
 }
 

@@ -169,7 +169,7 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
         }
     }
 
-    log_info("Found %ld available pageframes (~%ldMiB)", available_pageframes,
+    log_info("Found %d available pageframes (~%dMiB)", available_pageframes,
              (available_pageframes * PAGE_SIZE) / (2 << 19));
     log_dbg("Total pageframes: %lld", TOTAL_PAGEFRAMES_COUNT);
     log_dbg("First available pageframe: " FMT32,
