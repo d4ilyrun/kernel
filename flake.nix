@@ -50,7 +50,7 @@
 
               shellHook = ''
                 export ARCH=i686
-                export CROSS_COMPILE=toolchain/opt/i686-elf/bin/i686-elf-
+                export CROSS_COMPILE=toolchain/opt/i686-dailyrun/bin/i686-dailyrun-
               '';
             };
 

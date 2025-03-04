@@ -1,7 +1,7 @@
 BINUTILS_TOOLCHAIN_DIR := $(TOOLCHAIN_DIR)/binutils
 TOOLCHAIN_LOCATION     := $(TOOLCHAIN_LOCATION_DIR)/$(TARGET)
 
-TARGET ?= $(ARCH)-elf
+TARGET ?= $(ARCH)-dailyrun
 HOST   ?= $(shell uname -m)-linux
 PREFIX ?= $(PWD)/$(TOOLCHAIN_LOCATION)
 
