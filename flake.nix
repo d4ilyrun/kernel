@@ -91,6 +91,21 @@
                 export CROSS_COMPILE=
               '';
             };
+
+            newlib = pkgs.mkShell.override { stdenv = pkgs.stdenvNoCC; } {
+              hardeningDisable = [ "all" ];
+              buildInputs = with pkgs; [
+                gnumake
+                pkg-config
+                autoconf269 # newlib requires using v2.69 exactly
+                automake115x
+              ];
+
+              shellHook = ''
+                export ARCH=i686
+                export CROSS_COMPILE=
+              '';
+            };
           };
       }
     );
