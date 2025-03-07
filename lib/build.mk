@@ -29,7 +29,7 @@ endef
 
 include $(LIB_DIR)/libtest/build.mk
 
-include $(LIB_DIR)/libc/build.mk
+include $(LIB_DIR)/libk/build.mk
 include $(LIB_DIR)/libalgo/build.mk
 include $(LIB_DIR)/libpath/build.mk
 include $(LIB_DIR)/uacpi/build.mk

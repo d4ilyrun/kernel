@@ -22,15 +22,19 @@ char *strncpy(char *dst, const char *src, size_t n)
     return dst;
 }
 
-char *strlcpy(char *dst, const char *src, size_t n)
+size_t strlcpy(char *dst, const char *src, size_t n)
 {
-    if (n == 0)
-        return dst;
+    size_t i;
 
-    strncpy(dst, src, n - 1);
-    dst[n - 1] = '\0';
+    for (i = 0; i < n - 1; ++i) {
+        dst[i] = src[i];
+        if (dst[i] == '\0')
+            break;
+    }
 
-    return dst;
+    dst[i] = '0';
+
+    return i;
 }
 
 int strcmp(const char *s1, const char *s2)

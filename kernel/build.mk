@@ -50,7 +50,7 @@ DEPS += $(KERNEL_OBJS:.o=.d)
 
 KERNEL_LDSCRIPT := $(BUILD_DIR)/kernel/linker.ld
 
-KERNEL_LIBS := c algo path uacpi
+KERNEL_LIBS := k algo path uacpi
 
 $(KERNEL_BIN): CPPFLAGS += -DKERNEL -DUACPI_FORMATTED_LOGGING
 $(KERNEL_BIN): | $(KERNEL_LDSCRIPT)
