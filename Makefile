@@ -91,6 +91,11 @@ define MAKE_RECURSIVE
 endef
 endif
 
+define newline
+
+
+endef
+
 all: kernel
 
 include $(TOOLCHAIN_DIR)/build.mk
@@ -119,12 +124,14 @@ compile_commands.json:
 	$(call ASSERT_EXE_EXISTS,bear)
 	$(SILENT)bear -- $(MAKE) -B all
 
+clean/%:
+	$(RM) -rf $(shell echo "$@" | sed "s/clean/$(BUILD_DIR)/")
+
 clean:
-	$(RM) -rf $(BUILD_DIR)
+	$(foreach to_clean,$(TO_CLEAN),$(RM) -rf $(to_clean) $(newline))
 
 distclean: clean
-	$(RM) -rf $(TOOLCHAIN_LOCATION)
-	$(RM) -rf $(BINUTILS_DIR) $(GCC_DIR)
+	$(foreach to_clean,$(TO_DISTCLEAN),$(RM) -rf $(to_clean) $(newline))
 
 .PHONY: clean distclean
 

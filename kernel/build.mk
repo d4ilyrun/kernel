@@ -80,4 +80,6 @@ qemu-server: $(KERNEL_ISO)
 	$(call ASSERT_EXE_EXISTS,$(QEMU))
 	$(SILENT)$(QEMU) -cdrom $(KERNEL_ISO) $(QEMU_ARGS)
 
+TO_CLEAN += $(BUILD_DIR)/$(KERNEL_DIR) $(KERNEL_BIN) $(KERNEL_ISO) $(BUILD_DIR)/kernel.map $(BUILD_DIR)/kernel.sym
+
 .PHONY: qemu qemu-server

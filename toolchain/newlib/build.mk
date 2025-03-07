@@ -40,3 +40,6 @@ newlib: newlib/configure
 	$(call MAKE_RECURSIVE,$(NEWLIB_BUILD_DIR),install,newlib/)
 
 .PHONY: libc newlib newlib/configure newlib/prepare newlib/tar
+
+TO_CLEAN += $(NEWLIB_BUILD_DIR)
+TO_DISTCLEAN += $(NEWLIB_DIR)

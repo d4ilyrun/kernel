@@ -21,14 +21,17 @@ $(BUILD_DIR)/$(1).a: $$($(1)_OBJS)
 
 DEPS += $$($(1)_OBJS:.o=.d)
 
+TO_CLEAN += $$(BUILD_DIR)/$(1).a
+
 endef
 
 define DEFINE_STATIC_LIBRARY
 $(call DEFINE_STATIC_LIBRARY_AT,$(1),$(1),include,src,$(2))
 endef
 
-include $(LIB_DIR)/libtest/build.mk
+TO_CLEAN += $(BUILD_DIR)/$(LIB_DIR)
 
+include $(LIB_DIR)/libtest/build.mk
 include $(LIB_DIR)/libk/build.mk
 include $(LIB_DIR)/libalgo/build.mk
 include $(LIB_DIR)/libpath/build.mk
