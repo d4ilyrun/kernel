@@ -41,3 +41,5 @@ $(BINUTILS_LD): binutils/configure
 	$(call MAKE_RECURSIVE,$(BINUTILS_BUILD_DIR),install,binutils/)
 
 .PHONY: binutils binutils/configure binutils/prepare
+
+TO_DISTCLEAN += $(BINUTILS_BUILD_DIR) $(BINUTILS_DIR)
