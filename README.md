@@ -7,8 +7,8 @@ stuff I want to learn more about.
 
 ## Dependencies
 
-* Meson
-* Ninja
+* Make
+* mtools (to generate an iso file)
 * QEMU
 
 ### Nix
@@ -26,9 +26,10 @@ $ nix develop .#kernel
 ## Building
 
 ```bash
-$ meson setup build --cross-file scripts/meson_cross.ini --reconfigure [-Dbuildtype=debug]
-$ ninja -C build iso      # builds the kernel.iso file
-$ ninja -C build qemu     # boots up qemu using the iso file
+$ export CROSS_COMPILE=i686-elf- # The target architecturea toolchain's prefix
+$ export ARCH=i686               # The architecture's name
+$ make iso      # builds the kernel.iso file
+$ make qemu     # boots up qemu using the iso file
 ```
 
 ## Testing
@@ -36,20 +37,20 @@ $ ninja -C build qemu     # boots up qemu using the iso file
 I don't know how I can test kernel code, so all tests are performed manually for the time being ...
 
 ```bash
-$ ninja -C build qemu-server    # boots up a qemu server open for GDB connections
+$ make qemu-server    # boots up a qemu server open for GDB connections
 $ gdb -x .gdbinit build/kernel/kernel.sym
 ```
 
 You can also run unit-tests on our libraries:
 ```bash
-$ meson test -C build --print-errorlogs
+$ make tests
 ```
 
 ## Documentation
 
 I try to keep the codebase well-documented. You can generate the full doc using doxygen:
 ```bash
-$ doxygen docs/doxygen/Doxyfile # Requires you to also pull the git submodules
+$ make docs # Requires you to also pull the git submodules
 ```
 
 ## Things I'd like to learn
