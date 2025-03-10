@@ -34,6 +34,7 @@ KERNEL_DIR		:= kernel
 SCRIPTS_DIR		:= scripts
 DOCS_DIR		:= docs
 TOOLCHAIN_DIR	:= toolchain
+PORTS_DIR 		:= ports
 
 DEBUG ?= y
 
@@ -101,6 +102,7 @@ all: kernel
 include $(TOOLCHAIN_DIR)/build.mk
 include $(LIB_DIR)/build.mk
 include $(KERNEL_DIR)/build.mk
+include $(PORTS_DIR)/build.mk
 include $(DOCS_DIR)/build.mk
 
 $(BUILD_DIR)/%.c.o: %.c
