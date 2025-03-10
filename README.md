@@ -2,8 +2,8 @@
 
 This is a mere hobby kernel for 32-bit x86, to learn about OS/Kernel development.
 
-I'm learning from [osdev](www.osdev.org), adding features in no particular order, just implementing
-stuff I want to learn more about.
+I'm  adding features in no particular order, just implementing stuff I want to learn
+more about and what seems more fun at the moment.
 
 ## Dependencies
 
@@ -67,30 +67,39 @@ $ make docs # Requires you to also pull the git submodules
 
 ## Things I'd like to learn
 
-- [X] Interrupts
 - Memory management
     - [X] Paging
-    - [X] VMM (virtual)
     - [ ] CoW
     - [ ] Guard pages
+    - [ ] Shared pages
+    - [ ] Page cache
 - Drivers
     - [X] Timer
     - [ ] Mouse
-    - [ ] Networking
     - [ ] Loadable kernel modules
 - Scheduling
     - [X] Multitasking
     - [ ] Priority
     - [ ] Multiprocessor
+- Networking
+    - [X] Ethernet
+    - [ ] IP
+        - [X] ARP
+        - [ ] IP segmentation
+    - [ ] Berkley sockets
+    - [ ] TCP
+    - [ ] UDP
+    - [ ] NTP
+    - [ ] NAT
 - Filesystems
-    - [ ] ext2
     - [X] VFS
-- Userland
-    - [X] jumping to userland
-    - [X] syscalls
+    - [ ] ext2
+    - [ ] NFS
 - Porting
-    - [ ] Load/Execute ELF programs
+    - [X] Load/Execute ELF programs
     - [ ] Porting an already existing program (Can it run DOOM?)
     - [ ] Dynamic ELF relocation
-- [ ] IPC
-- [ ] SMP
+- Misc
+    - [ ] IPC
+    - [ ] SMP
+    - [ ] POSIX syscalls compatibility
