@@ -50,7 +50,7 @@ DEPS += $(KERNEL_OBJS:.o=.d)
 
 KERNEL_LDSCRIPT := $(BUILD_DIR)/kernel/linker.ld
 
-KERNEL_LIBS := c algo path uacpi
+KERNEL_LIBS := k algo path uacpi
 
 $(KERNEL_BIN): CPPFLAGS += -DKERNEL -DUACPI_FORMATTED_LOGGING
 $(KERNEL_BIN): | $(KERNEL_LDSCRIPT)
@@ -79,5 +79,7 @@ qemu-server: $(KERNEL_ISO)
 	$(call LOG,QEMU,$^)
 	$(call ASSERT_EXE_EXISTS,$(QEMU))
 	$(SILENT)$(QEMU) -cdrom $(KERNEL_ISO) $(QEMU_ARGS)
+
+TO_CLEAN += $(BUILD_DIR)/$(KERNEL_DIR) $(KERNEL_BIN) $(KERNEL_ISO) $(BUILD_DIR)/kernel.map $(BUILD_DIR)/kernel.sym
 
 .PHONY: qemu qemu-server

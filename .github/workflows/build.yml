@@ -54,7 +54,11 @@ jobs:
 
     - name: Build Toolchain
       run: |
-        nix develop .#gcc --command make gcc TARGET=i686-dailyrun ARCH= CROSS_COMPILE=
+        nix develop .#gcc --command make gcc TARGET=i686-dailyrun ARCH= CROSS_COMPILE= GCC_CONFIGURE_FLAGS="--with-newlib"
+
+    - name: Build Newlib (libc)
+      run: |
+        nix develop .#newlib --command make newlib ARCH=i686 CROSS_COMPILE=
 
     - name: Build Kernel
       run: |

@@ -42,3 +42,5 @@ $(GCC_GCC): gcc/configure
 	$(call MAKE_RECURSIVE,$(GCC_BUILD_DIR),install-target-libgcc,gcc/)
 
 .PHONY: gcc gcc/configure gcc/prepare
+
+TO_DISTCLEAN += $(GCC_BUILD_DIR) $(GCC_DIR)
