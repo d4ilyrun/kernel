@@ -509,8 +509,7 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
     vaddr_t faulty_address = read_cr2();
     interrupt_frame *frame = data;
 
-    vmm_t *vmm = IS_KERNEL_ADDRESS(faulty_address) ? &kernel_vmm
-                                                   : current_process->vmm;
+    vmm_t *vmm = IS_KERNEL_ADDRESS(faulty_address) ? &kernel_vmm : current->vmm;
     const vma_t *address_area = vmm_find(vmm, faulty_address);
     page_fault_error error = *(page_fault_error *)&frame->error;
 
@@ -557,7 +556,7 @@ mmap_file(void *addr, size_t length, int prot, int flags, struct file *file)
 void *mmap(void *addr, size_t length, int prot, int flags)
 {
     // The actual pageframes are lazily allocated by the #PF handler
-    vmm_t *vmm = (flags & MAP_KERNEL) ? &kernel_vmm : current_process->vmm;
+    vmm_t *vmm = (flags & MAP_KERNEL) ? &kernel_vmm : current->vmm;
     return (void *)vmm_allocate(vmm, (vaddr_t)addr, length, prot | flags);
 }
 
@@ -574,7 +573,7 @@ int munmap(void *addr, size_t length)
         return E_SUCCESS;
 
     // Mark virtual address as free
-    vmm_t *vmm = IS_KERNEL_ADDRESS(addr) ? &kernel_vmm : current_process->vmm;
+    vmm_t *vmm = IS_KERNEL_ADDRESS(addr) ? &kernel_vmm : current->vmm;
     vmm_free(vmm, (vaddr_t)addr, length);
 
     // Remove mappings from the page tables
