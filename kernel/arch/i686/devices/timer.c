@@ -96,14 +96,14 @@ static DEFINE_INTERRUPT_HANDLER(irq_timer)
 
     const node_t *next_wakeup = llist_head(sleeping_tasks);
     while (next_wakeup &&
-           container_of(next_wakeup, process_t, this)->sleep.wakeup <=
+           container_of(next_wakeup, thread_t, this)->sleep.wakeup <=
                timer_ticks_counter) {
         next_wakeup = llist_pop(&sleeping_tasks);
-        sched_unblock_process(container_of(next_wakeup, process_t, this));
+        sched_unblock_thread(container_of(next_wakeup, thread_t, this));
         next_wakeup = llist_head(sleeping_tasks);
     }
 
-    if (current_process->running.preempt <= timer_ticks_counter)
+    if (current->running.preempt <= timer_ticks_counter)
         schedule();
 
     return E_SUCCESS;
@@ -116,8 +116,8 @@ u64 timer_gettick(void)
 
 static int process_cmp_wakeup(const void *current_node, const void *cmp_node)
 {
-    const process_t *current = container_of(current_node, process_t, this);
-    const process_t *cmp = container_of(cmp_node, process_t, this);
+    const thread_t *current = container_of(current_node, thread_t, this);
+    const thread_t *cmp = container_of(cmp_node, thread_t, this);
 
     RETURN_CMP(current->sleep.wakeup, cmp->sleep.wakeup);
 }
@@ -127,10 +127,9 @@ void timer_wait_ms(u64 ms)
     const u64 start = timer_ticks_counter;
     const u64 end = start + (1000 * timer_kernel_frequency) / ms;
 
-    current_process->sleep.wakeup = end;
-    llist_insert_sorted(&sleeping_tasks, &current_process->this,
-                        process_cmp_wakeup);
-    sched_block_current_process();
+    current->sleep.wakeup = end;
+    llist_insert_sorted(&sleeping_tasks, &current->this, process_cmp_wakeup);
+    sched_block_current_thread();
 }
 
 u64 timer_to_ms(u64 ticks)

@@ -60,7 +60,7 @@ NO_RETURN void execfmt_execute_executable(struct executable *executable)
      * Running an executable from kernel space makes no sense. This should
      * always be called in the context of a call to execve.
      */
-    process_jump_to_userland(executable->entrypoint, NULL);
+    thread_jump_to_userland(executable->entrypoint, NULL);
 }
 
 error_t execfmt_execute(struct file *exec_file)

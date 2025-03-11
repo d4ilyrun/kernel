@@ -22,10 +22,10 @@ struct stackframe_t {
 
 #undef LOG_DOMAIN
 
-#define LOG_DOMAIN "PROC"
+#define LOG_DOMAIN "THREAD"
 static void panic_dump_process(void)
 {
-    log_err("%s (PID: %d)", current_process->name, current_process->pid);
+    log_err("%s (TID: %d)", current->name, current->tid);
 }
 
 #undef LOG_DOMAIN

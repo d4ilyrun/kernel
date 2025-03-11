@@ -206,8 +206,7 @@ void default_interrupt_handler(interrupt_frame frame)
     if (handler->handler == NULL) {
         log_err("Unsupported interrupt: %s (" FMT32 ")",
                 interrupts_to_str(frame.nr), frame.nr);
-        log_dbg("Process: '%s' (PID=%d)", current_process->name,
-                current_process->pid);
+        log_dbg("Thread: '%s' (TID=%d)", current->name, current->tid);
         log_dbg("ERROR=" FMT32, frame.error);
         log_dbg("FLAGS=" FMT32, frame.state.flags);
         log_dbg("CS=" FMT32 ", SS=" FMT32, frame.state.cs,

@@ -8,11 +8,11 @@
  *
  * # Scheduler
  *
- * The scheduler is responsible for ... well, scheduling processes.
+ * The scheduler is responsible for ... well, scheduling proceses.
  *
- * It has to decide which process to run next, and when, among all currently
- * running processes. This is what allows running multiple processes on a single
- * CPU.
+ * It has to decide which process threads to run next, and when, among all
+ * currently running threads. This is what allows running multiple threads
+ * on a single CPU.
  *
  * A good scheduler is crucial to the user's experience, and this is often what
  * makes the "feel" of the entire OS.
@@ -20,21 +20,21 @@
  * ## Design
  *
  * For now, our scheduler uses a preemptive round-robin design.
- * It holds a list of currently running processes, called the runqueue,
+ * It holds a list of currently running threads, called the runqueue,
  * and cycles between them at a regular interval.
  *
- * The interval is set currently set to 2MS, per process, per cycle, and is
- * handled inside \ref irq_timer_handler. If the current process is still
+ * The interval is set currently set to 2MS, per thread, per cycle, and is
+ * handled inside \ref irq_timer_handler. If the current thread is still
  * running when the current interval reaches its end, the next one takes its
  * place, and the timer is reset. This is called preemption.
  *
- * During the execution of a processes, it often needs to access some
+ * During the execution of a thread, it often needs to access some
  * resources, thus having to wait until the resource is available. When this is
- * the case, the process is marked as \ref SCHED_WAITING using \ref
- * sched_block_current_process, and we switch to the next available running
- * process. Once the resource is available, the relevant interface has the
- * resposibility to notify the scheduler that the process can be rescheduled,
- * using \ref sched_unblock_process.
+ * the case, the thread is marked as \ref SCHED_WAITING using \ref
+ * sched_block_current_thread, and we switch to the next available running
+ * thread. Once the resource is available, the relevant interface has the
+ * resposibility to notify the scheduler that the thread can be rescheduled,
+ * using \ref sched_unblock_thread.
  *
  * ## Improvements
  *
@@ -79,35 +79,35 @@ bool scheduler_lock(void);
  */
 void scheduler_unlock(bool old_if_flag);
 
-/** Add a new process to be scheduled.
- *  When adding a new process, its state will be set to @ref SCHED_RUNNING
+/** Add a new thread to be scheduled.
+ *  When adding a new thread, its state will be set to @ref SCHED_RUNNING
  */
-void sched_new_process(process_t *);
+void sched_new_thread(thread_t *);
 
 /** Create a new process and instantly schedule it
- *  @see \ref sched_new_process
- *       \ref process_create
+ *  @see \ref sched_new_thread
+ *       \ref thread_create
  */
 static ALWAYS_INLINE void sched_new_process_create(char *name,
-                                                   process_entry_t entrypoint,
+                                                   thread_entry_t entrypoint,
                                                    void *data, u32 flags)
 {
-    sched_new_process(process_create(name, entrypoint, data, flags));
+    sched_new_thread(thread_create(name, entrypoint, data, flags));
 }
 
 /** Initialize this cpu's scheduler */
 void scheduler_init(void);
 
-/** Mark the current process as blocked
+/** Mark the current thread as blocked
  *
- * A blocked process cannot be rescheduled until it is explicitely marked as
+ * A blocked thread cannot be rescheduled until it is explicitely marked as
  * @ref SCHED_RUNNING.
  */
-void sched_block_current_process(void);
+void sched_block_current_thread(void);
 
-/** Unblock a currently blocked process
+/** Unblock a currently blocked thread
  *
- * The process is marked as @ref SCHED_RUNNING and is automatically added to the
+ * The thread is marked as @ref SCHED_RUNNING and is automatically added to the
  * appropriate runqueue.
  */
-void sched_unblock_process(process_t *process);
+void sched_unblock_thread(thread_t *);

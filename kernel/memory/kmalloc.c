@@ -153,7 +153,7 @@ void *kmalloc(size_t size, int flags)
     size = bit_next_pow32(size);
 
     llist_t *buckets = (flags & KMALLOC_KERNEL) ? &kmalloc_buckets
-                                                : &current_process->kmalloc;
+                                                : &current->kmalloc;
 
     bucket_t *bucket = bucket_find(*buckets, size, flags);
     if (bucket == NULL)
@@ -184,7 +184,7 @@ void kfree(void *ptr)
 
     bucket_free_block(bucket_from_block(ptr), ptr,
                       IS_KERNEL_ADDRESS(ptr) ? &kmalloc_buckets
-                                             : &current_process->kmalloc);
+                                             : &current->kmalloc);
 }
 
 void *krealloc(void *ptr, size_t size, int flags)

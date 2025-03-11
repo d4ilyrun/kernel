@@ -25,68 +25,67 @@
 /** The max length of a process's name */
 #define PROCESS_NAME_MAX_LEN 32
 
-/** @enum process_state
- *  The different states a process can be in
+/** @enum thread_state
+ *  The different states a thread can be in
  */
-typedef enum process_state {
+typedef enum thread_state {
     SCHED_RUNNING = 0x0, ///< Currently running (or ready to run)
     SCHED_WAITING = 0x1, ///< Currently waiting for a resource (timer, lock ...)
-    SCHED_KILLED = 0x2,  ///< A process has been killed, waiting for its
+    SCHED_KILLED = 0x2,  ///< A thread has been killed, waiting for its
                          ///< resources to be disposed of
-} process_state_t;
+} thread_state_t;
 
 typedef llist_t kmalloc_t;
 
 /**
- * @brief A single process.
- * @struct process
+ * @brief A single thread.
+ * @struct thread
  */
-typedef struct process {
+typedef struct thread {
 
     /**
-     * Arch specific process context
+     * Arch specific thread context
      *
      * This includes registers, and information that must be kept for when
-     * switching back into the process.
+     * switching back into the thread.
      */
-    process_context_t context;
-    process_state_t state; /*!< Process's current state */
+    thread_context_t context;
+    thread_state_t state; /*!< thread's current state */
 
-    char name[PROCESS_NAME_MAX_LEN]; /*!< The process's name */
-    pid_t pid;                       /*!< The PID */
-    u32 flags; /*!< Combination of \ref process_flags values */
+    char name[PROCESS_NAME_MAX_LEN]; /*!< The thread's name */
+    pid_t tid;                       /*!< Thread ID */
+    u32 flags; /*!< Combination of \ref thread_flags values */
 
-    vmm_t *vmm;        /*!< The process's address space manager */
+    vmm_t *vmm;        /*!< The thread's address space manager */
     kmalloc_t kmalloc; /*!< Opaque struct used by the memory allocator to
                           allocate memory blocks inside the user area */
 
     node_t this; /*!< Intrusive linked list used by the scheduler */
 
-    /** Information relative to the current state of the process */
+    /** Information relative to the current state of the thread */
     union {
 
         struct {
-            /** End of the currently running process's timeslice */
+            /** End of the currently running thread's timeslice */
             timestamp_t preempt;
         } running;
-
-        /** For sleeping processes only */
+        /** For sleeping threads only */
         struct {
             timestamp_t wakeup; /*!< Time when it should wakeup (in ticks) */
         } sleep;
     };
 
-} process_t;
+} thread_t;
 
-/** @enum process_flags */
-typedef enum process_flags {
-    PROC_NONE,   ///< Default user mode process
-    PROC_KERNEL, ///< This process runs in kernel mode
-} process_flags;
+/** @enum thread_flags */
+typedef enum thread_flags {
+    THREAD_KERNEL = BIT(0), ///< This thread runs in kernel mode
+} process_flags_t;
 
-static ALWAYS_INLINE bool process_is_kernel(process_t *process)
+/***/
+static ALWAYS_INLINE bool thread_is_kernel(thread_t *thread)
 {
-    return process->flags & PROC_KERNEL;
+    return thread->flags & THREAD_KERNEL;
 }
 
 /** Process used when starting up the kernel.
@@ -97,36 +96,36 @@ static ALWAYS_INLINE bool process_is_kernel(process_t *process)
  * We should not reference this process anymore once we have an up and running
  * scheduler.
  */
-extern process_t kernel_startup_process;
+extern thread_t kernel_startup_process;
 
-/** The currently running process */
-extern process_t *current_process;
+/** The currently running thread */
+extern thread_t *current;
 
-/** A function used as an entry point when starting a new process
+/** A function used as an entry point when starting a new thread
  *
  * @param data Generic data passed on to the function when starting
- * the process
+ * the thread
  * @note We never return from this function
  */
-typedef void (*process_entry_t)(void *data);
+typedef void (*thread_entry_t)(void *data);
 
-/** Switch the currently running process
- * @param process The new process to switch into
- * @return \c false if the new process was previously killed
+/** Switch the currently running thread
+ * @param process The new thread to switch into
+ * @return \c false if the new thread was previously killed
  */
-bool process_switch(process_t *process);
+bool thread_switch(thread_t *);
 
-/** Create and initialize a new process
+/** Create and initialize a new thread
  *
- * When starting a userland process, the \c data field is not passed
+ * When starting a userland thread, the \c data field is not passed
  * to the entrypoint function.
  *
- * @param name The name of the process
- * @param entrypoint The function called when starting the process
+ * @param name The name of the thread
+ * @param entrypoint The function called when starting the thread
  * @param data Data passed to the entry function (can be NULL)
- * @param flags Feature flags: a combination of \ref process_flags enum values
+ * @param flags Feature flags: a combination of \ref thread_flags enum values
  */
-process_t *process_create(char *name, process_entry_t entrypoint, void *, u32);
+thread_t *thread_create(char *name, thread_entry_t entrypoint, void *, u32);
 
 /** Start executing code in userland
  *
@@ -141,14 +140,14 @@ process_t *process_create(char *name, process_entry_t entrypoint, void *, u32);
  * @param data       The data passed as an argument to the 'entrypoint' function
  *                   (ignored)
  */
-NO_RETURN void process_jump_to_userland(process_entry_t, void *);
+NO_RETURN void thread_jump_to_userland(thread_entry_t, void *);
 
-/** Effectively kill a process
+/** Effectively kill a thread
  *
- *  * Free all private memory used by the process
+ *  * Free all private memory used by the thread
  *  * Synchronize resources (write to files, ...)
  */
-void process_kill(process_t *);
+void thread_kill(thread_t *);
 
 /** @defgroup arch_process Processes - arch specifics
  *  @ingroup x86_process

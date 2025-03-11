@@ -14,12 +14,12 @@
 #include <string.h>
 
 /* defined in process.S */
-NO_RETURN void __arch_process_jump_to_userland(process_entry_t entrypoint,
-                                               segment_selector cs,
-                                               segment_selector ds, u32 esp);
+NO_RETURN void __arch_thread_jump_to_userland(thread_entry_t entrypoint,
+                                              segment_selector cs,
+                                              segment_selector ds, u32 esp);
 
 NO_RETURN void
-arch_process_jump_to_userland(process_entry_t entrypoint, void *data)
+arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data)
 {
     segment_selector ds = {.index = GDT_ENTRY_USER_DATA, .rpl = 3};
     segment_selector cs = {.index = GDT_ENTRY_USER_CODE, .rpl = 3};
@@ -28,22 +28,22 @@ arch_process_jump_to_userland(process_entry_t entrypoint, void *data)
     UNUSED(data);
 
     /* Reset user stack */
-    memset((void *)current_process->context.esp_user, 0, KERNEL_STACK_SIZE);
+    memset((void *)current->context.esp_user, 0, KERNEL_STACK_SIZE);
 
     log_dbg("jump to userland");
-    ustack_top = current_process->context.esp_user + KERNEL_STACK_SIZE;
-    __arch_process_jump_to_userland(entrypoint, cs, ds, ustack_top);
+    ustack_top = current->context.esp_user + KERNEL_STACK_SIZE;
+    __arch_thread_jump_to_userland(entrypoint, cs, ds, ustack_top);
 
     assert_not_reached();
 }
 
-/** Finish setting up the process before jumping to its entrypoint
+/** Finish setting up the thread before jumping to its entrypoint
  *
  * This function initializes components that could not be setup from another
  * process's address space.
  *
- * The return to the process's entry point is done implicitely through the
- * artificial stack setup in @arch_process_create.
+ * The return to the thread's entry point is done implicitely through the
+ * artificial stack setup in @arch_thread_create.
  *
  * FIXME: We should not take an entrypoint when creating a new process.
  *
@@ -62,12 +62,12 @@ arch_process_jump_to_userland(process_entry_t entrypoint, void *data)
  * This should be fixed when refactoring the task model (add threads & delayed
  * work).
  */
-void arch_process_entrypoint(process_entry_t entrypoint, void *data)
+void arch_thread_entrypoint(thread_entry_t entrypoint, void *data)
 {
     u32 *ustack = NULL;
 
-    if (!vmm_init(current_process->vmm, USER_MEMORY_START, USER_MEMORY_END))
-        log_err("Failed to initilize VMM (%s)", current_process->name);
+    if (!vmm_init(current->vmm, USER_MEMORY_START, USER_MEMORY_END))
+        log_err("Failed to initilize VMM (%s)", current->name);
 
     ustack = kcalloc(KERNEL_STACK_SIZE, 1, KMALLOC_DEFAULT);
     if (ustack == NULL) {
@@ -75,25 +75,24 @@ void arch_process_entrypoint(process_entry_t entrypoint, void *data)
         goto error_exit;
     }
 
-    current_process->context.esp_user = (u32)ustack;
+    current->context.esp_user = (u32)ustack;
 
-    if (process_is_kernel(current_process)) {
+    if (thread_is_kernel(current)) {
         entrypoint(data);
     } else {
-        arch_process_jump_to_userland(entrypoint, data);
+        arch_thread_jump_to_userland(entrypoint, data);
     }
 
 error_exit:
-    process_kill(current_process);
+    thread_kill(current);
 }
 
-bool arch_process_create(process_t *process, process_entry_t entrypoint,
-                         void *data)
+bool arch_thread_create(thread_t *thread, thread_entry_t entrypoint, void *data)
 {
     u32 *kstack = NULL;
     paddr_t cr3;
 
-    // Allocate a kernel stack for the new process
+    // Allocate a kernel stack for the new thread
     kstack = kcalloc(KERNEL_STACK_SIZE, 1, KMALLOC_KERNEL);
     if (kstack == NULL) {
         log_err("Failed to allocate new kernel stack");
@@ -106,30 +105,30 @@ bool arch_process_create(process_t *process, process_entry_t entrypoint,
         goto release_kernel_stack;
     }
 
-    process->context.cr3 = cr3;
-    process->context.esp0 = (u32)kstack;
+    thread->context.cr3 = cr3;
+    thread->context.esp0 = (u32)kstack;
 
-    // Setup basic stack frame to be able to start the process using 'ret'
-    // 1. Return into 'arch_process_entrypoint'
-    // 2. From entrypoint, jump to the process's entrypoint
+    // Setup basic stack frame to be able to start the thread using 'ret'
+    // 1. Return into 'arch_thread_entrypoint'
+    // 2. From entrypoint, jump to the thread's entrypoint
 
 #define KSTACK(_i) kstack[KERNEL_STACK_SIZE / sizeof(u32) - (_i)]
 
-    // Stack frame for arch_process_entrypoint
+    // Stack frame for arch_thread_entrypoint
     KSTACK(0) = (u32)data;       // arg2
     KSTACK(1) = (u32)entrypoint; // arg1
     KSTACK(2) = 0;               // nuke ebp
 
-    // Stack frame for arch_process_switch
-    KSTACK(3) = (u32)arch_process_entrypoint;
+    // Stack frame for arch_thread_switch
+    KSTACK(3) = (u32)arch_thread_entrypoint;
     KSTACK(4) = 0;               // edi
     KSTACK(5) = 0;               // esi
     KSTACK(6) = 0;               // ebx
     KSTACK(7) = (u32)&KSTACK(3); // ebp
 
-    // Set new process's stack pointer to the top of our manually created
+    // Set new thread's stack pointer to the top of our manually created
     // context_switching stack
-    process->context.esp = (u32)&KSTACK(7);
+    thread->context.esp = (u32)&KSTACK(7);
 
 #undef KSTACK
 
@@ -140,8 +139,8 @@ release_kernel_stack:
     return false;
 }
 
-void arch_process_free(process_t *process)
+void arch_thread_free(thread_t *thread)
 {
-    kfree((void *)process->context.esp0);
+    kfree((void *)thread->context.esp0);
     // TODO: release MMU
 }
