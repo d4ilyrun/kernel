@@ -52,7 +52,7 @@ static void do_schedule(bool reschedule)
     thread_t *next = container_of(next_node, thread_t, this);
 
     if (reschedule) {
-        if (current->state == SCHED_RUNNING)
+        if (current->state != SCHED_WAITING)
             queue_enqueue(&scheduler.ready, &current->this);
     }
 
