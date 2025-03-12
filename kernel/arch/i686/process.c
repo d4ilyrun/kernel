@@ -1,3 +1,4 @@
+#include "utils/container_of.h"
 #define LOG_DOMAIN "process"
 
 #include <kernel/error.h>
@@ -62,12 +63,15 @@ arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data)
  * This should be fixed when refactoring the task model (add threads & delayed
  * work).
  */
-void arch_thread_entrypoint(thread_entry_t entrypoint, void *data)
+static void arch_thread_entrypoint(thread_entry_t entrypoint, void *data)
 {
     u32 *ustack = NULL;
 
-    if (!vmm_init(current->vmm, USER_MEMORY_START, USER_MEMORY_END))
-        log_err("Failed to initilize VMM (%s)", current->name);
+    if (thread_is_initial(current)) {
+        if (!vmm_init(current->process->vmm, USER_MEMORY_START,
+                      USER_MEMORY_END))
+            log_err("Failed to initilize VMM (%s)", current->process->name);
+    }
 
     ustack = kcalloc(KERNEL_STACK_SIZE, 1, KMALLOC_DEFAULT);
     if (ustack == NULL) {
@@ -87,7 +91,7 @@ error_exit:
     thread_kill(current);
 }
 
-bool arch_thread_create(thread_t *thread, thread_entry_t entrypoint, void *data)
+bool arch_thread_init(thread_t *thread, thread_entry_t entrypoint, void *data)
 {
     u32 *kstack = NULL;
     paddr_t cr3;
@@ -99,10 +103,16 @@ bool arch_thread_create(thread_t *thread, thread_entry_t entrypoint, void *data)
         return false;
     }
 
-    cr3 = mmu_new_page_directory();
-    if (IS_ERR(cr3)) {
-        log_err("Failed to create new page directory");
-        goto release_kernel_stack;
+    /* Share page directory if another thread already exists for this process */
+    if (thread_is_initial(thread)) {
+        cr3 = mmu_new_page_directory();
+        if (IS_ERR(cr3)) {
+            log_err("Failed to create new page directory");
+            goto release_kernel_stack;
+        }
+    } else {
+        const node_t *other = llist_head(thread->process->threads);
+        cr3 = container_of(other, struct thread, proc_this)->context.cr3;
     }
 
     thread->context.cr3 = cr3;
@@ -142,5 +152,11 @@ release_kernel_stack:
 void arch_thread_free(thread_t *thread)
 {
     kfree((void *)thread->context.esp0);
+    kfree((void *)thread->context.esp_user);
+}
+
+void arch_process_free(struct process *process)
+{
     // TODO: release MMU
+    UNUSED(process);
 }

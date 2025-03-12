@@ -105,7 +105,7 @@ _kernel_start:
 
 .size _kernel_start, . - _kernel_start
 
-.extern kernel_startup_process
+.extern kernel_process_initial_thread;
 
 .section .text
 higher_half:
@@ -115,7 +115,7 @@ higher_half:
     // Initialize stack pointer
     movl $startup_kernel_stack_top, %esp
     // Store it into the startup's task ESP0 (required for multitasking)
-    leal (kernel_startup_process), %edx
+    leal (kernel_process_initial_thread), %edx
     movl $startup_kernel_stack_top, 0x4(%edx)
 
     // The bootloader stores information about our system (memory map, ...)

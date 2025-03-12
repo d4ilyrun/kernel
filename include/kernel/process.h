@@ -4,6 +4,27 @@
  * @brief Process management
  * @file kernel/process.h
  *
+ * This file defines the data structures and functions for managing processes
+ * and threads in a multithreading model.
+ *
+ * A process is an instance of a program that is being executed by one or more
+ * threads. Each process has its own unique address space, which means that it
+ * has its own virtual memory space that is separate from other processes. This
+ * allows each process to have its own private memory space, which is not
+ * accessible to other processes. A process also has its own set of system
+ * resources, such as open files descriptors.
+ *
+ * A thread is an execution context that is created within a process.
+ * Threads within the same process share the same address space. They do not
+ * share the same execution context (registers, stack).
+ *
+ * Both processes and threads are identified using a unique id: PID and TID.
+ * Threads do not exist without a containing process, and processes are forced
+ * to always contain at least one alive thread.
+ *
+ * The file provides functions for creating and killing processes, creating and
+ * killing threads, as well as switching between them.
+ *
  * @defgroup process Processes
  * @ingroup scheduling
  *
@@ -25,20 +46,78 @@
 /** The max length of a process's name */
 #define PROCESS_NAME_MAX_LEN 32
 
-/** @enum thread_state
- *  The different states a thread can be in
+typedef llist_t kmalloc_t;
+
+/** A function used as an entry point when creating a new thread
+ *
+ * @param data Generic data passed on to the function when starting
+ * the thread
+ * @note We never return from this function
+ */
+typedef void (*thread_entry_t)(void *data);
+
+/**
+ * @brief A single process
+ *
+ * The struct contains information about the process, including its name,
+ * unique ID and resources context (address space, file descriptors, ...).
+ * It also contains a list of all the process's active threads.
+ *
+ * @struct process
+ */
+struct process {
+    char name[PROCESS_NAME_MAX_LEN]; /*!< The thread's name */
+    pid_t pid;                       /*!< Process' unique ID */
+
+    vmm_t *vmm;        /*!< The process' address space manager */
+    kmalloc_t kmalloc; /*!< Opaque struct used by the memory allocator to
+                          allocate memory blocks inside the user area */
+
+    llist_t threads; /*!< Linked list of the process' active threads */
+    size_t refcount; /*!< Reference count to this process.
+                         We only kill a process once all of its threads have
+                         been released. */
+};
+
+/** Create a new process
+ *
+ * Along with the process is allocated its initial execution thread.
+ *
+ * @ref thread_spawn
+ *
+ * @param name The name of the process
+ * @param entrypoint The entrypoint used when starting the initial thread
+ * @param data Data passed to the initial thread's entrypoint
+ *
+ * @return The newly created proces, or an pointer encoded error
+ */
+struct process *process_create(const char *name, thread_entry_t, void *data);
+
+/** Forcibly kill an active process.
+ *
+ *  If the process has any active threads, they will all be killed.
+ */
+void process_kill(struct process *);
+
+/** The different states a thread can be in
+ *  @enum thread_state
  */
 typedef enum thread_state {
-    SCHED_RUNNING = 0x0, ///< Currently running (or ready to run)
-    SCHED_WAITING = 0x1, ///< Currently waiting for a resource (timer, lock ...)
-    SCHED_KILLED = 0x2,  ///< A thread has been killed, waiting for its
-                         ///< resources to be disposed of
+    SCHED_RUNNING, ///< Currently running (or ready to run)
+    SCHED_WAITING, ///< Currently waiting for a resource (timer, lock ...)
+    SCHED_KILLED,  ///< The thread has been killed waiting to be destroyed
 } thread_state_t;
-
-typedef llist_t kmalloc_t;
 
 /**
  * @brief A single thread.
+ *
+ * The struct contains information about the thread's execution state.
+ * This state is architecture dependant, so its actual definition is present
+ * inside the arch specific process header file.
+ *
+ * Generic information about a thread include its current state (used by the
+ * scheduler), information about its containing process and feature flags.
+ *
  * @struct thread
  */
 typedef struct thread {
@@ -50,21 +129,19 @@ typedef struct thread {
      * switching back into the thread.
      */
     thread_context_t context;
-    thread_state_t state; /*!< thread's current state */
+    thread_state_t state; /*!< Thread's current state, used by the scheduler */
 
-    char name[PROCESS_NAME_MAX_LEN]; /*!< The thread's name */
-    pid_t tid;                       /*!< Thread ID */
+    struct process *process; /*!< Containing process */
+    node_t proc_this; /*!< Linked list used by the process to list threads */
+
+    pid_t tid; /*!< Thread ID */
     u32 flags; /*!< Combination of \ref thread_flags values */
-
-    vmm_t *vmm;        /*!< The thread's address space manager */
-    kmalloc_t kmalloc; /*!< Opaque struct used by the memory allocator to
-                          allocate memory blocks inside the user area */
 
     node_t this; /*!< Intrusive linked list used by the scheduler */
 
     /** Information relative to the current state of the thread */
     union {
-
+        /** For running threads only */
         struct {
             /** End of the currently running thread's timeslice */
             timestamp_t preempt;
@@ -88,6 +165,14 @@ static ALWAYS_INLINE bool thread_is_kernel(thread_t *thread)
     return thread->flags & THREAD_KERNEL;
 }
 
+/** The initial thread is the thread created along with the process.
+ *  The TID of the initial thread is the same as its process's PID.
+ */
+static ALWAYS_INLINE bool thread_is_initial(thread_t *thread)
+{
+    return thread->tid == thread->process->pid;
+}
+
 /** Process used when starting up the kernel.
  *
  * It is necesary to define it statically, since memory management functions are
@@ -96,18 +181,11 @@ static ALWAYS_INLINE bool thread_is_kernel(thread_t *thread)
  * We should not reference this process anymore once we have an up and running
  * scheduler.
  */
-extern thread_t kernel_startup_process;
+extern struct process kernel_process;
+extern struct thread kernel_process_initial_thread;
 
 /** The currently running thread */
 extern thread_t *current;
-
-/** A function used as an entry point when starting a new thread
- *
- * @param data Generic data passed on to the function when starting
- * the thread
- * @note We never return from this function
- */
-typedef void (*thread_entry_t)(void *data);
 
 /** Switch the currently running thread
  * @param process The new thread to switch into
@@ -120,12 +198,12 @@ bool thread_switch(thread_t *);
  * When starting a userland thread, the \c data field is not passed
  * to the entrypoint function.
  *
- * @param name The name of the thread
+ * @param process The process the newly created thread belongs to
  * @param entrypoint The function called when starting the thread
  * @param data Data passed to the entry function (can be NULL)
  * @param flags Feature flags: a combination of \ref thread_flags enum values
  */
-thread_t *thread_create(char *name, thread_entry_t entrypoint, void *, u32);
+thread_t *thread_spawn(struct process *, thread_entry_t, void *, u32);
 
 /** Start executing code in userland
  *
