@@ -19,6 +19,8 @@
 
 /** The size of a single page */
 #define PAGE_SIZE (4096U)
+/** */
+#define PAGE_SHIFT 12
 
 /**
  * @brief The size of the virtual address space
