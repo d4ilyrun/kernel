@@ -1,5 +1,5 @@
-KERNEL_BIN := $(BUILD_DIR)/kernel.bin
-KERNEL_ISO := $(BUILD_DIR)/kernel.iso
+KERNEL_BIN := $(BUILD_DIR)/$(KERNEL_DIR)/kernel.bin
+KERNEL_ISO := $(BUILD_DIR)/$(KERNEL_DIR)/kernel.iso
 
 CPPFLAGS += -DARCH=$(ARCH)
 
