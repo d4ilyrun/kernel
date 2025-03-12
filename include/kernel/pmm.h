@@ -13,7 +13,17 @@
  * The PMM should never interact with the virtual address space, this is the
  * responsabillity of the VMM only.
  *
- * ## Desig,
+ * ## Design
+ *
+ * A physical pageframe is represented by a @ref struct page.
+ * The PMM keeps track of every existing physical page inside a statically
+ * allocated array. This array is indexed using the page's "pageframenumber".
+ * A pageframe number (PFN) is simply the page's physical address divided by the
+ * architecture's page size.
+ *
+ * @todo  TODO: Implement a buddy Allocator
+ *        The buddy allocator is less memory efficient, but way faster when it
+ *        comes to retrieving available pages.
  *
  * @{
  */
@@ -63,6 +73,52 @@ typedef enum pmm_flags {
 } pmm_flags;
 
 /** @} */
+
+/** Flags used for @ref struct page 'flags' field
+ *  @enum page_flags
+ */
+enum page_flags {
+    PAGE_AVAILABLE = BIT(0), ///< This page has not been allocated
+};
+
+/** Represents a physical pageframe
+ *  @struct page
+ */
+struct page {
+    uint8_t flags; ///< Combination of @ref page_flags
+};
+
+/**
+ * @brief The array of all existing pageframes
+ *
+ * @note The arrays's size is hardcoded to be able to fit each and every
+ *       pageframes (even though only part of them will be available at
+ *       runtime).
+ */
+extern struct page pmm_pageframes[TOTAL_PAGEFRAMES_COUNT];
+
+/** Convert pageframe address to page frame number */
+#define TO_PFN(_pageframe) (((native_t)(_pageframe)) >> PAGE_SHIFT)
+/** Convert pageframe number to pageframe address */
+#define FROM_PFN(_pageframe) ((_pageframe) << PAGE_SHIFT)
+
+/** @return A page's physical address */
+static inline paddr_t page_address(const struct page *page)
+{
+    return FROM_PFN((page - pmm_pageframes) / sizeof(*page));
+}
+
+/** @return The page struct corresponding to a pageframe number */
+static inline struct page *pfn_to_page(unsigned int pfn)
+{
+    return &pmm_pageframes[pfn];
+}
+
+/** @return The page struct corresponding to a physical address's pageframe */
+static inline struct page *address_to_page(paddr_t addr)
+{
+    return pfn_to_page(TO_PFN(addr));
+}
 
 /**
  * @brief Initialize the Physical Memory Mapper

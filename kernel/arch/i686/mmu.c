@@ -132,11 +132,6 @@ typedef union {
 
 static_assert(sizeof(mmu_decode_t) == sizeof(u32));
 
-/** Convert pageframe address to page frame number */
-#define TO_PFN(_pageframe) (((u32)(_pageframe)) >> 12)
-/** Convert pageframe number to pageframe address */
-#define FROM_PFN(_pageframe) ((_pageframe) << 12)
-
 /**
  * Compute the virtual address of a page table when using recursive paging
  * @link https://medium.com/@connorstack/recursive-page-tables-ad1e03b20a85
