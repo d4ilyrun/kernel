@@ -222,11 +222,7 @@ MAYBE_UNUSED static void thread_free(thread_t *thread)
 bool thread_switch(thread_t *thread)
 {
     if (thread->state == SCHED_KILLED) {
-        // FIXME: Find a way to free the thread on exit
-        //        By doing it this way, referencing the freed thread
-        //        causes a #PF when rescheduling the next thread.
-        //
-        // thread_free(thread);
+        thread_free(thread);
         return false;
     }
 
@@ -236,6 +232,8 @@ bool thread_switch(thread_t *thread)
 
 void thread_kill(thread_t *thread)
 {
+    /* To make the implementation easier the actual 'killing' of the thread
+     * is delayed until it is rescheduled (cf. thread_switch). */
     thread->state = SCHED_KILLED;
     if (thread == current)
         schedule();
