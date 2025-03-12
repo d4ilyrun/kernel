@@ -295,7 +295,8 @@ uacpi_status uacpi_kernel_schedule_work(uacpi_work_type type,
 {
     UNUSED(type);
 
-    thread_t *thread = thread_create("kuacpi", handler, ctx, THREAD_KERNEL);
+    thread_t *thread = thread_spawn(&kernel_process, handler, ctx,
+                                    THREAD_KERNEL);
     if (thread == NULL)
         return UACPI_STATUS_OUT_OF_MEMORY;
 

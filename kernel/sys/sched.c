@@ -108,7 +108,7 @@ static void idle_task(void *data __attribute__((unused)))
 
 void scheduler_init(void)
 {
-    idle_thread = thread_create("<< IDLE >>", idle_task, NULL, THREAD_KERNEL);
+    idle_thread = thread_spawn(&kernel_process, idle_task, NULL, THREAD_KERNEL);
     // use the largest PID possible to avoid any conflict later on
     idle_thread->tid = (pid_t)-1;
     sched_new_thread(idle_thread);

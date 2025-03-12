@@ -88,11 +88,10 @@ void sched_new_thread(thread_t *);
  *  @see \ref sched_new_thread
  *       \ref thread_create
  */
-static ALWAYS_INLINE void sched_new_process_create(char *name,
-                                                   thread_entry_t entrypoint,
-                                                   void *data, u32 flags)
+static ALWAYS_INLINE void
+sched_new_thread_create(thread_entry_t entrypoint, void *data, u32 flags)
 {
-    sched_new_thread(thread_create(name, entrypoint, data, flags));
+    sched_new_thread(thread_spawn(current->process, entrypoint, data, flags));
 }
 
 /** Initialize this cpu's scheduler */
