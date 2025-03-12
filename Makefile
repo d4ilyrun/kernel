@@ -39,7 +39,7 @@ DEBUG ?= y
 
 CFLAGS   := -std=gnu11 -Werror -Wall -Wextra -MMD -MP
 CPPFLAGS := -I$(INC_DIR)
-LDFLAGS  := -L$(BUILD_DIR)
+LDFLAGS  := -L$(BUILD_DIR)/$(LIB_DIR)
 
 CFLAGS += -fdiagnostics-color=always
 
