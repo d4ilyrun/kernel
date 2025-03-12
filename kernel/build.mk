@@ -68,17 +68,15 @@ $(KERNEL_ISO): $(KERNEL_BIN)
 kernel: $(KERNEL_BIN)
 iso: $(KERNEL_ISO)
 
-qemu: QEMU_ARGS += -nographic
 qemu: $(KERNEL_ISO)
 	$(call LOG,QEMU,$^)
 	$(call ASSERT_EXE_EXISTS,$(QEMU))
-	$(SILENT)$(QEMU) -cdrom $(KERNEL_ISO) $(QEMU_ARGS)
+	$(SILENT)$(QEMU) -cdrom $(KERNEL_ISO) -nographic $(QEMU_ARGS)
 
-qemu-server: QEMU_ARGS += -daemonize -s -S
 qemu-server: $(KERNEL_ISO)
 	$(call LOG,QEMU,$^)
 	$(call ASSERT_EXE_EXISTS,$(QEMU))
-	$(SILENT)$(QEMU) -cdrom $(KERNEL_ISO) $(QEMU_ARGS)
+	$(SILENT)$(QEMU) -cdrom $(KERNEL_ISO) -daemonize -s -S $(QEMU_ARGS)
 
 TO_CLEAN += $(BUILD_DIR)/$(KERNEL_DIR) $(KERNEL_BIN) $(KERNEL_ISO) $(BUILD_DIR)/kernel.map $(BUILD_DIR)/kernel.sym
 
