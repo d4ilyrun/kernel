@@ -24,16 +24,14 @@ arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data)
 {
     segment_selector ds = {.index = GDT_ENTRY_USER_DATA, .rpl = 3};
     segment_selector cs = {.index = GDT_ENTRY_USER_CODE, .rpl = 3};
-    u32 ustack_top;
+    u32 ustack_bottom = current->context.esp_user - KERNEL_STACK_SIZE;
 
     UNUSED(data);
 
     /* Reset user stack */
-    memset((void *)current->context.esp_user, 0, KERNEL_STACK_SIZE);
-
-    log_dbg("jump to userland");
-    ustack_top = current->context.esp_user + KERNEL_STACK_SIZE;
-    __arch_thread_jump_to_userland(entrypoint, cs, ds, ustack_top);
+    memset((void *)ustack_bottom, 0, KERNEL_STACK_SIZE);
+    __arch_thread_jump_to_userland(entrypoint, cs, ds,
+                                   current->context.esp_user);
 
     assert_not_reached();
 }
@@ -79,7 +77,7 @@ static void arch_thread_entrypoint(thread_entry_t entrypoint, void *data)
         goto error_exit;
     }
 
-    current->context.esp_user = (u32)ustack;
+    current->context.esp_user = (u32)ustack + KERNEL_STACK_SIZE;
 
     if (thread_is_kernel(current)) {
         entrypoint(data);
@@ -115,14 +113,11 @@ bool arch_thread_init(thread_t *thread, thread_entry_t entrypoint, void *data)
         cr3 = container_of(other, struct thread, proc_this)->context.cr3;
     }
 
-    thread->context.cr3 = cr3;
-    thread->context.esp0 = (u32)kstack;
-
     // Setup basic stack frame to be able to start the thread using 'ret'
     // 1. Return into 'arch_thread_entrypoint'
     // 2. From entrypoint, jump to the thread's entrypoint
 
-#define KSTACK(_i) kstack[KERNEL_STACK_SIZE / sizeof(u32) - (_i)]
+#define KSTACK(_i) kstack[KERNEL_STACK_SIZE / sizeof(u32) - (_i) - 1]
 
     // Stack frame for arch_thread_entrypoint
     KSTACK(0) = (u32)data;       // arg2
@@ -139,6 +134,8 @@ bool arch_thread_init(thread_t *thread, thread_entry_t entrypoint, void *data)
     // Set new thread's stack pointer to the top of our manually created
     // context_switching stack
     thread->context.esp = (u32)&KSTACK(7);
+    thread->context.esp0 = (u32)&KSTACK(0);
+    thread->context.cr3 = cr3;
 
 #undef KSTACK
 
