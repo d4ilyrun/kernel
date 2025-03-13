@@ -157,7 +157,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     sched_new_thread_create(kernel_task_mmap, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_malloc, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_rootfs, NULL, THREAD_KERNEL);
-    // sched_new_thread_create(kernel_task_userland, NULL, 0);
+    sched_new_thread_create(kernel_task_userland, NULL, 0);
 
     thread_t *kernel_timer_test = thread_spawn(
         current->process, kernel_task_timer, NULL, THREAD_KERNEL);
