@@ -20,27 +20,30 @@ struct stackframe_t {
     u32 eip;
 };
 
+#undef LOG_DOMAIN
+
+#define LOG_DOMAIN "PROC"
 static void panic_dump_process(void)
 {
-    log(LOG_LEVEL_ERR, "PROC", "%s (PID: %d)", current_process->name,
-        current_process->pid);
+    log_err("%s (PID: %d)", current_process->name, current_process->pid);
 }
 
+#undef LOG_DOMAIN
+
+#define LOG_DOMAIN "REGS"
 static void panic_dump_registers(void)
 {
     // We only dump useful registers, or else it will become unreadable
     // Registers deemed "useful" are subject to change in the future
 
-    log(LOG_LEVEL_ERR, "REGS", "Summary of registers");
-
-    log(LOG_LEVEL_ERR, "REGS",
-        "CR0=" FMT32 " CR2=" FMT32 " CR3=" FMT32, read_cr0(),
-        read_cr2(), read_cr3());
-
-    log(LOG_LEVEL_ERR, "REGS", "CS=" FMT16 " SS=" FMT16, read_cs(),
-        read_ss());
+    log_err("Summary of registers");
+    log_err("CR0=" FMT32 " CR2=" FMT32 " CR3=" FMT32, read_cr0(), read_cr2(),
+            read_cr3());
+    log_err("CS=" FMT16 " SS=" FMT16, read_cs(), read_ss());
 }
+#undef LOG_DOMAIN
 
+#define LOG_DOMAIN "TRACE"
 static void panic_unwind_stack(void)
 {
     // Stack frame at this point:
@@ -50,7 +53,7 @@ static void panic_unwind_stack(void)
     struct stackframe_t *frame = __builtin_frame_address(0);
 
     if (frame == NULL) {
-        log(LOG_LEVEL_ERR, "TRACE", "Corrupted stack frame.");
+        log_err("Corrupted stack frame.");
         return;
     }
 
@@ -68,24 +71,24 @@ static void panic_unwind_stack(void)
         // attribute noreturn
         const kernel_symbol_t *symbol = kernel_symbol_from_address(frame->eip -
                                                                    sizeof(u16));
-        log(LOG_LEVEL_ERR, "TRACE", "#%d  " FMT32 " in <%s%+d>", i,
-            frame->eip, kernel_symbol_name(symbol),
-            frame->eip - symbol->address);
+        log_err("#%d  " FMT32 " in <%s%+d>", i, frame->eip,
+                kernel_symbol_name(symbol), frame->eip - symbol->address);
     }
 }
+#undef LOG_DOMAIN
 
+#define LOG_DOMAIN "STACK"
 static void panic_dump_stack(u32 esp, u32 size)
 {
-    log(LOG_LEVEL_ERR, "STACK", "** start of stack: at esp=" FMT32 " **",
-        esp);
+    log_err("** start of stack: at esp=" FMT32 " **", esp);
 
     for (u32 offset = 0; offset < size; offset += sizeof(u32)) {
-        log_err("esp+%-3d: " FMT32, offset,
-                *(volatile u32 *)(esp + offset));
+        log_err("esp+%-3d: " FMT32, offset, *(volatile u32 *)(esp + offset));
     }
 
-    log(LOG_LEVEL_ERR, "STACK", "** end of stack **");
+    log_err("** end of stack **");
 }
+#undef LOG_DOMAIN
 
 void panic(u32 esp, const char *msg, ...)
 {
