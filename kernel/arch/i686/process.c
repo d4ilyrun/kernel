@@ -38,9 +38,6 @@ arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data)
 
 /** Finish setting up the thread before jumping to its entrypoint
  *
- * This function initializes components that could not be setup from another
- * process's address space.
- *
  * The return to the thread's entry point is done implicitely through the
  * artificial stack setup in @arch_thread_create.
  *
@@ -64,12 +61,6 @@ arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data)
 static void arch_thread_entrypoint(thread_entry_t entrypoint, void *data)
 {
     u32 *ustack = NULL;
-
-    if (thread_is_initial(current)) {
-        if (!vmm_init(current->process->vmm, USER_MEMORY_START,
-                      USER_MEMORY_END))
-            log_err("Failed to initilize VMM (%s)", current->process->name);
-    }
 
     ustack = kcalloc(KERNEL_STACK_SIZE, 1, KMALLOC_DEFAULT);
     if (ustack == NULL) {
@@ -144,6 +135,22 @@ bool arch_thread_init(thread_t *thread, thread_entry_t entrypoint, void *data)
 release_kernel_stack:
     kfree(kstack);
     return false;
+}
+
+void arch_thread_create_user_stack(thread_t *thread, thread_entry_t entrypoint)
+{
+}
+
+extern error_t arch_process_fork(struct process *fork, struct process *parent)
+{
+    struct thread *thread;
+    const node_t *node;
+
+    node = llist_head(fork->threads);
+    thread = container_of(node, struct thread, proc_this);
+
+    mmu_clone(thread->context.cr3);
+    vmm_copy(fork->vmm, parent->vmm);
 }
 
 void arch_thread_free(thread_t *thread)

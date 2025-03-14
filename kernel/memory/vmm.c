@@ -473,6 +473,12 @@ void vmm_destroy(vmm_t *vmm)
     kfree(vmm);
 }
 
+vmm_t *vmm_copy(vmm_t *dst, vmm_t *src)
+{
+    memcpy(dst, src, sizeof(vmm_t));
+    return dst;
+}
+
 /// Structure of the page fault's error code
 /// @link https://wiki.osdev.org/Exceptions#Page_Fault
 typedef struct PACKED {

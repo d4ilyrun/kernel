@@ -288,7 +288,7 @@ paddr_t mmu_new_page_directory(void)
     return new_physical;
 }
 
-void mmu_clone(paddr_t destination)
+void mmu_clone(paddr_t destination, paddr_t src)
 {
     page_directory_t src_page_directory;
     page_directory_t dst_page_directory;
@@ -316,6 +316,8 @@ void mmu_clone(paddr_t destination)
         // Setup PTEs for copy-on-write
         page_table = MMU_RECURSIVE_PAGE_TABLE_ADDRESS(i);
         for (size_t j = 0; j < MMU_PTE_COUNT; ++j) {
+            if (!page_table[j].present)
+                continue;
             page = page_get(pfn_to_page(page_table[j].page_frame));
             if (page_table[j].writable) {
                 page->flags |= PAGE_COW;

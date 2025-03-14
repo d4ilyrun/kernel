@@ -250,6 +250,15 @@ vaddr_t vmm_allocate(vmm_t *, vaddr_t, size_t size, int flags);
  */
 void vmm_free(vmm_t *, vaddr_t, size_t length);
 
+/** Copy a VMM structure into another one.
+ *
+ * @note This function only duplicates the content of the VMM structure. It does
+ *       not duplicate the memory used to store the VMAs, nor does it duplicate
+ *       their content. To be able to use a duplicated VMM, the address space
+ *       MUST be IDENTICAL.
+ */
+vmm_t *vmm_copy(vmm_t *dst, vmm_t *src);
+
 /**
  * @brief Find the VMA to which a virtual address belongs
  * @return The VMA containing this address, or NULL if not found
