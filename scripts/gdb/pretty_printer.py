@@ -26,9 +26,35 @@ class Avl:
         return f"avl@{self.to_string_rec(0, 0)}"
 
 
+class LinkedList:
+
+    def __init__(self, val) -> None:
+        self.address = val.dereference().address
+        self.next = val.dereference()["next"]
+        self.prev = val.dereference()["prev"]
+
+    def to_string_rec(self, prev) -> str:
+        string = ''
+
+        if prev:
+            string += f" <-"
+            if prev.address != self.prev:
+                string += f" (ERROR: prev={self.prev}) -"
+            string += f"> "
+
+        string += f"{self.address}"
+        if self.next:
+            string += LinkedList(self.next).to_string_rec(self)
+
+        return string
+
+    def to_string(self) -> str:
+        return self.to_string_rec(None)
+
 def pretty_printers(val):
     printers = {
-            "avl_t": Avl
+            "avl_t": Avl,
+            "llist_t": LinkedList,
     }
 
     if str(val.type) in printers:
