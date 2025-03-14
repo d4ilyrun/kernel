@@ -19,6 +19,10 @@ typedef struct spinlock {
     bool locked;
 } spinlock_t;
 
+#define SPINLOCK_INIT ((spinlock_t){.locked = false})
+
+#define INIT_SPINLOCK(_lock) (_lock = SPINLOCK_INIT)
+
 /** @brief Try to acquire a spinlock, or wait until it is free */
 static ALWAYS_INLINE void spinlock_acquire(spinlock_t *lock)
 {
