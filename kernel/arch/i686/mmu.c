@@ -237,7 +237,7 @@ bool mmu_init(void)
     for (size_t i = MMU_PDE_KERNEL_FIRST; i < MMU_PDE_COUNT - 1; i++) {
         if (kernel_startup_page_directory[i].present)
             continue;
-        page_table = pmm_allocate(PMM_MAP_KERNEL);
+        page_table = pmm_allocate();
         kernel_startup_page_directory[i].page_table = TO_PFN(page_table);
         kernel_startup_page_directory[i].present = true;
         kernel_startup_page_directory[i].user = false;
@@ -297,7 +297,7 @@ bool mmu_map(vaddr_t virtual, vaddr_t pageframe, int prot)
         page_directory = kernel_startup_page_directory;
 
     if (!page_directory[address.pde].present) {
-        u32 page_table = pmm_allocate(PMM_MAP_KERNEL);
+        u32 page_table = pmm_allocate();
         page_directory[address.pde] = (mmu_pde_t){
             .present = 1,
             .page_table = TO_PFN(page_table),
