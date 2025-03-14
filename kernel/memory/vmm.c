@@ -38,14 +38,6 @@ static DEFINE_INTERRUPT_HANDLER(page_fault);
 
 vmm_t kernel_vmm;
 
-/** Compute the end address of a VMA.
- * @ingroup vmm_internals
- */
-static ALWAYS_INLINE vaddr_t vma_end(const vma_t *vma)
-{
-    return vma->start + vma->size;
-}
-
 /**
  * @brief Allocate memory for a single VMA from within the VMM's reserved area
  * @ingroup vmm_internals
@@ -369,6 +361,9 @@ vaddr_t vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
         return VMM_INVALID;
     }
 
+    allocated->this = LLIST_EMPTY;
+    llist_add(&current->process->vmas, &allocated->this);
+
     allocated->allocated = true;
 
     return allocated->start;
@@ -416,6 +411,7 @@ void vmm_free(vmm_t *vmm, vaddr_t addr, size_t length)
 
     vma_t *area = container_of(freed, vma_t, avl.by_address);
     area->allocated = false;
+    llist_remove(&current->process->vmas, &area->this);
 
     // Merge with the previous area (if free)
     if (area->start == addr && area->start > vmm->start) {

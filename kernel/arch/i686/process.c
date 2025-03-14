@@ -154,6 +154,5 @@ void arch_thread_free(thread_t *thread)
 
 void arch_process_free(struct process *process)
 {
-    // TODO: release MMU
     UNUSED(process);
 }
