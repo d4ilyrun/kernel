@@ -26,6 +26,8 @@ struct stackframe_t {
 static void panic_dump_process(void)
 {
     log_err("%s (TID: %d)", current->process->name, current->tid);
+    log_err("ESP0=" FMT32 " ESP=" FMT32 " CR3=" FMT32, current->context.esp0,
+            current->context.esp_user, current->context.cr3);
 }
 
 #undef LOG_DOMAIN
