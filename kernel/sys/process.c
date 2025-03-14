@@ -120,20 +120,15 @@ static struct process *process_put(struct process *process)
     return process;
 }
 
-struct process *
-process_create(const char *name, thread_entry_t entrypoint, void *data)
+static struct process *process_new(const char *name)
 {
     struct process *process = NULL;
-    struct thread *initial_thread = NULL;
     struct vmm *vmm = NULL;
 
     process = kcalloc(1, sizeof(*process), KMALLOC_KERNEL);
     if (process == NULL)
         return PTR_ERR(E_NOMEM);
 
-    // The VMM cannot be initialized from within another thread's address space
-    // This thread should be done by the arch specific wrapper responsible for
-    // first starting up the thread.
     vmm = kmalloc(sizeof(*vmm), KMALLOC_KERNEL);
     if (vmm == NULL) {
         log_err("Failed to allocate VMM");
@@ -143,19 +138,43 @@ process_create(const char *name, thread_entry_t entrypoint, void *data)
     strncpy(process->name, name, PROCESS_NAME_MAX_LEN);
     process->vmm = vmm;
 
-    // The initial execution thread is created along with the process
-    initial_thread = thread_spawn(process, entrypoint, data, THREAD_KERNEL);
-    if (initial_thread == NULL)
-        goto process_create_fail;
-
-    llist_add(&process->threads, &initial_thread->proc_this);
-
     return process;
 
 process_create_fail:
-    kfree(initial_thread);
     kfree(vmm);
     kfree(process);
+    return PTR_ERR(E_NOMEM);
+}
+
+extern error_t arch_process_fork(struct process *fork, struct process *parent);
+
+struct process *process_fork(struct process *parent, thread_entry_t entrypoint)
+{
+    struct process *fork;
+    struct thread *initial_thread = NULL;
+
+    fork = process_new(parent->name);
+    if (IS_ERR(fork))
+        return fork;
+
+    arch_process_fork(fork, parent);
+
+    fork = process_new(parent->name);
+    if (IS_ERR(fork))
+        return fork;
+
+    // The initial execution thread is created along with the process
+    initial_thread = thread_spawn(fork, entrypoint, data, THREAD_KERNEL);
+    if (initial_thread == NULL)
+        goto process_create_fail;
+
+    llist_add(&fork->threads, &initial_thread->proc_this);
+
+    return fork;
+
+process_create_fail:
+    kfree(initial_thread);
+    kfree(fork);
     return PTR_ERR(E_NOMEM);
 }
 

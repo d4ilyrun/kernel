@@ -22,8 +22,8 @@
 #ifndef KERNEL_MMU_H
 #define KERNEL_MMU_H
 
-#include <kernel/types.h>
 #include <kernel/error.h>
+#include <kernel/types.h>
 
 #include <stdbool.h>
 
@@ -59,8 +59,8 @@ bool mmu_init(void);
  */
 paddr_t mmu_new_page_directory(void);
 
-/** Clone the current MMU inside another one */
-void mmu_clone(paddr_t destination);
+/** Clone an MMU inside another one */
+void mmu_clone(paddr_t dst, paddr_t src);
 
 /** Try to remap a potential copy-on-write mapping */
 error_t mmu_copy_on_write(vaddr_t);
