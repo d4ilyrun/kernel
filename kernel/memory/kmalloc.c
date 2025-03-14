@@ -247,7 +247,7 @@ void *kmalloc_dma(size_t size)
 {
     paddr_t physical;
 
-    physical = pmm_allocate_pages(size, PMM_MAP_KERNEL);
+    physical = pmm_allocate_pages(size);
     if (physical == PMM_INVALID_PAGEFRAME)
         return NULL;
 

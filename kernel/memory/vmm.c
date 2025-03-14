@@ -75,7 +75,7 @@ static vaddr_t vma_reserved_allocate(vmm_t *vmm)
     address += offset;
 
     if (!page_already_allocated) {
-        paddr_t pageframe = pmm_allocate(PMM_MAP_KERNEL);
+        paddr_t pageframe = pmm_allocate();
         if (!mmu_map(address, pageframe,
                      PROT_WRITE | PROT_READ | PROT_KERNEL)) {
             log_err("Virtual address for VMA already in use: " FMT32, address);
@@ -511,7 +511,7 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
     // Lazily allocate pageframes
     if (!error.present && address_area != NULL && address_area->allocated) {
         for (size_t off = 0; off < address_area->size; off += PAGE_SIZE) {
-            const paddr_t pageframe = pmm_allocate(PMM_MAP_KERNEL);
+            const paddr_t pageframe = pmm_allocate();
             mmu_map(address_area->start + off, pageframe, address_area->flags);
             if (address_area->flags & MAP_CLEAR)
                 memset((void *)address_area->start + off, 0, PAGE_SIZE);
