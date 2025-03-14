@@ -62,13 +62,15 @@
  */
 enum page_flags {
     PAGE_AVAILABLE = BIT(0), ///< This page has not been allocated
+    PAGE_COW = BIT(1),       ///< Currently used in a CoW mapping
 };
 
 /** Represents a physical pageframe
  *  @struct page
  */
 struct page {
-    uint8_t flags; ///< Combination of @ref page_flags
+    uint8_t flags;    ///< Combination of @ref page_flags
+    uint8_t refcount; ///< How many processes reference that page
 };
 
 /**
@@ -102,6 +104,12 @@ static inline struct page *address_to_page(paddr_t addr)
 {
     return pfn_to_page(TO_PFN(addr));
 }
+
+/** Increase the page's refcount. */
+struct page *page_get(struct page *page);
+
+/** Decrease the page's refcount. If it reaches 0, the page is released. */
+void page_put(struct page *page);
 
 /**
  * @brief Initialize the Physical Memory Mapper
