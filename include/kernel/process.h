@@ -73,6 +73,8 @@ struct process {
     kmalloc_t kmalloc; /*!< Opaque struct used by the memory allocator to
                           allocate memory blocks inside the user area */
 
+    llist_t vmas; /*!< List of all memory areas allocated for this process. */
+
     llist_t threads; /*!< Linked list of the process' active threads */
     size_t refcount; /*!< Reference count to this process.
                          We only kill a process once all of its threads have

@@ -9,6 +9,7 @@
 #include <kernel/process.h>
 #include <kernel/sched.h>
 
+#include <libalgo/linked_list.h>
 #include <utils/container_of.h>
 
 #include <string.h>
@@ -72,8 +73,25 @@ extern void arch_thread_free(thread_t *thread);
  */
 static void process_free(struct process *process)
 {
+    vma_t *vma;
+
     log_info("freeing process: %s", process->name);
+
     arch_process_free(process);
+
+    // Release all the memory allocated for this process
+    // TODO: Should be refacto into addres_space_destroy() (#41)
+    FOREACH_LLIST_SAFE(this, next, process->vmas)
+    {
+        for (vaddr_t addr = vma->start; addr <= vma_end(vma);
+             vma += PAGE_SIZE) {
+            paddr_t phys = mmu_unmap(addr);
+            if (phys != PMM_INVALID_PAGEFRAME) {
+                pmm_free(phys);
+            }
+        }
+    }
+
     vmm_destroy(process->vmm);
     kfree(process);
 }
