@@ -494,6 +494,7 @@ typedef struct PACKED {
  *
  * What the handler does:
  * * Lazy allocation of pageframes for allocated virtual addresses
+ * * Duplication of CoW pages
  * * Panic if address is effectively invalid
  *
  */
@@ -502,6 +503,7 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
     // The CR2 register holds the virtual address which caused the Page Fault
     vaddr_t faulty_address = read_cr2();
     interrupt_frame *frame = data;
+    error_t ret;
 
     vmm_t *vmm = IS_KERNEL_ADDRESS(faulty_address) ? &kernel_vmm
                                                    : current->process->vmm;
@@ -517,6 +519,13 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
                 memset((void *)address_area->start + off, 0, PAGE_SIZE);
         }
         return E_SUCCESS;
+    }
+
+    // Copy-on write pages
+    if (error.present && error.write) {
+        ret = mmu_copy_on_write(faulty_address);
+        if (ret == E_SUCCESS)
+            return ret;
     }
 
     PANIC("PAGE FAULT at " FMT32 ": %s access on a %s page %s", faulty_address,

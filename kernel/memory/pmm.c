@@ -46,8 +46,8 @@ struct page pmm_pageframes[TOTAL_PAGEFRAMES_COUNT];
  */
 typedef struct {
     paddr_t first_available; ///< Address of the first available pageframe
-    vaddr_t start;           ///< Start of the allocator's physical range
-    vaddr_t end;             ///< End of the allocator's physical range
+    paddr_t start;           ///< Start of the allocator's physical range
+    paddr_t end;             ///< End of the allocator's physical range
     bool initialized;        ///< Whether this allocator has been initialized
 } pmm_frame_allocator;
 
@@ -64,10 +64,13 @@ static inline void pmm_set_availability(paddr_t pageframe, bool available)
 {
     struct page *page = &pmm_pageframes[TO_PFN(pageframe)];
 
-    if (available)
+    if (available) {
         page->flags |= PAGE_AVAILABLE;
-    else
+        page->refcount = 0;
+    } else {
         page->flags &= ~PAGE_AVAILABLE;
+        page->refcount = 1;
+    }
 }
 
 static inline bool pmm_is_available(paddr_t pageframe)
@@ -190,7 +193,32 @@ static void pmm_allocator_allocate_at(pmm_frame_allocator *allocator,
     allocator->first_available = address;
 }
 
+static void
+pmm_allocator_free_at(pmm_frame_allocator *allocator, paddr_t pageframe)
+{
+    if (allocator->first_available == PMM_INVALID_PAGEFRAME ||
+        pageframe < allocator->first_available)
+        allocator->first_available = pageframe;
+}
+
 /** @} */
+
+struct page *page_get(struct page *page)
+{
+    page->refcount += 1;
+    return page;
+}
+
+void page_put(struct page *page)
+{
+    if (page->refcount == 0)
+        return;
+
+    page->refcount -= 1;
+
+    if (page->refcount == 0)
+        pmm_allocator_free_at(&g_pmm_allocator, page_address(page));
+}
 
 bool pmm_init(struct multiboot_info *mbt)
 {
@@ -275,12 +303,7 @@ void pmm_free_pages(paddr_t pageframe, size_t size)
         return;
     }
 
-    pmm_frame_allocator *allocator = &g_pmm_allocator;
-
+    /* pages are released when their refcount reaches 0 */
     for (size_t off = 0; off < size; off += PAGE_SIZE)
-        pmm_set_availability(pageframe + off, true);
-
-    if (allocator->first_available == PMM_INVALID_PAGEFRAME ||
-        pageframe < allocator->first_available)
-        allocator->first_available = pageframe;
+        page_put(address_to_page(pageframe + off));
 }

@@ -23,6 +23,7 @@
 #define KERNEL_MMU_H
 
 #include <kernel/types.h>
+#include <kernel/error.h>
 
 #include <stdbool.h>
 
@@ -57,6 +58,12 @@ bool mmu_init(void);
  *  @return The physical address of the new page_directory, 0 if error.
  */
 paddr_t mmu_new_page_directory(void);
+
+/** Clone the current MMU inside another one */
+void mmu_clone(paddr_t destination);
+
+/** Try to remap a potential copy-on-write mapping */
+error_t mmu_copy_on_write(vaddr_t);
 
 /**
  * @brief Replace the current page directory.
