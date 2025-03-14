@@ -44,6 +44,16 @@
  *
  * @see https://medium.com/@connorstack/recursive-page-tables-ad1e03b20a85
  *
+ * ### Copy on Write (CoW)
+ *
+ * When duplicating an entire MMU, the process is delayed until necessary.
+ * To do this we mark all writable pages as read-only, so that a pagefault
+ * gets triggered the next time they are modified. The duplication of the
+ * PDEs/PTEs is done during the pagefault's handling.
+ *
+ * This mechanism avoids duplicating pages that will never be accessed, which
+ * is a common occurence when a process performs a combination of fork & exec.
+ *
  * @{
  */
 
@@ -51,11 +61,13 @@
 
 #include <kernel/cpu.h>
 #include <kernel/error.h>
+#include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/memory.h>
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
 #include <kernel/process.h>
+#include <kernel/spinlock.h>
 #include <kernel/syscalls.h>
 #include <kernel/types.h>
 
@@ -75,6 +87,8 @@
 /** Number of PDE corresponding to kernel pages */
 #define MMU_PDE_KERNEL_COUNT (MMU_PDE_COUNT - MMU_PDE_KERNEL_FIRST)
 
+static spinlock_t mmu_lock = SPINLOCK_INIT;
+
 /**
  * @struct mmu_pde Page Directory entry
  * @see Intel developper manual - Table 4-5
@@ -89,8 +103,7 @@ typedef struct PACKED mmu_pde {
     u8 _ignored : 1;
     u8 ps : 1;
     u8 _ignored2 : 4;
-    /// @brief Physical address of the referenced page table.
-    /// These are the 12 higher bits of the address (i.e. address / PAGE_SIZE)
+    /// @brief Pageframe number of the referenced page table.
     u32 page_table : 20;
 } mmu_pde_t;
 
@@ -110,8 +123,7 @@ typedef struct PACKED mmu_pte {
     u8 pat : 1;
     u8 global : 1;
     u8 _ignored : 3;
-    /// @brief Physical address of the referenced page frame.
-    /// These are the 12 higher bits of the address (i.e. address / PAGE_SIZE)
+    /// @brief Pageframe number of the referenced page frame.
     u32 page_frame : 20;
 } mmu_pte_t;
 
@@ -142,8 +154,7 @@ static_assert(sizeof(mmu_decode_t) == sizeof(u32));
     ((page_table_t)FROM_PFN((0xFFC00 + (_index))))
 
 // Page directory used when initializing the kernel
-static __attribute__((__aligned__(PAGE_SIZE)))
-mmu_pde_t kernel_startup_page_directory[MMU_PDE_COUNT];
+static ALIGNED(PAGE_SIZE) mmu_pde_t kernel_startup_page_directory[MMU_PDE_COUNT];
 
 // Keep track whether paging has been fully enabled.
 // This doesn't count temporarily enabling it to jump into higher half.
@@ -277,6 +288,45 @@ paddr_t mmu_new_page_directory(void)
     return new_physical;
 }
 
+void mmu_clone(paddr_t destination)
+{
+    page_directory_t src_page_directory;
+    page_directory_t dst_page_directory;
+    page_table_t page_table;
+    struct page *page;
+
+    src_page_directory = MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS;
+    dst_page_directory = kmalloc_at(destination, PAGE_SIZE);
+
+    for (size_t i = 0; i < MMU_PDE_KERNEL_FIRST; ++i) {
+
+        dst_page_directory[i] = src_page_directory[i];
+        if (!dst_page_directory[i].present)
+            continue;
+
+        page = page_get(pfn_to_page(dst_page_directory[i].page_table));
+
+        // Setup PT for copy-on-write
+        if (dst_page_directory[i].writable) {
+            page->flags |= PAGE_COW;
+            dst_page_directory[i].writable = false;
+            src_page_directory[i].writable = false;
+        }
+
+        // Setup PTEs for copy-on-write
+        page_table = MMU_RECURSIVE_PAGE_TABLE_ADDRESS(i);
+        for (size_t j = 0; j < MMU_PTE_COUNT; ++j) {
+            page = page_get(pfn_to_page(page_table[j].page_frame));
+            if (page_table[j].writable) {
+                page->flags |= PAGE_COW;
+                page_table->writable = false;
+            }
+        }
+    }
+
+    kfree_at(dst_page_directory, PAGE_SIZE);
+}
+
 bool mmu_map(vaddr_t virtual, vaddr_t pageframe, int prot)
 {
     mmu_decode_t address = {.raw = virtual};
@@ -408,4 +458,96 @@ paddr_t mmu_find_physical(vaddr_t virtual)
         return -E_INVAL;
 
     return FROM_PFN(page_table[address.pte].page_frame) + address.offset;
+}
+
+/** Duplicate the content of a CoW page */
+static paddr_t __duplicate_cow_page(void *orig)
+{
+    paddr_t phys_new;
+    void *new;
+
+    phys_new = pmm_allocate();
+    if (phys_new == PMM_INVALID_PAGEFRAME)
+        return PMM_INVALID_PAGEFRAME;
+
+    new = kmalloc_at(phys_new, PAGE_SIZE);
+    if (new == NULL) {
+        pmm_free(phys_new);
+        return PMM_INVALID_PAGEFRAME;
+    }
+
+    memcpy(new, orig, PAGE_SIZE);
+    kfree_at(new, PAGE_SIZE);
+
+    return phys_new;
+}
+
+error_t mmu_copy_on_write(vaddr_t addr)
+{
+    mmu_decode_t address = {.raw = addr};
+    mmu_pde_t *pde = &MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS[address.pde];
+    mmu_pte_t *pte;
+    struct page *page;
+    paddr_t duplicated;
+    error_t ret = E_SUCCESS;
+
+    if (!pde->present)
+        return E_NOENT;
+
+    spinlock_acquire(&mmu_lock);
+
+    page = pfn_to_page(pde->page_table);
+    if (!pde->writable) {
+        if (!(page->flags & PAGE_COW)) {
+            ret = E_PERM; // Regular read-only pagetable
+            goto release_lock;
+        }
+
+        // Duplicate pagetable if currently shared
+        if (page->refcount > 1) {
+            duplicated = __duplicate_cow_page(
+                MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde));
+            if (duplicated == PMM_INVALID_PAGEFRAME)
+                return E_NOMEM;
+            // Update pagetable's address & release old reference
+            pde->page_table = TO_PFN(duplicated);
+            page_put(page);
+            page = pfn_to_page(pde->page_table);
+        }
+
+        pde->writable = true;
+        page->flags &= ~PAGE_COW;
+    }
+
+    pte = &MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde)[address.pte];
+    if (!pte->present) {
+        ret = E_NOENT;
+        goto release_lock;
+    }
+
+    page = pfn_to_page(pte->page_frame);
+    if (!(page->flags & PAGE_COW)) {
+        ret = E_PERM; // Regular read-only page
+        goto release_lock;
+    }
+
+    // Same as for the pagetable, duplicate it if shared
+    if (page->refcount > 1) {
+        duplicated = __duplicate_cow_page((void *)align_down(addr, PAGE_SIZE));
+        if (duplicated == PMM_INVALID_PAGEFRAME)
+            return E_NOMEM;
+        // Update page's address & release old reference
+        pte->page_frame = TO_PFN(duplicated);
+        page_put(page);
+        page = pfn_to_page(pte->page_frame);
+    }
+
+    pte->writable = true;
+    page->flags &= ~PAGE_COW;
+
+    mmu_flush_tlb(addr);
+
+release_lock:
+    spinlock_release(&mmu_lock);
+    return ret;
 }
