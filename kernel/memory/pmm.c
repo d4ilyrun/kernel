@@ -211,13 +211,11 @@ bool pmm_init(struct multiboot_info *mbt)
     return true;
 }
 
-paddr_t pmm_allocate_pages(size_t size, int flags)
+paddr_t pmm_allocate_pages(size_t size)
 {
     pmm_frame_allocator *allocator = &g_pmm_allocator;
     bool found = false;
     paddr_t address;
-
-    UNUSED(flags);
 
     if (!allocator->initialized) {
         log_err("Trying to allocate using an uninitialized allocator");
