@@ -1,35 +1,35 @@
-.global arch_process_switch
-.global __arch_process_jump_to_userland
+.global arch_thread_switch
+.global __arch_thread_jump_to_userland
 
-/* extern process_t current_process */
-.extern current_process
+/* extern thread_t current */
+.extern current
 
 /* extern tss_t kernel_tss */
 .extern kernel_tss
 
 .section .text
 
-/* void arch_process_switch(struct x86_process *) */
-.type arch_process_switch, @function
-arch_process_switch:
+/* void arch_thread_switch(struct x86_thread *) */
+.type arch_thread_switch, @function
+arch_thread_switch:
 
     // retrieve first argument
     mov 4(%esp), %edi
 
-    // Save current process
-    // Save callee registers to be popped when re-entering this process
+    // Save current thread
+    // Save callee registers to be popped when re-entering this thread
     pushl %edi
     pushl %esi
     pushl %ebx
     pushl %ebp
-    // Save current state into current process: cr3, esp
-    movl (current_process), %esi
+    // Save current state into current thread: cr3, esp
+    movl (current), %esi
     movl %cr3, %ebx
     movl %ebx, 0x0(%esi)
     movl %esp, 0xc(%esi)
 
-    // Load next process
-    movl %edi, current_process
+    // Load next thread
+    movl %edi, current
     movl 0xc(%edi), %esp    // switch stack
     movl 0x0(%edi), %eax    // eax=cr3
     movl 0x4(%edi), %edi    // edi=esp0
@@ -41,19 +41,19 @@ arch_process_switch:
     je 1f
     movl %eax, %cr3
 1:
-    // Start next process
+    // Start next thread
     // Pop callee saved registers
     popl %ebp
     popl %ebx
     popl %esi
     popl %edi
-    // Jump back into the process using the EIP pushed at EBP by the caller
+    // Jump back into the thread using the EIP pushed at EBP by the caller
     ret
 
 
-/* void __arch_process_jump_to_userland(u32 entrypoint, u32 cs, u32 ds, u32 esp) */
-.type __arch_process_jump_to_userland, @function
-__arch_process_jump_to_userland:
+/* void __arch_thread_jump_to_userland(u32 entrypoint, u32 cs, u32 ds, u32 esp) */
+.type __arch_thread_jump_to_userland, @function
+__arch_thread_jump_to_userland:
 
     // discard EIP, we will not be returning to kernel mode anyway
     addl $4, %esp

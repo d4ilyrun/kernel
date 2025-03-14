@@ -41,12 +41,28 @@ typedef node_t *llist_t;
 /** Declare an intrusive list node. Should be put inside a struct definition. */
 #define LLIST_NODE(_name) node_t _name
 
+/** Reset a node's next and prev pointer. */
+#define LLIST_EMPTY ((node_t){0, 0})
+
 /** Loop over each element inside a linked list
  *  @param _name The name of the current node
  *  @param _head The head of the linked list
  */
 #define FOREACH_LLIST(_name, _head) \
     for (node_t *_name = (_head); _name; _name = _name->next)
+
+/** Loop over each element inside a linked list in a safer way
+ *
+ *  The next element in the list is stored each time, letting us freely release
+ *  the current one without having to dereference it in the next iteration.
+ *
+ *  @param _name The name of the current node
+ *  @param _tmp The name of the node used to store the next pointer
+ *  @param _head The head of the list
+ */
+#define FOREACH_LLIST_SAFE(_name, _tmp, _head)                            \
+    for (node_t *_name = (_head), *_tmp = (_head) ? (_head)->next : NULL; \
+         _name; _name = _tmp, _tmp = _tmp ? _tmp->next : NULL)
 
 /** Loop over each element inside a linked list in reverse order
  *  @param _name The name of the current node

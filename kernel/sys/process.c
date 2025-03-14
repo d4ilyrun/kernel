@@ -1,6 +1,7 @@
 #define LOG_DOMAIN "process"
 
 #include <kernel/error.h>
+#include <kernel/interrupts.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
@@ -8,119 +9,258 @@
 #include <kernel/process.h>
 #include <kernel/sched.h>
 
+#include <libalgo/linked_list.h>
+#include <utils/container_of.h>
+
 #include <string.h>
 
-/** Minimum PID, should be given to the very first started process */
+/** Reserved PID for the kernel process */
+#define PROCESS_KERNEL_PID 0
+
+/** Minimum PID, should be given to the very first started thread */
 #define PROCESS_FIRST_PID 1
 
-// PID 0 is attributed to the IDLE task (and kernel startup but it is temporary)
-static pid_t g_highest_pid = 0;
+/*
+ * Global pool of PIDs.
+ * NOTE: PIDs and TIDs use the same pool.
+ */
+static pid_t g_highest_pid = PROCESS_FIRST_PID;
 
-process_t kernel_startup_process = {
-    .name = "kstartup",
-    .flags = PROC_KERNEL,
-    .pid = 0,
+struct thread kernel_process_initial_thread = {
+    .process = &kernel_process,
+    .flags = THREAD_KERNEL,
+    .tid = PROCESS_KERNEL_PID,
 };
 
-process_t *current_process = &kernel_startup_process;
+struct process kernel_process = {
+    .name = "kstartup",
+    .threads = &kernel_process_initial_thread.proc_this,
+    .refcount = 1, /* static initial thread */
+    .pid = PROCESS_KERNEL_PID,
+};
 
-/** Arch specific, hardware level process switching
+thread_t *current = &kernel_process_initial_thread;
+
+/** Arch specific, hardware level thread switching
  *
  * This updates the content of the registers to effectively switch
- * into the desired process.
+ * into the desired thread.
  *
- * @param context The next process's hardware context
+ * @param context The next thread's hardware context
  */
-void arch_process_switch(process_context_t *);
+extern void arch_thread_switch(thread_context_t *);
 
-/** Arch specific, initialize the process's arch specific context
+/** Arch specific, initialize the thread's arch specific context
  *
- * @param process Pointer to process to initialize
- * @param entrypoint The entrypoint used for starting this process
+ * @param thread Pointer to thread to initialize
+ * @param entrypoint The entrypoint used for starting this thread
  * @param data Data passed to the entry function (can be NULL)
  *
  * @return Whether we succeded or not
  */
-bool arch_process_create(process_t *process, process_entry_t entrypoint,
-                         void *);
+extern bool arch_thread_init(thread_t *, thread_entry_t, void *);
 
-/*
- * To create a process we need to:
+extern void arch_process_free(struct process *);
+
+extern void arch_thread_free(thread_t *thread);
+
+/** Free all resources currently held by a thread.
  *
- * * Initialize a new address space (VMM)
- * * Initialize a kernel stack
- * * Create a new page directory
- * * Copy the kernel's page table
+ * This should never be called directly. Instead, it should be
+ * automatically called when the process' reference count reaches 0.
+ *
+ * @see process_get process_put
  */
-process_t *
-process_create(char *name, process_entry_t entrypoint, void *data, u32 flags)
+static void process_free(struct process *process)
 {
-    process_t *new = kcalloc(1, sizeof(*new), KMALLOC_KERNEL);
-    if (new == NULL) {
-        log_err("Failed to allocate new process");
-        return NULL;
-    }
+    vma_t *vma;
 
-    new->flags = flags;
+    log_info("freeing process: %s", process->name);
 
-    // The VMM cannot be initialized from within another process's address space
-    // This process should be done by the arch specific wrapper responsible for
-    // first starting up the process.
-    vmm_t *vmm = kmalloc(sizeof(*vmm), KMALLOC_KERNEL);
-    if (vmm == NULL) {
-        log_err("Failed to allocate VMM");
-        kfree(new);
-        return NULL;
-    }
-
-    strncpy(new->name, name, PROCESS_NAME_MAX_LEN);
-    new->pid = g_highest_pid++;
-    new->vmm = vmm;
-
-    if (!arch_process_create(new, entrypoint, data)) {
-        kfree(vmm);
-        kfree(new);
-    }
-
-    return new;
-}
-
-void arch_process_free(process_t *process);
-
-MAYBE_UNUSED static void process_free(process_t *process)
-{
-    log_info("terminating '%s'", process->name);
-    vmm_destroy(process->vmm);
     arch_process_free(process);
+
+    // Release all the memory allocated for this process
+    // TODO: Should be refacto into addres_space_destroy() (#41)
+    FOREACH_LLIST_SAFE(this, next, process->vmas)
+    {
+        for (vaddr_t addr = vma->start; addr <= vma_end(vma);
+             vma += PAGE_SIZE) {
+            paddr_t phys = mmu_unmap(addr);
+            if (phys != PMM_INVALID_PAGEFRAME) {
+                pmm_free(phys);
+            }
+        }
+    }
+
+    vmm_destroy(process->vmm);
     kfree(process);
 }
 
-bool process_switch(process_t *process)
+static struct process *process_get(struct process *process)
 {
-    if (process->state == SCHED_KILLED) {
-        // FIXME: Find a way to free the process on exit
-        //        By doing it this way, referencing the freed process
-        //        causes a #PF when rescheduling the next process.
-        //
-        // process_free(process);
+    if (!process)
+        return NULL;
+
+    process->refcount += 1;
+    return process;
+}
+
+static struct process *process_put(struct process *process)
+{
+    if (!process)
+        return NULL;
+
+    process->refcount -= 1;
+
+    if (process->refcount == 0) {
+        process_free(process);
+        return NULL;
+    }
+
+    return process;
+}
+
+struct process *
+process_create(const char *name, thread_entry_t entrypoint, void *data)
+{
+    struct process *process = NULL;
+    struct thread *initial_thread = NULL;
+    struct vmm *vmm = NULL;
+
+    process = kcalloc(1, sizeof(*process), KMALLOC_KERNEL);
+    if (process == NULL)
+        return PTR_ERR(E_NOMEM);
+
+    // The VMM cannot be initialized from within another thread's address space
+    // This thread should be done by the arch specific wrapper responsible for
+    // first starting up the thread.
+    vmm = kmalloc(sizeof(*vmm), KMALLOC_KERNEL);
+    if (vmm == NULL) {
+        log_err("Failed to allocate VMM");
+        goto process_create_fail;
+    }
+
+    strncpy(process->name, name, PROCESS_NAME_MAX_LEN);
+    process->vmm = vmm;
+
+    // The initial execution thread is created along with the process
+    initial_thread = thread_spawn(process, entrypoint, data, THREAD_KERNEL);
+    if (initial_thread == NULL)
+        goto process_create_fail;
+
+    llist_add(&process->threads, &initial_thread->proc_this);
+
+    return process;
+
+process_create_fail:
+    kfree(initial_thread);
+    kfree(vmm);
+    kfree(process);
+    return PTR_ERR(E_NOMEM);
+}
+
+void process_kill(struct process *process)
+{
+    if (process == &kernel_process) {
+        log_err("Trying to free the kernel process");
+        return;
+    }
+
+    // Avoid race condition where the current thread would be rescheduled after
+    // being marked killable, and before having marked the rest of the threads
+    const bool interrupts = scheduler_lock();
+
+    FOREACH_LLIST (node, process->threads) {
+        struct thread *thread = container_of(node, struct thread, proc_this);
+        thread->state = SCHED_KILLED;
+    }
+
+    scheduler_unlock(interrupts);
+
+    if (current->process == process)
+        schedule();
+}
+
+thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
+                       void *data, u32 flags)
+{
+    thread_t *thread;
+
+    /* Userland processes cannot spawn kernel threads */
+    if (flags & THREAD_KERNEL && process != &kernel_process)
+        return NULL;
+
+    thread = kcalloc(1, sizeof(*thread), KMALLOC_KERNEL);
+    if (thread == NULL) {
+        log_err("Failed to allocate new thread");
+        return NULL;
+    }
+
+    thread->flags = flags;
+    thread->process = process_get(process);
+
+    /* The initial thread's TID is equal to its containing process's PID */
+    if (llist_is_empty(process->threads))
+        thread->tid = process->pid;
+    else
+        thread->tid = g_highest_pid++;
+
+    if (!arch_thread_init(thread, entrypoint, data)) {
+        log_err("Failed to initialize new thread");
+        kfree(thread);
+        return NULL;
+    }
+
+    return thread;
+}
+
+MAYBE_UNUSED static void thread_free(thread_t *thread)
+{
+    const bool interrupts = scheduler_lock();
+    struct process *process = thread->process;
+
+    log_info("terminating thread %d (%s)", thread->tid, process->name);
+
+    llist_remove(&process->threads, &thread->proc_this);
+
+    // Actually free the thread.
+    arch_thread_free(thread);
+    kfree(thread);
+
+    /*
+     * Release reference this threads holds onto the process.
+     * This will also free the process if this is the process' last
+     * running thread.
+     */
+    process_put(process);
+
+    scheduler_unlock(interrupts);
+}
+
+bool thread_switch(thread_t *thread)
+{
+    if (thread->state == SCHED_KILLED) {
+        thread_free(thread);
         return false;
     }
 
-    arch_process_switch(&process->context);
+    arch_thread_switch(&thread->context);
     return true;
 }
 
-void process_kill(process_t *process)
+void thread_kill(thread_t *thread)
 {
-    process->state = SCHED_KILLED;
-    if (process == current_process)
+    /* To make the implementation easier the actual 'killing' of the thread
+     * is delayed until it is rescheduled (cf. thread_switch). */
+    thread->state = SCHED_KILLED;
+    if (thread == current)
         schedule();
 }
 
 NO_RETURN void
-arch_process_jump_to_userland(process_entry_t entrypoint, void *data);
+arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data);
 
-NO_RETURN void process_jump_to_userland(process_entry_t entrypoint, void *data)
+NO_RETURN void thread_jump_to_userland(thread_entry_t entrypoint, void *data)
 {
-    arch_process_jump_to_userland(entrypoint, data);
+    arch_thread_jump_to_userland(entrypoint, data);
 }
