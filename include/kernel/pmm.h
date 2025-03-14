@@ -57,23 +57,6 @@
  */
 #define TOTAL_PAGEFRAMES_COUNT (ADDRESS_SPACE_SIZE / PAGE_SIZE)
 
-/**
- * \defgroup Flags PMM Allocation Flags
- *
- * Flags used when allocating a page frame to specify that the allocation must
- * respect certain constraints. Constraints can be specific addresses, rules,
- * etc...
- *
- * @{
- */
-
-typedef enum pmm_flags {
-    /** Pageframe should be located inside the kernel physical address space */
-    PMM_MAP_KERNEL = 0x1,
-} pmm_flags;
-
-/** @} */
-
 /** Flags used for @ref struct page 'flags' field
  *  @enum page_flags
  */
@@ -149,7 +132,7 @@ bool pmm_init(struct multiboot_info *);
  * @return The pageframe range's **physical** address, PMM_INVALID_PAGEFRAME on
  * error
  */
-paddr_t pmm_allocate_pages(size_t size, int flags);
+paddr_t pmm_allocate_pages(size_t size);
 
 /** Release previously allocated contiguous pageframes */
 void pmm_free_pages(paddr_t pageframe, size_t size);
@@ -158,7 +141,7 @@ void pmm_free_pages(paddr_t pageframe, size_t size);
  * @brief Allocate a previously unused pageframe
  * @return The pageframe's **physical** address, PMM_INVALID_PAGEFRAME on error
  */
-#define pmm_allocate(flags) pmm_allocate_pages(PAGE_SIZE, flags)
+#define pmm_allocate() pmm_allocate_pages(PAGE_SIZE)
 
 #define pmm_free(pageframe) pmm_free_pages(pageframe, PAGE_SIZE)
 
