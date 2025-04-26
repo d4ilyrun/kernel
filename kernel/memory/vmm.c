@@ -8,6 +8,7 @@
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
 #include <kernel/process.h>
+#include <kernel/sched.h>
 #include <kernel/vmm.h>
 
 #include <libalgo/avl.h>
@@ -37,6 +38,16 @@ static DEFINE_INTERRUPT_HANDLER(page_fault);
  */
 
 vmm_t kernel_vmm;
+
+static void vmm_lock(struct vmm *vmm)
+{
+    spinlock_acquire(&vmm->lock);
+}
+
+static void vmm_unlock(struct vmm *vmm)
+{
+    spinlock_release(&vmm->lock);
+}
 
 /**
  * @brief Allocate memory for a single VMA from within the VMM's reserved area
@@ -145,6 +156,8 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
 
     vmm->vmas.by_size = &first_area->avl.by_size;
     vmm->vmas.by_address = &first_area->avl.by_address;
+
+    INIT_SPINLOCK(vmm->lock);
 
     // TODO: Refactor such calls (hooks, initcalls, there are better ways to do)
     //       Even more so for this one since we'll be updating the interrupt
@@ -309,6 +322,8 @@ vaddr_t vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
     vma_t requested = {.size = size, .start = addr};
     const avl_t *area_avl;
 
+    vmm_lock(vmm);
+
     if (addr != 0) {
         area_avl = avl_remove(&vmm->vmas.by_address, &requested.avl.by_address,
                               vma_search_free_by_address_and_size);
@@ -319,6 +334,7 @@ vaddr_t vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
 
     if (area_avl == NULL) {
         log_err("Failed to allocate");
+        vmm_unlock(vmm);
         return VMM_INVALID;
     }
 
@@ -358,6 +374,7 @@ vaddr_t vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
     if (IS_ERR(inserted)) {
         log_err("failed to insert new VMA inside the AVL: %s",
                 err_to_str(ERR_FROM_PTR(inserted)));
+        vmm_unlock(vmm);
         return VMM_INVALID;
     }
 
@@ -365,6 +382,8 @@ vaddr_t vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
     llist_add(&current->process->vmas, &allocated->this);
 
     allocated->allocated = true;
+
+    vmm_unlock(vmm);
 
     return allocated->start;
 }
@@ -402,12 +421,17 @@ void vmm_free(vmm_t *vmm, vaddr_t addr, size_t length)
     addr = align_down(addr, PAGE_SIZE);
     length = align_up(length, PAGE_SIZE);
 
+
     // 1. Remove the corresponding area
     vma_t value = {.start = addr};
-    avl_t *freed = avl_remove(&vmm->vmas.by_address, &value.avl.by_address,
+    avl_t *freed;
+
+    vmm_lock(vmm);
+
+    freed = avl_remove(&vmm->vmas.by_address, &value.avl.by_address,
                               vma_compare_address);
     if (freed == NULL)
-        return;
+        goto vmm_release_lock;
 
     vma_t *area = container_of(freed, vma_t, avl.by_address);
     area->allocated = false;
@@ -435,15 +459,22 @@ void vmm_free(vmm_t *vmm, vaddr_t addr, size_t length)
         length -= vma_end(area) - addr;
         vmm_free(vmm, vma_end(area), length);
     }
+
+vmm_release_lock:
+    vmm_unlock(vmm);
 }
 
 const vma_t *vmm_find(vmm_t *vmm, vaddr_t addr)
 {
+    vmm_lock((vmm_t *)vmm);
+
     addr = align_down(addr, PAGE_SIZE);
     vma_t value = {.start = addr};
 
     const avl_t *vma = avl_search(vmm->vmas.by_address, &value.avl.by_address,
                                   vma_compare_address);
+
+    vmm_unlock((vmm_t *)vmm);
 
     if (vma == NULL)
         return NULL;
@@ -458,6 +489,8 @@ void vmm_destroy(vmm_t *vmm)
         return;
     }
 
+    vmm_lock((vmm_t *)vmm);
+
     // Freeing all the pages allocated for storing the VMAs
     // See vma_reserved_allocate for an explanation of what's going on
     for (unsigned int i = 0; i < ARRAY_SIZE(vmm->reserved); i += 2) {
@@ -469,6 +502,8 @@ void vmm_destroy(vmm_t *vmm)
                 pmm_free(page);
         }
     }
+
+    vmm_unlock(vmm);
 
     kfree(vmm);
 }

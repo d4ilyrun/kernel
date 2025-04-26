@@ -53,6 +53,7 @@
 #define KERNEL_VMM_H
 
 #include <kernel/memory.h>
+#include <kernel/spinlock.h>
 #include <kernel/types.h>
 
 #include <libalgo/avl.h>
@@ -158,6 +159,8 @@ typedef struct vmm {
         avl_t *by_address;
         avl_t *by_size;
     } vmas;
+
+    spinlock_t lock; /*!< Used restrict access to the VMM when modifying it */
 
     /** Bitmap of the available virtual addreses inside the reserved area
      *
