@@ -43,4 +43,7 @@
  */
 #define NON_ZERO(_x) (1 + sizeof(struct { char size[(_x)-1]; }))
 
+#define likely(x)       __builtin_expect(!!(x), 1)
+#define unlikely(x)     __builtin_expect(!!(x), 0)
+
 #endif /* UTILS_COMPILER_H */
