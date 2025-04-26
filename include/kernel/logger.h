@@ -92,6 +92,9 @@ void log_vlog(enum log_level, const char *domain, const char *msg,
  */
 void panic(u32 esp, const char *msg, ...) __attribute__((__noreturn__));
 
+/** Print the callstack to the kernel's console */
+void stack_trace(void);
+
 /** @brief Change the maximum log level to display */
 void log_set_level(enum log_level);
 
