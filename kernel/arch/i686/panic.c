@@ -22,6 +22,35 @@ struct stackframe_t {
 
 #undef LOG_DOMAIN
 
+void __stack_trace(struct stackframe_t *frame)
+{
+    if (frame == NULL) {
+        return;
+    }
+
+    printk("Call stack:\n");
+    for (int i = 0; frame != NULL; ++i, frame = frame->ebp) {
+
+        // Avoid infinite unwiding when stackframe is invalid
+        if (!IN_RANGE((vaddr_t)frame->eip, KERNEL_CODE_START, KERNEL_CODE_END))
+            break;
+
+        // We substract the size of the call instruction to avoid getting an
+        // invalid symbol when at the ned of a function marked with the
+        // attribute noreturn
+        const kernel_symbol_t *symbol = kernel_symbol_from_address(frame->eip -
+                                                                   sizeof(u16));
+        printk("  #%d  " FMT32 " in <%s%+d>\n", i, frame->eip,
+               kernel_symbol_name(symbol), frame->eip - symbol->address);
+    }
+    printk("===\n");
+}
+
+void stack_trace(void)
+{
+    __stack_trace(__builtin_frame_address(0));
+}
+
 #define LOG_DOMAIN "PROC"
 static void panic_dump_process(void)
 {
@@ -46,7 +75,7 @@ static void panic_dump_registers(void)
 #undef LOG_DOMAIN
 
 #define LOG_DOMAIN "TRACE"
-static void panic_unwind_stack(void)
+static void panic_stack_trace(void)
 {
     // Stack frame at this point:
     // #0 - panic
@@ -60,22 +89,7 @@ static void panic_unwind_stack(void)
     }
 
     // remove call to <panic> from the stack frame
-    frame = frame->ebp;
-
-    for (int i = 0; frame != NULL; ++i, frame = frame->ebp) {
-
-        // Avoid infinite unwiding when stackframe is invalid
-        if (!IN_RANGE((vaddr_t)frame->eip, KERNEL_CODE_START, KERNEL_CODE_END))
-            break;
-
-        // We substract the size of the call instruction to avoid getting an
-        // invalid symbol when at the ned of a function marked with the
-        // attribute noreturn
-        const kernel_symbol_t *symbol = kernel_symbol_from_address(frame->eip -
-                                                                   sizeof(u16));
-        log_err("#%d  " FMT32 " in <%s%+d>", i, frame->eip,
-                kernel_symbol_name(symbol), frame->eip - symbol->address);
-    }
+    __stack_trace(frame->ebp);
 }
 #undef LOG_DOMAIN
 
@@ -111,13 +125,13 @@ void panic(u32 esp, const char *msg, ...)
     panic_dump_registers();
     printk("\n");
 
-    panic_unwind_stack();
-    printk("\n");
-
     panic_dump_stack(esp, KERNEL_PANIC_STACK_DUMP_SIZE);
     printk("\n");
 
     gdt_log();
+    printk("\n");
+
+    panic_stack_trace();
     printk("\n");
 
     // Halt the kernel's execution
