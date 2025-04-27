@@ -55,6 +55,7 @@
 #include <kernel/memory.h>
 #include <kernel/spinlock.h>
 #include <kernel/types.h>
+#include <kernel/vm.h>
 
 #include <libalgo/avl.h>
 #include <libalgo/bitmap.h>
@@ -95,9 +96,7 @@ struct file;
  */
 typedef struct vma {
 
-    vaddr_t start; /*!< Starting virtual address of this area */
-    size_t size;   /*!< Size of the area */
-    u32 flags;     /*!< Feature flags, combination of @ref vma_flags */
+    struct vm_segment segment; /*!< Used by the address space API */
 
     bool allocated; /*!< Whether this area is currently being used */
 
@@ -122,23 +121,23 @@ static_assert(sizeof(vma_t) <= VMA_SIZE, "Update the allocated size for VMA "
 /** Compute the end address of a VMA. */
 static inline vaddr_t vma_end(const vma_t *vma)
 {
-    return vma->start + vma->size;
+    return segment_end(&vma->segment);
 }
 
 /** @return the start address of a VMA. */
 static inline vaddr_t vma_start(const vma_t *vma)
 {
-    return vma->start;
+    return vma->segment.start;
 }
 
 static inline size_t vma_size(const vma_t *vma)
 {
-    return vma->size;
+    return vma->segment.size;
 }
 
 static inline u32 vma_flags(const vma_t *vma)
 {
-    return vma->flags;
+    return vma->segment.flags;
 }
 
 /**
@@ -188,26 +187,13 @@ typedef struct vmm {
 } vmm_t;
 
 /** Returned by VMM functions in case of error */
-#define VMM_INVALID ((vaddr_t)NULL)
 #define MMAP_INVALID NULL
-
-/** @enum vma_flags
- * @brief Feature flags for VMAs
- */
-typedef enum vma_flags {
-    VMA_NONE = 0,     /*!< Default */
-    VMA_EXEC = 0x1,   /*!< Pages inside the area are executable */
-    VMA_READ = 0x2,   /*!< Pages inside the area are readable */
-    VMA_WRITE = 0x4,  /*!< Pages inside the area are writable */
-    VMA_KERNEL = 0x8, /*!< Should be mapped inside kernel pages */
-    VMA_CLEAR = 0x10, /*!< Page content should be reset when allocating */
-} vma_flags;
 
 /* For mmap */
 typedef enum mmap_flags {
-    MAP_KERNEL = VMA_KERNEL,
-    MAP_CLEAR = VMA_CLEAR,
-} mmap_flags;
+    MAP_KERNEL = VM_KERNEL,
+    MAP_CLEAR = VM_CLEAR,
+} mmap_flags_t;
 
 /**
  * Global kernel VMM, used to allocate shared kernel addresses.
@@ -252,9 +238,9 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end);
  * @param flags Feature flags used for the allocated area.
  *              Must be a combination of @link vma_flags @endlink
  *
- * @return The virtual start address of the area, or VMM_INVALID
+ * @return The virtual start address of the area, or NULL
  */
-vaddr_t vmm_allocate(vmm_t *, vaddr_t, size_t size, int flags);
+struct vm_segment *vmm_allocate(vmm_t *, vaddr_t, size_t size, int flags);
 
 /**
  * @brief Free a virtual address
@@ -273,7 +259,7 @@ void vmm_free(vmm_t *, vaddr_t, size_t length);
  * @brief Find the VMA to which a virtual address belongs
  * @return The VMA containing this address, or NULL if not found
  */
-const vma_t *vmm_find(vmm_t *, vaddr_t);
+struct vm_segment *vmm_find(vmm_t *, vaddr_t);
 
 /** Release all the VMAs inside a VMM instance.
  *
