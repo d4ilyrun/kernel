@@ -185,7 +185,7 @@ vma_search_free_by_size(const avl_t *requested_avl, const avl_t *area_avl)
     vma_t *area = container_of(area_avl, vma_t, avl.by_size);
 
     // TODO: Best Fit algorithm
-    if (!area->allocated && area->size >= requested->size)
+    if (!area->allocated && vma_size(area) >= vma_size(requested))
         return 0;
 
     return 1;
@@ -198,12 +198,12 @@ vma_search_free_by_address(const avl_t *addr_avl, const avl_t *area_avl)
     const vma_t *addr = container_of(addr_avl, vma_t, avl.by_address);
     const vma_t *area = container_of(area_avl, vma_t, avl.by_address);
 
-    if (IN_RANGE(addr->start, area->start, vma_end(area) - 1) &&
+    if (IN_RANGE(vma_start(addr), vma_start(area), vma_end(area) - 1) &&
         !area->allocated) {
         return 0;
     }
 
-    return (addr->start <= area->start) ? -1 : 1;
+    return (vma_start(addr) <= vma_start(area)) ? -1 : 1;
 }
 
 /**
@@ -218,17 +218,18 @@ static int vma_search_free_by_address_and_size(const avl_t *addr_avl,
     const vma_t *addr = container_of(addr_avl, vma_t, avl.by_address);
     const vma_t *area = container_of(area_avl, vma_t, avl.by_address);
 
-    if (area->start >= addr->start ||
-        IN_RANGE(addr->start, area->start, vma_end(area) - 1)) {
+    if (vma_start(area) >= vma_start(addr) ||
+        IN_RANGE(vma_start(addr), vma_start(area), vma_end(area) - 1)) {
         if (!area->allocated &&
-            vma_end(area) >= MAX(area->start, addr->start) + addr->size)
+            vma_end(area) >=
+                MAX(vma_start(area), vma_start(addr)) + vma_size(addr))
             return 0;
         // We know all addresses higher than this one are valid,
         // we could do a best fit tho
         return 1;
     }
 
-    return (addr->start <= area->start) ? -1 : 1;
+    return (vma_start(addr) <= vma_start(area)) ? -1 : 1;
 }
 
 /* Check if both areas are of the same size */
@@ -237,12 +238,12 @@ static int vma_compare_size(const avl_t *left_avl, const avl_t *right_avl)
     vma_t *left = container_of(left_avl, vma_t, avl.by_size);
     vma_t *right = container_of(right_avl, vma_t, avl.by_size);
 
-    if (left->size == right->size) {
+    if (vma_size(left) == vma_size(right)) {
         // To be able to distinct in between areas of the same size
-        RETURN_CMP(left->start, right->start);
+        RETURN_CMP(vma_start(left), vma_start(right));
     }
 
-    return (left->size < right->size) ? -1 : 1;
+    return (vma_size(left) < vma_size(right)) ? -1 : 1;
 }
 
 /* Check if area @left is inside area @right */
@@ -251,10 +252,10 @@ static int vma_compare_address(const avl_t *left_avl, const avl_t *right_avl)
     vma_t *left = container_of(left_avl, vma_t, avl.by_address);
     vma_t *right = container_of(right_avl, vma_t, avl.by_address);
 
-    if (IN_RANGE(left->start, right->start, right->start + right->size - 1))
+    if (IN_RANGE(vma_start(left), vma_start(right), vma_end(right) - 1))
         return 0;
 
-    return (left->start < right->start) ? -1 : 1;
+    return (vma_start(left) < vma_start(right)) ? -1 : 1;
 }
 
 /* Similar to @vma_compare_address but for the by_size tree */
@@ -264,20 +265,20 @@ vma_compare_address_inside_size(const avl_t *left_avl, const avl_t *right_avl)
     vma_t *left = container_of(left_avl, vma_t, avl.by_size);
     vma_t *right = container_of(right_avl, vma_t, avl.by_size);
 
-    if (IN_RANGE(left->start, right->start, right->start + right->size - 1))
+    if (IN_RANGE(vma_start(left), vma_start(right), vma_end(right) - 1))
         return 0;
 
-    if (left->size == right->size) {
+    if (vma_size(left) == vma_size(right)) {
         // To be able to distinct in between areas of the same size
-        RETURN_CMP(left->start, right->start);
+        RETURN_CMP(vma_start(left), vma_start(right));
     }
 
-    return (left->size <= right->size) ? -1 : 1;
+    return (vma_size(left) <= vma_size(right)) ? -1 : 1;
 }
 
 void vmm_split_vma(vmm_t *vmm, vma_t *original, vma_t *requested)
 {
-    if (requested->start > original->start) {
+    if (vma_start(requested) > vma_start(original)) {
         /* We need to insert a new vma between the start of the original
          * area, and the start of the returned one.
          * This is the case when we found a suitable free area, right in the
@@ -286,10 +287,10 @@ void vmm_split_vma(vmm_t *vmm, vma_t *original, vma_t *requested)
          */
         vma_t *prepend = (vma_t *)vma_reserved_allocate(vmm);
         *prepend = (vma_t){
-            .start = original->start,
-            .size = requested->start - original->start,
+            .start = vma_start(original),
+            .size = vma_start(requested) - vma_start(original),
             .allocated = false,
-            .flags = original->flags,
+            .flags = vma_flags(original),
         };
 
         avl_insert(&vmm->vmas.by_size, &prepend->avl.by_size, vma_compare_size);
@@ -297,10 +298,11 @@ void vmm_split_vma(vmm_t *vmm, vma_t *original, vma_t *requested)
                    vma_compare_address);
     }
 
-    vaddr_t new_start = MAX(original->start, requested->start) +
-                        requested->size;
-    original->size -= (new_start - original->start);
+    vaddr_t new_start = MAX(vma_start(original), vma_start(requested)) +
+                        vma_size(requested);
+    original->size -= new_start - vma_start(original);
     original->start = new_start;
+
     // cannot insert an old node in a tree, so reset it before doing so
     original->avl.by_address = AVL_EMPTY_NODE;
     original->avl.by_size = AVL_EMPTY_NODE;
@@ -350,12 +352,12 @@ vaddr_t vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
                    vma_compare_address);
     }
 
-    if (old->size == size) {
+    if (vma_size(old) == size) {
         allocated = old;
     } else {
         allocated = (vma_t *)vma_reserved_allocate(vmm);
         *allocated = (vma_t){
-            .start = MAX(addr, old->start),
+            .start = MAX(addr, vma_start(old)),
             .size = size,
             .flags = flags,
         };
@@ -438,13 +440,13 @@ void vmm_free(vmm_t *vmm, vaddr_t addr, size_t length)
     llist_remove(&current->process->vmas, &area->this);
 
     // Merge with the previous area (if free)
-    if (area->start == addr && area->start > vmm->start) {
-        vma_try_merge(vmm, area, area->start - PAGE_SIZE);
+    if (vma_start(area) == addr && vma_start(area) > vmm->start) {
+        vma_try_merge(vmm, area, vma_start(area) - PAGE_SIZE);
     }
 
     // Merge with the next area (if free)
-    if (addr + length == vma_end(area) && vma_end(area) < vmm->end) {
-        vma_try_merge(vmm, area, area->start + area->size);
+    if (vma_end(area) == vma_end(&requested) && vma_end(area) < vmm->end) {
+        vma_try_merge(vmm, area, vma_end(area));
     }
 
     // Re-insert the merged free area inside the 2 AVL trees
@@ -547,11 +549,11 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
 
     // Lazily allocate pageframes
     if (!error.present && address_area != NULL && address_area->allocated) {
-        for (size_t off = 0; off < address_area->size; off += PAGE_SIZE) {
+        for (size_t off = 0; off < vma_size(address_area); off += PAGE_SIZE) {
             const paddr_t pageframe = pmm_allocate();
-            mmu_map(address_area->start + off, pageframe, address_area->flags);
-            if (address_area->flags & MAP_CLEAR)
-                memset((void *)address_area->start + off, 0, PAGE_SIZE);
+            mmu_map(vma_start(address_area) + off, pageframe, vma_flags(address_area));
+            if (vma_flags(address_area) & MAP_CLEAR)
+                memset((void *)vma_start(address_area) + off, 0, PAGE_SIZE);
         }
         return E_SUCCESS;
     }
