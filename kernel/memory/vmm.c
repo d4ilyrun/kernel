@@ -27,6 +27,16 @@ static_assert(sizeof(vma_t) <= VMA_SIZE, "Update the allocated size for VMA "
 
 static DEFINE_INTERRUPT_HANDLER(page_fault);
 
+static inline struct vma *to_vma_by_address(const struct avl *avl)
+{
+    return container_of(avl, struct vma, avl.by_address);
+}
+
+static inline struct vma *to_vma_by_size(const struct avl *avl)
+{
+    return container_of(avl, struct vma, avl.by_size);
+}
+
 /**
  * @defgroup vmm_internals VMM Internals
  * @ingroup VMM
@@ -168,6 +178,28 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
              vmm->end);
 
     return true;
+}
+
+static void vmm_print_node_by_size(const struct avl *node)
+{
+    struct vma *vma = to_vma_by_size(node);
+    printk("[%x - %x] %s\n", vma_start(vma), vma_end(vma),
+           vma->allocated ? "allocated" : "free");
+}
+
+static void vmm_print_node_by_address(const struct avl *node)
+{
+    struct vma *vma = to_vma_by_address(node);
+    printk("%ld %s bytes @ %x\n", vma_size(vma),
+           vma->allocated ? "used" : "free", vma_start(vma));
+}
+
+MAYBE_UNUSED static void vmm_dump(vmm_t *vmm)
+{
+    log_dbg("%p@by_size", vmm);
+    avl_print(vmm->vmas.by_size, vmm_print_node_by_size);
+    log_dbg("%p@by_size", vmm);
+    avl_print(vmm->vmas.by_address, vmm_print_node_by_address);
 }
 
 /**
