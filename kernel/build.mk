@@ -31,6 +31,7 @@ KERNEL_SRCS := 	\
 	misc/elf32.c \
 	memory/pmm.c \
 	memory/vmm.c \
+	memory/address_space.c \
 	net/packet.c \
 	net/ethernet.c \
 	net/ipv4.c \
