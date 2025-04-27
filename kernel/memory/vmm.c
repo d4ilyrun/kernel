@@ -149,9 +149,9 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
     memset(vmm->reserved, 0, sizeof(vmm->reserved));
 
     vma_t *first_area = (vma_t *)vma_reserved_allocate(vmm);
-    first_area->start = start;
-    first_area->size = (end - start);
-    first_area->flags = 0x0;
+    first_area->segment.start = start;
+    first_area->segment.size = (end - start);
+    first_area->segment.flags = 0x0;
     first_area->allocated = false;
 
     vmm->vmas.by_size = &first_area->avl.by_size;
@@ -287,11 +287,12 @@ void vmm_split_vma(vmm_t *vmm, vma_t *original, vma_t *requested)
          */
         vma_t *prepend = (vma_t *)vma_reserved_allocate(vmm);
         *prepend = (vma_t){
-            .start = vma_start(original),
-            .size = vma_start(requested) - vma_start(original),
             .allocated = false,
-            .flags = vma_flags(original),
-        };
+            .segment = {
+                .start = vma_start(original),
+                .size = vma_start(requested) - vma_start(original),
+                .flags = vma_flags(original),
+            }};
 
         avl_insert(&vmm->vmas.by_size, &prepend->avl.by_size, vma_compare_size);
         avl_insert(&vmm->vmas.by_address, &prepend->avl.by_address,
@@ -300,8 +301,8 @@ void vmm_split_vma(vmm_t *vmm, vma_t *original, vma_t *requested)
 
     vaddr_t new_start = MAX(vma_start(original), vma_start(requested)) +
                         vma_size(requested);
-    original->size -= new_start - vma_start(original);
-    original->start = new_start;
+    original->segment.size -= new_start - vma_start(original);
+    original->segment.start = new_start;
 
     // cannot insert an old node in a tree, so reset it before doing so
     original->avl.by_address = AVL_EMPTY_NODE;
@@ -312,17 +313,20 @@ void vmm_split_vma(vmm_t *vmm, vma_t *original, vma_t *requested)
                vma_compare_address);
 }
 
-vaddr_t vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
+struct vm_segment *
+vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
 {
+    vma_t requested;
+    const avl_t *area_avl;
+
     if (size == 0)
-        return 0x0;
+        return PTR_ERR(E_INVAL);
 
     size = align_up(size, PAGE_SIZE);
     if (addr != 0)
         addr = align_up(addr, PAGE_SIZE);
 
-    vma_t requested = {.size = size, .start = addr};
-    const avl_t *area_avl;
+    requested = (vma_t){.segment = {.size = size, .start = addr}};
 
     vmm_lock(vmm);
 
@@ -337,7 +341,7 @@ vaddr_t vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
     if (area_avl == NULL) {
         log_err("Failed to allocate");
         vmm_unlock(vmm);
-        return VMM_INVALID;
+        return PTR_ERR(E_INVAL);
     }
 
     vma_t *old;
@@ -357,9 +361,12 @@ vaddr_t vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
     } else {
         allocated = (vma_t *)vma_reserved_allocate(vmm);
         *allocated = (vma_t){
-            .start = MAX(addr, vma_start(old)),
-            .size = size,
-            .flags = flags,
+            .segment =
+                {
+                    .start = MAX(addr, vma_start(old)),
+                    .size = size,
+                    .flags = flags,
+                },
         };
 
         // Reinsert into the trees the part of the original areas that were not
@@ -377,7 +384,7 @@ vaddr_t vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
         log_err("failed to insert new VMA inside the AVL: %s",
                 err_to_str(ERR_FROM_PTR(inserted)));
         vmm_unlock(vmm);
-        return VMM_INVALID;
+        return (void *)inserted;
     }
 
     allocated->this = LLIST_EMPTY;
@@ -387,7 +394,7 @@ vaddr_t vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
 
     vmm_unlock(vmm);
 
-    return allocated->start;
+    return &allocated->segment;
 }
 
 /** @brief Try to merge an area with another one present inside the VMM
@@ -401,7 +408,7 @@ vaddr_t vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
  */
 static void vma_try_merge(vmm_t *vmm, vma_t *dst, vaddr_t src_start)
 {
-    vma_t value = {.start = src_start};
+    vma_t value = { .segment = {.start = src_start} };
     avl_t *avl = avl_remove(&vmm->vmas.by_address, &value.avl.by_address,
                             vma_search_free_by_address);
     if (avl != NULL) {
@@ -423,14 +430,13 @@ void vmm_free(vmm_t *vmm, vaddr_t addr, size_t length)
     addr = align_down(addr, PAGE_SIZE);
     length = align_up(length, PAGE_SIZE);
 
-
     // 1. Remove the corresponding area
-    vma_t value = {.start = addr};
+    vma_t requested = {.segment = {.start = addr}};
     avl_t *freed;
 
     vmm_lock(vmm);
 
-    freed = avl_remove(&vmm->vmas.by_address, &value.avl.by_address,
+    freed = avl_remove(&vmm->vmas.by_address, &requested.avl.by_address,
                               vma_compare_address);
     if (freed == NULL)
         goto vmm_release_lock;
@@ -466,12 +472,12 @@ vmm_release_lock:
     vmm_unlock(vmm);
 }
 
-const vma_t *vmm_find(vmm_t *vmm, vaddr_t addr)
+struct vm_segment *vmm_find(vmm_t *vmm, vaddr_t addr)
 {
     vmm_lock((vmm_t *)vmm);
 
     addr = align_down(addr, PAGE_SIZE);
-    vma_t value = {.start = addr};
+    vma_t value = {.segment = {.start = addr}};
 
     const avl_t *vma = avl_search(vmm->vmas.by_address, &value.avl.by_address,
                                   vma_compare_address);
@@ -481,7 +487,7 @@ const vma_t *vmm_find(vmm_t *vmm, vaddr_t addr)
     if (vma == NULL)
         return NULL;
 
-    return container_of(vma, vma_t, avl.by_address);
+    return &container_of(vma, vma_t, avl.by_address)->segment;
 }
 
 void vmm_destroy(vmm_t *vmm)
@@ -544,7 +550,8 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
 
     vmm_t *vmm = IS_KERNEL_ADDRESS(faulty_address) ? &kernel_vmm
                                                    : current->process->vmm;
-    const vma_t *address_area = vmm_find(vmm, faulty_address);
+    const struct vm_segment *segment = vmm_find(vmm, faulty_address);
+    const struct vma *address_area = container_of(segment, struct vma, segment);
     page_fault_error error = *(page_fault_error *)&frame->error;
 
     // Lazily allocate pageframes
