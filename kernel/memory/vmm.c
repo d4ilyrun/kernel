@@ -276,41 +276,80 @@ vma_compare_address_inside_size(const avl_t *left_avl, const avl_t *right_avl)
     return (vma_size(left) <= vma_size(right)) ? -1 : 1;
 }
 
-void vmm_split_vma(vmm_t *vmm, vma_t *original, vma_t *requested)
+/* Extract a sub-area from a larger one.
+ *
+ * The area(s) that are not part of the extracted one are auomatically
+ * re-inserted inside the containing trees. Make sure that the 'original'
+ * area has been removed from the trees when calling this function.
+ *
+ * note: we do not keep track of the allocated areas inside by_size
+ */
+static void vmm_extract_vma(vmm_t *vmm, vma_t *original, vma_t *requested)
 {
+
+    // 1. If the extracted area starts after the beginning, prepend sub-area
     if (vma_start(requested) > vma_start(original)) {
-        /* We need to insert a new vma between the start of the original
-         * area, and the start of the returned one.
-         * This is the case when we found a suitable free area, right in the
-         * middle of a bigger one, when specifying an explicit minimum virtual
-         * address
-         */
         vma_t *prepend = (vma_t *)vma_reserved_allocate(vmm);
         *prepend = (vma_t){
-            .allocated = false,
+            .allocated = original->allocated,
             .segment = {
                 .start = vma_start(original),
                 .size = vma_start(requested) - vma_start(original),
                 .flags = vma_flags(original),
             }};
 
-        avl_insert(&vmm->vmas.by_size, &prepend->avl.by_size, vma_compare_size);
         avl_insert(&vmm->vmas.by_address, &prepend->avl.by_address,
                    vma_compare_address);
+        if (!prepend->allocated)
+            avl_insert(&vmm->vmas.by_size, &prepend->avl.by_size,
+                       vma_compare_size);
     }
 
-    vaddr_t new_start = MAX(vma_start(original), vma_start(requested)) +
-                        vma_size(requested);
-    original->segment.size -= new_start - vma_start(original);
-    original->segment.start = new_start;
+    // 2. If the extracted area ends before the end, append a smaller area
+    if (vma_end(requested) == vma_end(original)) {
+        vma_reserved_free(vmm, original);
+        return;
+    }
+
+    original->segment.size = vma_end(original) - vma_end(requested);
+    original->segment.start = vma_end(requested);
 
     // cannot insert an old node in a tree, so reset it before doing so
     original->avl.by_address = AVL_EMPTY_NODE;
     original->avl.by_size = AVL_EMPTY_NODE;
 
-    avl_insert(&vmm->vmas.by_size, &original->avl.by_size, vma_compare_size);
     avl_insert(&vmm->vmas.by_address, &original->avl.by_address,
                vma_compare_address);
+    if (!original->allocated)
+        avl_insert(&vmm->vmas.by_size, &original->avl.by_size,
+                   vma_compare_size);
+}
+
+/** @brief Try to merge an area with another one present inside the VMM
+ *
+ * If an appropriate VMA to merge has been found, it will be removed from both
+ * trees and it will be merged into @dst.
+ *
+ * @param vmm The VMM instance to use
+ * @param dst The VMA to merge into
+ * @param src_start The start address of the VMA we want to merge
+ */
+static void vma_try_merge(vmm_t *vmm, vma_t *dst, vaddr_t src_start)
+{
+    vma_t value = {.segment = {.start = src_start}};
+    avl_t *avl = avl_remove(&vmm->vmas.by_address, &value.avl.by_address,
+                            vma_search_free_by_address);
+    if (avl != NULL) {
+        vma_t *area = container_of(avl, vma_t, avl.by_address);
+        // Remove the equivalent inside the by_size tree
+        value.segment.size = vma_size(area);
+        avl_remove(&vmm->vmas.by_size, &value.avl.by_size,
+                   vma_compare_address_inside_size);
+        // merge both areas into one
+        dst->segment.size += vma_size(area);
+        if (vma_start(area) < vma_start(dst))
+            dst->segment.start = vma_start(area);
+    }
 }
 
 struct vm_segment *
@@ -318,6 +357,7 @@ vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
 {
     vma_t requested;
     const avl_t *area_avl;
+    vma_t *allocated;
 
     if (size == 0)
         return PTR_ERR(E_INVAL);
@@ -330,6 +370,8 @@ vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
 
     vmm_lock(vmm);
 
+    // Look for a large enough free area. If specified a starting address,
+    // the area's starting address must be superior or equal to it.
     if (addr != 0) {
         area_avl = avl_remove(&vmm->vmas.by_address, &requested.avl.by_address,
                               vma_search_free_by_address_and_size);
@@ -344,26 +386,31 @@ vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
         return PTR_ERR(E_INVAL);
     }
 
-    vma_t *old;
-    vma_t *allocated;
-
+    // We also need to remove the newly found area from the other tree than
+    // the one used to find it
     if (addr != 0) {
-        old = container_of(area_avl, vma_t, avl.by_address);
-        avl_remove(&vmm->vmas.by_size, &old->avl.by_size, vma_compare_size);
+        allocated = container_of(area_avl, vma_t, avl.by_address);
+        avl_remove(&vmm->vmas.by_size, &allocated->avl.by_size,
+                   vma_compare_size);
     } else {
-        old = container_of(area_avl, vma_t, avl.by_size);
-        avl_remove(&vmm->vmas.by_address, &old->avl.by_address,
+        allocated = container_of(area_avl, vma_t, avl.by_size);
+        avl_remove(&vmm->vmas.by_address, &allocated->avl.by_address,
                    vma_compare_address);
     }
 
-    if (vma_size(old) == size) {
-        allocated = old;
-    } else {
+    // In case the suitable area is located inside a larger area, we need to
+    // extract it from there, and split the original area into multiple sub-ones
+    //
+    // This can be the case when:
+    // - Specified an explicit address
+    // - The area is larger than the required size
+    if (vma_size(allocated) != size) {
+        vma_t *original = allocated;
         allocated = (vma_t *)vma_reserved_allocate(vmm);
         *allocated = (vma_t){
             .segment =
                 {
-                    .start = MAX(addr, vma_start(old)),
+                    .start = MAX(addr, vma_start(original)),
                     .size = size,
                     .flags = flags,
                 },
@@ -371,7 +418,7 @@ vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
 
         // Reinsert into the trees the part of the original areas that were not
         // included inside the allocation
-        vmm_split_vma(vmm, old, &requested);
+        vmm_extract_vma(vmm, original, allocated);
     }
 
     // Insert the allocated virtual address inside the AVL tree
@@ -397,33 +444,6 @@ vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
     return &allocated->segment;
 }
 
-/** @brief Try to merge an area with another one present inside the VMM
- *
- * If an appropriate VMA to merge has been found, it will be removed from both
- * trees and it will be merged into @dst.
- *
- * @param vmm The VMM instance to use
- * @param dst The VMA to merge into
- * @param src_start The start address of the VMA we want to merge
- */
-static void vma_try_merge(vmm_t *vmm, vma_t *dst, vaddr_t src_start)
-{
-    vma_t value = { .segment = {.start = src_start} };
-    avl_t *avl = avl_remove(&vmm->vmas.by_address, &value.avl.by_address,
-                            vma_search_free_by_address);
-    if (avl != NULL) {
-        vma_t *area = container_of(avl, vma_t, avl.by_address);
-        // Remove the equivalent inside the by_size tree
-        value.size = area->size;
-        avl_remove(&vmm->vmas.by_size, &value.avl.by_size,
-                   vma_compare_address_inside_size);
-        // merge both areas into one
-        dst->size += area->size;
-        if (area->start < dst->start)
-            dst->start = area->start;
-    }
-}
-
 void vmm_free(vmm_t *vmm, vaddr_t addr, size_t length)
 {
 
@@ -431,7 +451,7 @@ void vmm_free(vmm_t *vmm, vaddr_t addr, size_t length)
     length = align_up(length, PAGE_SIZE);
 
     // 1. Remove the corresponding area
-    vma_t requested = {.segment = {.start = addr}};
+    vma_t requested = {.segment = {.start = addr, .size = length}};
     avl_t *freed;
 
     vmm_lock(vmm);
@@ -442,17 +462,28 @@ void vmm_free(vmm_t *vmm, vaddr_t addr, size_t length)
         goto vmm_release_lock;
 
     vma_t *area = container_of(freed, vma_t, avl.by_address);
-    area->allocated = false;
     llist_remove(&current->process->vmas, &area->this);
 
-    // Merge with the previous area (if free)
-    if (vma_start(area) == addr && vma_start(area) > vmm->start) {
-        vma_try_merge(vmm, area, vma_start(area) - PAGE_SIZE);
+    // If only freeing part of the area, extract the part of interest
+    if (vma_size(area) != length) {
+        vma_t *original = area;
+        area = (vma_t *)vma_reserved_allocate(vmm);
+        *area = requested;
+        area->segment.flags = vma_flags(original);
+        vmm_extract_vma(vmm, original, area);
     }
+
+    area->allocated = false;
 
     // Merge with the next area (if free)
     if (vma_end(area) == vma_end(&requested) && vma_end(area) < vmm->end) {
         vma_try_merge(vmm, area, vma_end(area));
+    }
+
+    // Merge with the previous area (if free)
+    if (vma_start(area) == vma_start(&requested) &&
+        vma_start(area) > vmm->start) {
+        vma_try_merge(vmm, area, vma_start(area) - PAGE_SIZE);
     }
 
     // Re-insert the merged free area inside the 2 AVL trees
