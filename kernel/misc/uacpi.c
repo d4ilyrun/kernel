@@ -38,12 +38,12 @@
 
 void *uacpi_kernel_alloc(uacpi_size size)
 {
-    return kmalloc(size, KMALLOC_DEFAULT);
+    return kmalloc(size, KMALLOC_KERNEL);
 }
 
 void *uacpi_kernel_calloc(uacpi_size count, uacpi_size size)
 {
-    return kcalloc(count, size, KMALLOC_DEFAULT);
+    return kcalloc(count, size, KMALLOC_KERNEL);
 }
 
 void uacpi_kernel_free(void *mem)
@@ -211,7 +211,7 @@ uacpi_status uacpi_kernel_io_write(uacpi_handle base, uacpi_size offset,
 
 uacpi_handle uacpi_kernel_create_spinlock(void)
 {
-    spinlock_t *spinlock = kmalloc(sizeof(*spinlock), KMALLOC_DEFAULT);
+    spinlock_t *spinlock = kmalloc(sizeof(*spinlock), KMALLOC_KERNEL);
     if (spinlock == NULL) {
         log_err("Failed to allocate spinlock");
         return NULL;
@@ -349,7 +349,7 @@ uacpi_kernel_install_interrupt_handler(uacpi_u32 irq,
     if (irq > IDT_LENGTH)
         return UACPI_STATUS_INVALID_ARGUMENT;
 
-    uacpi_irq_handle *handle = kmalloc(sizeof(*handle), KMALLOC_DEFAULT);
+    uacpi_irq_handle *handle = kmalloc(sizeof(*handle), KMALLOC_KERNEL);
     if (handle == NULL)
         return UACPI_STATUS_OUT_OF_MEMORY;
 
@@ -380,7 +380,7 @@ typedef struct uacpi_kernel_event {
 
 uacpi_handle uacpi_kernel_create_event(void)
 {
-    return kcalloc(1, sizeof(uacpi_kernel_event), KMALLOC_DEFAULT);
+    return kcalloc(1, sizeof(uacpi_kernel_event), KMALLOC_KERNEL);
 }
 
 void uacpi_kernel_free_event(uacpi_handle event)
