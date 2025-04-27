@@ -125,6 +125,22 @@ static inline vaddr_t vma_end(const vma_t *vma)
     return vma->start + vma->size;
 }
 
+/** @return the start address of a VMA. */
+static inline vaddr_t vma_start(const vma_t *vma)
+{
+    return vma->start;
+}
+
+static inline size_t vma_size(const vma_t *vma)
+{
+    return vma->size;
+}
+
+static inline u32 vma_flags(const vma_t *vma)
+{
+    return vma->flags;
+}
+
 /**
  * @struct vmm
  *
