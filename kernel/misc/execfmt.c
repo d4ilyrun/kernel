@@ -8,6 +8,7 @@
 #include <kernel/process.h>
 
 #include <utils/container_of.h>
+#include <utils/math.h>
 
 static DECLARE_LLIST(registered_execfmt);
 
@@ -107,7 +108,7 @@ release_executable:
     /* FIXME: The executable may be partially loaded when failing.
      * We need to release the loaded content when failing.
      */
-    munmap(content, file_size(exec_file));
+    munmap(content, align_up(file_size(exec_file), PAGE_SIZE));
     kfree(executable);
     return ret;
 }

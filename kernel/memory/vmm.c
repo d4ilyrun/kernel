@@ -640,13 +640,22 @@ mmap_file(void *addr, size_t length, int prot, int flags, struct file *file)
     void *memory;
     error_t err;
 
-    memory = mmap(addr, length, prot, flags);
+    if ((vaddr_t)addr % PAGE_SIZE)
+        return MMAP_INVALID;
+
+    // FIXME: We should check that the length argument is page aligned and
+    // return an error instead. But as our files are not sized using blocks for
+    // now, we could not map files whose size is not a multiple of a page size
+    // currently. This should be changed once implementing proper block IO.
+    // (remove log_dbg also)
+
+    memory = mmap(addr, align_up(length, PAGE_SIZE), prot, flags);
     if (memory == MMAP_INVALID)
         return memory;
 
     err = file_read(file, memory, length);
     if (err) {
-        munmap(memory, length);
+        munmap(memory, align_up(length, PAGE_SIZE));
         return MMAP_INVALID;
     }
 
