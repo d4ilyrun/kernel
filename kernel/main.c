@@ -61,13 +61,16 @@ void kernel_task_ping(void *data);
 
 void kernel_relocate_module(struct multiboot_tag_module *module)
 {
-    u32 mod_size = module->mod_end - module->mod_start;
+    u32 mod_size;
+    void *reloc;
+
+    mod_size = module->mod_end - module->mod_start;
     mmu_identity_map(module->mod_start, module->mod_end,
                      PROT_READ | PROT_KERNEL);
 
-    void *reloc = (void *)vmm_allocate(&kernel_vmm, 0, mod_size,
-                                       VMA_READ | VMA_WRITE);
-    if (reloc == NULL) {
+    reloc = vm_alloc(&kernel_address_space, align_up(mod_size, PAGE_SIZE),
+                     VM_READ | VM_WRITE);
+    if (IS_ERR(reloc)) {
         log_err("failed to relocate module@" FMT32 ": E_NOMEM",
                 module->mod_start);
         return;
@@ -110,7 +113,8 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     tty_init();
 
     log(LOG_LEVEL_INFO, "kernel", "Starting");
-    log(LOG_LEVEL_INFO, "kernel", "Size: %d bytes", KERNEL_CODE_END - KERNEL_CODE_START);
+    log(LOG_LEVEL_INFO, "kernel", "Size: %d bytes",
+        KERNEL_CODE_END - KERNEL_CODE_START);
 
     arch_setup();
 
@@ -126,13 +130,8 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     if (!mmu_init())
         PANIC("Failed to initialize virtual address space");
 
-    log_info("Initializing kernel VMM");
-    vmm_init(&kernel_vmm, KERNEL_MEMORY_START, KERNEL_MEMORY_END);
-
-    // Manually "create" a kernel_startup process, this should be reworked later
-    // once add a proper startup sequence. But for now it should do ...
-    kernel_process.vmm = kmalloc(sizeof(vmm_t), KMALLOC_KERNEL);
-    vmm_init(kernel_process.vmm, USER_MEMORY_START, USER_MEMORY_END);
+    address_space_init(&kernel_address_space);
+    process_init_kernel_process();
 
     mbt_info = kmalloc(mbt_tmp.mbt.total_size, KMALLOC_KERNEL);
     memcpy(mbt_info, mbt_tmp.raw, mbt_tmp.mbt.total_size);
@@ -281,6 +280,8 @@ void kernel_task_elf(MAYBE_UNUSED void *data)
     log_info("busybox execution: %s", err_to_str(err));
 }
 
+#undef LOG_DOMAIN
+#define LOG_DOMAIN "kmalloc"
 void kernel_task_malloc(void *data)
 {
     uint32_t *invalid_free = kcalloc(4, sizeof(uint32_t), KMALLOC_DEFAULT);

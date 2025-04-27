@@ -35,6 +35,7 @@ KERNEL_SRCS := 	\
 	misc/semaphore.c \
 	memory/pmm.c \
 	memory/vmm.c \
+	memory/address_space.c \
 	net/net.c \
 	net/packet.c \
 	net/socket.c \

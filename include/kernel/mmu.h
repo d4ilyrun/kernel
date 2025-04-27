@@ -16,6 +16,10 @@
  * * Enabling/Disabling paging
  * * Updating the underlying structures
  *
+ * TODO: It should ideally be possible to modify the content of another MMU.
+ * We have no efficient way of accessing an arbitrary physical address without
+ * having to go through the VMM to find an address.
+ *
  * @{
  */
 
@@ -54,10 +58,16 @@ typedef enum mmu_prot {
  */
 bool mmu_init(void);
 
-/** @brief Inititialize a new page directory
+/** @brief Allocate and initialize a new page directory
  *  @return The physical address of the new page_directory, 0 if error.
  */
-paddr_t mmu_new_page_directory(void);
+paddr_t mmu_new(void);
+
+/** Release the MMU's page_directory.
+ *  @note This function does not release all the memory that was potentially
+ *  mapped by the MMU. This should be done separately by the caller.
+ */
+void mmu_destroy(paddr_t mmu);
 
 /** Clone the current MMU inside another one */
 void mmu_clone(paddr_t destination);
@@ -69,7 +79,7 @@ error_t mmu_copy_on_write(vaddr_t);
  * @brief Replace the current page directory.
  * @param page_directory The physical address of the page directory
  */
-void mmu_load_page_directory(paddr_t);
+void mmu_load(paddr_t mmu);
 
 /**
  * @brief Map a virtual address to a physical one

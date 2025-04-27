@@ -46,7 +46,7 @@
 /** The max length of a process's name */
 #define PROCESS_NAME_MAX_LEN 32
 
-typedef llist_t kmalloc_t;
+struct address_space;
 
 /** A function used as an entry point when creating a new thread
  *
@@ -69,11 +69,7 @@ struct process {
     char name[PROCESS_NAME_MAX_LEN]; /*!< The thread's name */
     pid_t pid;                       /*!< Process' unique ID */
 
-    vmm_t *vmm;        /*!< The process' address space manager */
-    kmalloc_t kmalloc; /*!< Opaque struct used by the memory allocator to
-                          allocate memory blocks inside the user area */
-
-    llist_t vmas; /*!< List of all memory areas allocated for this process. */
+    struct address_space *as; /*!< The process's address space */
 
     llist_t threads; /*!< Linked list of the process' active threads */
     size_t refcount; /*!< Reference count to this process.
@@ -186,6 +182,14 @@ static ALWAYS_INLINE bool thread_is_initial(thread_t *thread)
 extern struct process kernel_process;
 extern struct thread kernel_process_initial_thread;
 
+/** Initialize the kernel process's address space.
+ *
+ *  The kernel process's instance being defined satically, it is required to
+ *  be explicitely initialize during the startup phase so that it can be used
+ *  just like any other process later on.
+ */
+void process_init_kernel_process(void);
+
 /** The currently running thread */
 extern thread_t *current;
 
@@ -221,6 +225,12 @@ thread_t *thread_spawn(struct process *, thread_entry_t, void *, u32);
  *                   (ignored)
  */
 NO_RETURN void thread_jump_to_userland(thread_entry_t, void *);
+
+/** Set the MMU address saved inside the thread's structure.
+ *  @note This function does not change the MMU currently in use,
+ *        see @ref mmu_load for this instead.
+ */
+void thread_set_mmu(struct thread *thread, paddr_t mmu);
 
 /** Effectively kill a thread
  *
