@@ -653,62 +653,37 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
           error.user ? "while in user-mode" : "");
 }
 
-void *
-mmap_file(void *addr, size_t length, int prot, int flags, struct file *file)
+void *map_file(struct file *file, int prot)
 {
+    size_t length;
     void *memory;
     error_t err;
 
-    memory = mmap(addr, length, prot, flags);
-    if (memory == MMAP_INVALID)
-        return memory;
+    length = align_up(file_size(file), PAGE_SIZE);
+    memory = vm_alloc(&kernel_address_space, length, prot);
+    if (IS_ERR(memory))
+        return MMAP_INVALID;
 
-    err = file_read(file, memory, length);
+    err = file_read(file, memory, file_size(file));
     if (err) {
-        munmap(memory, length);
+        vm_free(&kernel_address_space, memory);
         return MMAP_INVALID;
     }
 
     return memory;
 }
 
-/**
- * @brief Implementation of the mmap syscall
- * @ingroup vmm_internals
- */
-void *mmap(void *addr, size_t length, int prot, int flags)
+error_t unmap_file(struct file *file, void *addr)
 {
-    // The actual pageframes are lazily allocated by the #PF handler
-    struct address_space *as = (flags & MAP_KERNEL) ? &kernel_address_space
-                                                    : current->process->as;
-    void *ptr = vm_alloc_start(as, addr, length, prot | flags);
-
-    if (IS_ERR(ptr))
-        return MMAP_INVALID;
-
-    return ptr;
-}
-
-/**
- * @brief Implementation of the munmap syscall
- * @ingroup vmm_internals
- */
-int munmap(void *addr, size_t length)
-{
-    struct address_space *as;
+    UNUSED(file);
 
     if ((vaddr_t)addr % PAGE_SIZE)
-        return E_INVAL;
-
-    if (length == 0)
         return E_INVAL;
 
     if (addr == MMAP_INVALID)
         return E_SUCCESS;
 
-    // Mark virtual address as free
-    as = IS_KERNEL_ADDRESS(addr) ? &kernel_address_space : current->process->as;
-    vm_free(as, addr);
+    vm_free(&kernel_address_space, addr);
 
     return E_SUCCESS;
 }

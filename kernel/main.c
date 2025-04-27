@@ -50,7 +50,6 @@ union {
 
 // Tasks used for manually testing
 void kernel_task_timer(void *data);
-void kernel_task_mmap(void *data);
 void kernel_task_malloc(void *data);
 void kernel_task_rootfs(void *data);
 void kernel_task_userland(void *data);
@@ -166,7 +165,6 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     ASM("int $0");
 
-    sched_new_thread_create(kernel_task_mmap, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_malloc, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_rootfs, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_userland, NULL, 0);
@@ -316,30 +314,6 @@ void kernel_task_malloc(void *data)
     for (int i = 0; i < 8; ++i)
         kfree(blocks[i]);
     kfree(blocks);
-}
-
-void kernel_task_mmap(void *data)
-{
-    UNUSED(data);
-
-    u32 *a = mmap(0, PAGE_SIZE, 0, 0);
-    u32 *b = mmap(0, PAGE_SIZE * 2, 0, 0);
-    u32 *c = mmap(0, PAGE_SIZE, 0, 0);
-    u32 *e = mmap((void *)0x1000000, PAGE_SIZE, 0, 0);
-
-    u32 *addresses = mmap((void *)0xa0000000, PAGE_SIZE * 5,
-                          PROT_READ | PROT_WRITE, 0);
-
-    for (int i = 0; i < 4; ++i)
-        addresses[i] = (u32)&addresses[i];
-
-    log_array(addresses, 4);
-
-    munmap(a, PAGE_SIZE);
-    munmap(b, PAGE_SIZE * 2);
-    munmap(c, PAGE_SIZE);
-    munmap(e, PAGE_SIZE);
-    munmap(addresses, PAGE_SIZE * 5);
 }
 
 #undef LOG_DOMAIN

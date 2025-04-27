@@ -56,7 +56,7 @@ typedef enum vm_flags {
     VM_EXEC = BIT(0),   /*!< Pages inside the area are executable */
     VM_READ = BIT(1),   /*!< Pages inside the area are readable */
     VM_WRITE = BIT(2),  /*!< Pages inside the area are writable */
-    VM_KERNEL = BIT(3), /*!< Should be mapped inside kernel pages */
+    VM_KERNEL = BIT(3), /*!< Pages should only be accessible from kernel */
     VM_CLEAR = BIT(4),  /*!< Page content should be reset when allocating */
 } vm_flags_t;
 

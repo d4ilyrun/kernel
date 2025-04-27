@@ -183,12 +183,6 @@ typedef struct vmm {
 /** Returned by VMM functions in case of error */
 #define MMAP_INVALID NULL
 
-/* For mmap */
-typedef enum mmap_flags {
-    MAP_KERNEL = VM_KERNEL,
-    MAP_CLEAR = VM_CLEAR,
-} mmap_flags_t;
-
 /**
  * Global kernel VMM, used to allocate shared kernel addresses.
  *
@@ -274,34 +268,19 @@ void vmm_clear(vmm_t *vmm);
 void vmm_destroy(vmm_t *vmm);
 
 /**
- * Create a new mapping in the virtual address space of the calling process.
+ * Map a file into kernel memory
  *
- * @param addr The starting address of the new mapping
- * @param length The length of the mapping (must be greater than 0)
+ * @param file The file to be mapped
  * @param prot Protection flags for the mapping.
  *             Must be a combination of @ref mmu_prot
- * @param flags Feature flags for the mapping (mapping, sharing, etc ...).
- *              Must be a combination of @ref vma_flags
  */
-void *mmap(void *addr, size_t length, int prot, int flags);
+void *map_file(struct file *file, int prot);
 
 /**
- * Map a file into memory
+ * Delete a file's memory mapping.
  *
- * @note TODO: This should be modified to take a file descriptor as parameter
- *             instead. it should also be merge together with mmap theoretically
- *             but I don't think mmap is destined to be kept inside the kernel's
- *             API so we'll see about that.
- *
- * @see mmap
- */
-void *mmap_file(void *addr, size_t length, int prot, int flags, struct file *);
-
-/**
- * Delete a mapping for the specified address range
- *
- * @param addr The starting address of the range
- * @param length The length of the range
+ * @param file The memory mapped file
+ * @param addr The starting address of the mapped memory
  *
  * The starting address MUST be page aligned (EINVAL).
  *
@@ -310,7 +289,7 @@ void *mmap_file(void *addr, size_t length, int prot, int flags, struct file *);
  * @info Every page that the range is inside of will be unmaped, even if it's
  *       only for one byte. Beware of overflows and mind the alignment!
  */
-int munmap(void *addr, size_t length);
+error_t unmap_file(struct file *file, void *addr);
 
 #endif /* KERNEL_VMM_H */
 

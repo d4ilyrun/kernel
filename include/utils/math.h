@@ -56,6 +56,10 @@
 /** @return Whether a value is aligned onto a given boundary */
 #define is_aligned(_value, _alignment) (!((_value) % (_alignment)))
 
+#define align_down_ptr(_ptr, _power) ((void *)align_down((vaddr_t)_ptr, _power))
+#define align_up_ptr(_ptr, _power) ((void *)align_up((vaddr_t)_ptr, _power))
+#define is_aligned_ptr(_ptr, _alignment) is_aligned((vaddr_t)_ptr, _alignment)
+
 /** @brief Round @c value to the next multiple of @c alignment
  *
  *  When rounding to a power of two, prefere using @ref align_up instead.
