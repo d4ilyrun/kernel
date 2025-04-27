@@ -61,18 +61,12 @@
 #include <libalgo/bitmap.h>
 #include <libalgo/linked_list.h>
 #include <utils/compiler.h>
+#include <utils/container_of.h>
 
 #include <stdbool.h>
 #include <stddef.h>
 
 struct file;
-
-/*
- * TODO: For now we only use a single static VMM.
- *       To allow for multiprocessing, which would require one VMM per process,
- *       we should either return a new VMM from the init function or ask for a
- *       pointer to a VMM instance as parameter.
- */
 
 /**
  * @brief Virtual Memory Area
@@ -108,8 +102,6 @@ typedef struct vma {
         struct avl by_address; /*!< AVL tree ordered by address */
         struct avl by_size;    /*!< AVL tree ordered by size */
     } avl;
-
-    node_t this; /*!< Used by processes to list the VMAs they currently own */
 
 } vma_t;
 
@@ -169,6 +161,8 @@ typedef struct vmm {
     vaddr_t start; /*!< The start of the VMM's assigned range */
     vaddr_t end;   /*!< The end of the VMM's assigned range (excluded) */
 
+    struct address_space *as;
+
     /** Roots of the AVL trees containing the VMAs */
     struct vmm_vma_roots {
         avl_t *by_address;
@@ -200,8 +194,6 @@ typedef enum mmap_flags {
  *
  * These addresses are stored in the PTEs above KERNEL_VIRTUAL_START, and are
  * shared across all processes. That is why we must use a global shared VMM.
- *
- * @todo TODO: This behaviour could be generalised once we implement MAP_SHARED
  */
 extern vmm_t kernel_vmm;
 
@@ -210,6 +202,9 @@ extern vmm_t kernel_vmm;
  */
 #define IS_KERNEL_ADDRESS(_addr) \
     IN_RANGE((vaddr_t)(_addr), KERNEL_MEMORY_START, KERNEL_MEMORY_END)
+
+/* Allocate a new VMM structure */
+struct vmm *vmm_new(struct address_space *);
 
 /**
  * @brief Initialize a VMM instance
@@ -221,6 +216,14 @@ extern vmm_t kernel_vmm;
  * @return Whether the init processes suceeded or not
  */
 bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end);
+
+/** @brief Copy the content of a VMM instance inside another one.
+ *
+ * This function only copies the VMM's metadata. The actual content
+ * of the address space managed by the VMM should be duplicated using
+ * the CoW mechanism (@see mmu_clone).
+ */
+void vmm_copy(vmm_t *dst, vmm_t *src);
 
 /**
  * @brief Allocate a virtual area of the given size
@@ -248,10 +251,6 @@ struct vm_segment *vmm_allocate(vmm_t *, vaddr_t, size_t size, int flags);
  * @warning This does not free the underlying page nor the PTE entry.
  *          All it does is mark the corresponding VMA as available for later
  *          allocations.
- *
- * @note Is this a good design? Should I free the corresponding PTE and PF also?
- *       I guess we'll see later on when dealing with actual dynamic allocation
- *       using our heap allocator, or implementing munmap.
  */
 void vmm_free(vmm_t *, vaddr_t, size_t length);
 
@@ -259,12 +258,18 @@ void vmm_free(vmm_t *, vaddr_t, size_t length);
  * @brief Find the VMA to which a virtual address belongs
  * @return The VMA containing this address, or NULL if not found
  */
-struct vm_segment *vmm_find(vmm_t *, vaddr_t);
+struct vm_segment *vmm_find(const vmm_t *, vaddr_t);
 
 /** Release all the VMAs inside a VMM instance.
  *
  *  @warning This does not release the actual virtual addresses referenced
  *  by the VMAs, please make sure to release it at some point.
+ */
+void vmm_clear(vmm_t *vmm);
+
+/** Free the VMM struct
+ *  @note You should release its content using @ref vmm_clear before calling
+ *        this function
  */
 void vmm_destroy(vmm_t *vmm);
 

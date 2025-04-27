@@ -53,32 +53,25 @@ void uacpi_kernel_free(void *mem)
 
 void *uacpi_kernel_map(uacpi_phys_addr physical, uacpi_size len)
 {
-    // Avoid problems when the area spans over 2 different pageframes
-    len += physical & __align_mask(physical, PAGE_SIZE);
+    size_t offset;
+    void *page;
 
-    vaddr_t virtual = vmm_allocate(&kernel_vmm, 0, len, VMA_READ | VMA_WRITE);
-    if (!virtual)
+    offset = physical & __align_mask(physical, PAGE_SIZE);
+    len = align_up(len + offset, PAGE_SIZE);
+    physical = align_down(physical, PAGE_SIZE);
+
+    page = vm_alloc_at(&kernel_address_space, physical, len,
+                       VM_READ | VM_WRITE);
+    if (IS_ERR(page))
         return UACPI_NULL;
 
-    paddr_t pageframe = align_down(physical, PAGE_SIZE);
-
-    for (uacpi_size off = 0; off < len; off += PAGE_SIZE) {
-        if (!mmu_map(virtual + off, pageframe + off, PROT_READ | PROT_WRITE)) {
-            vmm_free(&kernel_vmm, virtual, len);
-            return UACPI_NULL;
-        }
-    }
-
-    return (void *)virtual + (physical - pageframe);
+    return page + offset;
 }
 
 void uacpi_kernel_unmap(void *addr, uacpi_size len)
 {
-    for (uacpi_size off = 0; off < len; off += PAGE_SIZE) {
-        mmu_unmap((vaddr_t)addr + off);
-    }
-
-    vmm_free(&kernel_vmm, (vaddr_t)addr, len);
+    UNUSED(len);
+    vm_free(&kernel_address_space, addr);
 }
 
 uacpi_status uacpi_kernel_raw_memory_read(uacpi_phys_addr address,

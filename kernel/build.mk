@@ -36,6 +36,8 @@ KERNEL_SRCS := 	\
 	misc/uacpi.c \
 	memory/pmm.c \
 	memory/vmm.c \
+	memory/address_space.c \
+	memory/vm_normal.c \
 	net/net.c \
 	net/packet.c \
 	net/socket.c \

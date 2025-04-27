@@ -64,6 +64,11 @@ extern void arch_process_free(struct process *);
 
 extern void arch_thread_free(thread_t *thread);
 
+NO_RETURN void
+arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data);
+
+extern void arch_thread_set_mmu(struct thread *thread, paddr_t mmu);
+
 /** Free all resources currently held by a thread.
  *
  * This should never be called directly. Instead, it should be
@@ -73,26 +78,14 @@ extern void arch_thread_free(thread_t *thread);
  */
 static void process_free(struct process *process)
 {
-    vma_t *vma;
-
     log_info("freeing process: %s", process->name);
 
     arch_process_free(process);
 
-    // Release all the memory allocated for this process
-    // TODO: Should be refacto into addres_space_destroy() (#41)
-    FOREACH_LLIST_SAFE(this, next, process->vmas)
-    {
-        for (vaddr_t addr = vma->start; addr <= vma_end(vma);
-             vma += PAGE_SIZE) {
-            paddr_t phys = mmu_unmap(addr);
-            if (phys != PMM_INVALID_PAGEFRAME) {
-                pmm_free(phys);
-            }
-        }
-    }
+    address_space_clear(process->as);
+    address_space_load(&kernel_address_space);
+    address_space_destroy(process->as);
 
-    vmm_destroy(process->vmm);
     kfree(process);
 }
 
@@ -125,36 +118,33 @@ process_create(const char *name, thread_entry_t entrypoint, void *data)
 {
     struct process *process = NULL;
     struct thread *initial_thread = NULL;
-    struct vmm *vmm = NULL;
 
     process = kcalloc(1, sizeof(*process), KMALLOC_KERNEL);
     if (process == NULL)
         return PTR_ERR(E_NOMEM);
 
-    // The VMM cannot be initialized from within another thread's address space
-    // This thread should be done by the arch specific wrapper responsible for
-    // first starting up the thread.
-    vmm = kmalloc(sizeof(*vmm), KMALLOC_KERNEL);
-    if (vmm == NULL) {
-        log_err("Failed to allocate VMM");
-        goto process_create_fail;
+    process->as = address_space_new();
+    if (IS_ERR(process->as)) {
+        log_err("failed to create process %s: %s", name,
+                err_to_str(ERR_FROM_PTR(process->as)));
+        kfree(process);
+        return (void *)process->as;
     }
 
     strncpy(process->name, name, PROCESS_NAME_MAX_LEN);
-    process->vmm = vmm;
 
     // The initial execution thread is created along with the process
     initial_thread = thread_spawn(process, entrypoint, data, THREAD_KERNEL);
     if (initial_thread == NULL)
-        goto process_create_fail;
+        goto process_destroy;
 
     llist_add(&process->threads, &initial_thread->proc_this);
 
     return process;
 
-process_create_fail:
+process_destroy:
     kfree(initial_thread);
-    kfree(vmm);
+    address_space_destroy(process->as);
     kfree(process);
     return PTR_ERR(E_NOMEM);
 }
@@ -178,6 +168,40 @@ void process_kill(struct process *process)
 
     if (current->process == process)
         schedule_preempt();
+}
+
+void process_init_kernel_process(void)
+{
+    error_t err;
+
+    /*
+     * Userspace address space is inherited by processes when forking.
+     *
+     * This being the only way of creating new processes, it means that
+     * we have to create an 'initial' user address space for the kernel
+     * process that will be inherited by userland processes created by
+     * the kernel directly (e.g. init).
+     *
+     * The kernel should never ever write to this userspace address space.
+     */
+
+    kernel_process.as = address_space_new();
+    if (IS_ERR(kernel_process.as))
+        PANIC("Failed to create kernel user address space: %s",
+              err_to_str(ERR_FROM_PTR(kernel_process.as)));
+
+    /*
+     * We need the new kernel mmu to be loaded before initializing the
+     * VMM's content, or else the reserved area will be placed inside the
+     * kernel-only address space.
+     */
+    if (address_space_load(kernel_process.as))
+        PANIC("Failed to load kernel user address space");
+
+    err = address_space_init(kernel_process.as);
+    if (err != E_SUCCESS)
+        PANIC("Failed to initialize kernel user address space: %s",
+              err_to_str(err));
 }
 
 thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
@@ -256,10 +280,12 @@ void thread_kill(thread_t *thread)
         schedule_preempt();
 }
 
-NO_RETURN void
-arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data);
-
 NO_RETURN void thread_jump_to_userland(thread_entry_t entrypoint, void *data)
 {
     arch_thread_jump_to_userland(entrypoint, data);
+}
+
+void thread_set_mmu(struct thread *thread, paddr_t mmu)
+{
+    arch_thread_set_mmu(thread, mmu);
 }

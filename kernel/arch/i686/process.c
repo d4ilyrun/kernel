@@ -70,8 +70,7 @@ static void arch_thread_entrypoint(thread_entry_t entrypoint, void *data)
     scheduler_preempt_enable(true);
 
     if (thread_is_initial(current)) {
-        if (!vmm_init(current->process->vmm, USER_MEMORY_START,
-                      USER_MEMORY_END))
+        if (address_space_init(current->process->as))
             log_err("Failed to initilize VMM (%s)", current->process->name);
     }
 
@@ -96,25 +95,12 @@ error_exit:
 bool arch_thread_init(thread_t *thread, thread_entry_t entrypoint, void *data)
 {
     u32 *kstack = NULL;
-    paddr_t cr3;
 
     // Allocate a kernel stack for the new thread
     kstack = kcalloc(KERNEL_STACK_SIZE, 1, KMALLOC_KERNEL);
     if (kstack == NULL) {
         log_err("Failed to allocate new kernel stack");
         return false;
-    }
-
-    /* Share page directory if another thread already exists for this process */
-    if (thread_is_initial(thread)) {
-        cr3 = mmu_new_page_directory();
-        if (IS_ERR(cr3)) {
-            log_err("Failed to create new page directory");
-            goto release_kernel_stack;
-        }
-    } else {
-        const node_t *other = llist_head(thread->process->threads);
-        cr3 = container_of(other, struct thread, proc_this)->context.cr3;
     }
 
     // Setup basic stack frame to be able to start the thread using 'ret'
@@ -139,15 +125,11 @@ bool arch_thread_init(thread_t *thread, thread_entry_t entrypoint, void *data)
     // context_switching stack
     thread->context.esp = (u32)&KSTACK(7);
     thread->context.esp0 = (u32)&KSTACK(0);
-    thread->context.cr3 = cr3;
+    thread->context.cr3 = thread->process->as->mmu;
 
 #undef KSTACK
 
     return true;
-
-release_kernel_stack:
-    kfree(kstack);
-    return false;
 }
 
 void arch_thread_free(thread_t *thread)
@@ -159,4 +141,9 @@ void arch_thread_free(thread_t *thread)
 void arch_process_free(struct process *process)
 {
     UNUSED(process);
+}
+
+void arch_thread_set_mmu(struct thread *thread, paddr_t mmu)
+{
+    thread->context.cr3 = mmu;
 }

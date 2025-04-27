@@ -138,7 +138,7 @@ static void rtl8139_soft_reset(struct rtl8139 *rtl8139)
     rtl8139->tx_current_decriptor = 0;
     rtl8139->rx_packet_offset = 0;
 
-    kfree_dma(rtl8139->rx_buffer, rtl8139->rx_buffer_size);
+    kfree_dma(rtl8139->rx_buffer);
     rtl8139->rx_buffer = NULL;
 }
 
@@ -396,7 +396,7 @@ static error_t rtl8139_probe(struct device *dev)
 
 probe_failed:
     if (rtl8139->rx_buffer)
-        kfree_dma(rtl8139->rx_buffer, rtl8139->rx_buffer_size);
+        kfree_dma(rtl8139->rx_buffer);
     ethernet_device_free(eth_dev);
     return ret;
 }

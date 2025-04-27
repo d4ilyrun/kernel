@@ -41,9 +41,6 @@
 #define BLOCK_FREE_MAGIC(_block) \
     ((uint32_t *)(((void *)_block) + sizeof(node_t)))
 
-/** Head of the linked list of buckets */
-static DECLARE_LLIST(kmalloc_buckets);
-
 /**
  * @brief The metadata for a single bucket
  * @struct bucket_meta
@@ -64,11 +61,21 @@ typedef struct bucket_meta {
 static_assert(sizeof(bucket_t) <= KMALLOC_ALIGNMENT, "Bucket metadata MUST fit "
                                                      "into a single block");
 
+static inline struct bucket_meta *to_bucket(node_t *this)
+{
+    return container_of(this, bucket_t, this);
+}
+
+static inline size_t bucket_compute_size(size_t block_size)
+{
+    return align_up(KMALLOC_ALIGNMENT + block_size, PAGE_SIZE);
+}
+
 /** Find a bucket containing with at least one free block of the given size */
 static bucket_t *bucket_find(llist_t buckets, size_t size, const u16 flags)
 {
     FOREACH_LLIST (node, buckets) {
-        bucket_t *bucket = container_of(node, bucket_t, this);
+        bucket_t *bucket = to_bucket(node);
         if (bucket->block_size == size && bucket->free != NULL &&
             bucket->flags == flags)
             return bucket;
@@ -88,14 +95,14 @@ static void *bucket_get_free_block(bucket_t *bucket)
 }
 
 /** Create a new empty bucket for blocks of size @c block_size */
-static struct bucket_meta *
-bucket_create(llist_t *buckets, size_t block_size, const u16 flags)
+static struct bucket_meta *bucket_create(struct address_space *as,
+                                         llist_t *buckets, size_t block_size,
+                                         const u16 flags)
 {
-    size_t bucket_size = align_up(KMALLOC_ALIGNMENT + block_size, PAGE_SIZE);
-    bucket_t *bucket = mmap(NULL, bucket_size, PROT_READ | PROT_WRITE,
-                            MAP_CLEAR | flags);
+    size_t bucket_size = bucket_compute_size(block_size);
+    bucket_t *bucket = vm_alloc(as, bucket_size, VM_READ | VM_WRITE);
 
-    if (bucket == NULL)
+    if (IS_ERR(bucket))
         return NULL;
 
     bucket->block_size = block_size;
@@ -117,7 +124,8 @@ bucket_create(llist_t *buckets, size_t block_size, const u16 flags)
 }
 
 /** Free a block inside a bucket */
-static void bucket_free_block(bucket_t *bucket, void *block, llist_t *buckets)
+static void bucket_free_block(struct address_space *as, bucket_t *bucket,
+                              void *block, llist_t *buckets)
 {
     // Check if block is already free or not
     uint32_t *const block_free_magic = BLOCK_FREE_MAGIC(block);
@@ -127,8 +135,7 @@ static void bucket_free_block(bucket_t *bucket, void *block, llist_t *buckets)
     // If all blocks are free, unmap the bucket to avoid hording memory
     if (bucket->block_count == 1) {
         llist_remove(buckets, &bucket->this);
-        munmap(bucket,
-               align_up(KMALLOC_ALIGNMENT + bucket->block_size, PAGE_SIZE));
+        vm_free(as, bucket);
         return;
     }
 
@@ -146,18 +153,22 @@ static ALWAYS_INLINE bucket_t *bucket_from_block(void *block)
 
 void *kmalloc(size_t size, int flags)
 {
+    struct address_space *as;
+    llist_t *buckets;
+
     if (size == 0)
         return NULL;
+
+    as = (flags & KMALLOC_KERNEL) ? &kernel_address_space
+                                  : current->process->as;
+    buckets = &as->kmalloc;
 
     size = align_up(size, KMALLOC_ALIGNMENT);
     size = bit_next_pow32(size);
 
-    llist_t *buckets = (flags & KMALLOC_KERNEL) ? &kmalloc_buckets
-                                                : &current->process->kmalloc;
-
     bucket_t *bucket = bucket_find(*buckets, size, flags);
     if (bucket == NULL)
-        bucket = bucket_create(buckets, size, flags);
+        bucket = bucket_create(as, buckets, size, flags);
 
     if (bucket == NULL)
         return NULL;
@@ -179,12 +190,14 @@ void *kcalloc(size_t nmemb, size_t size, int flags)
 
 void kfree(void *ptr)
 {
+    struct address_space *as;
+
     if (ptr == NULL)
         return;
 
-    bucket_free_block(bucket_from_block(ptr), ptr,
-                      IS_KERNEL_ADDRESS(ptr) ? &kmalloc_buckets
-                                             : &current->process->kmalloc);
+    as = IS_KERNEL_ADDRESS(ptr) ? &kernel_address_space : current->process->as;
+
+    bucket_free_block(as, bucket_from_block(ptr), ptr, &as->kmalloc);
 }
 
 void *krealloc(void *ptr, size_t size, int flags)
@@ -214,7 +227,7 @@ void *krealloc(void *ptr, size_t size, int flags)
     return new;
 }
 
-void *krealloc_carray(void *ptr, size_t nmemb, size_t size, int flags)
+void *krealloc_array(void *ptr, size_t nmemb, size_t size, int flags)
 {
     if (__builtin_mul_overflow(nmemb, size, &size))
         return ptr;
@@ -222,66 +235,24 @@ void *krealloc_carray(void *ptr, size_t nmemb, size_t size, int flags)
     return krealloc(ptr, size, flags);
 }
 
-void *kmalloc_at(paddr_t phys, size_t size)
-{
-    vaddr_t virt;
-
-    size = align_up(size, PAGE_SIZE);
-
-    virt = vmm_allocate(&kernel_vmm, 0, size, VMA_KERNEL);
-    if (!virt)
-        return NULL;
-
-    /* TODO: Forced to be rw. Should be modified when revamping the alloc API
-     *       The flag system is currently a huge mess of
-     * un-necessary/unused/leaked values. Even I am not sure what flag should be
-     * used ... FFS please rework this mess!
-     */
-    if (!mmu_map_range(virt, phys, size, PROT_READ | PROT_WRITE | PROT_KERNEL))
-        return NULL;
-
-    return (void *)virt;
-}
-
 void *kmalloc_dma(size_t size)
 {
     paddr_t physical;
+    void *ptr;
 
     physical = pmm_allocate_pages(size);
     if (physical == PMM_INVALID_PAGEFRAME)
         return NULL;
 
-    return kmalloc_at(physical, size);
+    ptr = vm_alloc_at(&kernel_address_space, physical, size,
+                      VM_READ | VM_WRITE);
+
+    if (IS_ERR(ptr))
+        return NULL;
+    return ptr;
 }
 
-void *kmalloc_dma_at(paddr_t dma_buffer, size_t size)
+void kfree_dma(void *dma_ptr)
 {
-    return kmalloc_at(dma_buffer, size);
-}
-
-void kfree_at(void *ptr, size_t size)
-{
-    vaddr_t virt = (vaddr_t)ptr;
-
-    if (ptr == NULL)
-        return;
-
-    mmu_unmap_range(virt, virt + size);
-    vmm_free(&kernel_vmm, virt, size);
-}
-
-void kfree_dma(void *dma_ptr, size_t size)
-{
-    vaddr_t virt = (vaddr_t)dma_ptr;
-    paddr_t phys;
-
-    if (dma_ptr == NULL)
-        return;
-
-    phys = mmu_find_physical(virt);
-    if (IS_ERR(phys))
-        return;
-
-    kfree_at(dma_ptr, size);
-    pmm_free_pages(phys, size);
+    vm_free(&kernel_address_space, dma_ptr);
 }

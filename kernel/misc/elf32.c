@@ -153,9 +153,6 @@ static error_t elf32_load_segment(const struct elf32_ehdr *elf,
     if (segment->p_pflags & PF_X)
         prot |= PROT_EXEC;
 
-    log_dbg("allocating segment @ %p (size=%04x, flags=%x)",
-            (void *)segment->p_vaddr, segment->p_memsz, prot);
-
     /* NOTE: We also alocate the start of the containing page when vaddr is not
      * aligned. This is necessary because mmap will automatically align up the
      * start address to the next page. We do not verify, though, whether another
@@ -166,6 +163,10 @@ static error_t elf32_load_segment(const struct elf32_ehdr *elf,
 
     in_memory = (void *)align_down(segment->p_vaddr, PAGE_SIZE);
     size = segment->p_memsz + (segment->p_vaddr % PAGE_SIZE);
+    size = align_up(size, PAGE_SIZE);
+
+    log_dbg("allocating segment @ %p (size=%#04x, start=%p, alloc_size=%#04lx, flags=%x)",
+            (void *)segment->p_vaddr, segment->p_memsz, in_memory, size, prot);
 
     /* The file must be mapped 1:1 any other
      * TODO: MAP_FIXED

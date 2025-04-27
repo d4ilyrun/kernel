@@ -44,6 +44,8 @@ typedef node_t *llist_t;
 /** Reset a node's next and prev pointer. */
 #define LLIST_EMPTY ((node_t){0, 0})
 
+#define INIT_LLIST(_list) _list = NULL
+
 /** Loop over each element inside a linked list
  *  @param _name The name of the current node
  *  @param _head The head of the linked list

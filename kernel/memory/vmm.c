@@ -7,8 +7,6 @@
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
-#include <kernel/process.h>
-#include <kernel/sched.h>
 #include <kernel/vmm.h>
 
 #include <libalgo/avl.h>
@@ -47,7 +45,9 @@ static inline struct vma *to_vma_by_size(const struct avl *avl)
  * other part of the kernel
  */
 
-vmm_t kernel_vmm;
+vmm_t kernel_vmm = {
+    .as = &kernel_address_space,
+};
 
 static void vmm_lock(struct vmm *vmm)
 {
@@ -130,6 +130,15 @@ MAYBE_UNUSED static void vma_reserved_free(vmm_t *vmm, vma_t *vma)
     }
 }
 
+struct vmm *vmm_new(struct address_space *as)
+{
+    struct vmm *new = kcalloc(1, sizeof(struct vmm), KMALLOC_KERNEL);
+    if (new == NULL)
+        return PTR_ERR(E_NOMEM);
+    new->as = as;
+    return new;
+}
+
 bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
 {
     // The VMM can only allocate address for pages
@@ -178,6 +187,28 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
              vmm->end);
 
     return true;
+}
+
+void vmm_copy(vmm_t *dst, vmm_t *src)
+{
+    vmm_lock(src);
+    vmm_lock(dst);
+
+    dst->start = src->start;
+    dst->end = dst->end;
+
+    /*
+     * Replace the destination VMM's VMAs, and release the old ones.
+     * Their actual content should be copied through CoW.
+     */
+    vmm_clear(dst);
+    dst->vmas.by_address = src->vmas.by_address;
+    dst->vmas.by_size = src->vmas.by_size;
+
+    memcpy(dst->reserved, src->reserved, sizeof(src->reserved));
+
+    vmm_unlock(dst);
+    vmm_unlock(src);
 }
 
 static void vmm_print_node_by_size(const struct avl *node)
@@ -413,7 +444,7 @@ vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
     }
 
     if (area_avl == NULL) {
-        log_err("Failed to allocate");
+        log_err("failed to find a suitable free area");
         vmm_unlock(vmm);
         return PTR_ERR(E_INVAL);
     }
@@ -466,8 +497,7 @@ vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
         return (void *)inserted;
     }
 
-    allocated->this = LLIST_EMPTY;
-    llist_add(&current->process->vmas, &allocated->this);
+    vm_segment_insert(vmm->as, &allocated->segment);
 
     allocated->allocated = true;
 
@@ -489,12 +519,12 @@ void vmm_free(vmm_t *vmm, vaddr_t addr, size_t length)
     vmm_lock(vmm);
 
     freed = avl_remove(&vmm->vmas.by_address, &requested.avl.by_address,
-                              vma_compare_address);
+                       vma_compare_address);
     if (freed == NULL)
         goto vmm_release_lock;
 
     vma_t *area = container_of(freed, vma_t, avl.by_address);
-    llist_remove(&current->process->vmas, &area->this);
+    vm_segment_remove(vmm->as, &area->segment);
 
     // If only freeing part of the area, extract the part of interest
     if (vma_size(area) != length) {
@@ -535,7 +565,7 @@ vmm_release_lock:
     vmm_unlock(vmm);
 }
 
-struct vm_segment *vmm_find(vmm_t *vmm, vaddr_t addr)
+struct vm_segment *vmm_find(const vmm_t *vmm, vaddr_t addr)
 {
     vmm_lock((vmm_t *)vmm);
 
@@ -553,7 +583,7 @@ struct vm_segment *vmm_find(vmm_t *vmm, vaddr_t addr)
     return &container_of(vma, vma_t, avl.by_address)->segment;
 }
 
-void vmm_destroy(vmm_t *vmm)
+void vmm_clear(vmm_t *vmm)
 {
     if (vmm == &kernel_vmm) {
         log_err("Trying to free the kernel VMM. Skipping.");
@@ -575,6 +605,14 @@ void vmm_destroy(vmm_t *vmm)
     }
 
     vmm_unlock(vmm);
+}
+
+void vmm_destroy(vmm_t *vmm)
+{
+    if (vmm == &kernel_vmm) {
+        log_err("Trying to destroy the kernel VMM. Skipping.");
+        return;
+    }
 
     kfree(vmm);
 }
@@ -594,45 +632,19 @@ typedef struct PACKED {
     u16 _unused2 : 15;
 } page_fault_error;
 
-/**
- * @brief Interrupt handler for page faults (#PF)
- * @ingroup vmm_internals
- *
- * What the handler does:
- * * Lazy allocation of pageframes for allocated virtual addresses
- * * Duplication of CoW pages
- * * Panic if address is effectively invalid
- *
- */
 static DEFINE_INTERRUPT_HANDLER(page_fault)
 {
     // The CR2 register holds the virtual address which caused the Page Fault
-    vaddr_t faulty_address = read_cr2();
+    void *faulty_address = (void *)read_cr2();
     interrupt_frame *frame = data;
-    error_t ret;
-
-    vmm_t *vmm = IS_KERNEL_ADDRESS(faulty_address) ? &kernel_vmm
-                                                   : current->process->vmm;
-    const struct vm_segment *segment = vmm_find(vmm, faulty_address);
-    const struct vma *address_area = container_of(segment, struct vma, segment);
     page_fault_error error = *(page_fault_error *)&frame->error;
+    bool is_cow = error.present && error.write;
+    struct address_space *as;
 
-    // Lazily allocate pageframes
-    if (!error.present && address_area != NULL && address_area->allocated) {
-        for (size_t off = 0; off < vma_size(address_area); off += PAGE_SIZE) {
-            const paddr_t pageframe = pmm_allocate();
-            mmu_map(vma_start(address_area) + off, pageframe, vma_flags(address_area));
-            if (vma_flags(address_area) & MAP_CLEAR)
-                memset((void *)vma_start(address_area) + off, 0, PAGE_SIZE);
-        }
-        return E_SUCCESS;
-    }
-
-    // Copy-on write pages
-    if (error.present && error.write) {
-        ret = mmu_copy_on_write(faulty_address);
-        if (ret == E_SUCCESS)
-            return ret;
+    if (!error.present || is_cow) {
+        as = IS_KERNEL_ADDRESS(faulty_address) ? &kernel_address_space
+                                               : current->process->as;
+        return address_space_fault(as, faulty_address, is_cow);
     }
 
     PANIC("PAGE FAULT at " FMT32 ": %s access on a %s page %s", faulty_address,
@@ -667,8 +679,14 @@ mmap_file(void *addr, size_t length, int prot, int flags, struct file *file)
 void *mmap(void *addr, size_t length, int prot, int flags)
 {
     // The actual pageframes are lazily allocated by the #PF handler
-    vmm_t *vmm = (flags & MAP_KERNEL) ? &kernel_vmm : current->process->vmm;
-    return (void *)vmm_allocate(vmm, (vaddr_t)addr, length, prot | flags);
+    struct address_space *as = (flags & MAP_KERNEL) ? &kernel_address_space
+                                                    : current->process->as;
+    void *ptr = vm_alloc_start(as, addr, length, prot | flags);
+
+    if (IS_ERR(ptr))
+        return MMAP_INVALID;
+
+    return ptr;
 }
 
 /**
@@ -677,23 +695,20 @@ void *mmap(void *addr, size_t length, int prot, int flags)
  */
 int munmap(void *addr, size_t length)
 {
+    struct address_space *as;
+
     if ((vaddr_t)addr % PAGE_SIZE)
-        return -E_INVAL;
+        return E_INVAL;
+
+    if (length == 0)
+        return E_INVAL;
 
     if (addr == MMAP_INVALID)
         return E_SUCCESS;
 
     // Mark virtual address as free
-    vmm_t *vmm = IS_KERNEL_ADDRESS(addr) ? &kernel_vmm : current->process->vmm;
-    vmm_free(vmm, (vaddr_t)addr, length);
-
-    // Remove mappings from the page tables
-    length = align_up(length, PAGE_SIZE);
-    for (size_t off = 0; off < length; off += PAGE_SIZE) {
-        paddr_t pageframe = mmu_unmap((vaddr_t)addr + off);
-        if (pageframe != PMM_INVALID_PAGEFRAME)
-            pmm_free(pageframe);
-    }
+    as = IS_KERNEL_ADDRESS(addr) ? &kernel_address_space : current->process->as;
+    vm_free(as, addr);
 
     return E_SUCCESS;
 }

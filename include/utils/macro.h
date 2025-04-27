@@ -24,7 +24,7 @@
 /** Check if x is strictly between l and h (l < x < h) */
 #define BETWEEN(_x, _l, _h) ((_l) < (_x) && (_x) < (_h))
 
-/** Check if x is between l and h (l =< x =< h) */
+/** Check if x is between l and h (l <= x <= h) */
 #define IN_RANGE(_x, _l, _h) ((_l) <= (_x) && (_x) <= (_h))
 
 /** Check if two ranges overlap with each other */
