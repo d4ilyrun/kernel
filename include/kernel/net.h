@@ -50,7 +50,10 @@
 #ifndef KERNEL_NET_H
 #define KERNEL_NET_H
 
+#include <uapi/kernel/net.h>
+
 #include <utils/bits.h>
+
 
 #define htons htobe16
 #define ntohs be16toh

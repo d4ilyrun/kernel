@@ -33,9 +33,9 @@ SpacesInParentheses: false
 
 IncludeBlocks: Regroup
 IncludeCategories:
-    - Regex: '<kernel/arch/.*>'
+    - Regex: '<(kernel|uapi)/arch/.*>'
       Priority: 2
-    - Regex: '<kernel/.*>'
+    - Regex: '<(kernel|uapi)/.*>'
       Priority: 1
     - Regex: '<(uacpi|utils|lib.*)/.*>'
       Priority: 3

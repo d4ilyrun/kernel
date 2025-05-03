@@ -15,6 +15,7 @@
 #define KERNEL_NET_IPV4_H
 
 #include <kernel/types.h>
+#include <kernel/net.h>
 
 #include <utils/compiler.h>
 
@@ -50,14 +51,6 @@ struct PACKED ALIGNED(sizeof(uint16_t)) ipv4_header {
 };
 
 static_assert(sizeof(struct ipv4_header) == IPV4_MIN_LENGTH);
-
-/** Values for the protocol field inside the IPv4 header
- *  @enum ipv4_protocol
- */
-enum ipv4_protocol {
-    IP_PROTOCOL_TCP = 6,  /** TCP */
-    IP_PROTOCOL_UDP = 17, /** UDP */
-};
 
 /** Insert headers for layer 3 and below into an IP packet */
 void ipv4_fill_packet(struct packet *, struct ipv4_header *);
