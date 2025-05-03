@@ -57,6 +57,7 @@
 
 #include <libalgo/avl.h>
 #include <libalgo/bitmap.h>
+#include <libalgo/linked_list.h>
 #include <utils/compiler.h>
 
 #include <stdbool.h>
@@ -108,12 +109,20 @@ typedef struct vma {
         struct avl by_size;    /*!< AVL tree ordered by size */
     } avl;
 
+    node_t this; /*!< Used by processes to list the VMAs they currently own */
+
 } vma_t;
 
 /* For simplicity, we will allocate 64B for each VMA structure */
 #define VMA_SIZE (64)
 static_assert(sizeof(vma_t) <= VMA_SIZE, "Update the allocated size for VMA "
                                          "structures!");
+
+/** Compute the end address of a VMA. */
+static inline vaddr_t vma_end(const vma_t *vma)
+{
+    return vma->start + vma->size;
+}
 
 /**
  * @struct vmm
@@ -247,7 +256,11 @@ void vmm_free(vmm_t *, vaddr_t, size_t length);
  */
 const vma_t *vmm_find(vmm_t *, vaddr_t);
 
-/** Release all memory allocated by the current VMM */
+/** Release all the VMAs inside a VMM instance.
+ *
+ *  @warning This does not release the actual virtual addresses referenced
+ *  by the VMAs, please make sure to release it at some point.
+ */
 void vmm_destroy(vmm_t *vmm);
 
 /**

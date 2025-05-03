@@ -120,8 +120,8 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     // Manually "create" a kernel_startup process, this should be reworked later
     // once add a proper startup sequence. But for now it should do ...
-    kernel_startup_process.vmm = kmalloc(sizeof(vmm_t), KMALLOC_KERNEL);
-    vmm_init(kernel_startup_process.vmm, USER_MEMORY_START, USER_MEMORY_END);
+    kernel_process.vmm = kmalloc(sizeof(vmm_t), KMALLOC_KERNEL);
+    vmm_init(kernel_process.vmm, USER_MEMORY_START, USER_MEMORY_END);
 
     mbt_info = kmalloc(mbt_tmp.mbt.total_size, KMALLOC_KERNEL);
     memcpy(mbt_info, mbt_tmp.raw, mbt_tmp.mbt.total_size);
@@ -154,24 +154,23 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     ASM("int $0");
 
-    sched_new_process_create("kmmap_test", kernel_task_mmap, NULL, PROC_KERNEL);
-    sched_new_process_create("kmalloc_test", kernel_task_malloc, NULL,
-                             PROC_KERNEL);
-    sched_new_process_create("krootfs_test", kernel_task_rootfs, NULL,
-                             PROC_KERNEL);
-    // sched_new_process_create("init", kernel_task_userland, NULL, PROC_NONE);
+    sched_new_thread_create(kernel_task_mmap, NULL, THREAD_KERNEL);
+    sched_new_thread_create(kernel_task_malloc, NULL, THREAD_KERNEL);
+    sched_new_thread_create(kernel_task_rootfs, NULL, THREAD_KERNEL);
+    sched_new_thread_create(kernel_task_userland, NULL, 0);
 
-    process_t *kernel_timer_test = process_create(
-        "ktimer_test", kernel_task_timer, NULL, PROC_KERNEL);
-    sched_new_process(kernel_timer_test);
+    thread_t *kernel_timer_test = thread_spawn(
+        current->process, kernel_task_timer, NULL, THREAD_KERNEL);
+    sched_new_thread(kernel_timer_test);
 
-    log_dbg("Re-started task: '%s'", current_process->name);
+    log_dbg("Re-started task: '%s' (TID=%d)", current->process->name,
+            current->tid);
 
     while (1) {
         timer_wait_ms(1000);
         log_info("Elapsed miliseconds: %lld", gettime());
         if (BETWEEN(gettime(), 5000, 6000))
-            process_kill(kernel_timer_test);
+            thread_kill(kernel_timer_test);
     }
 }
 
@@ -239,7 +238,7 @@ void kernel_task_rootfs(void *data)
     vnode = vfs_find_by_path("/dev/eth0");
     log_info("/dev/eth0: %s", err_to_str(ERR_FROM_PTR(vnode)));
 
-    sched_new_process_create("kelf_test", kernel_task_elf, NULL, PROC_KERNEL);
+    sched_new_thread_create(kernel_task_elf, NULL, THREAD_KERNEL);
 }
 
 #undef LOG_DOMAIN
@@ -333,7 +332,8 @@ void kernel_task_timer(void *data)
 {
     UNUSED(data);
 
-    log_dbg("Started task: '%s'", current_process->name);
+    log_dbg("Started task: '%s' (TID=%d)", current->process->name,
+            current->tid);
 
     while (1) {
         timer_wait_ms(1000);

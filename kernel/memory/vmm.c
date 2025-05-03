@@ -38,14 +38,6 @@ static DEFINE_INTERRUPT_HANDLER(page_fault);
 
 vmm_t kernel_vmm;
 
-/** Compute the end address of a VMA.
- * @ingroup vmm_internals
- */
-static ALWAYS_INLINE vaddr_t vma_end(const vma_t *vma)
-{
-    return vma->start + vma->size;
-}
-
 /**
  * @brief Allocate memory for a single VMA from within the VMM's reserved area
  * @ingroup vmm_internals
@@ -86,8 +78,7 @@ static vaddr_t vma_reserved_allocate(vmm_t *vmm)
         paddr_t pageframe = pmm_allocate(PMM_MAP_KERNEL);
         if (!mmu_map(address, pageframe,
                      PROT_WRITE | PROT_READ | PROT_KERNEL)) {
-            log_err("Virtual address for VMA already in use: " FMT32,
-                    address);
+            log_err("Virtual address for VMA already in use: " FMT32, address);
             pmm_free(pageframe);
             return 0;
         }
@@ -137,8 +128,7 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
     if (start < VMM_RESERVED_END ||
         RANGES_OVERLAP(start, end - 1, KERNEL_VMM_RESERVED_START,
                        KERNEL_VMM_RESERVED_END - 1)) {
-        log_err("init: invalid VMM range: [" FMT32 ":" FMT32 "]",
-                start, end);
+        log_err("init: invalid VMM range: [" FMT32 ":" FMT32 "]", start, end);
         return false;
     }
 
@@ -161,8 +151,8 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
     //       handler each time we create a new process!
     interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault), NULL);
 
-    log_info("Initialized VMM { start=" FMT32 ", end=" FMT32 " }",
-             vmm->start, vmm->end);
+    log_info("Initialized VMM { start=" FMT32 ", end=" FMT32 " }", vmm->start,
+             vmm->end);
 
     return true;
 }
@@ -371,6 +361,9 @@ vaddr_t vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
         return VMM_INVALID;
     }
 
+    allocated->this = LLIST_EMPTY;
+    llist_add(&current->process->vmas, &allocated->this);
+
     allocated->allocated = true;
 
     return allocated->start;
@@ -418,6 +411,7 @@ void vmm_free(vmm_t *vmm, vaddr_t addr, size_t length)
 
     vma_t *area = container_of(freed, vma_t, avl.by_address);
     area->allocated = false;
+    llist_remove(&current->process->vmas, &area->this);
 
     // Merge with the previous area (if free)
     if (area->start == addr && area->start > vmm->start) {
@@ -510,7 +504,7 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
     interrupt_frame *frame = data;
 
     vmm_t *vmm = IS_KERNEL_ADDRESS(faulty_address) ? &kernel_vmm
-                                                   : current_process->vmm;
+                                                   : current->process->vmm;
     const vma_t *address_area = vmm_find(vmm, faulty_address);
     page_fault_error error = *(page_fault_error *)&frame->error;
 
@@ -557,7 +551,7 @@ mmap_file(void *addr, size_t length, int prot, int flags, struct file *file)
 void *mmap(void *addr, size_t length, int prot, int flags)
 {
     // The actual pageframes are lazily allocated by the #PF handler
-    vmm_t *vmm = (flags & MAP_KERNEL) ? &kernel_vmm : current_process->vmm;
+    vmm_t *vmm = (flags & MAP_KERNEL) ? &kernel_vmm : current->process->vmm;
     return (void *)vmm_allocate(vmm, (vaddr_t)addr, length, prot | flags);
 }
 
@@ -574,7 +568,7 @@ int munmap(void *addr, size_t length)
         return E_SUCCESS;
 
     // Mark virtual address as free
-    vmm_t *vmm = IS_KERNEL_ADDRESS(addr) ? &kernel_vmm : current_process->vmm;
+    vmm_t *vmm = IS_KERNEL_ADDRESS(addr) ? &kernel_vmm : current->process->vmm;
     vmm_free(vmm, (vaddr_t)addr, length);
 
     // Remove mappings from the page tables
