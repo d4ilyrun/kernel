@@ -36,6 +36,7 @@ KERNEL_SRCS := 	\
 	memory/pmm.c \
 	memory/vmm.c \
 	net/packet.c \
+	net/socket.c \
 	net/ethernet.c \
 	net/ipv4.c \
 	net/arp.c \

@@ -36,6 +36,7 @@
  *
  * * @ref networking_packet
  * * @ref kernel_device_netdev
+ * * @ref networking_sockets
  *
  * ## TODO: Networking
  *

@@ -24,6 +24,7 @@
 #include <kernel/error.h>
 #include <kernel/types.h>
 
+#include <libalgo/queue.h>
 #include <utils/math.h>
 
 struct ethernet_device;
@@ -70,6 +71,8 @@ struct packet {
 
     /** Start of the packet's content (L4 and beyond) */
     void *payload;
+
+    node_t rx_this; /*!< Used by socket to list received packets */
 };
 
 #define PACKET_ALIGN (sizeof(uint64_t))
