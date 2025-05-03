@@ -12,6 +12,7 @@
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
+#include <kernel/net/ipv4.h>
 #include <kernel/pmm.h>
 #include <kernel/process.h>
 #include <kernel/sched.h>
@@ -148,6 +149,8 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
             kernel_relocate_module((struct multiboot_tag_module *)tag);
         }
     }
+
+    ipv4_init();
 
     scheduler_init();
     syscall_init();
@@ -432,13 +435,46 @@ void kernel_task_mutex(void *data)
 
 void kernel_task_socket(void *data)
 {
+    u8 buffer[8] = {0, 1, 2, 3, 4, 5, 6, 7};
     struct socket *socket;
+    struct sockaddr_in addr;
+    struct file *fd;
+    error_t err;
 
     UNUSED(data);
+
+    addr.sin_family = AF_INET;
+    addr.sin_addr = hton(IPV4(192, 168, 1, 1));
 
     socket = socket_alloc();
     if (IS_ERR(socket)) {
         log_err("failed to create socket");
         return;
+    }
+
+    /* Create RAW IP socket */
+    err = socket_init(socket, AF_INET, SOCK_RAW, IPPROTO_UDP);
+    if (err) {
+        log_err("failed to init socket: %s", err_to_str(err));
+        return;
+    }
+
+    fd = socket->file;
+
+    do {
+        err = file_connect(fd, (struct sockaddr *)&addr, sizeof(addr));
+        if (err) {
+            log_warn("failed to connect: %s", err_to_str(err));
+            timer_wait_ms(1000);
+        }
+    } while (err);
+
+    while (1) {
+        err = file_send(fd, (void *)buffer, sizeof(buffer), 0);
+        if (err)
+            log_err("send: %s", err_to_str(err));
+        else
+            log_info("send: %s", err_to_str(err));
+        timer_wait_ms(1000);
     }
 }

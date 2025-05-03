@@ -57,7 +57,7 @@ struct net_interface *net_interface_new(struct ethernet_device *, const char *);
 /** Add a new subnet to a network interface */
 error_t net_interface_add_subnet(struct net_interface *, ipv4_t, uint8_t cidr);
 
-/** Find the first subnet that matches the specified address
+/** Find the first subnet that contains the specified address
  * @return The matching subnet or NULL
  */
 const struct subnet *net_interface_find_subnet(ipv4_t);

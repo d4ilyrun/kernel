@@ -9,7 +9,6 @@
  *  @enum ip_protocol
  */
 enum ip_protocol {
-    IPPROTO_IP = 0,   /*!< Dummy protocol */
     IPPROTO_TCP = 6,  /*!< TCP */
     IPPROTO_UDP = 17, /*!< UDP */
 };

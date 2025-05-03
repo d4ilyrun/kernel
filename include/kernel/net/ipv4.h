@@ -27,6 +27,8 @@ struct packet;
 #define IPV4_VERSION 4
 /** Minimum size of an IP header */
 #define IPV4_MIN_LENGTH 20
+/** TTL value used when creating packets */
+#define IPV4_DEFAULT_TTL 64
 
 /** An IPv4 header
  *  @note All fields are in big endian
@@ -52,8 +54,10 @@ struct PACKED ALIGNED(sizeof(uint16_t)) ipv4_header {
 
 static_assert(sizeof(struct ipv4_header) == IPV4_MIN_LENGTH);
 
-/** Insert headers for layer 3 and below into an IP packet */
-void ipv4_fill_packet(struct packet *, struct ipv4_header *);
+/** Initialize the ipv4 API
+ *  TODO: Should be removed in favor of initcalls
+ */
+void ipv4_init(void);
 
 /** Helper to quickly generate an IPv4 address */
 static inline ipv4_t IPV4(uint8_t a, uint8_t b, uint8_t c, uint8_t d)

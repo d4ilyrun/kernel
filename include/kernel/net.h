@@ -55,6 +55,10 @@
 
 #include <utils/bits.h>
 
+struct sockaddr_mac {
+    sa_family_t mac_family; /* AF_UNSPEC */
+    uint8_t mac_addr[6];
+};
 
 #define htons htobe16
 #define ntohs be16toh
