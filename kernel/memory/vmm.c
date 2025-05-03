@@ -506,9 +506,8 @@ vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
     return &allocated->segment;
 }
 
-void vmm_free(vmm_t *vmm, vaddr_t addr, size_t length)
+static void vmm_free_locked(vmm_t *vmm, vaddr_t addr, size_t length)
 {
-
     addr = align_down(addr, PAGE_SIZE);
     length = align_up(length, PAGE_SIZE);
 
@@ -516,12 +515,10 @@ void vmm_free(vmm_t *vmm, vaddr_t addr, size_t length)
     vma_t requested = {.segment = {.start = addr, .size = length}};
     avl_t *freed;
 
-    vmm_lock(vmm);
-
     freed = avl_remove(&vmm->vmas.by_address, &requested.avl.by_address,
                        vma_compare_address);
     if (freed == NULL)
-        goto vmm_release_lock;
+        return;
 
     vma_t *area = container_of(freed, vma_t, avl.by_address);
     vm_segment_remove(vmm->as, &area->segment);
@@ -558,10 +555,14 @@ void vmm_free(vmm_t *vmm, vaddr_t addr, size_t length)
     // It is possible that the requested length spans over multiple areas
     if (addr + length > vma_end(area) && vma_end(area) < vmm->end) {
         length -= vma_end(area) - addr;
-        vmm_free(vmm, vma_end(area), length);
+        vmm_free_locked(vmm, vma_end(area), length);
     }
+}
 
-vmm_release_lock:
+void vmm_free(vmm_t *vmm, vaddr_t addr, size_t length)
+{
+    vmm_lock(vmm);
+    vmm_free_locked(vmm, addr, length);
     vmm_unlock(vmm);
 }
 
