@@ -16,6 +16,7 @@
 #include <kernel/process.h>
 #include <kernel/sched.h>
 #include <kernel/semaphore.h>
+#include <kernel/socket.h>
 #include <kernel/symbols.h>
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
@@ -54,6 +55,7 @@ void kernel_task_userland(void *data);
 void kernel_task_elf(void *data);
 void kernel_task_worker(void *data);
 void kernel_task_mutex(void *data);
+void kernel_task_socket(void *data);
 
 void kernel_relocate_module(struct multiboot_tag_module *module)
 {
@@ -164,6 +166,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     sched_new_thread_create(kernel_task_userland, NULL, 0);
     sched_new_thread_create(kernel_task_worker, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_mutex, NULL, THREAD_KERNEL);
+    sched_new_thread_create(kernel_task_socket, NULL, THREAD_KERNEL);
 
     thread_t *kernel_timer_test = thread_spawn(
         current->process, kernel_task_timer, NULL, THREAD_KERNEL);
@@ -422,4 +425,20 @@ void kernel_task_mutex(void *data)
 
     sched_new_thread(thread_a);
     sched_new_thread(thread_b);
+}
+
+#undef LOG_DOMAIN
+#define LOG_DOMAIN "ksock"
+
+void kernel_task_socket(void *data)
+{
+    struct socket *socket;
+
+    UNUSED(data);
+
+    socket = socket_alloc();
+    if (IS_ERR(socket)) {
+        log_err("failed to create socket");
+        return;
+    }
 }
