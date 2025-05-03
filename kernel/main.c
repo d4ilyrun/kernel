@@ -238,7 +238,7 @@ void kernel_task_rootfs(void *data)
     vnode = vfs_find_by_path("/dev/eth0");
     log_info("/dev/eth0: %s", err_to_str(ERR_FROM_PTR(vnode)));
 
-    sched_new_thread_create(kernel_task_elf, NULL, THREAD_KERNEL);
+    // sched_new_thread_create(kernel_task_elf, NULL, THREAD_KERNEL);
 }
 
 #undef LOG_DOMAIN
