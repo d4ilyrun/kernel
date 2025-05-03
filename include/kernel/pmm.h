@@ -13,7 +13,17 @@
  * The PMM should never interact with the virtual address space, this is the
  * responsabillity of the VMM only.
  *
- * ## Desig,
+ * ## Design
+ *
+ * A physical pageframe is represented by a @ref struct page.
+ * The PMM keeps track of every existing physical page inside a statically
+ * allocated array. This array is indexed using the page's "pageframenumber".
+ * A pageframe number (PFN) is simply the page's physical address divided by the
+ * architecture's page size.
+ *
+ * @todo  TODO: Implement a buddy Allocator
+ *        The buddy allocator is less memory efficient, but way faster when it
+ *        comes to retrieving available pages.
  *
  * @{
  */
@@ -47,22 +57,59 @@
  */
 #define TOTAL_PAGEFRAMES_COUNT (ADDRESS_SPACE_SIZE / PAGE_SIZE)
 
-/**
- * \defgroup Flags PMM Allocation Flags
- *
- * Flags used when allocating a page frame to specify that the allocation must
- * respect certain constraints. Constraints can be specific addresses, rules,
- * etc...
- *
- * @{
+/** Flags used for @ref struct page 'flags' field
+ *  @enum page_flags
  */
+enum page_flags {
+    PAGE_AVAILABLE = BIT(0), ///< This page has not been allocated
+    PAGE_COW = BIT(1),       ///< Currently used in a CoW mapping
+};
 
-typedef enum pmm_flags {
-    /** Pageframe should be located inside the kernel physical address space */
-    PMM_MAP_KERNEL = 0x1,
-} pmm_flags;
+/** Represents a physical pageframe
+ *  @struct page
+ */
+struct page {
+    uint8_t flags;    ///< Combination of @ref page_flags
+    uint8_t refcount; ///< How many processes reference that page
+};
 
-/** @} */
+/**
+ * @brief The array of all existing pageframes
+ *
+ * @note The arrays's size is hardcoded to be able to fit each and every
+ *       pageframes (even though only part of them will be available at
+ *       runtime).
+ */
+extern struct page pmm_pageframes[TOTAL_PAGEFRAMES_COUNT];
+
+/** Convert pageframe address to page frame number */
+#define TO_PFN(_pageframe) (((native_t)(_pageframe)) >> PAGE_SHIFT)
+/** Convert pageframe number to pageframe address */
+#define FROM_PFN(_pageframe) ((_pageframe) << PAGE_SHIFT)
+
+/** @return A page's physical address */
+static inline paddr_t page_address(const struct page *page)
+{
+    return FROM_PFN((page - pmm_pageframes) / sizeof(*page));
+}
+
+/** @return The page struct corresponding to a pageframe number */
+static inline struct page *pfn_to_page(unsigned int pfn)
+{
+    return &pmm_pageframes[pfn];
+}
+
+/** @return The page struct corresponding to a physical address's pageframe */
+static inline struct page *address_to_page(paddr_t addr)
+{
+    return pfn_to_page(TO_PFN(addr));
+}
+
+/** Increase the page's refcount. */
+struct page *page_get(struct page *page);
+
+/** Decrease the page's refcount. If it reaches 0, the page is released. */
+void page_put(struct page *page);
 
 /**
  * @brief Initialize the Physical Memory Mapper
@@ -93,7 +140,7 @@ bool pmm_init(struct multiboot_info *);
  * @return The pageframe range's **physical** address, PMM_INVALID_PAGEFRAME on
  * error
  */
-paddr_t pmm_allocate_pages(size_t size, int flags);
+paddr_t pmm_allocate_pages(size_t size);
 
 /** Release previously allocated contiguous pageframes */
 void pmm_free_pages(paddr_t pageframe, size_t size);
@@ -102,7 +149,7 @@ void pmm_free_pages(paddr_t pageframe, size_t size);
  * @brief Allocate a previously unused pageframe
  * @return The pageframe's **physical** address, PMM_INVALID_PAGEFRAME on error
  */
-#define pmm_allocate(flags) pmm_allocate_pages(PAGE_SIZE, flags)
+#define pmm_allocate() pmm_allocate_pages(PAGE_SIZE)
 
 #define pmm_free(pageframe) pmm_free_pages(pageframe, PAGE_SIZE)
 
