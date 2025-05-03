@@ -162,7 +162,7 @@ static inline const node_t *llist_tail(llist_t head)
     return head;
 }
 
-/** Insert a new item inside a sorted list in asending order */
+/** Insert a new item inside a sorted list in ascending order */
 static inline void
 llist_insert_sorted(llist_t *head, node_t *new, compare_t compare)
 {
@@ -176,6 +176,32 @@ llist_insert_sorted(llist_t *head, node_t *new, compare_t compare)
     }
 
     __llist_add(head, prev, new);
+}
+
+/** Insert a new item inside a sorted list in ascending order,
+ *  without creating a duplicate.
+ *
+ *  @return True if the element was inserted.
+ */
+static inline bool
+llist_insert_sorted_unique(llist_t *head, node_t *new, compare_t compare)
+{
+    node_t *prev = NULL;
+    int ret;
+
+    while (*head != NULL) {
+        ret = compare(new, *head);
+        if (ret == 0)
+            return false;
+        if (ret < 0)
+            break;
+        prev = *head;
+        head = &(*head)->next;
+    }
+
+    __llist_add(head, prev, new);
+
+    return true;
 }
 
 /** Retreive the first matching element inside the list (or NULL) */
