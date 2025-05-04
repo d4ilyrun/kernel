@@ -105,6 +105,7 @@ error_t arp_receive_packet(struct packet *packet)
     struct arp_header *arp = packet->l3.arp;
     struct arp_header reply;
     const mac_address_t *reply_mac;
+    ipv4_t tmp;
 
     if (ntoh(arp->hw_type) != ARP_HW_ETHERNET) {
         log_warn("Unsupported hardware type: " FMT16, ntoh(arp->hw_type));
@@ -132,8 +133,9 @@ error_t arp_receive_packet(struct packet *packet)
         /* Copy header, switch src/dst and insert found hw address into src */
         memcpy(&reply, arp, arp_header_size(arp));
         reply.operation = htons(ARP_REPLY);
+        tmp = reply.dst_ip;
         reply.dst_ip = reply.src_ip;
-        reply.src_ip = reply.dst_ip;
+        reply.src_ip = tmp;
         memcpy(reply.dst_mac, arp->src_mac, sizeof(mac_address_t));
         memcpy(reply.src_mac, *reply_mac, sizeof(mac_address_t));
 
