@@ -32,7 +32,7 @@ size_t strlcpy(char *dst, const char *src, size_t n)
             break;
     }
 
-    dst[i] = '0';
+    dst[i] = 0;
 
     return i;
 }
