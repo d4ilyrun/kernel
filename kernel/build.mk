@@ -71,6 +71,19 @@ $(KERNEL_ISO): $(KERNEL_BIN)
 kernel: $(KERNEL_BIN)
 iso: $(KERNEL_ISO)
 
+QEMU_TAP_IF ?= tap0
+QEMU_HAS_TAP := $(shell ip link show $(QEMU_TAP_IF) &> "/dev/null"; echo "$$?")
+
+ifeq ($(QEMU_HAS_TAP),0)
+# - RTL8139 NIC connected to a tap interface for easy dummping (also dumped into file)
+QEMU_ARGS += -device rtl8139,netdev=net0 \
+			 -netdev tap,id=net0,ifname=$(QEMU_TAP_IF),script=no,downscript=no \
+			 -object filter-dump,id=f1,netdev=net0,file=$(BUILD_DIR)/network.dat
+$(info Network TAP interface: $(QEMU_TAP_IF))
+else
+$(info Network TAP interface: $(QEMU_TAP_IF) (disabled))
+endif
+
 qemu: $(KERNEL_ISO)
 	$(call LOG,QEMU,$^)
 	$(call ASSERT_EXE_EXISTS,$(QEMU))
