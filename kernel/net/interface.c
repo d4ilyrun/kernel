@@ -72,7 +72,7 @@ static int __subnet_match_ip(const void *node, const void *data)
 const struct subnet *net_interface_find_subnet(ipv4_t addr)
 {
     struct net_interface *interface;
-    node_t *match;
+    node_t *match = NULL;
 
     FOREACH_LLIST (if_node, registered_net_interfaces) {
         interface = container_of(if_node, struct net_interface, this);
