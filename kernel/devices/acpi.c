@@ -160,7 +160,7 @@ static bool acpi_driver_match_device(const driver_t *drv, const device_t *dev)
     struct acpi_driver *acpi_drv = to_acpi_drv((driver_t *)drv);
     struct acpi_device *acpi_dev = to_acpi_dev((device_t *)dev);
 
-    return !strcmp(acpi_dev->id, acpi_drv->compatible);
+    return !strncmp(acpi_dev->id, acpi_drv->compatible, ACPI_ID_MAX_LEN);
 }
 
 void acpi_driver_register(struct acpi_driver *driver)
