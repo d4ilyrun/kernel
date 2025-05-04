@@ -49,13 +49,15 @@ const mac_address_t *arp_get(__be ipv4_t ip)
 {
     const struct arp_entry *entry = arp_get_entry(ip);
 
-    if (entry == NULL)
+    if (entry == NULL) {
+        log_dbg("no entry for " FMT_IP, LOG_IP(ip));
         return NULL;
+    }
 
     return &entry->hw_addr;
 }
 
-static error_t arp_add(__be ipv4_t ip, mac_address_t mac)
+error_t arp_add(__be ipv4_t ip, mac_address_t mac)
 {
     struct arp_entry *entry = arp_get_entry(ip);
 

@@ -51,6 +51,8 @@ error_t ethernet_device_register(struct ethernet_device *device)
     llist_add(&ethernet_registered_devices, &device->this);
     device_register(&device->device);
 
+    log_info("registered new device: %s", ethernet_device_name(device));
+
     return E_SUCCESS;
 }
 

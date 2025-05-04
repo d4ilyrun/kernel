@@ -58,6 +58,12 @@ static inline size_t arp_header_size(struct arp_header *hdr)
     return sizeof(*hdr);
 }
 
+/** Add a new entry inside the ARP table.
+ *  @param ip The IP address (in **network** order)
+ *  @param mac The MAC address associated with the IP
+ */
+ error_t arp_add(__be ipv4_t, mac_address_t);
+
 /** Retreive the MAC address associated with an IPv4 address.
  *  @param ip The IP address (in **network** order)
  *  @return The MAC address, or NULL if the IP isn't inside the table

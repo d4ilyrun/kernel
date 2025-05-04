@@ -2,6 +2,8 @@
 
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
+#include <kernel/net.h>
+#include <kernel/net/arp.h>
 #include <kernel/net/interface.h>
 
 #include <libalgo/linked_list.h>
@@ -47,6 +49,8 @@ error_t net_interface_add_subnet(struct net_interface *interface, ipv4_t addr,
     subnet->interface = interface;
     subnet->ip = addr;
     subnet->cidr = cidr;
+
+    arp_add(ntohl(subnet->ip), interface->netdev->mac);
 
     llist_add(&interface->subnets, &subnet->this);
 
