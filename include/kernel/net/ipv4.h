@@ -39,10 +39,12 @@ struct PACKED ALIGNED(sizeof(uint16_t)) ipv4_header {
     __be uint16_t frag_off;
     uint8_t ttl;
     uint8_t protocol;
-    __be ipv4_t check;
+    __be uint16_t check;
     __be ipv4_t saddr;
     __be ipv4_t daddr;
 };
+
+static_assert(sizeof(struct ipv4_header) == IPV4_MIN_LENGTH);
 
 /** Values for the protocol field inside the IPv4 header
  *  @enum ipv4_protocol
