@@ -31,8 +31,13 @@ struct packet;
  *  @note All fields are in big endian
  */
 struct PACKED ALIGNED(sizeof(uint16_t)) ipv4_header {
+#if defined(ARCH_LITTLE_ENDIAN)
+    uint8_t ihl : 4;
+    uint8_t version : 4;
+#else
     uint8_t version : 4;
     uint8_t ihl : 4;
+#endif
     uint8_t tos;
     __be uint16_t tot_len;
     __be uint16_t id;
