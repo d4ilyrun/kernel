@@ -26,7 +26,7 @@ struct rtl8139 {
     struct ethernet_device *netdev;
     struct pci_device *pci;
     void *tx_descriptors[RTL8139_TX_DESCRIPTOR_COUNT];
-    int tx_current_decriptor : 2;
+    unsigned int tx_current_decriptor : 2;
     void *rx_buffer;
     size_t rx_buffer_size;
     uint16_t rx_packet_offset;
@@ -172,7 +172,7 @@ static void rtl8139_get_mac(struct ethernet_device *device, mac_address_t mac)
 }
 
 static error_t rtl8139_send_packet_to_descriptor(struct rtl8139 *rtl8139,
-                                                 size_t descriptor,
+                                                 unsigned int descriptor,
                                                  struct packet *packet)
 {
     if (descriptor > RTL8139_TX_DESCRIPTOR_COUNT)
@@ -196,7 +196,7 @@ rtl8139_send_packet(struct ethernet_device *dev, struct packet *packet)
 {
     /* TODO: Backpressure */
     struct rtl8139 *rtl8139 = ethernet_device_priv(dev);
-    int descriptor = rtl8139->tx_current_decriptor++;
+    unsigned int descriptor = rtl8139->tx_current_decriptor++;
     return rtl8139_send_packet_to_descriptor(rtl8139, descriptor, packet);
 }
 
@@ -222,6 +222,8 @@ static error_t rtl8139_receive_packet(struct rtl8139 *rtl8139)
         packet->netdev = rtl8139->netdev;
         packet_put(packet, rx_packet->packet, packet_length);
         ret = ethernet_receive_packet(packet);
+        if (ret)
+            log_err("failed to treat RX packet: %s", err_to_str(ret));
     }
 
     /* 4. Tell the NIC where to read the next packet
