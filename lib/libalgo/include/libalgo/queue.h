@@ -25,8 +25,14 @@ typedef struct queue {
     node_t *tail; ///< The tail of the queue, NULL if empty
 } queue_t;
 
+/** Default value for queue (empty) */
+#define QUEUE_INIT ((queue_t){NULL, NULL})
+
+/** Initialize an empty queue */
+#define INIT_QUEUE(_name) _name = QUEUE_INIT
+
 /** Declare an empty queue */
-#define DECLARE_QUEUE(_name) queue_t _name = {NULL, NULL};
+#define DECLARE_QUEUE(_name) queue_t _name = QUEUE_INIT
 
 /** @return Whether the queue is empty or not */
 static ALWAYS_INLINE bool queue_is_empty(const queue_t *queue)
