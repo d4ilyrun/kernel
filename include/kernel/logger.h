@@ -172,6 +172,8 @@ void log_set_level(enum log_level);
 #define log_array_str(_arr, _len) log_array_fmt(_arr, _len, "%s")
 /** @} */
 
+#define not_implemented(...) log_warn("not implemented: " __VA_ARGS__)
+
 #endif /* KERNEL_LOGGER_H */
 
 /** @} */
