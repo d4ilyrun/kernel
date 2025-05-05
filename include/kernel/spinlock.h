@@ -19,6 +19,15 @@ typedef struct spinlock {
     bool locked;
 } spinlock_t;
 
+/** Default init value (unlocked) */
+#define SPINLOCK_INIT ((spinlock_t){.locked = false})
+
+/** Initialize a spinlock */
+#define INIT_SPINLOCK(_lock) _lock = SPINLOCK_INIT
+
+/** Declare a spinlock and initialize it */
+#define DECLARE_SPINLOCK(_lock) spinlock_t _lock = SPINLOCK_INIT
+
 /** @brief Try to acquire a spinlock, or wait until it is free */
 static ALWAYS_INLINE void spinlock_acquire(spinlock_t *lock)
 {
