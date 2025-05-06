@@ -36,6 +36,7 @@
 #define ALIGNED(_alignment) __attribute__((aligned(_alignment)))
 #define FORMAT(_type, _fmt, _args) __attribute__((format(_type, _fmt, _args)))
 #define NO_RETURN __attribute__((noreturn))
+#define CLEANUP(_dtor) __attribute__((cleanup(_dtor)))
 
 /** Raises a compile time eror if \c _x is 0
  *  @return \c _x so that it can be used as a compile time known value
