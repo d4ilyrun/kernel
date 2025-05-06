@@ -31,7 +31,7 @@ error_t ethernet_receive_packet(struct packet *packet)
 {
     struct ethernet_header *hdr = packet->l2.ethernet;
 
-    packet->l3.raw = packet->l2.raw + sizeof(struct ethernet_header);
+    packet_set_l2_size(packet, sizeof(struct ethernet_header));
 
     switch (ntoh(hdr->protocol)) {
     case ETH_PROTO_ARP:

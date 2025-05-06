@@ -66,6 +66,9 @@ struct packet {
         struct ipv4_header *ipv4;
         struct arp_header *arp;
     } l3;
+
+    /** Start of the packet's content (L4 and beyond) */
+    void *payload;
 };
 
 #define PACKET_ALIGN (sizeof(uint64_t))
@@ -106,10 +109,41 @@ static inline void packet_mark_l2_start(struct packet *packet)
     packet->l2.raw = packet_end(packet);
 }
 
+/** Set the start of the network layer N bytes after the link layer */
+static inline void packet_set_l2_size(struct packet *packet, size_t size)
+{
+    packet->l3.raw = packet->l2.raw + size;
+}
+
 /** Set the current end of the packet as the start of the network layer */
 static inline void packet_mark_l3_start(struct packet *packet)
 {
     packet->l3.raw = packet_end(packet);
+}
+
+/** Set the start of the packet payload N bytes after the network layer */
+static inline void packet_set_l3_size(struct packet *packet, size_t size)
+{
+    packet->payload = packet->l3.raw + size;
+}
+
+/** @return the sart of the packet's payload (L4) */
+static inline void *packet_payload(struct packet *packet)
+{
+    return packet->payload;
+}
+
+/** @return the size of the packet's header */
+static inline size_t packet_header_size(struct packet *packet)
+{
+    return packet->payload -
+           (((void *)packet) + align_up(sizeof(struct packet), PACKET_ALIGN));
+}
+
+/** @return the size of the packet's payload */
+static inline size_t packet_payload_size(struct packet *packet)
+{
+    return packet_end(packet) - packet->payload;
 }
 
 #endif /* KERNEL_NET_PACKET_H */
