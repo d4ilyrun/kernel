@@ -50,6 +50,7 @@ struct arp_header;
 struct packet {
     size_t allocated_size; ///< Size allocated for the packet
     size_t packet_size;    ///< Size of the contained packet
+    size_t popped;         ///< Number of popped bytes
 
     /** The internet device this packet went/is going through */
     struct ethernet_device *netdev;
@@ -91,6 +92,12 @@ static inline size_t packet_size(struct packet *packet)
     return packet->packet_size;
 }
 
+/** @return The current number of bytes that can be read from the packet */
+static inline size_t packet_read_size(struct packet *packet)
+{
+    return packet->packet_size - packet->popped;
+}
+
 /** Find the end of the actual packet's content */
 static inline void *packet_end(struct packet *packet)
 {
@@ -100,8 +107,26 @@ static inline void *packet_end(struct packet *packet)
 /** Append new data to the packet */
 error_t packet_put(struct packet *packet, const void *data, size_t size);
 
+/** Read data from the packet.
+ *  @return The number of bytes actually read.
+ */
+size_t packet_peek(struct packet *packet, void *data, size_t size);
+
+/** Read data from the packet.
+ *  Popped data cannot be re-read afterwards.
+ *  @return The number of bytes actually read.
+ */
+size_t packet_pop(struct packet *packet, void *data, size_t size);
+
 /** Append new data of literal type to the packet (e.g. integers) */
 #define packet_put_literal(packet, data) packet_put(packet, &data, sizeof(data))
+
+/** Read literal from the packet (e.g. integers) */
+#define packet_peek_literal(packet, data) \
+    packet_peek(packet, &data, sizeof(data))
+
+/** Pop literal from the packet (e.g. integers) */
+#define packet_pop_literal(packet, data) packet_pop(packet, &data, sizeof(data))
 
 /** Set the current end of the packet as the start of the link layer */
 static inline void packet_mark_l2_start(struct packet *packet)

@@ -18,6 +18,7 @@ struct packet *packet_new(size_t packet_size)
 
     packet->allocated_size = packet_size;
     packet->packet_size = 0;
+    packet->popped = 0;
 
     /* Layer 2 header is at the start of the packet */
     packet_mark_l2_start(packet);
@@ -40,4 +41,23 @@ error_t packet_put(struct packet *skb, const void *data, size_t size)
     skb->packet_size += size;
 
     return E_SUCCESS;
+}
+
+size_t packet_peek(struct packet *packet, void *data, size_t size)
+{
+    size = MIN(size, packet_read_size(packet));
+
+    if (data)
+        memcpy(data, packet_start(packet) + packet->popped, size);
+
+    return size;
+}
+
+size_t packet_pop(struct packet *packet, void *data, size_t size)
+{
+    size = packet_peek(packet, data, size);
+
+    packet->popped += size;
+
+    return size;
 }
