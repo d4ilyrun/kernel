@@ -5,6 +5,7 @@
 #include <kernel/net.h>
 #include <kernel/net/arp.h>
 #include <kernel/net/ethernet.h>
+#include <kernel/net/ipv4.h>
 #include <kernel/net/packet.h>
 
 #include <string.h>
@@ -37,8 +38,7 @@ error_t ethernet_receive_packet(struct packet *packet)
     case ETH_PROTO_ARP:
         return arp_receive_packet(packet);
     case ETH_PROTO_IP:
-        log_warn("Not implemented: IPv4");
-        return E_NOT_IMPLEMENTED;
+        return ipv4_receive_packet(packet);
     }
 
     return E_NOT_SUPPORTED;

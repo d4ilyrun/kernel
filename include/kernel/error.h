@@ -28,6 +28,7 @@
 typedef enum error {
     E_SUCCESS,                   ///< No error
     E_NOENT = 2,                 ///< Entry not found
+    E_WOULD_BLOCK = 11,          ///< Resource temporarily unavailable
     E_NOMEM = 12,                ///< Out of memory
     E_BUSY = 16,                 ///< Device or resource busy
     E_EXIST = 17,                ///< File exists

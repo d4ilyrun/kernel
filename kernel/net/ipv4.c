@@ -16,12 +16,17 @@
 
 /** Domain specific data for AF_INET sockets */
 struct af_inet_sock {
+    struct socket *socket;
     struct ethernet_device *netdev;
     __be struct sockaddr_in saddr_in; /** Source IP address */
     __be struct sockaddr_in daddr_in; /** Destination IP address */
     struct sockaddr_mac daddr_mac;    /** Destination MAC address*/
     enum ip_protocol proto;           /** Protocol number */
+    node_t this; /** Used to list currently active sockets */
 };
+
+static DECLARE_LLIST(af_inet_raw_sockets);
+static DECLARE_SPINLOCK(af_inet_raw_sockets_lock);
 
 static size_t ipv4_header_size(const struct ipv4_header *iphdr)
 {
@@ -72,6 +77,80 @@ static uint16_t ipv4_compute_checksum(struct ipv4_header *iphdr)
     return checksum;
 }
 
+error_t ipv4_receive_packet(struct packet *packet)
+{
+    const struct ipv4_header *iphdr = packet->l3.ipv4;
+    struct af_inet_sock *isock;
+    size_t total_len;
+    size_t hdr_len;
+
+    total_len = htons(packet->l3.ipv4->tot_len);
+    hdr_len = ipv4_header_size(packet->l3.ipv4);
+    packet_set_l3_size(packet, hdr_len);
+
+    if (packet_payload_size(packet) != (total_len - hdr_len)) {
+        log_err("ERROR: payload size != actual size: %ld != %ld",
+                packet_payload_size(packet), total_len - hdr_len);
+        return E_INVAL;
+    }
+
+    if (ipv4_is_fragmented(iphdr)) {
+        not_implemented("IP segmentation");
+        return E_NOT_IMPLEMENTED;
+    }
+
+    /* All incoming traffic is intercepted by RAW sockets:
+     * - If protocol is the same
+     * - If binded to the destination address (when binded)
+     * - If connected to the source address (when connected)
+     */
+    spinlock_acquire(&af_inet_raw_sockets_lock);
+    FOREACH_LLIST (node, af_inet_raw_sockets) {
+        isock = container_of(node, struct af_inet_sock, this);
+        socket_lock(isock->socket);
+        if (isock->proto != iphdr->protocol ||
+            (isock->saddr_in.sin_family != AF_UNSPEC &&
+             isock->saddr_in.sin_addr != iphdr->daddr) ||
+            (isock->daddr_in.sin_family != AF_UNSPEC &&
+             isock->daddr_in.sin_addr != iphdr->saddr)) {
+            socket_unlock(isock->socket);
+            continue;
+        }
+        socket_unlock(isock->socket);
+        socket_enqueue_packet(isock->socket, packet);
+    }
+    spinlock_release(&af_inet_raw_sockets_lock);
+
+    switch (iphdr->protocol) {
+    default:
+        break;
+    }
+
+    return E_SUCCESS;
+}
+
+static error_t af_inet_raw_bind(struct socket *socket,
+                                struct sockaddr *sockaddr, socklen_t len)
+{
+    struct af_inet_sock *isock = socket->data;
+    struct sockaddr_in *sin = (struct sockaddr_in *)sockaddr;
+    error_t ret = E_SUCCESS;
+
+    if (sockaddr->sa_family != AF_INET)
+        return E_AF_NOT_SUPPORTED;
+
+    if (len != sizeof(struct sockaddr_in))
+        return E_INVAL;
+
+    isock->saddr_in = *sin;
+
+    spinlock_acquire(&af_inet_raw_sockets_lock);
+    llist_add(&af_inet_raw_sockets, &isock->this);
+    spinlock_release(&af_inet_raw_sockets_lock);
+
+    return ret;
+}
+
 static error_t af_inet_raw_connect(struct socket *socket,
                                    struct sockaddr *sockaddr, socklen_t len)
 {
@@ -99,17 +178,22 @@ static error_t af_inet_raw_connect(struct socket *socket,
 
     isock->netdev = subnet->interface->netdev;
     isock->daddr_in = *sin;
-    isock->saddr_in = (struct sockaddr_in){
-        .sin_addr = hton(subnet->ip),
-        .sin_family = AF_INET,
-        .sin_port = 0, // TODO
-    };
 
     daddr_mac = arp_get(isock->daddr_in.sin_addr);
     if (daddr_mac == NULL) {
         /* TODO: ARP request */
         ret = E_NET_UNREACHABLE;
         goto exit_connect;
+    }
+
+    /* The source address may already have been chosen by bind() */
+    if (isock->saddr_in.sin_family == AF_UNSPEC) {
+        isock->saddr_in = (struct sockaddr_in){
+            .sin_addr = hton(subnet->ip),
+            .sin_family = AF_INET,
+            .sin_port = -1, // Not used in raw sockets
+        };
+        llist_add(&af_inet_raw_sockets, &isock->this);
     }
 
     memcpy(isock->daddr_mac.mac_addr, daddr_mac, sizeof(mac_address_t));
@@ -198,11 +282,52 @@ af_inet_raw_sendmsg(struct socket *socket, const struct msghdr *msg, int flags)
     return ret;
 }
 
+static error_t
+af_inet_raw_recvmsg(struct socket *socket, struct msghdr *msg, int flags)
+{
+    error_t ret = E_SUCCESS;
+    struct packet *packet;
+    struct iovec *iov;
+
+    if (flags) {
+        not_implemented("recvmsg: flags");
+        return E_NOT_SUPPORTED;
+    }
+
+    if (socket->state != SOCKET_CONNECTED) {
+        if (msg->msg_namelen != sizeof(struct sockaddr_in))
+            return E_INVAL;
+        not_implemented("overriding source address in recvmsg");
+        return E_NOT_IMPLEMENTED;
+    }
+
+    // TODO: Block until packets are received (check flags/options for NOBLOCK)
+    packet = socket_dequeue_packet(socket);
+    if (!packet)
+        return E_WOULD_BLOCK;
+
+    packet_pop(packet, NULL, packet_header_size(packet));
+
+    for (size_t i = 0; i < msg->msg_iovlen; ++i) {
+        iov = &msg->msg_iov[i];
+        if (iov->iov_len > packet_read_size(packet)) {
+            // TODO: Block until enough data
+            ret = E_WOULD_BLOCK;
+        }
+        if (packet_pop(packet, iov->iov_base, iov->iov_len) < iov->iov_len)
+            break;
+    }
+
+    return ret;
+}
+
 static const struct socket_protocol af_inet_protocols[] = {
     {
         .type = SOCK_RAW,
+        .bind = af_inet_raw_bind,
         .connect = af_inet_raw_connect,
         .sendmsg = af_inet_raw_sendmsg,
+        .recvmsg = af_inet_raw_recvmsg,
     },
 };
 
@@ -238,6 +363,7 @@ static error_t af_inet_socket_init(struct socket *socket, int type, int proto)
     socket->proto = ip_proto;
     socket->data = isock;
     isock->proto = proto;
+    isock->socket = socket;
 
     return E_SUCCESS;
 }

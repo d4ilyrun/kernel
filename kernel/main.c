@@ -435,7 +435,8 @@ void kernel_task_mutex(void *data)
 
 void kernel_task_socket(void *data)
 {
-    u8 buffer[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+    u8 tx_buffer[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+    u8 rx_buffer[40];
     struct socket *socket;
     struct sockaddr_in addr;
     struct file *fd;
@@ -444,7 +445,6 @@ void kernel_task_socket(void *data)
     UNUSED(data);
 
     addr.sin_family = AF_INET;
-    addr.sin_addr = hton(IPV4(192, 168, 1, 1));
 
     socket = socket_alloc();
     if (IS_ERR(socket)) {
@@ -453,7 +453,7 @@ void kernel_task_socket(void *data)
     }
 
     /* Create RAW IP socket */
-    err = socket_init(socket, AF_INET, SOCK_RAW, IPPROTO_UDP);
+    err = socket_init(socket, AF_INET, SOCK_RAW, 1); // icmp
     if (err) {
         log_err("failed to init socket: %s", err_to_str(err));
         return;
@@ -461,6 +461,14 @@ void kernel_task_socket(void *data)
 
     fd = socket->file;
 
+    addr.sin_addr = hton(IPV4(192, 168, 1, 42));
+    err = file_bind(fd, (struct sockaddr *)&addr, sizeof(addr));
+    if (err) {
+        log_err("failed to bind: %s", err_to_str(err));
+        return;
+    }
+
+    addr.sin_addr = hton(IPV4(192, 168, 1, 1));
     do {
         err = file_connect(fd, (struct sockaddr *)&addr, sizeof(addr));
         if (err) {
@@ -470,11 +478,21 @@ void kernel_task_socket(void *data)
     } while (err);
 
     while (1) {
-        err = file_send(fd, (void *)buffer, sizeof(buffer), 0);
+        err = file_send(fd, (void *)tx_buffer, sizeof(tx_buffer), 0);
         if (err)
             log_err("send: %s", err_to_str(err));
         else
             log_info("send: %s", err_to_str(err));
+
+        err = file_recv(fd, (void *)&rx_buffer, sizeof(rx_buffer), 0);
+        if (err && err != E_WOULD_BLOCK) {
+            log_err("recv: %s", err_to_str(err));
+        } else {
+            log_info("recv: %s", err_to_str(err));
+            if (!err)
+                log_array_8(rx_buffer, sizeof(rx_buffer));
+        }
+
         timer_wait_ms(1000);
     }
 }

@@ -6,6 +6,7 @@
 static const char *const ERROR_DESCRIPTIONS[E_TOTAL_COUNT] = {
     [E_SUCCESS] = "Success",
     [E_NOENT] = "Entry not found",
+    [E_WOULD_BLOCK] = "Resource temporarily unavailable",
     [E_BUSY] = "Device or resource already in use",
     [E_EXIST] = "File exists",
     [E_NODEV] = "No such device",
