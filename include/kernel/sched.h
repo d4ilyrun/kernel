@@ -110,3 +110,32 @@ void sched_block_current_thread(void);
  * appropriate runqueue.
  */
 void sched_unblock_thread(thread_t *);
+
+typedef struct {
+    const bool old_if;
+    bool done;
+} sched_scope_t;
+
+static inline sched_scope_t sched_scope_constructor(void)
+{
+    return (sched_scope_t){
+        .old_if = scheduler_lock(),
+        .done = false,
+    };
+}
+
+static inline void sched_scope_destructor(sched_scope_t *scope)
+{
+    scheduler_unlock(scope->old_if);
+}
+
+/** Define a scope during which the scheduler is inactive.
+ *
+ *  WARNING: As this macro uses a for loop to function, any 'break' directive
+ *  placed inside it will break out of the guarded scope instead of that of its
+ *  containing loop.
+ */
+#define no_scheduler_scope()                                   \
+    for (sched_scope_t scope CLEANUP(sched_scope_destructor) = \
+             sched_scope_constructor();                        \
+         !scope.done; scope.done = true)
