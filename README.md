@@ -79,6 +79,7 @@ $ make docs # Requires you to also pull the git submodules
     - [ ] Loadable kernel modules
 - Scheduling
     - [X] Multitasking
+    - [X] Semaphores
     - [ ] Priority
     - [ ] Multiprocessor
 - Networking
