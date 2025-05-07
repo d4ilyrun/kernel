@@ -124,11 +124,18 @@ void sched_new_thread(thread_t *thread)
     queue_enqueue(&scheduler.ready, &thread->this);
 }
 
-void sched_block_current_thread(void)
+void sched_block_thread(struct thread *thread)
 {
     const bool old_if = scheduler_lock();
-    current->state = SCHED_WAITING;
-    schedule_locked(true);
+
+    if (thread->state != SCHED_RUNNING)
+        goto block_thread_exit;
+
+    thread->state = SCHED_WAITING;
+    if (thread == current)
+        schedule_locked(true);
+
+block_thread_exit:
     scheduler_unlock(old_if);
 }
 

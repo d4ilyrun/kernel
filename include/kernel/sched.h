@@ -97,12 +97,12 @@ sched_new_thread_create(thread_entry_t entrypoint, void *data, u32 flags)
 /** Initialize this cpu's scheduler */
 void scheduler_init(void);
 
-/** Mark the current thread as blocked
+/** Mark the thread as blocked
  *
- * A blocked thread cannot be rescheduled until it is explicitely marked as
- * @ref SCHED_RUNNING.
+ * A blocked thread cannot be rescheduled until it is explicitely unblocked
+ * using @ref sched_unblock_thread()
  */
-void sched_block_current_thread(void);
+void sched_block_thread(struct thread *);
 
 /** Unblock a currently blocked thread
  *
