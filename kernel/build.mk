@@ -29,6 +29,7 @@ KERNEL_SRCS := 	\
 	misc/error.c \
 	misc/execfmt.c \
 	misc/elf32.c \
+	misc/waitqueue.c \
 	memory/pmm.c \
 	memory/vmm.c \
 	net/packet.c \
