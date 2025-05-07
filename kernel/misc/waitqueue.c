@@ -13,7 +13,7 @@ bool waitqueue_is_empty(struct waitqueue *queue)
     return empty;
 }
 
-void waitqueue_enqueue(struct waitqueue *queue, struct thread *thread)
+void waitqueue_enqueue_locked(struct waitqueue *queue, struct thread *thread)
 {
     /*
      * We MUST prevent rescheduling while performing this switch.
@@ -24,8 +24,9 @@ void waitqueue_enqueue(struct waitqueue *queue, struct thread *thread)
      */
     no_scheduler_scope () {
         thread->state = SCHED_WAITING;
-        locked_scope (&queue->lock)
-            queue_enqueue(&queue->queue, &thread->this);
+        queue_enqueue(&queue->queue, &thread->this);
+        /* Release the lock held by the caller BEFORE rescheduling */
+        spinlock_release(&queue->lock);
     }
 
     if (thread == current)

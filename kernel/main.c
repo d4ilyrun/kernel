@@ -15,6 +15,7 @@
 #include <kernel/pmm.h>
 #include <kernel/process.h>
 #include <kernel/sched.h>
+#include <kernel/semaphore.h>
 #include <kernel/symbols.h>
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
@@ -52,6 +53,7 @@ void kernel_task_rootfs(void *data);
 void kernel_task_userland(void *data);
 void kernel_task_elf(void *data);
 void kernel_task_worker(void *data);
+void kernel_task_mutex(void *data);
 
 void kernel_relocate_module(struct multiboot_tag_module *module)
 {
@@ -161,6 +163,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     sched_new_thread_create(kernel_task_rootfs, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_userland, NULL, 0);
     sched_new_thread_create(kernel_task_worker, NULL, THREAD_KERNEL);
+    sched_new_thread_create(kernel_task_mutex, NULL, THREAD_KERNEL);
 
     thread_t *kernel_timer_test = thread_spawn(
         current->process, kernel_task_timer, NULL, THREAD_KERNEL);
@@ -384,4 +387,39 @@ void kernel_task_worker(void *data)
     log_info("%lld: retesting worker", gettime());
     worker_wait(&worker);
     log_info("%lld: worker finished", gettime());
+}
+
+#undef LOG_DOMAIN
+#define LOG_DOMAIN "kmutex"
+
+static void __kernel_task_mutex(void *data)
+{
+    semaphore_t *mutex = data;
+
+    log_info("taking mutex");
+    semaphore_acquire(mutex);
+    log_info("mutex acquired");
+    for (int i = 0; i < 5; ++i)
+        timer_wait_ms(1000);
+    log_info("releasing mutex");
+    semaphore_release(mutex);
+    log_info("mutex released");
+}
+
+void kernel_task_mutex(void *data)
+{
+    struct thread *thread_a;
+    struct thread *thread_b;
+
+    UNUSED(data);
+
+    DECLARE_MUTEX(mutex);
+
+    thread_a = thread_spawn(&kernel_process, __kernel_task_mutex, &mutex,
+                            THREAD_KERNEL);
+    thread_b = thread_spawn(&kernel_process, __kernel_task_mutex, &mutex,
+                            THREAD_KERNEL);
+
+    sched_new_thread(thread_a);
+    sched_new_thread(thread_b);
 }

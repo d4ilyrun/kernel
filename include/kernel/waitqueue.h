@@ -57,8 +57,21 @@ struct waitqueue {
 /** Check whether anyone is waiting for this event to finish */
 bool waitqueue_is_empty(struct waitqueue *);
 
+/** Mark a thread as waiting for the event to finish.
+ *
+ *  This function is equivalent to @ref waitqueue_enqueue. It should be
+ *  called when holding the queue's lock.
+ *
+ *  NOTE: This function releases the lock held by the caller
+ */
+void waitqueue_enqueue_locked(struct waitqueue *, struct thread *);
+
 /** Mark a thread as waiting for the event to finish */
-void waitqueue_enqueue(struct waitqueue *, struct thread *);
+#define waitqueue_enqueue(waitqueue, thread)         \
+    ({                                               \
+        spinlock_acquire(&(waitqueue)->lock);        \
+        waitqueue_enqueue_locked(waitqueue, thread); \
+    })
 
 /** @return The first thread inside the waitqueue */
 const struct thread *waitqueue_peek(struct waitqueue *);

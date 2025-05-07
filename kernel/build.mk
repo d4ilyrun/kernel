@@ -31,6 +31,7 @@ KERNEL_SRCS := 	\
 	misc/elf32.c \
 	misc/waitqueue.c \
 	misc/worker.c \
+	misc/semaphore.c \
 	memory/pmm.c \
 	memory/vmm.c \
 	net/packet.c \
