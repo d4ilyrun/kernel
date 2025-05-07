@@ -10,7 +10,7 @@
  *
  * The scheduler is responsible for ... well, scheduling proceses.
  *
- * It has to decide which process threads to run next, and when, among all
+ * It has to decide which threads to run next, and when, among all
  * currently running threads. This is what allows running multiple threads
  * on a single CPU.
  *
@@ -43,11 +43,11 @@
  *   interrupt without sacrificing precision on ticks.
  *
  * * Priority levels. We would like to give more time to more "important"
- *   processes ideally. This would require multiple runqueues, but is a MUST
+ *   thread ideally. This would require multiple runqueues, but is a MUST
  *   have for any actual scheduler.
  *
  * * SMP: when activating multiprocessing, we want to setup a scheduler per
- *   core, and dispatch processes across them. This would also imply other smart
+ *   core, and dispatch threads across them. This would also imply other smart
  *   opimizations (time stealing, ...)
  *
  * @{
@@ -61,11 +61,11 @@
 extern bool scheduler_initialized;
 
 /**
- * @brief Reschedule the current process
+ * @brief Reschedule the current thread
  *
  * This is the **main** function of the scheduler. It is called when we want to
- * switch to the next scheduled process. It automatically reinserts the current
- * process into the correct queue depending on its state.
+ * switch to the next scheduled thread. It automatically reinserts the current
+ * thread into the correct queue depending on its state.
  */
 void schedule(void);
 
@@ -84,7 +84,7 @@ void scheduler_unlock(bool old_if_flag);
  */
 void sched_new_thread(thread_t *);
 
-/** Create a new process and instantly schedule it
+/** Create a new thread and instantly schedule it
  *  @see \ref sched_new_thread
  *       \ref thread_create
  */
