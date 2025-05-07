@@ -42,7 +42,7 @@ static thread_t *idle_thread;
  *
  * @see scheduler_lock scheduler_unlock
  */
-static void do_schedule(bool reschedule)
+static void schedule_locked(bool reschedule)
 {
     node_t *next_node = queue_dequeue(&scheduler.ready);
 
@@ -66,14 +66,14 @@ static void do_schedule(bool reschedule)
     next->running.preempt = timer_gettick() + SCHED_TIMESLICE;
 
     if (!thread_switch(next)) {
-        do_schedule(false);
+        schedule_locked(false);
     }
 }
 
 void schedule(void)
 {
     const bool old_if = scheduler_lock();
-    do_schedule(true);
+    schedule_locked(true);
     scheduler_unlock(old_if);
 }
 
@@ -128,7 +128,7 @@ void sched_block_current_thread(void)
 {
     const bool old_if = scheduler_lock();
     current->state = SCHED_WAITING;
-    do_schedule(true);
+    schedule_locked(true);
     scheduler_unlock(old_if);
 }
 
@@ -144,7 +144,7 @@ void sched_unblock_thread(thread_t *thread)
 
     // give the least time possible to the IDLE task
     if (current == idle_thread)
-        do_schedule(true);
+        schedule_locked(true);
 
     scheduler_unlock(old_if);
 }
