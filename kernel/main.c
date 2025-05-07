@@ -20,6 +20,7 @@
 #include <kernel/terminal.h>
 #include <kernel/vfs.h>
 #include <kernel/vmm.h>
+#include <kernel/worker.h>
 
 #include <utils/macro.h>
 #include <utils/math.h>
@@ -50,6 +51,7 @@ void kernel_task_malloc(void *data);
 void kernel_task_rootfs(void *data);
 void kernel_task_userland(void *data);
 void kernel_task_elf(void *data);
+void kernel_task_worker(void *data);
 
 void kernel_relocate_module(struct multiboot_tag_module *module)
 {
@@ -158,6 +160,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     sched_new_thread_create(kernel_task_malloc, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_rootfs, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_userland, NULL, 0);
+    sched_new_thread_create(kernel_task_worker, NULL, THREAD_KERNEL);
 
     thread_t *kernel_timer_test = thread_spawn(
         current->process, kernel_task_timer, NULL, THREAD_KERNEL);
@@ -349,4 +352,36 @@ MAYBE_UNUSED void kernel_task_userland(void *data)
     (void)data;
 
     while (1) {}
+}
+
+#undef LOG_DOMAIN
+#define LOG_DOMAIN "kworker"
+
+static void __kernel_task_worker(void *data)
+{
+    const char *message = data;
+    log_info("message: %s", message);
+    timer_wait_ms(1000);
+}
+
+void kernel_task_worker(void *data)
+{
+    const char *message = "Hello from the worker";
+    DECLARE_WORKER(worker);
+
+    UNUSED(data);
+
+    log_info("%lld: creating worker", gettime());
+    worker_start(&worker, __kernel_task_worker, (void *)message);
+    worker_wait(&worker);
+    log_info("%lld: worker finished", gettime());
+
+    log_info("%lld: restarting worker", gettime());
+    worker_start(&worker, __kernel_task_worker, (void *)message);
+    worker_wait(&worker);
+    log_info("%lld: worker finished", gettime());
+
+    log_info("%lld: retesting worker", gettime());
+    worker_wait(&worker);
+    log_info("%lld: worker finished", gettime());
 }

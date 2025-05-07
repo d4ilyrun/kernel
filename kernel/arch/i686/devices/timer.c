@@ -129,7 +129,7 @@ void timer_wait_ms(u64 ms)
 
     current->sleep.wakeup = end;
     llist_insert_sorted(&sleeping_tasks, &current->this, process_cmp_wakeup);
-    sched_block_current_thread();
+    sched_block_thread(current);
 }
 
 u64 timer_to_ms(u64 ticks)
