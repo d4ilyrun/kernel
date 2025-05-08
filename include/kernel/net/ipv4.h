@@ -87,9 +87,9 @@ void ipv4_init(void);
 error_t ipv4_receive_packet(struct packet *packet);
 
 /** Helper to quickly generate an IPv4 address */
-static inline ipv4_t IPV4(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
+static inline __be ipv4_t IPV4(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 {
-    return a << 24 | b << 16 | c << 8 | d;
+    return htonl(a << 24 | b << 16 | c << 8 | d);
 }
 
 #define FMT_IP "%u.%u.%u.%u"

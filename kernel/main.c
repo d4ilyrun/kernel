@@ -461,14 +461,14 @@ void kernel_task_socket(void *data)
 
     fd = socket->file;
 
-    addr.sin_addr = htonl(IPV4(10, 1, 1, 2));
+    addr.sin_addr = IPV4(10, 1, 1, 2);
     err = file_bind(fd, (struct sockaddr *)&addr, sizeof(addr));
     if (err) {
         log_err("failed to bind: %s", err_to_str(err));
         return;
     }
 
-    addr.sin_addr = htonl(IPV4(10, 1, 1, 1));
+    addr.sin_addr = IPV4(10, 1, 1, 1);
     do {
         err = file_connect(fd, (struct sockaddr *)&addr, sizeof(addr));
         if (err) {
