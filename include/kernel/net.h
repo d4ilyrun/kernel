@@ -40,7 +40,7 @@
  *
  * ## TODO: Networking
  *
- * - Workqueue based packet processing (non-blocking)
+ * - Bufferizing received packets and periodically receiving batches of them
  * - Transport layer (TCP/UDP)
  *
  * @{

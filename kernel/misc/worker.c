@@ -60,7 +60,7 @@ void worker_start(struct worker *worker, thread_entry_t function, void *data)
 {
     WARN_ON(!waitqueue_is_empty(&worker->queue));
 
-    if (!worker->done) {
+    if (worker_running(worker)) {
         log_warn("worker has already been started");
         return;
     }
