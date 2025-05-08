@@ -24,10 +24,6 @@ void ethernet_fill_packet(struct packet *packet, enum ethernet_type proto,
     packet_put(packet, &hdr, sizeof(struct ethernet_header));
 }
 
-/* FIXME: This should ideally be done in another dedicated thread.
- *        Since this is meant to be called from an interrupt handler,
- *        we are currently just essentially blocking the whole kernel ...
- */
 error_t ethernet_receive_packet(struct packet *packet)
 {
     struct ethernet_header *hdr = packet->l2.ethernet;
@@ -39,7 +35,8 @@ error_t ethernet_receive_packet(struct packet *packet)
         return arp_receive_packet(packet);
     case ETH_PROTO_IP:
         return ipv4_receive_packet(packet);
+    default:
+        log_warn("unsupported protocol type: " FMT16, ntoh(hdr->protocol));
+        return E_NOT_SUPPORTED;
     }
-
-    return E_NOT_SUPPORTED;
 }

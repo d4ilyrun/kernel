@@ -18,6 +18,7 @@
 #include <kernel/types.h>
 
 #include <libalgo/linked_list.h>
+#include <libalgo/queue.h>
 #include <utils/compiler.h>
 #include <utils/container_of.h>
 #include <utils/math.h>
@@ -58,6 +59,9 @@ struct ethernet_device {
 
     struct net_interface *interface; /** The netdevice's interface */
     LLIST_NODE(this); /** Node inside the linked list of registered devices */
+
+    struct worker *worker;
+    struct queue rx_queue;
 };
 
 /** Boundary onto which the ethernet device's private data must be aligned */
@@ -101,6 +105,9 @@ static inline const char *ethernet_device_name(struct ethernet_device *dev)
 {
     return device_name(&dev->device);
 }
+
+/** Process a packet received by an ethernet network device */
+void ethernet_device_receive_packet(struct ethernet_device *, struct packet *);
 
 #endif /* KERNEL_DEVICES_ETHERNET_H */
 

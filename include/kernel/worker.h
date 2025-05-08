@@ -84,4 +84,10 @@ void worker_wait(struct worker *);
 /** Release the worker thread */
 void worker_release(struct worker *);
 
+/** @return Whether the worker thread is currently executing */
+static inline bool worker_running(const struct worker *worker)
+{
+    return !worker->done;
+}
+
 #endif /* KERNEL_WORKER_H */

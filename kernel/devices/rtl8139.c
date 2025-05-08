@@ -221,9 +221,7 @@ static error_t rtl8139_receive_packet(struct rtl8139 *rtl8139)
     } else {
         packet->netdev = rtl8139->netdev;
         packet_put(packet, rx_packet->packet, packet_length);
-        ret = ethernet_receive_packet(packet);
-        if (ret)
-            log_err("failed to treat RX packet: %s", err_to_str(ret));
+        ethernet_device_receive_packet(rtl8139->netdev, packet);
     }
 
     /* 4. Tell the NIC where to read the next packet
