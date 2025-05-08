@@ -5,6 +5,7 @@
 #include <kernel/net.h>
 #include <kernel/net/arp.h>
 #include <kernel/net/ethernet.h>
+#include <kernel/net/ipv4.h>
 #include <kernel/net/packet.h>
 
 #include <string.h>
@@ -31,14 +32,13 @@ error_t ethernet_receive_packet(struct packet *packet)
 {
     struct ethernet_header *hdr = packet->l2.ethernet;
 
-    packet->l3.raw = packet->l2.raw + sizeof(struct ethernet_header);
+    packet_set_l2_size(packet, sizeof(struct ethernet_header));
 
     switch (ntoh(hdr->protocol)) {
     case ETH_PROTO_ARP:
         return arp_receive_packet(packet);
     case ETH_PROTO_IP:
-        log_warn("Not implemented: IPv4");
-        return E_NOT_IMPLEMENTED;
+        return ipv4_receive_packet(packet);
     }
 
     return E_NOT_SUPPORTED;

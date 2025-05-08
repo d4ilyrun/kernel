@@ -36,13 +36,12 @@
  *
  * * @ref networking_packet
  * * @ref kernel_device_netdev
+ * * @ref networking_sockets
  *
  * ## TODO: Networking
  *
  * - Workqueue based packet processing (non-blocking)
- * - Routing (netif + subnet mask)
  * - Transport layer (TCP/UDP)
- * - Socket implementation
  *
  * @{
  */
@@ -50,7 +49,14 @@
 #ifndef KERNEL_NET_H
 #define KERNEL_NET_H
 
+#include <uapi/kernel/net.h>
+
 #include <utils/bits.h>
+
+struct sockaddr_mac {
+    sa_family_t mac_family; /* AF_UNSPEC */
+    uint8_t mac_addr[6];
+};
 
 #define htons htobe16
 #define ntohs be16toh

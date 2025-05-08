@@ -391,7 +391,7 @@ static error_t rtl8139_probe(struct device *dev)
     if (ret)
         goto probe_failed;
 
-    net_interface_add_subnet(eth_dev->interface, IPV4(192, 168, 1, 42), 24);
+    net_interface_add_subnet(eth_dev->interface, IPV4(10, 1, 1, 2), 24);
 
     return E_SUCCESS;
 

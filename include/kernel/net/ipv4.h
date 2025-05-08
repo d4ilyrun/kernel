@@ -14,6 +14,8 @@
 #ifndef KERNEL_NET_IPV4_H
 #define KERNEL_NET_IPV4_H
 
+#include <kernel/error.h>
+#include <kernel/net.h>
 #include <kernel/types.h>
 
 #include <utils/compiler.h>
@@ -26,6 +28,8 @@ struct packet;
 #define IPV4_VERSION 4
 /** Minimum size of an IP header */
 #define IPV4_MIN_LENGTH 20
+/** TTL value used when creating packets */
+#define IPV4_DEFAULT_TTL 64
 
 /** An IPv4 header
  *  @note All fields are in big endian
@@ -51,16 +55,36 @@ struct PACKED ALIGNED(sizeof(uint16_t)) ipv4_header {
 
 static_assert(sizeof(struct ipv4_header) == IPV4_MIN_LENGTH);
 
-/** Values for the protocol field inside the IPv4 header
- *  @enum ipv4_protocol
- */
-enum ipv4_protocol {
-    IP_PROTOCOL_TCP = 6,  /** TCP */
-    IP_PROTOCOL_UDP = 17, /** UDP */
-};
+#define IPV4_FRAG_MASK 0x1FFF
+#define IPV4_RESERVED (0x4 << 13)
+#define IPV4_NOFRAG (0x2 << 13)
+#define IPV4_MORE_FRAG (0x1 << 13)
 
-/** Insert headers for layer 3 and below into an IP packet */
-void ipv4_fill_packet(struct packet *, struct ipv4_header *);
+/** @return An IPv4 fragment's offset */
+static inline uint16_t ipv4_fragment_offset(const struct ipv4_header *iphdr)
+{
+    return ntohs(iphdr->frag_off) & IPV4_FRAG_MASK;
+}
+
+/** @return Whether this header's packet has more fragments remaining */
+static inline bool ipv4_more_framents(const struct ipv4_header *iphdr)
+{
+    return ntohs(iphdr->frag_off) & IPV4_MORE_FRAG;
+}
+
+/** @return Whether this header's packet is fragmented */
+static inline bool ipv4_is_fragmented(const struct ipv4_header *iphdr)
+{
+    return ntohs(iphdr->frag_off) & (IPV4_MORE_FRAG | IPV4_FRAG_MASK);
+}
+
+/** Initialize the ipv4 API
+ *  TODO: Should be removed in favor of initcalls
+ */
+void ipv4_init(void);
+
+/** Process a newly received IP packet */
+error_t ipv4_receive_packet(struct packet *packet);
 
 /** Helper to quickly generate an IPv4 address */
 static inline ipv4_t IPV4(uint8_t a, uint8_t b, uint8_t c, uint8_t d)

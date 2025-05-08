@@ -12,10 +12,12 @@
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
+#include <kernel/net/ipv4.h>
 #include <kernel/pmm.h>
 #include <kernel/process.h>
 #include <kernel/sched.h>
 #include <kernel/semaphore.h>
+#include <kernel/socket.h>
 #include <kernel/symbols.h>
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
@@ -54,6 +56,7 @@ void kernel_task_userland(void *data);
 void kernel_task_elf(void *data);
 void kernel_task_worker(void *data);
 void kernel_task_mutex(void *data);
+void kernel_task_socket(void *data);
 
 void kernel_relocate_module(struct multiboot_tag_module *module)
 {
@@ -147,6 +150,8 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
         }
     }
 
+    ipv4_init();
+
     scheduler_init();
     syscall_init();
 
@@ -164,6 +169,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     sched_new_thread_create(kernel_task_userland, NULL, 0);
     sched_new_thread_create(kernel_task_worker, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_mutex, NULL, THREAD_KERNEL);
+    sched_new_thread_create(kernel_task_socket, NULL, THREAD_KERNEL);
 
     thread_t *kernel_timer_test = thread_spawn(
         current->process, kernel_task_timer, NULL, THREAD_KERNEL);
@@ -422,4 +428,71 @@ void kernel_task_mutex(void *data)
 
     sched_new_thread(thread_a);
     sched_new_thread(thread_b);
+}
+
+#undef LOG_DOMAIN
+#define LOG_DOMAIN "ksock"
+
+void kernel_task_socket(void *data)
+{
+    u8 tx_buffer[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+    u8 rx_buffer[40];
+    struct socket *socket;
+    struct sockaddr_in addr;
+    struct file *fd;
+    error_t err;
+
+    UNUSED(data);
+
+    addr.sin_family = AF_INET;
+
+    socket = socket_alloc();
+    if (IS_ERR(socket)) {
+        log_err("failed to create socket");
+        return;
+    }
+
+    /* Create RAW IP socket */
+    err = socket_init(socket, AF_INET, SOCK_RAW, 1); // icmp
+    if (err) {
+        log_err("failed to init socket: %s", err_to_str(err));
+        return;
+    }
+
+    fd = socket->file;
+
+    addr.sin_addr = htonl(IPV4(10, 1, 1, 2));
+    err = file_bind(fd, (struct sockaddr *)&addr, sizeof(addr));
+    if (err) {
+        log_err("failed to bind: %s", err_to_str(err));
+        return;
+    }
+
+    addr.sin_addr = htonl(IPV4(10, 1, 1, 1));
+    do {
+        err = file_connect(fd, (struct sockaddr *)&addr, sizeof(addr));
+        if (err) {
+            log_warn("failed to connect: %s", err_to_str(err));
+            timer_wait_ms(1000);
+        }
+    } while (err);
+
+    while (1) {
+        err = file_send(fd, (void *)tx_buffer, sizeof(tx_buffer), 0);
+        if (err)
+            log_err("send: %s", err_to_str(err));
+        else
+            log_info("send: %s", err_to_str(err));
+
+        err = file_recv(fd, (void *)&rx_buffer, sizeof(rx_buffer), 0);
+        if (err && err != E_WOULD_BLOCK) {
+            log_err("recv: %s", err_to_str(err));
+        } else {
+            log_info("recv: %s", err_to_str(err));
+            if (!err)
+                log_array_8(rx_buffer, sizeof(rx_buffer));
+        }
+
+        timer_wait_ms(1000);
+    }
 }

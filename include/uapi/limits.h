@@ -1,0 +1,10 @@
+#ifndef UAPI_LIMITS_H
+#define UAPI_LIMITS_H
+
+#define _XOPEN_NAME_MAX 255
+#define _XOPEN_IOV_MAX 255
+
+#define NAME_MAX _XOPEN_NAME_MAX
+#define IOV_MAX _XOPEN_IOV_MAX
+
+#endif /* UAPI_LIMITS_H */

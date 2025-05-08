@@ -24,6 +24,7 @@
 #include <kernel/error.h>
 #include <kernel/types.h>
 
+#include <libalgo/queue.h>
 #include <utils/math.h>
 
 struct ethernet_device;
@@ -50,6 +51,7 @@ struct arp_header;
 struct packet {
     size_t allocated_size; ///< Size allocated for the packet
     size_t packet_size;    ///< Size of the contained packet
+    size_t popped;         ///< Number of popped bytes
 
     /** The internet device this packet went/is going through */
     struct ethernet_device *netdev;
@@ -66,6 +68,11 @@ struct packet {
         struct ipv4_header *ipv4;
         struct arp_header *arp;
     } l3;
+
+    /** Start of the packet's content (L4 and beyond) */
+    void *payload;
+
+    node_t rx_this; /*!< Used by socket to list received packets */
 };
 
 #define PACKET_ALIGN (sizeof(uint64_t))
@@ -88,6 +95,12 @@ static inline size_t packet_size(struct packet *packet)
     return packet->packet_size;
 }
 
+/** @return The current number of bytes that can be read from the packet */
+static inline size_t packet_read_size(struct packet *packet)
+{
+    return packet->packet_size - packet->popped;
+}
+
 /** Find the end of the actual packet's content */
 static inline void *packet_end(struct packet *packet)
 {
@@ -97,8 +110,26 @@ static inline void *packet_end(struct packet *packet)
 /** Append new data to the packet */
 error_t packet_put(struct packet *packet, const void *data, size_t size);
 
+/** Read data from the packet.
+ *  @return The number of bytes actually read.
+ */
+size_t packet_peek(struct packet *packet, void *data, size_t size);
+
+/** Read data from the packet.
+ *  Popped data cannot be re-read afterwards.
+ *  @return The number of bytes actually read.
+ */
+size_t packet_pop(struct packet *packet, void *data, size_t size);
+
 /** Append new data of literal type to the packet (e.g. integers) */
 #define packet_put_literal(packet, data) packet_put(packet, &data, sizeof(data))
+
+/** Read literal from the packet (e.g. integers) */
+#define packet_peek_literal(packet, data) \
+    packet_peek(packet, &data, sizeof(data))
+
+/** Pop literal from the packet (e.g. integers) */
+#define packet_pop_literal(packet, data) packet_pop(packet, &data, sizeof(data))
 
 /** Set the current end of the packet as the start of the link layer */
 static inline void packet_mark_l2_start(struct packet *packet)
@@ -106,10 +137,41 @@ static inline void packet_mark_l2_start(struct packet *packet)
     packet->l2.raw = packet_end(packet);
 }
 
+/** Set the start of the network layer N bytes after the link layer */
+static inline void packet_set_l2_size(struct packet *packet, size_t size)
+{
+    packet->l3.raw = packet->l2.raw + size;
+}
+
 /** Set the current end of the packet as the start of the network layer */
 static inline void packet_mark_l3_start(struct packet *packet)
 {
     packet->l3.raw = packet_end(packet);
+}
+
+/** Set the start of the packet payload N bytes after the network layer */
+static inline void packet_set_l3_size(struct packet *packet, size_t size)
+{
+    packet->payload = packet->l3.raw + size;
+}
+
+/** @return the sart of the packet's payload (L4) */
+static inline void *packet_payload(struct packet *packet)
+{
+    return packet->payload;
+}
+
+/** @return the size of the packet's header */
+static inline size_t packet_header_size(struct packet *packet)
+{
+    return packet->payload -
+           (((void *)packet) + align_up(sizeof(struct packet), PACKET_ALIGN));
+}
+
+/** @return the size of the packet's payload */
+static inline size_t packet_payload_size(struct packet *packet)
+{
+    return packet_end(packet) - packet->payload;
 }
 
 #endif /* KERNEL_NET_PACKET_H */
