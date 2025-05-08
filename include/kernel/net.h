@@ -41,9 +41,7 @@
  * ## TODO: Networking
  *
  * - Workqueue based packet processing (non-blocking)
- * - Routing (netif + subnet mask)
  * - Transport layer (TCP/UDP)
- * - Socket implementation
  *
  * @{
  */

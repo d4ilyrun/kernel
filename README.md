@@ -87,7 +87,7 @@ $ make docs # Requires you to also pull the git submodules
     - [ ] IP
         - [X] ARP
         - [ ] IP segmentation
-    - [ ] Berkley sockets
+    - [X] Berkley sockets
     - [ ] TCP
     - [ ] UDP
     - [ ] NTP
