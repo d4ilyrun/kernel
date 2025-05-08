@@ -48,5 +48,6 @@ ForEachMacros:
   - FOREACH_LLIST
   - FOREACH_CHILDREN
   - FOREACH_MULTIBOOT_TAG
+  - INFINITE_LOOP
   - locked_scope
   - no_scheduler_scope

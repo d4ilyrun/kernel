@@ -22,29 +22,36 @@
  *
  * Using this API, this would look something like this:
  *
+ * static DECLARE_(arp_worker);
+ *
  * void send_ip_packet(packet)
  * {
  *      fill_ip_header(packet);
  *
  *      if (!destination_seen) {
- *           DECLARE_WORKER(worker);
- *           worker_start(&worker, do_arp_request, packet);
- *           worker_wait(&worker);
+ *           worker_start(&arp_worker, do_arp_request, packet);
+ *           worker_wait(&arp_worker);
  *      }
  *
  *      fill_ethernet_header(packet);
  *      packet_send();
+ * }
+ *
+ * static ip_init(void)
+ * {
+ *      worker_init(&arp_worker);
  * }
  */
 
 #ifndef KERNEL_WORKER_H
 #define KERNEL_WORKER_H
 
-#include <kernel/process.h>
+#include <kernel/error.h>
 #include <kernel/waitqueue.h>
 
 /** Worker thread */
 struct worker {
+    struct thread *thread;   /// Worker thread
     struct waitqueue queue;  /// The processes waiting for this thread to finish
     bool done;               /// Whether the thread has finished
     thread_entry_t function; /// Worker thread's entrypoint
@@ -52,10 +59,11 @@ struct worker {
 };
 
 /** Default init value */
-#define WORKER_INIT         \
-    ((struct worker){       \
+#define WORKER_INIT             \
+    ((struct worker){           \
         INIT_WAITQUEUE(.queue), \
-        .done = true,       \
+        .done = true,           \
+        .thread = NULL,         \
     })
 
 /** Initialize a worker */
@@ -64,10 +72,16 @@ struct worker {
 /** Declare and initialize a worker */
 #define DECLARE_WORKER(_worker) struct worker _worker = WORKER_INIT
 
+/** Inititalize a worker thread */
+error_t worker_init(struct worker *);
+
 /** Execute a function inside a worker thread */
 void worker_start(struct worker *, thread_entry_t, void *);
 
 /** Wait until the worker is done executing */
 void worker_wait(struct worker *);
+
+/** Release the worker thread */
+void worker_release(struct worker *);
 
 #endif /* KERNEL_WORKER_H */

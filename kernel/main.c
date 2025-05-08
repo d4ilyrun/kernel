@@ -377,8 +377,15 @@ void kernel_task_worker(void *data)
 {
     const char *message = "Hello from the worker";
     DECLARE_WORKER(worker);
+    error_t ret;
 
     UNUSED(data);
+
+    ret = worker_init(&worker);
+    if (ret) {
+        log_info("worker_init() failed: %s", err_to_str(ret));
+        return;
+    }
 
     log_info("%lld: creating worker", gettime());
     worker_start(&worker, __kernel_task_worker, (void *)message);
