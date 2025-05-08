@@ -379,19 +379,20 @@ static error_t rtl8139_probe(struct device *dev)
                        mmu_find_physical((vaddr_t)tx));
     }
 
-    /* enable interrupts */
-    rtl8139_writew(rtl8139, INTERRUPT_MASK, RTL8139_SUPPORTED_INTERRUPTS);
     ret = pci_device_register_interrupt_handler(pdev, rtl8139_interrupt_handler,
                                                 rtl8139);
     if (ret)
         goto probe_failed;
 
-    rtl8139_enable_transfer(rtl8139, true);
     ret = ethernet_device_register(eth_dev);
     if (ret)
         goto probe_failed;
 
     net_interface_add_subnet(eth_dev->interface, IPV4(10, 1, 1, 2), 24);
+
+    /* enable interrupts */
+    rtl8139_writew(rtl8139, INTERRUPT_MASK, RTL8139_SUPPORTED_INTERRUPTS);
+    rtl8139_enable_transfer(rtl8139, true);
 
     return E_SUCCESS;
 
