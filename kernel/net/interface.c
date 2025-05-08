@@ -30,8 +30,8 @@ net_interface_new(struct ethernet_device *netdev, const char *name)
     return interface;
 }
 
-error_t net_interface_add_subnet(struct net_interface *interface, ipv4_t addr,
-                                 uint8_t cidr)
+error_t net_interface_add_subnet(struct net_interface *interface,
+                                 __be ipv4_t addr, uint8_t cidr)
 {
     struct subnet *subnet;
 
@@ -50,7 +50,7 @@ error_t net_interface_add_subnet(struct net_interface *interface, ipv4_t addr,
     subnet->ip = addr;
     subnet->cidr = cidr;
 
-    arp_add(ntohl(subnet->ip), interface->netdev->mac);
+    arp_add(subnet->ip, interface->netdev->mac);
 
     llist_add(&interface->subnets, &subnet->this);
 
@@ -60,16 +60,16 @@ error_t net_interface_add_subnet(struct net_interface *interface, ipv4_t addr,
 static int __subnet_match_ip(const void *node, const void *data)
 {
     struct subnet *subnet = container_of(node, struct subnet, this);
-    ipv4_t addr = (ipv4_t)data;
-    ipv4_t match = subnet->ip;
+    ipv4_t addr = ntohl((__be ipv4_t)data);
+    ipv4_t match = ntohl(subnet->ip);
 
     addr = align_down(addr, BIT(32 - subnet->cidr));
-    match = align_down(subnet->ip, BIT(32 - subnet->cidr));
+    match = align_down(match, BIT(32 - subnet->cidr));
 
     return (addr == match) ? COMPARE_EQ : !COMPARE_EQ;
 }
 
-const struct subnet *net_interface_find_subnet(ipv4_t addr)
+const struct subnet *net_interface_find_subnet(__be ipv4_t addr)
 {
     struct net_interface *interface;
     node_t *match = NULL;

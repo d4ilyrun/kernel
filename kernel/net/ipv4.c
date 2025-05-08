@@ -170,7 +170,7 @@ static error_t af_inet_raw_connect(struct socket *socket,
 
     /* routing: find the destination address's subnet
      * its source ip and network device shall be used for the packet */
-    subnet = net_interface_find_subnet(ntoh(sin->sin_addr));
+    subnet = net_interface_find_subnet(sin->sin_addr);
     if (!subnet) {
         ret = E_NET_UNREACHABLE;
         goto exit_connect;
@@ -189,7 +189,7 @@ static error_t af_inet_raw_connect(struct socket *socket,
     /* The source address may already have been chosen by bind() */
     if (isock->saddr_in.sin_family == AF_UNSPEC) {
         isock->saddr_in = (struct sockaddr_in){
-            .sin_addr = hton(subnet->ip),
+            .sin_addr = subnet->ip,
             .sin_family = AF_INET,
             .sin_port = -1, // Not used in raw sockets
         };
