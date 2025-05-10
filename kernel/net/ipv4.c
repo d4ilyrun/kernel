@@ -4,6 +4,7 @@
 #include <kernel/logger.h>
 #include <kernel/net.h>
 #include <kernel/net/arp.h>
+#include <kernel/net/icmp.h>
 #include <kernel/net/ethernet.h>
 #include <kernel/net/interface.h>
 #include <kernel/net/ipv4.h>
@@ -64,6 +65,7 @@ error_t ipv4_receive_packet(struct packet *packet)
 {
     const struct ipv4_header *iphdr = packet->l3.ipv4;
     struct af_inet_sock *isock;
+    struct packet *clone;
     size_t total_len;
     size_t hdr_len;
     error_t ret;
@@ -103,11 +105,20 @@ error_t ipv4_receive_packet(struct packet *packet)
             continue;
         }
         socket_unlock(isock->socket);
-        socket_enqueue_packet(isock->socket, packet);
+        /*
+         * The original packet should be sent to the 'regular' socket
+         * that matches its destination. Since there can only be one anyway,
+         * which isn't the case for raw sockets, this makes things way easier.
+         */
+        clone = packet_clone(packet);
+        if (!IS_ERR(clone))
+            socket_enqueue_packet(isock->socket, clone);
     }
     spinlock_release(&af_inet_raw_sockets_lock);
 
     switch (iphdr->protocol) {
+    case IPPROTO_ICMP:
+        return icmp_receive_packet(packet);
     default:
         ret = E_NOT_SUPPORTED;
         break;
@@ -317,13 +328,17 @@ af_inet_raw_recvmsg(struct socket *socket, struct msghdr *msg, int flags)
     return ret;
 }
 
+static const struct socket_protocol_ops af_inet_raw_ops = {
+    .bind = af_inet_raw_bind,
+    .connect = af_inet_raw_connect,
+    .sendmsg = af_inet_raw_sendmsg,
+    .recvmsg = af_inet_raw_recvmsg,
+};
+
 static const struct socket_protocol af_inet_protocols[] = {
     {
         .type = SOCK_RAW,
-        .bind = af_inet_raw_bind,
-        .connect = af_inet_raw_connect,
-        .sendmsg = af_inet_raw_sendmsg,
-        .recvmsg = af_inet_raw_recvmsg,
+        .ops = &af_inet_raw_ops,
     },
 };
 

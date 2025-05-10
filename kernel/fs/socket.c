@@ -71,7 +71,7 @@ socket_bind(struct file *file, struct sockaddr *addr, socklen_t len)
     if (socket->file->vnode->type != VNODE_SOCKET)
         return E_NOT_SOCKET;
 
-    return socket->proto->bind(socket, addr, len);
+    return socket->proto->ops->bind(socket, addr, len);
 }
 
 static error_t
@@ -82,7 +82,7 @@ socket_connect(struct file *file, struct sockaddr *addr, socklen_t len)
     if (socket->file->vnode->type != VNODE_SOCKET)
         return E_NOT_SOCKET;
 
-    return socket->proto->connect(socket, addr, len);
+    return socket->proto->ops->connect(socket, addr, len);
 }
 
 /*
@@ -111,7 +111,7 @@ socket_sendmsg(struct file *file, const struct msghdr *msg, int flags)
             return E_DEST_ADDR_REQUIRED;
     }
 
-    return socket->proto->sendmsg(socket, msg, flags);
+    return socket->proto->ops->sendmsg(socket, msg, flags);
 }
 
 /*
@@ -135,7 +135,7 @@ static error_t socket_recvmsg(struct file *file, struct msghdr *msg, int flags)
     if (socket->state != SOCKET_CONNECTED && !msg->msg_name)
         return E_NOT_CONNECTED;
 
-    return socket->proto->recvmsg(socket, msg, flags);
+    return socket->proto->ops->recvmsg(socket, msg, flags);
 }
 
 static error_t socket_write(struct file *file, const char *data, size_t len)

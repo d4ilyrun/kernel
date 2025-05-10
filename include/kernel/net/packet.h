@@ -80,6 +80,13 @@ struct packet {
 /** Create a new packet */
 struct packet *packet_new(size_t packet_size);
 
+/** Clone a packet.
+ *
+ *  The packet's content as well as the current offsets will be duplicated,
+ *  so that one can use a duplicated packet just like the original one.
+ */
+struct packet *packet_clone(const struct packet *packet);
+
 /** Free a packet */
 void packet_free(struct packet *packet);
 
