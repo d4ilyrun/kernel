@@ -5,6 +5,7 @@
 #include <kernel/net.h>
 #include <kernel/net/arp.h>
 #include <kernel/net/ethernet.h>
+#include <kernel/net/icmp.h>
 #include <kernel/net/interface.h>
 #include <kernel/net/ipv4.h>
 #include <kernel/net/packet.h>
@@ -65,7 +66,7 @@ error_t ipv4_receive_packet(struct packet *packet)
     struct packet *clone;
     size_t total_len;
     size_t hdr_len;
-    error_t ret;
+    error_t ret = E_SUCCESS;
 
     total_len = ntohs(packet->l3.ipv4->tot_len);
     hdr_len = ipv4_header_size(packet->l3.ipv4);
@@ -125,7 +126,13 @@ error_t ipv4_receive_packet(struct packet *packet)
     }
     spinlock_release(&af_inet_raw_sockets_lock);
 
+    /* Not for us */
+    if (!net_interface_find(packet->l3.ipv4->daddr))
+        goto invalid_packet;
+
     switch (iphdr->protocol) {
+    case IPPROTO_ICMP:
+        return icmp_receive_packet(packet);
     default:
         ret = E_NOT_SUPPORTED;
         break;
