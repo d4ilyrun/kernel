@@ -87,25 +87,25 @@ void packet_free(struct packet *packet);
 error_t packet_send(struct packet *packet);
 
 /** Find the start of the actual packet's content */
-static inline void *packet_start(struct packet *packet)
+static inline void *packet_start(const struct packet *packet)
 {
     return ((void *)packet) + align_up(sizeof(struct packet), PACKET_ALIGN);
 }
 
 /** @return The current number of bytes placed into the packet */
-static inline size_t packet_size(struct packet *packet)
+static inline size_t packet_size(const struct packet *packet)
 {
     return packet->packet_size;
 }
 
 /** @return The current number of bytes that can be read from the packet */
-static inline size_t packet_read_size(struct packet *packet)
+static inline size_t packet_read_size(const struct packet *packet)
 {
     return packet->packet_size - packet->popped;
 }
 
 /** Find the end of the actual packet's content */
-static inline void *packet_end(struct packet *packet)
+static inline void *packet_end(const struct packet *packet)
 {
     return packet_start(packet) + packet_size(packet);
 }
@@ -159,20 +159,20 @@ static inline void packet_set_l3_size(struct packet *packet, size_t size)
 }
 
 /** @return the sart of the packet's payload (L4) */
-static inline void *packet_payload(struct packet *packet)
+static inline void *packet_payload(const struct packet *packet)
 {
     return packet->payload;
 }
 
 /** @return the size of the packet's header */
-static inline size_t packet_header_size(struct packet *packet)
+static inline size_t packet_header_size(const struct packet *packet)
 {
     return packet->payload -
            (((void *)packet) + align_up(sizeof(struct packet), PACKET_ALIGN));
 }
 
 /** @return the size of the packet's payload */
-static inline size_t packet_payload_size(struct packet *packet)
+static inline size_t packet_payload_size(const struct packet *packet)
 {
     return packet_end(packet) - packet->payload;
 }
