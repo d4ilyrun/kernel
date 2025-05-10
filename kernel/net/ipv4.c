@@ -4,6 +4,7 @@
 #include <kernel/logger.h>
 #include <kernel/net.h>
 #include <kernel/net/arp.h>
+#include <kernel/net/icmp.h>
 #include <kernel/net/ethernet.h>
 #include <kernel/net/interface.h>
 #include <kernel/net/ipv4.h>
@@ -116,6 +117,8 @@ error_t ipv4_receive_packet(struct packet *packet)
     spinlock_release(&af_inet_raw_sockets_lock);
 
     switch (iphdr->protocol) {
+    case IPPROTO_ICMP:
+        return icmp_receive_packet(packet);
     default:
         ret = E_NOT_SUPPORTED;
         break;
