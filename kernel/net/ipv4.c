@@ -83,6 +83,7 @@ error_t ipv4_receive_packet(struct packet *packet)
     struct af_inet_sock *isock;
     size_t total_len;
     size_t hdr_len;
+    error_t ret;
 
     total_len = htons(packet->l3.ipv4->tot_len);
     hdr_len = ipv4_header_size(packet->l3.ipv4);
@@ -91,12 +92,14 @@ error_t ipv4_receive_packet(struct packet *packet)
     if (packet_payload_size(packet) != (total_len - hdr_len)) {
         log_err("ERROR: payload size != actual size: %ld != %ld",
                 packet_payload_size(packet), total_len - hdr_len);
-        return E_INVAL;
+        ret = E_INVAL;
+        goto invalid_packet;
     }
 
     if (ipv4_is_fragmented(iphdr)) {
         not_implemented("IP segmentation");
-        return E_NOT_IMPLEMENTED;
+        ret = E_NOT_IMPLEMENTED;
+        goto invalid_packet;
     }
 
     /* All incoming traffic is intercepted by RAW sockets:
@@ -118,15 +121,20 @@ error_t ipv4_receive_packet(struct packet *packet)
         }
         socket_unlock(isock->socket);
         socket_enqueue_packet(isock->socket, packet);
+        spinlock_release(&af_inet_raw_sockets_lock);
+        return E_SUCCESS;
     }
     spinlock_release(&af_inet_raw_sockets_lock);
 
     switch (iphdr->protocol) {
     default:
+        ret = E_NOT_SUPPORTED;
         break;
     }
 
-    return E_SUCCESS;
+invalid_packet:
+    packet_free(packet);
+    return ret;
 }
 
 static error_t af_inet_raw_bind(struct socket *socket,
