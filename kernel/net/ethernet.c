@@ -37,6 +37,7 @@ error_t ethernet_receive_packet(struct packet *packet)
         return ipv4_receive_packet(packet);
     default:
         log_warn("unsupported protocol type: " FMT16, ntoh(hdr->protocol));
+        packet_free(packet);
         return E_NOT_SUPPORTED;
     }
 }
