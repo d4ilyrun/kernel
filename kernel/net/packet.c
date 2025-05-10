@@ -26,6 +26,28 @@ struct packet *packet_new(size_t packet_size)
     return packet;
 }
 
+struct packet *packet_clone(const struct packet *packet)
+{
+    struct packet *duplicate;
+
+    duplicate = packet_new(packet->allocated_size);
+    if (IS_ERR(duplicate))
+        return duplicate;
+
+    /* Copy packet's content */
+    packet_put(duplicate, packet_start(packet), packet_size(packet));
+
+    /* Copy state */
+    duplicate->popped = packet->popped;
+    duplicate->netdev = packet->netdev;
+
+    /* Recompute header offsets */
+    packet_set_l3_size(duplicate, packet->l3.raw - packet->l2.raw);
+    duplicate->payload = packet_start(duplicate) + packet_header_size(packet);
+
+    return duplicate;
+}
+
 void packet_free(struct packet *packet)
 {
     kfree(packet);
