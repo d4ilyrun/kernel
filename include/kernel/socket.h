@@ -123,9 +123,7 @@ struct socket_domain {
 error_t socket_domain_register(struct socket_domain *);
 
 /** */
-struct socket_protocol {
-    int proto;             /*!< Protocol number */
-    enum socket_type type; /*!< Protocol type */
+struct socket_protocol_ops {
     /** Associate socket with a local address */
     error_t (*bind)(struct socket *, struct sockaddr *addr, socklen_t addrlen);
     /** Connect socket to a partner */
@@ -135,6 +133,13 @@ struct socket_protocol {
     error_t (*sendmsg)(struct socket *, const struct msghdr *, int flags);
     /** Read a message received by the socket */
     error_t (*recvmsg)(struct socket *, struct msghdr *, int flags);
+};
+
+/** */
+struct socket_protocol {
+    int proto;                             /*!< Protocol number */
+    enum socket_type type;                 /*!< Protocol type */
+    const struct socket_protocol_ops *ops; /*!< Protocol operations **/
 };
 
 #endif /* KERNEL_SOCKET_H */
