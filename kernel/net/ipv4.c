@@ -52,29 +52,12 @@ bool ipv4_validate_header(const struct ipv4_header *iphdr)
  */
 static uint16_t ipv4_compute_checksum(struct ipv4_header *iphdr)
 {
-    size_t count = ipv4_header_size(iphdr);
-    uint16_t *word = (uint16_t *)iphdr;
-    uint32_t checksum;
-    uint32_t sum = 0;
-
     /* checksum field needs to be replaced with 0 */
     iphdr->check = 0;
+    iphdr->check = net_internet_checksum((void *)iphdr,
+                                         ipv4_header_size(iphdr));
 
-    while (count > 0) {
-        sum += *word++;
-        count -= sizeof(uint16_t);
-    }
-
-    if (count > 0)
-        sum += *word;
-
-    while (sum > 0xFFFF)
-        sum = (sum & 0xFFFF) + (sum >> 16);
-
-    checksum = ~sum;
-    iphdr->check = checksum;
-
-    return checksum;
+    return iphdr->check;
 }
 
 error_t ipv4_receive_packet(struct packet *packet)

@@ -49,6 +49,7 @@
 #ifndef KERNEL_NET_H
 #define KERNEL_NET_H
 
+#include <kernel/types.h>
 #include <uapi/kernel/net.h>
 
 #include <utils/bits.h>
@@ -76,6 +77,12 @@ struct sockaddr_mac {
              : ntohs((_x)), uint32_t \
              : ntohl((_x)), default  \
              : (_x))
+
+/**
+ * Compute Internet Checksum for @c size bytes beginning at location @c addr
+ * @see RFC1071 - 4.1
+ */
+u16 net_internet_checksum(const u16 *addr, size_t size);
 
 #endif /* KERNEL_NET_H */
 
