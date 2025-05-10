@@ -339,13 +339,17 @@ af_inet_raw_recvmsg(struct socket *socket, struct msghdr *msg, int flags)
     return ret;
 }
 
+static const struct socket_protocol_ops af_inet_raw_ops = {
+    .bind = af_inet_raw_bind,
+    .connect = af_inet_raw_connect,
+    .sendmsg = af_inet_raw_sendmsg,
+    .recvmsg = af_inet_raw_recvmsg,
+};
+
 static const struct socket_protocol af_inet_protocols[] = {
     {
         .type = SOCK_RAW,
-        .bind = af_inet_raw_bind,
-        .connect = af_inet_raw_connect,
-        .sendmsg = af_inet_raw_sendmsg,
-        .recvmsg = af_inet_raw_recvmsg,
+        .ops = &af_inet_raw_ops,
     },
 };
 
