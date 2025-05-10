@@ -26,6 +26,11 @@ struct packet *packet_new(size_t packet_size)
     return packet;
 }
 
+void packet_free(struct packet *packet)
+{
+    kfree(packet);
+}
+
 error_t packet_send(struct packet *packet)
 {
     struct ethernet_device *ethernet = packet->netdev;

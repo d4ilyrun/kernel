@@ -80,6 +80,9 @@ struct packet {
 /** Create a new packet */
 struct packet *packet_new(size_t packet_size);
 
+/** Free a packet */
+void packet_free(struct packet *packet);
+
 /** Send the packet */
 error_t packet_send(struct packet *packet);
 

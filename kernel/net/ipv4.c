@@ -239,7 +239,8 @@ af_inet_raw_send_one(struct socket *socket, const struct iovec *iov, int flags)
     if (!ipv4_validate_header(&iphdr)) {
         log_err("invalid ipv4 header");
         log_array_8((u8 *)&iphdr, ipv4_header_size(&iphdr));
-        return E_INVAL;
+        ret = E_INVAL;
+        goto release_packet;
     }
 
     packet_mark_l3_start(packet);
@@ -247,9 +248,13 @@ af_inet_raw_send_one(struct socket *socket, const struct iovec *iov, int flags)
 
     ret = packet_put(packet, iov->iov_base, iov->iov_len);
     if (ret)
-        return ret;
+        goto release_packet;
 
     return packet_send(packet);
+
+release_packet:
+    packet_free(packet);
+    return ret;
 }
 
 static error_t
@@ -317,6 +322,8 @@ af_inet_raw_recvmsg(struct socket *socket, struct msghdr *msg, int flags)
         if (packet_pop(packet, iov->iov_base, iov->iov_len) < iov->iov_len)
             break;
     }
+
+    packet_free(packet);
 
     return ret;
 }
