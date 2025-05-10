@@ -62,6 +62,7 @@ error_t ipv4_receive_packet(struct packet *packet)
 {
     const struct ipv4_header *iphdr = packet->l3.ipv4;
     struct af_inet_sock *isock;
+    struct packet *clone;
     size_t total_len;
     size_t hdr_len;
     error_t ret;
@@ -113,9 +114,14 @@ error_t ipv4_receive_packet(struct packet *packet)
             continue;
         }
         socket_unlock(isock->socket);
-        socket_enqueue_packet(isock->socket, packet);
-        spinlock_release(&af_inet_raw_sockets_lock);
-        return E_SUCCESS;
+        /*
+         * The original packet should be sent to the 'regular' socket
+         * that matches its destination. Since there can only be one anyway,
+         * which isn't the case for raw sockets, this makes things way easier.
+         */
+        clone = packet_clone(packet);
+        if (!IS_ERR(clone))
+            socket_enqueue_packet(isock->socket, clone);
     }
     spinlock_release(&af_inet_raw_sockets_lock);
 
