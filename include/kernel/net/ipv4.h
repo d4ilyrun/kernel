@@ -23,6 +23,7 @@
 #include <arch.h>
 
 struct packet;
+struct net_route;
 
 /** Version field inside the IP header */
 #define IPV4_VERSION 4
@@ -85,6 +86,12 @@ void ipv4_init(void);
 
 /** Process a newly received IP packet */
 error_t ipv4_receive_packet(struct packet *packet);
+
+/** Build an IP packet
+ *  The L2/L3 headers are filled using the routing information.
+ */
+struct packet *ipv4_build_packet(const struct net_route *, u8 protocol,
+                                 const void *payload, size_t);
 
 /** Helper to quickly generate an IPv4 address */
 static inline __be ipv4_t IPV4(uint8_t a, uint8_t b, uint8_t c, uint8_t d)

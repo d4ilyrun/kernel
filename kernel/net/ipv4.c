@@ -124,6 +124,55 @@ invalid_packet:
     return ret;
 }
 
+struct packet *ipv4_build_packet(const struct net_route *route, u8 proto,
+                                 const void *payload, size_t size)
+{
+    struct packet *packet;
+    struct ipv4_header iphdr;
+    error_t ret;
+
+    packet = packet_new(size + sizeof(struct ipv4_header) +
+                        sizeof(struct ethernet_header));
+    if (IS_ERR(packet)) {
+        log_err("failed to allocate packet: %s",
+                err_to_str(ERR_FROM_PTR(packet)));
+        return packet;
+    }
+
+    packet->netdev = route->netdev;
+    ethernet_fill_packet(packet, ETH_PROTO_IP, route->dst.mac.mac_addr);
+
+    iphdr.saddr = route->src.ip.sin_addr;
+    iphdr.daddr = route->dst.ip.sin_addr;
+    iphdr.protocol = proto;
+    iphdr.tot_len = ntohs(size + sizeof(struct ipv4_header));
+    iphdr.version = IPV4_VERSION;
+    iphdr.ihl = IPV4_MIN_LENGTH / sizeof(uint32_t);
+    iphdr.ttl = IPV4_DEFAULT_TTL;
+    iphdr.frag_off = 0;
+    ipv4_compute_checksum(&iphdr);
+
+    if (!ipv4_validate_header(&iphdr)) {
+        log_err("invalid ipv4 header");
+        log_array_8((u8 *)&iphdr, ipv4_header_size(&iphdr));
+        ret = E_INVAL;
+        goto release_packet;
+    }
+
+    packet_put(packet, &iphdr, sizeof(iphdr));
+    packet_set_l3_size(packet, ipv4_header_size(&iphdr));
+
+    ret = packet_put(packet, payload, size);
+    if (ret)
+        goto release_packet;
+
+    return packet;
+
+release_packet:
+    packet_free(packet);
+    return PTR_ERR(ret);
+}
+
 static error_t af_inet_raw_bind(struct socket *socket,
                                 struct sockaddr *sockaddr, socklen_t len)
 {
@@ -195,52 +244,16 @@ static error_t
 af_inet_raw_send_one(struct socket *socket, const struct iovec *iov, int flags)
 {
     struct af_inet_sock *isock = socket->data;
-    struct ipv4_header iphdr = {0};
     struct packet *packet;
-    error_t ret;
 
     UNUSED(flags);
 
-    packet = packet_new(iov->iov_len + sizeof(struct ipv4_header) +
-                        sizeof(struct ethernet_header));
-    if (IS_ERR(packet)) {
-        ret = ERR_FROM_PTR(packet);
-        log_err("failed to allocate packet: %s", err_to_str(ret));
-        return ret;
-    }
-
-    packet->netdev = isock->route.netdev;
-
-    ethernet_fill_packet(packet, ETH_PROTO_IP, isock->route.dst.mac.mac_addr);
-
-    iphdr.saddr = isock->route.src.ip.sin_addr;
-    iphdr.daddr = isock->route.dst.ip.sin_addr;
-    iphdr.protocol = isock->proto;
-    iphdr.tot_len = ntohs(iov->iov_len + sizeof(struct ipv4_header));
-    iphdr.version = IPV4_VERSION;
-    iphdr.ihl = IPV4_MIN_LENGTH / sizeof(uint32_t);
-    iphdr.ttl = IPV4_DEFAULT_TTL;
-    ipv4_compute_checksum(&iphdr);
-
-    if (!ipv4_validate_header(&iphdr)) {
-        log_err("invalid ipv4 header");
-        log_array_8((u8 *)&iphdr, ipv4_header_size(&iphdr));
-        ret = E_INVAL;
-        goto release_packet;
-    }
-
-    packet_mark_l3_start(packet);
-    packet_put(packet, &iphdr, sizeof(iphdr));
-
-    ret = packet_put(packet, iov->iov_base, iov->iov_len);
-    if (ret)
-        goto release_packet;
+    packet = ipv4_build_packet(&isock->route, isock->proto, iov->iov_base,
+                               iov->iov_len);
+    if (IS_ERR(packet))
+        return ERR_FROM_PTR(packet);
 
     return packet_send(packet);
-
-release_packet:
-    packet_free(packet);
-    return ret;
 }
 
 static error_t

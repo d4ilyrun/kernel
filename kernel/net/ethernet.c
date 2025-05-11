@@ -22,6 +22,7 @@ void ethernet_fill_packet(struct packet *packet, enum ethernet_type proto,
 
     packet_mark_l2_start(packet);
     packet_put(packet, &hdr, sizeof(struct ethernet_header));
+    packet_set_l2_size(packet, sizeof(struct ethernet_header));
 }
 
 error_t ethernet_receive_packet(struct packet *packet)
