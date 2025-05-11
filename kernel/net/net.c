@@ -6,7 +6,7 @@ u16 net_internet_checksum(const u16 *addr, size_t size)
     u32 sum = 0;
 
     while (size > sizeof(u8)) {
-        sum += *addr++;
+        sum += ntoh(*addr++);
         size -= sizeof(u16);
     }
 
@@ -18,5 +18,5 @@ u16 net_internet_checksum(const u16 *addr, size_t size)
     while (sum >> 16)
         sum = (sum & 0xffff) + (sum >> 16);
 
-    return ~sum;
+    return ntohs(~sum);
 }
