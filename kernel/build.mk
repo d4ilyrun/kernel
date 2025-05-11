@@ -42,6 +42,7 @@ KERNEL_SRCS := 	\
 	net/ipv4.c \
 	net/arp.c \
 	net/interface.c \
+	net/route.c \
 	memory/kmalloc.c \
 	devices/driver.c \
 	devices/uacpi.c \

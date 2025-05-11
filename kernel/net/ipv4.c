@@ -8,6 +8,7 @@
 #include <kernel/net/interface.h>
 #include <kernel/net/ipv4.h>
 #include <kernel/net/packet.h>
+#include <kernel/net/route.h>
 #include <kernel/socket.h>
 
 #include <utils/macro.h>
@@ -17,12 +18,9 @@
 /** Domain specific data for AF_INET sockets */
 struct af_inet_sock {
     struct socket *socket;
-    struct ethernet_device *netdev;
-    __be struct sockaddr_in saddr_in; /** Source IP address */
-    __be struct sockaddr_in daddr_in; /** Destination IP address */
-    struct sockaddr_mac daddr_mac;    /** Destination MAC address*/
-    enum ip_protocol proto;           /** Protocol number */
-    node_t this; /** Used to list currently active sockets */
+    struct net_route route; /** Routing configuration */
+    enum ip_protocol proto; /** Protocol number */
+    node_t this;            /** Used to list currently active sockets */
 };
 
 static DECLARE_LLIST(af_inet_raw_sockets);
@@ -101,10 +99,10 @@ error_t ipv4_receive_packet(struct packet *packet)
         isock = container_of(node, struct af_inet_sock, this);
         socket_lock(isock->socket);
         if (isock->proto != iphdr->protocol ||
-            (isock->saddr_in.sin_family != AF_UNSPEC &&
-             isock->saddr_in.sin_addr != iphdr->daddr) ||
-            (isock->daddr_in.sin_family != AF_UNSPEC &&
-             isock->daddr_in.sin_addr != iphdr->saddr)) {
+            (isock->route.src.ip.sin_family != AF_UNSPEC &&
+             isock->route.src.ip.sin_addr != iphdr->daddr) ||
+            (isock->route.dst.ip.sin_family != AF_UNSPEC &&
+             isock->route.dst.ip.sin_addr != iphdr->saddr)) {
             socket_unlock(isock->socket);
             continue;
         }
@@ -130,7 +128,8 @@ static error_t af_inet_raw_bind(struct socket *socket,
                                 struct sockaddr *sockaddr, socklen_t len)
 {
     struct af_inet_sock *isock = socket->data;
-    struct sockaddr_in *sin = (struct sockaddr_in *)sockaddr;
+    struct sockaddr_in *src = (struct sockaddr_in *)sockaddr;
+    struct net_interface *iface;
     error_t ret = E_SUCCESS;
 
     if (sockaddr->sa_family != AF_INET)
@@ -139,7 +138,7 @@ static error_t af_inet_raw_bind(struct socket *socket,
     if (len != sizeof(struct sockaddr_in))
         return E_INVAL;
 
-    isock->saddr_in = *sin;
+    isock->route.src.ip = *src;
 
     spinlock_acquire(&af_inet_raw_sockets_lock);
     llist_add(&af_inet_raw_sockets, &isock->this);
@@ -152,9 +151,8 @@ static error_t af_inet_raw_connect(struct socket *socket,
                                    struct sockaddr *sockaddr, socklen_t len)
 {
     struct af_inet_sock *isock = socket->data;
-    struct sockaddr_in *sin = (struct sockaddr_in *)sockaddr;
-    const struct subnet *subnet;
-    const mac_address_t *daddr_mac;
+    struct sockaddr_in *dst = (struct sockaddr_in *)sockaddr;
+    struct net_route route;
     error_t ret = E_SUCCESS;
 
     if (sockaddr->sa_family != AF_INET)
@@ -165,36 +163,18 @@ static error_t af_inet_raw_connect(struct socket *socket,
 
     socket_lock(socket);
 
-    /* routing: find the destination address's subnet
-     * its source ip and network device shall be used for the packet */
-    subnet = net_interface_find_subnet(sin->sin_addr);
-    if (!subnet) {
-        ret = E_NET_UNREACHABLE;
+    ret = net_route_compute(&route, dst);
+    if (ret)
         goto exit_connect;
-    }
-
-    isock->netdev = subnet->interface->netdev;
-    isock->daddr_in = *sin;
-
-    daddr_mac = arp_get(isock->daddr_in.sin_addr);
-    if (daddr_mac == NULL) {
-        /* TODO: ARP request */
-        ret = E_NET_UNREACHABLE;
-        goto exit_connect;
-    }
 
     /* The source address may already have been chosen by bind() */
-    if (isock->saddr_in.sin_family == AF_UNSPEC) {
-        isock->saddr_in = (struct sockaddr_in){
-            .sin_addr = subnet->ip,
-            .sin_family = AF_INET,
-            .sin_port = -1, // Not used in raw sockets
-        };
+    if (isock->route.src.ip.sin_family == AF_UNSPEC) {
+        spinlock_acquire(&af_inet_raw_sockets_lock);
         llist_add(&af_inet_raw_sockets, &isock->this);
+        spinlock_release(&af_inet_raw_sockets_lock);
     }
 
-    memcpy(isock->daddr_mac.mac_addr, daddr_mac, sizeof(mac_address_t));
-
+    isock->route = route;
     socket->state = SOCKET_CONNECTED;
 
 exit_connect:
@@ -220,12 +200,12 @@ af_inet_raw_send_one(struct socket *socket, const struct iovec *iov, int flags)
         return ret;
     }
 
-    packet->netdev = isock->netdev;
+    packet->netdev = isock->route.netdev;
 
-    ethernet_fill_packet(packet, ETH_PROTO_IP, isock->daddr_mac.mac_addr);
+    ethernet_fill_packet(packet, ETH_PROTO_IP, isock->route.dst.mac.mac_addr);
 
-    iphdr.saddr = isock->saddr_in.sin_addr;
-    iphdr.daddr = isock->daddr_in.sin_addr;
+    iphdr.saddr = isock->route.src.ip.sin_addr;
+    iphdr.daddr = isock->route.dst.ip.sin_addr;
     iphdr.protocol = isock->proto;
     iphdr.tot_len = ntohs(iov->iov_len + sizeof(struct ipv4_header));
     iphdr.version = IPV4_VERSION;
