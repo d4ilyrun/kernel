@@ -63,6 +63,9 @@ net_interface_add_subnet(struct net_interface *, __be ipv4_t, uint8_t cidr);
  */
 const struct subnet *net_interface_find_subnet(__be ipv4_t);
 
+/** Find the interface by source IP address */
+struct net_interface *net_interface_find(__be ipv4_t);
+
 #endif /* KERNEL_NET_INTERFACE_H */
 
 /** @} */

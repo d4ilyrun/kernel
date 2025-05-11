@@ -138,7 +138,12 @@ static error_t af_inet_raw_bind(struct socket *socket,
     if (len != sizeof(struct sockaddr_in))
         return E_INVAL;
 
+    iface = net_interface_find(src->sin_addr);
+    if (iface == NULL)
+        return E_ADDR_NOT_AVAILABLE;
+
     isock->route.src.ip = *src;
+    isock->route.netdev = iface->netdev;
 
     spinlock_acquire(&af_inet_raw_sockets_lock);
     llist_add(&af_inet_raw_sockets, &isock->this);
@@ -168,7 +173,11 @@ static error_t af_inet_raw_connect(struct socket *socket,
         goto exit_connect;
 
     /* The source address may already have been chosen by bind() */
-    if (isock->route.src.ip.sin_family == AF_UNSPEC) {
+    if (isock->route.src.ip.sin_family != AF_UNSPEC) {
+        route.src = isock->route.src;
+        if (route.netdev != isock->route.netdev)
+            return E_NET_UNREACHABLE;
+    } else {
         spinlock_acquire(&af_inet_raw_sockets_lock);
         llist_add(&af_inet_raw_sockets, &isock->this);
         spinlock_release(&af_inet_raw_sockets_lock);

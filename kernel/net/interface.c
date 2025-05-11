@@ -57,7 +57,7 @@ error_t net_interface_add_subnet(struct net_interface *interface,
     return E_SUCCESS;
 }
 
-static int __subnet_match_ip(const void *node, const void *data)
+static int __subnet_match_subnet(const void *node, const void *data)
 {
     struct subnet *subnet = container_of(node, struct subnet, this);
     ipv4_t addr = ntohl((__be ipv4_t)data);
@@ -69,7 +69,33 @@ static int __subnet_match_ip(const void *node, const void *data)
     return (addr == match) ? COMPARE_EQ : !COMPARE_EQ;
 }
 
+static int __subnet_match_ip(const void *node, const void *data)
+{
+    struct subnet *subnet = container_of(node, struct subnet, this);
+    ipv4_t addr = (__be ipv4_t)data;
+    return (addr == subnet->ip) ? COMPARE_EQ : !COMPARE_EQ;
+}
+
 const struct subnet *net_interface_find_subnet(__be ipv4_t addr)
+{
+    struct net_interface *interface;
+    node_t *match = NULL;
+
+    FOREACH_LLIST (if_node, registered_net_interfaces) {
+        interface = container_of(if_node, struct net_interface, this);
+        match = llist_find_first(interface->subnets, (void *)addr,
+                                 __subnet_match_subnet);
+        if (match)
+            break;
+    }
+
+    if (match == NULL)
+        return NULL;
+
+    return container_of(match, struct subnet, this);
+}
+
+struct net_interface *net_interface_find(__be ipv4_t addr)
 {
     struct net_interface *interface;
     node_t *match = NULL;
@@ -82,8 +108,5 @@ const struct subnet *net_interface_find_subnet(__be ipv4_t addr)
             break;
     }
 
-    if (match == NULL)
-        return NULL;
-
-    return container_of(match, struct subnet, this);
+    return interface;
 }
