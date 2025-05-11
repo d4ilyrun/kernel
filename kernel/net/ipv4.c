@@ -85,6 +85,12 @@ error_t ipv4_receive_packet(struct packet *packet)
         goto invalid_packet;
     }
 
+    if (net_internet_checksum(packet->l3.raw, ipv4_header_size(iphdr))) {
+        log_warn("invalid checksum");
+        ret = E_INVAL;
+        goto invalid_packet;
+    }
+
     /* All incoming traffic is intercepted by RAW sockets:
      * - If protocol is the same
      * - If binded to the destination address (when binded)
