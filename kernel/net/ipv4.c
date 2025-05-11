@@ -213,10 +213,6 @@ static error_t af_inet_raw_bind(struct socket *socket,
     isock->route.src.ip = *src;
     isock->route.netdev = iface->netdev;
 
-    spinlock_acquire(&af_inet_raw_sockets_lock);
-    llist_add(&af_inet_raw_sockets, &isock->this);
-    spinlock_release(&af_inet_raw_sockets_lock);
-
     return ret;
 }
 
@@ -245,10 +241,6 @@ static error_t af_inet_raw_connect(struct socket *socket,
         route.src = isock->route.src;
         if (route.netdev != isock->route.netdev)
             return E_NET_UNREACHABLE;
-    } else {
-        spinlock_acquire(&af_inet_raw_sockets_lock);
-        llist_add(&af_inet_raw_sockets, &isock->this);
-        spinlock_release(&af_inet_raw_sockets_lock);
     }
 
     isock->route = route;
@@ -346,7 +338,27 @@ af_inet_raw_recvmsg(struct socket *socket, struct msghdr *msg, int flags)
     return ret;
 }
 
+static error_t af_inet_raw_init(struct socket *socket)
+{
+    struct af_inet_sock *isock = NULL;
+
+    isock = kcalloc(1, sizeof(*isock), KMALLOC_KERNEL);
+    if (isock == NULL)
+        return E_NOMEM;
+
+    isock->proto = socket->proto->proto;
+    isock->socket = socket;
+    socket->data = isock;
+
+    spinlock_acquire(&af_inet_raw_sockets_lock);
+    llist_add(&af_inet_raw_sockets, &isock->this);
+    spinlock_release(&af_inet_raw_sockets_lock);
+
+    return E_SUCCESS;
+}
+
 static const struct socket_protocol_ops af_inet_raw_ops = {
+    .init = af_inet_raw_init,
     .bind = af_inet_raw_bind,
     .connect = af_inet_raw_connect,
     .sendmsg = af_inet_raw_sendmsg,
@@ -355,6 +367,11 @@ static const struct socket_protocol_ops af_inet_raw_ops = {
 
 static const struct socket_protocol af_inet_protocols[] = {
     {
+        .type = SOCK_DGRAM,
+        .proto = IPPROTO_ICMP,
+        .ops = &af_inet_icmp_ops,
+    },
+    {
         .type = SOCK_RAW,
         .ops = &af_inet_raw_ops,
     },
@@ -362,7 +379,6 @@ static const struct socket_protocol af_inet_protocols[] = {
 
 static error_t af_inet_socket_init(struct socket *socket, int type, int proto)
 {
-    struct af_inet_sock *isock = NULL;
     const struct socket_protocol *ip_proto = NULL;
     error_t ret;
 
@@ -385,16 +401,9 @@ static error_t af_inet_socket_init(struct socket *socket, int type, int proto)
     if (!ip_proto)
         return ret;
 
-    isock = kcalloc(1, sizeof(*isock), KMALLOC_KERNEL);
-    if (isock == NULL)
-        return E_NOMEM;
-
     socket->proto = ip_proto;
-    socket->data = isock;
-    isock->proto = proto;
-    isock->socket = socket;
 
-    return E_SUCCESS;
+    return ip_proto->ops->init(socket);
 }
 
 struct socket_domain af_inet = {

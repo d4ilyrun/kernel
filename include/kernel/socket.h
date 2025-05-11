@@ -124,6 +124,8 @@ error_t socket_domain_register(struct socket_domain *);
 
 /** */
 struct socket_protocol_ops {
+    /** Initialize per-protocol data */
+    error_t (*init)(struct socket *);
     /** Associate socket with a local address */
     error_t (*bind)(struct socket *, struct sockaddr *addr, socklen_t addrlen);
     /** Connect socket to a partner */
