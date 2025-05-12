@@ -79,6 +79,18 @@ static inline bool ipv4_is_fragmented(const struct ipv4_header *iphdr)
     return ntohs(iphdr->frag_off) & (IPV4_MORE_FRAG | IPV4_FRAG_MASK);
 }
 
+/***/
+static inline bool ipv4_is_multicast(__be ipv4_t addr)
+{
+    return (ntohl(addr) >> 28) == 0xE;
+}
+
+/***/
+static inline bool ipv4_is_broadcast(__be ipv4_t addr)
+{
+    return addr == 0XFFFFFFFF;
+}
+
 /** Initialize the ipv4 API
  *  TODO: Should be removed in favor of initcalls
  */

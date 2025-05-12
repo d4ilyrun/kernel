@@ -83,6 +83,12 @@ error_t ipv4_receive_packet(struct packet *packet)
         goto invalid_packet;
     }
 
+    if (ipv4_is_multicast(iphdr->daddr) || ipv4_is_broadcast(iphdr->daddr)) {
+        not_implemented("Broadcast/Multicast: " FMT_IP, LOG_IP(iphdr->daddr));
+        ret = E_NOT_IMPLEMENTED;
+        goto invalid_packet;
+    }
+
     if (net_internet_checksum(packet->l3.raw, ipv4_header_size(iphdr))) {
         log_warn("invalid checksum");
         ret = E_INVAL;
