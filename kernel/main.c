@@ -80,12 +80,6 @@ void kernel_relocate_module(struct multiboot_tag_module *module)
 
 void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 {
-    if (magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
-        PANIC("Invalid magic number recieved from multiboot "
-              "bootloader: " FMT32,
-              magic);
-    }
-
     memcpy(mbt_tmp.raw, mbt, mbt->total_size);
 
     // FIXME: Find how to clear pending keyboard IRQs inherited from bootloader
@@ -104,6 +98,12 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     if (uart_init() != E_SUCCESS) {
         // TODO: arch_reboot();
+    }
+
+    if (magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
+        PANIC("Invalid magic number recieved from multiboot "
+              "bootloader: " FMT32,
+              magic);
     }
 
     tty_init();
