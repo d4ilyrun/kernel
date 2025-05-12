@@ -30,7 +30,7 @@ void waitqueue_enqueue_locked(struct waitqueue *queue, struct thread *thread)
     }
 
     if (thread == current)
-        schedule();
+        schedule_preempt();
 }
 
 const struct thread *waitqueue_peek(struct waitqueue *queue)

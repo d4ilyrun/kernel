@@ -22,18 +22,17 @@ typedef struct semaphore semaphore_t;
 /** Semaphore init value.
  *  @param count The number of users that can take this semaphore simultaneously
  */
-#define SEMAPHORE_INIT(_count)      \
-    ((struct semaphore){            \
-        INIT_SPINLOCK(.lock),       \
-        INIT_WAITQUEUE(.waitqueue), \
-        .count = (_count),          \
-    })
+#define SEMAPHORE_INIT(_count)     \
+    ((struct semaphore){           \
+        .count = (_count),         \
+        .lock = {.locked = false}, \
+        .waitqueue = {.lock = {.locked = false}, .queue = {NULL, NULL}}})
 
 /** Initialize a semaphore */
 #define INIT_SEMAPHORE(_name, _count) _name = SEMAPHORE_INIT(_count)
 
 /** Declare and initialize a semaphore */
-#define DECLARE_SEMAPHORE(_count) \
+#define DECLARE_SEMAPHORE(_name, _count) \
     struct semaphore _name = SEMAPHORE_INIT(_count)
 
 /** Mutex init value. */

@@ -1,4 +1,3 @@
-#include "utils/container_of.h"
 #define LOG_DOMAIN "process"
 
 #include <kernel/error.h>
@@ -6,10 +5,12 @@
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
 #include <kernel/process.h>
+#include <kernel/sched.h>
 
 #include <kernel/arch/i686/gdt.h>
 
 #include <utils/compiler.h>
+#include <utils/container_of.h>
 #include <utils/macro.h>
 
 #include <string.h>
@@ -64,6 +65,9 @@ arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data)
 static void arch_thread_entrypoint(thread_entry_t entrypoint, void *data)
 {
     u32 *ustack = NULL;
+
+    /* scheduler was locked by the previous thread before starting this one */
+    scheduler_unlock(true);
 
     if (thread_is_initial(current)) {
         if (!vmm_init(current->process->vmm, USER_MEMORY_START,
