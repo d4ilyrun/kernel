@@ -61,13 +61,16 @@
 extern bool scheduler_initialized;
 
 /**
- * @brief Reschedule the current thread
+ * Reschedule the current thread
  *
  * This is the **main** function of the scheduler. It is called when we want to
  * switch to the next scheduled thread. It automatically reinserts the current
  * thread into the correct queue depending on its state.
  */
 void schedule(void);
+
+/** Forcibly reschedule the current thread */
+void schedule_preempt(void);
 
 /** Lock the different interna synchronization mechanisms
  *  @return Wether interrupts were previously enabled

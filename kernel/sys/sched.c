@@ -23,7 +23,7 @@ typedef struct scheduler {
 
     /** Fields used for synchronization in a multiprocessor environment */
     struct {
-        spinlock_t lock;
+        unsigned int preemption_level;
     } sync;
 
 } scheduler_t;
@@ -42,10 +42,14 @@ static thread_t *idle_thread;
  *
  * @see scheduler_lock scheduler_unlock
  */
-static void schedule_locked(bool reschedule)
+static void schedule_locked(bool preempt, bool reschedule)
 {
-    node_t *next_node = queue_dequeue(&scheduler.ready);
+    node_t *next_node;
 
+    if (scheduler.sync.preemption_level > 1 && !preempt)
+        return;
+
+    next_node = queue_dequeue(&scheduler.ready);
     if (next_node == NULL)
         return;
 
@@ -66,32 +70,35 @@ static void schedule_locked(bool reschedule)
     next->running.preempt = timer_gettick() + SCHED_TIMESLICE;
 
     if (!thread_switch(next)) {
-        schedule_locked(false);
+        schedule_locked(preempt, false);
     }
 }
 
 void schedule(void)
 {
     const bool old_if = scheduler_lock();
-    schedule_locked(true);
+    schedule_locked(false, true);
+    scheduler_unlock(old_if);
+}
+
+void schedule_preempt(void)
+{
+    const bool old_if = scheduler_lock();
+    schedule_locked(true, true);
     scheduler_unlock(old_if);
 }
 
 bool scheduler_lock(void)
 {
     bool if_flag = interrupts_test_and_disable();
-
-    // interrupts_disable() only disable interrupts for the current CPU
-    // We must also use a spinlock to avoid other processors rescheduling
-    // threads while we're also doing it.
-    spinlock_acquire(&scheduler.sync.lock);
-
+    scheduler.sync.preemption_level += 1;
     return if_flag;
 }
 
 void scheduler_unlock(bool old_if_flag)
 {
-    spinlock_release(&scheduler.sync.lock);
+    if (scheduler.sync.preemption_level)
+        scheduler.sync.preemption_level -= 1;
 
     // Re-enable interrupts **only** if they were enabled prior to locking
     if (old_if_flag)
@@ -108,6 +115,7 @@ static void idle_task(void *data __attribute__((unused)))
 
 void scheduler_init(void)
 {
+    scheduler.sync.preemption_level = 0;
     idle_thread = thread_spawn(&kernel_process, idle_task, NULL, THREAD_KERNEL);
     // use the largest PID possible to avoid any conflict later on
     idle_thread->tid = (pid_t)-1;
@@ -133,7 +141,7 @@ void sched_block_thread(struct thread *thread)
 
     thread->state = SCHED_WAITING;
     if (thread == current)
-        schedule_locked(true);
+        schedule_locked(true, true);
 
 block_thread_exit:
     scheduler_unlock(old_if);
@@ -151,7 +159,7 @@ void sched_unblock_thread(thread_t *thread)
 
     // give the least time possible to the IDLE task
     if (current == idle_thread)
-        schedule_locked(true);
+        schedule_locked(true, true);
 
     scheduler_unlock(old_if);
 }

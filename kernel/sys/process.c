@@ -168,17 +168,15 @@ void process_kill(struct process *process)
 
     // Avoid race condition where the current thread would be rescheduled after
     // being marked killable, and before having marked the rest of the threads
-    const bool interrupts = scheduler_lock();
-
-    FOREACH_LLIST (node, process->threads) {
-        struct thread *thread = container_of(node, struct thread, proc_this);
-        thread->state = SCHED_KILLED;
+    no_scheduler_scope() {
+        FOREACH_LLIST (node, process->threads) {
+            struct thread *thread = container_of(node, struct thread, proc_this);
+            thread->state = SCHED_KILLED;
+        }
     }
 
-    scheduler_unlock(interrupts);
-
     if (current->process == process)
-        schedule();
+        schedule_preempt();
 }
 
 thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
@@ -254,7 +252,7 @@ void thread_kill(thread_t *thread)
      * is delayed until it is rescheduled (cf. thread_switch). */
     thread->state = SCHED_KILLED;
     if (thread == current)
-        schedule();
+        schedule_preempt();
 }
 
 NO_RETURN void
