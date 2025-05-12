@@ -5,6 +5,8 @@
 
 #include <stdarg.h>
 
+#define LOG_DOMAIN_SEPARATOR " "
+
 /** Format used for displaying logs of a given level */
 struct log_level_format {
     const char *color; /** Color used for the level's name */
@@ -12,7 +14,7 @@ struct log_level_format {
 };
 
 static const struct log_level_format log_level[LOG_LEVEL_COUNT] = {
-    [LOG_LEVEL_ERR] = {"\033[31;1;4m", "ERROR "},
+    [LOG_LEVEL_ERR] = {"\033[31;1;1m", "ERROR "},
     [LOG_LEVEL_WARN] = {"\033[33;1m", "WARN  "},
     [LOG_LEVEL_INFO] = {"\033[39m", "INFO  "},
     [LOG_LEVEL_DEBUG] = {"\033[36m", "DEBUG "},
@@ -40,14 +42,13 @@ void log_vlog(enum log_level level, const char *domain, const char *format,
     if (level > max_log_level)
         return;
 
-    if (log_level[level].color)
-        printk("%s%s%s%s", ANSI_RESET, log_level[level].color,
-               log_level[level].name, ANSI_RESET);
-    else
-        printk("%s%s", ANSI_RESET, log_level[level].name);
-
-    if (domain)
-        printk("%s\t", domain);
+    if (domain) {
+        if (log_level[level].color)
+            printk("[%s%s%s%s]" LOG_DOMAIN_SEPARATOR, ANSI_RESET,
+                   log_level[level].color, domain, ANSI_RESET);
+        else
+            printk("[%s%s]" LOG_DOMAIN_SEPARATOR, ANSI_RESET, domain);
+    }
 
     vprintk(format, parameters);
     printk("\n");
