@@ -31,7 +31,7 @@ typedef struct spinlock {
 /** @brief Try to acquire a spinlock, or wait until it is free */
 static ALWAYS_INLINE spinlock_t *spinlock_acquire(spinlock_t *lock)
 {
-    WAIT_FOR(__atomic_test_and_set(&lock->locked, __ATOMIC_ACQUIRE));
+    WAIT_FOR(!__atomic_test_and_set(&lock->locked, __ATOMIC_ACQUIRE));
     return lock;
 }
 
