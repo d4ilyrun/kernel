@@ -406,6 +406,8 @@ void kernel_task_worker(void *data)
 #undef LOG_DOMAIN
 #define LOG_DOMAIN "kmutex"
 
+static DECLARE_MUTEX(mutex);
+
 static void __kernel_task_mutex(void *data)
 {
     semaphore_t *mutex = data;
@@ -426,8 +428,6 @@ void kernel_task_mutex(void *data)
     struct thread *thread_b;
 
     UNUSED(data);
-
-    DECLARE_MUTEX(mutex);
 
     thread_a = thread_spawn(&kernel_process, __kernel_task_mutex, &mutex,
                             THREAD_KERNEL);
