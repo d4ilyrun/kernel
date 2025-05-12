@@ -40,6 +40,7 @@ KERNEL_SRCS := 	\
 	net/socket.c \
 	net/ethernet.c \
 	net/ipv4.c \
+	net/icmp.c \
 	net/arp.c \
 	net/interface.c \
 	net/route.c \
