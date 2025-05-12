@@ -66,12 +66,12 @@ error_t ipv4_receive_packet(struct packet *packet)
     size_t hdr_len;
     error_t ret;
 
-    total_len = htons(packet->l3.ipv4->tot_len);
+    total_len = ntohs(packet->l3.ipv4->tot_len);
     hdr_len = ipv4_header_size(packet->l3.ipv4);
     packet_set_l3_size(packet, hdr_len);
 
-    if (packet_payload_size(packet) != (total_len - hdr_len)) {
-        log_err("ERROR: payload size != actual size: %ld != %ld",
+    if (packet_payload_size(packet) < total_len - hdr_len) {
+        log_err("ERROR: payload size < actual size: %ld != %ld",
                 packet_payload_size(packet), total_len - hdr_len);
         ret = E_INVAL;
         goto invalid_packet;
