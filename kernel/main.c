@@ -12,6 +12,7 @@
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
+#include <kernel/net/icmp.h>
 #include <kernel/net/ipv4.h>
 #include <kernel/pmm.h>
 #include <kernel/process.h>
@@ -56,7 +57,7 @@ void kernel_task_userland(void *data);
 void kernel_task_elf(void *data);
 void kernel_task_worker(void *data);
 void kernel_task_mutex(void *data);
-void kernel_task_socket(void *data);
+void kernel_task_ping(void *data);
 
 void kernel_relocate_module(struct multiboot_tag_module *module)
 {
@@ -169,7 +170,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     sched_new_thread_create(kernel_task_userland, NULL, 0);
     sched_new_thread_create(kernel_task_worker, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_mutex, NULL, THREAD_KERNEL);
-    sched_new_thread_create(kernel_task_socket, NULL, THREAD_KERNEL);
+    sched_new_thread_create(kernel_task_ping, NULL, THREAD_KERNEL);
 
     thread_t *kernel_timer_test = thread_spawn(
         current->process, kernel_task_timer, NULL, THREAD_KERNEL);
@@ -438,15 +439,23 @@ void kernel_task_mutex(void *data)
 }
 
 #undef LOG_DOMAIN
-#define LOG_DOMAIN "ksock"
+#define LOG_DOMAIN "kping"
 
-void kernel_task_socket(void *data)
+/***/
+struct icmp_echo_header {
+    struct icmp_header icmp;
+    __be u16 identifier;
+    __be u16 sequence;
+};
+
+void kernel_task_ping(void *data)
 {
-    u8 tx_buffer[8] = {0, 1, 2, 3, 4, 5, 6, 7};
-    u8 rx_buffer[40];
     struct socket *socket;
     struct sockaddr_in addr;
     struct file *fd;
+    struct icmp_echo_header ping_request;
+    struct icmp_echo_header ping_reply;
+    u16 sequence = 0;
     error_t err;
 
     UNUSED(data);
@@ -459,8 +468,7 @@ void kernel_task_socket(void *data)
         return;
     }
 
-    /* Create RAW IP socket */
-    err = socket_init(socket, AF_INET, SOCK_RAW, 1); // icmp
+    err = socket_init(socket, AF_INET, SOCK_DGRAM, IPPROTO_ICMP);
     if (err) {
         log_err("failed to init socket: %s", err_to_str(err));
         return;
@@ -484,22 +492,28 @@ void kernel_task_socket(void *data)
         }
     } while (err);
 
-    while (1) {
-        err = file_send(fd, (void *)tx_buffer, sizeof(tx_buffer), 0);
-        if (err)
-            log_err("send: %s", err_to_str(err));
-        else
-            log_info("send: %s", err_to_str(err));
+    ping_request.icmp.type = ICMP_ECHO_REQUEST;
 
-        err = file_recv(fd, (void *)&rx_buffer, sizeof(rx_buffer), 0);
-        if (err && err != E_WOULD_BLOCK) {
-            log_err("recv: %s", err_to_str(err));
-        } else {
-            log_info("recv: %s", err_to_str(err));
-            if (!err)
-                log_array_8(rx_buffer, sizeof(rx_buffer));
+    while (1) {
+
+        ping_request.sequence = hton(sequence++);
+        log_info("request: seq=%d", ntoh(ping_request.sequence));
+
+        err = file_send(fd, (void *)&ping_request, sizeof(ping_request), 0);
+        if (err) {
+            log_err("send: %s", err_to_str(err));
+            continue;
         }
 
         timer_wait_ms(1000);
+
+        err = file_recv(fd, (void *)&ping_reply, sizeof(ping_reply), 0);
+        if (err) {
+            log_err("recv: %s", err_to_str(err));
+            continue;
+        }
+
+        log_info("reply: seq=%d [%s]", ntoh(ping_reply.sequence),
+                 (ping_reply.sequence == ping_request.sequence) ? "OK" : "KO");
     }
 }
