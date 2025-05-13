@@ -1,3 +1,4 @@
+#include <kernel/atomic.h>
 #include <kernel/cpu.h>
 #include <kernel/devices/timer.h>
 #include <kernel/interrupts.h>
@@ -23,7 +24,7 @@ typedef struct scheduler {
 
     /** Fields used for synchronization in a multiprocessor environment */
     struct {
-        unsigned int preemption_level;
+        atomic_t preemption_level;
     } sync;
 
 } scheduler_t;
@@ -46,7 +47,7 @@ static void schedule_locked(bool preempt, bool reschedule)
 {
     node_t *next_node;
 
-    if (scheduler.sync.preemption_level > 1 && !preempt)
+    if (atomic_read(&scheduler.sync.preemption_level) > 1 && !preempt)
         return;
 
     next_node = queue_dequeue(&scheduler.ready);
@@ -91,14 +92,14 @@ void schedule_preempt(void)
 bool scheduler_lock(void)
 {
     bool if_flag = interrupts_test_and_disable();
-    scheduler.sync.preemption_level += 1;
+    atomic_inc(&scheduler.sync.preemption_level);
     return if_flag;
 }
 
 void scheduler_unlock(bool old_if_flag)
 {
-    if (scheduler.sync.preemption_level)
-        scheduler.sync.preemption_level -= 1;
+    if (atomic_read(&scheduler.sync.preemption_level))
+        atomic_dec(&scheduler.sync.preemption_level);
 
     // Re-enable interrupts **only** if they were enabled prior to locking
     if (old_if_flag)
@@ -115,7 +116,8 @@ static void idle_task(void *data __attribute__((unused)))
 
 void scheduler_init(void)
 {
-    scheduler.sync.preemption_level = 0;
+    atomic_write(&scheduler.sync.preemption_level, 0);
+
     idle_thread = thread_spawn(&kernel_process, idle_task, NULL, THREAD_KERNEL);
     // use the largest PID possible to avoid any conflict later on
     idle_thread->tid = (pid_t)-1;
