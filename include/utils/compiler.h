@@ -50,4 +50,15 @@
 #define typeof __typeof__
 #endif
 
+/** Check whether an expression's result's size is that of a native word. */
+#define is_native_word(_x) \
+    (sizeof(_x) == 1 || sizeof(_x) == 2 || sizeof(_x) == 4)
+
+/** Check whether 2 expresions evaluate to the same type.
+ *  Note that 'unsigned int' and 'int' return false in this case.
+ */
+#define same_type(_a, _b) __builtin_types_compatible_p(typeof(_a), typeof(_b))
+
+#define same_size(_a, _b) (sizeof(_a) == sizeof(_b))
+
 #endif /* UTILS_COMPILER_H */
