@@ -33,6 +33,7 @@ KERNEL_SRCS := 	\
 	misc/waitqueue.c \
 	misc/worker.c \
 	misc/semaphore.c \
+	misc/uacpi.c \
 	memory/pmm.c \
 	memory/vmm.c \
 	net/net.c \
@@ -46,7 +47,6 @@ KERNEL_SRCS := 	\
 	net/route.c \
 	memory/kmalloc.c \
 	devices/driver.c \
-	devices/uacpi.c \
 	devices/acpi.c \
 	devices/pci.c \
 	devices/ethernet.c \
