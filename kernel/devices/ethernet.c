@@ -121,7 +121,7 @@ static void __ethernet_device_receive_packet(void *cookie)
     error_t err;
 
     /* Reset the queue so that we can receive new packets while processing */
-    no_scheduler_scope () {
+    no_preemption_scope () {
         INIT_QUEUE(netdev->rx_queue);
     }
 
@@ -137,7 +137,7 @@ static void __ethernet_device_receive_packet(void *cookie)
 void ethernet_device_receive_packet(struct ethernet_device *netdev,
                                     struct packet *packet)
 {
-    no_scheduler_scope () {
+    no_preemption_scope () {
         queue_enqueue(&netdev->rx_queue, &packet->rx_this);
         if (!worker_running(netdev->worker))
             worker_start(netdev->worker, __ethernet_device_receive_packet,

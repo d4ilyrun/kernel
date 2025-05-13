@@ -50,7 +50,7 @@ void worker_release(struct worker *worker)
     }
 
     /** TODO: Find a cleaner way to kill a thread that wasn't alive before */
-    no_scheduler_scope() {
+    no_preemption_scope () {
         sched_new_thread(worker->thread);
         worker->thread->state = SCHED_KILLED;
     }

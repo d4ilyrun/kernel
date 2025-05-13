@@ -77,26 +77,26 @@ static void schedule_locked(bool preempt, bool reschedule)
 
 void schedule(void)
 {
-    const bool old_if = scheduler_lock();
+    const bool old_if = scheduler_preempt_disable();
     schedule_locked(false, true);
-    scheduler_unlock(old_if);
+    scheduler_preempt_enable(old_if);
 }
 
 void schedule_preempt(void)
 {
-    const bool old_if = scheduler_lock();
+    const bool old_if = scheduler_preempt_disable();
     schedule_locked(true, true);
-    scheduler_unlock(old_if);
+    scheduler_preempt_enable(old_if);
 }
 
-bool scheduler_lock(void)
+bool scheduler_preempt_disable(void)
 {
     bool if_flag = interrupts_test_and_disable();
     atomic_inc(&scheduler.sync.preemption_level);
     return if_flag;
 }
 
-void scheduler_unlock(bool old_if_flag)
+void scheduler_preempt_enable(bool old_if_flag)
 {
     if (atomic_read(&scheduler.sync.preemption_level))
         atomic_dec(&scheduler.sync.preemption_level);
@@ -136,7 +136,7 @@ void sched_new_thread(thread_t *thread)
 
 void sched_block_thread(struct thread *thread)
 {
-    const bool old_if = scheduler_lock();
+    const bool old_if = scheduler_preempt_disable();
 
     if (thread->state != SCHED_RUNNING)
         goto block_thread_exit;
@@ -146,12 +146,12 @@ void sched_block_thread(struct thread *thread)
         schedule_locked(true, true);
 
 block_thread_exit:
-    scheduler_unlock(old_if);
+    scheduler_preempt_enable(old_if);
 }
 
 void sched_unblock_thread(thread_t *thread)
 {
-    const bool old_if = scheduler_lock();
+    const bool old_if = scheduler_preempt_disable();
 
     // Avoid resurecting a thread that had been killed in the meantime
     if (thread->state == SCHED_WAITING)
@@ -163,5 +163,5 @@ void sched_unblock_thread(thread_t *thread)
     if (current == idle_thread)
         schedule_locked(true, true);
 
-    scheduler_unlock(old_if);
+    scheduler_preempt_enable(old_if);
 }

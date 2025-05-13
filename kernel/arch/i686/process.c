@@ -67,7 +67,7 @@ static void arch_thread_entrypoint(thread_entry_t entrypoint, void *data)
     u32 *ustack = NULL;
 
     /* scheduler was locked by the previous thread before starting this one */
-    scheduler_unlock(true);
+    scheduler_preempt_enable(true);
 
     if (thread_is_initial(current)) {
         if (!vmm_init(current->process->vmm, USER_MEMORY_START,

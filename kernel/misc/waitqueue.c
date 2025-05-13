@@ -22,7 +22,7 @@ void waitqueue_enqueue_locked(struct waitqueue *queue, struct thread *thread)
      * it has been enqueued, the thread will never be rescheduled again and
      * it will be forever lost.
      */
-    no_scheduler_scope () {
+    no_preemption_scope () {
         thread->state = SCHED_WAITING;
         queue_enqueue(&queue->queue, &thread->this);
         /* Release the lock held by the caller BEFORE rescheduling */
@@ -68,7 +68,7 @@ struct thread *waitqueue_dequeue(struct waitqueue *queue)
 
 size_t waitqueue_dequeue_all(struct waitqueue *queue)
 {
-    const bool old_if = scheduler_lock();
+    const bool old_if = scheduler_preempt_disable();
     struct thread *thread = NULL;
     size_t count = 0;
     node_t *node;
@@ -82,7 +82,7 @@ size_t waitqueue_dequeue_all(struct waitqueue *queue)
         }
     }
 
-    scheduler_unlock(old_if);
+    scheduler_preempt_enable(old_if);
 
     return count;
 }

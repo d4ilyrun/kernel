@@ -72,15 +72,15 @@ void schedule(void);
 /** Forcibly reschedule the current thread */
 void schedule_preempt(void);
 
-/** Lock the different interna synchronization mechanisms
+/** Prevent the current thread from being pree-empted by the scheduler.
  *  @return Wether interrupts were previously enabled
  */
-bool scheduler_lock(void);
+bool scheduler_preempt_disable(void);
 
-/** Release the different locks and synchorinzation mechanisms
+/** Re-allow the current thread to be pre-empted.
  *  @param old_if_flag The state of the interrputs prior to locking
  */
-void scheduler_unlock(bool old_if_flag);
+void scheduler_preempt_enable(bool old_if_flag);
 
 /** Add a new thread to be scheduled.
  *  When adding a new thread, its state will be set to @ref SCHED_RUNNING
@@ -122,23 +122,23 @@ typedef struct {
 static inline sched_scope_t sched_scope_constructor(void)
 {
     return (sched_scope_t){
-        .old_if = scheduler_lock(),
+        .old_if = scheduler_preempt_disable(),
         .done = false,
     };
 }
 
 static inline void sched_scope_destructor(sched_scope_t *scope)
 {
-    scheduler_unlock(scope->old_if);
+    scheduler_preempt_enable(scope->old_if);
 }
 
-/** Define a scope during which the scheduler is inactive.
+/** Define a scope during which the current thread should never be pre-empted.
  *
  *  WARNING: As this macro uses a for loop to function, any 'break' directive
  *  placed inside it will break out of the guarded scope instead of that of its
  *  containing loop.
  */
-#define no_scheduler_scope()                                   \
+#define no_preemption_scope()                                  \
     for (sched_scope_t scope CLEANUP(sched_scope_destructor) = \
              sched_scope_constructor();                        \
          !scope.done; scope.done = true)

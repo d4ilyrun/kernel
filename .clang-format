@@ -50,4 +50,4 @@ ForEachMacros:
   - FOREACH_MULTIBOOT_TAG
   - INFINITE_LOOP
   - locked_scope
-  - no_scheduler_scope
+  - no_preemption_scope
