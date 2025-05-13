@@ -24,3 +24,10 @@
 #define FROM_US(_s) (1000 * MS((_s)))
 #define FROM_NS(_s) (1000 * US((_s)))
 /** @} */
+
+/** 1 kilobyte */
+#define KB 0x400
+/** 1 Megabyte */
+#define MB 0x100000
+/** 1 Gigabyte */
+#define GB 0x40000000

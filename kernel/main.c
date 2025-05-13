@@ -109,6 +109,9 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     tty_init();
 
+    log(LOG_LEVEL_INFO, "kernel", "Starting");
+    log(LOG_LEVEL_INFO, "kernel", "Size: %d bytes", KERNEL_CODE_END - KERNEL_CODE_START);
+
     arch_setup();
 
     // IRQs are setup, we can safely enable interrupts
