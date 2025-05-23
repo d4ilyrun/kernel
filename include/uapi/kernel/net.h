@@ -3,7 +3,7 @@
 
 #include <uapi/kernel/net/ip.h>
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <stddef.h>
 
 /* TODO: uapi/types.h */
