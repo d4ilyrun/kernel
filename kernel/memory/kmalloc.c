@@ -240,6 +240,8 @@ void *kmalloc_dma(size_t size)
     paddr_t physical;
     void *ptr;
 
+    size = align_up(size, PAGE_SIZE);
+
     physical = pmm_allocate_pages(size);
     if (physical == PMM_INVALID_PAGEFRAME)
         return NULL;
@@ -254,5 +256,10 @@ void *kmalloc_dma(size_t size)
 
 void kfree_dma(void *dma_ptr)
 {
+    if (!PAGE_ALIGNED(dma_ptr)) {
+        log_err("kfree_dma: address is not the start of a page: %p", dma_ptr);
+        return;
+    }
+
     vm_free(&kernel_address_space, dma_ptr);
 }
