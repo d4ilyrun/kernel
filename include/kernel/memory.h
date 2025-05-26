@@ -88,7 +88,7 @@ static_assert(is_aligned(KERNEL_STACK_SIZE, PAGE_SIZE));
 #ifdef __ASSEMBLER__
 
 #define KERNEL_HIGHER_HALF_PHYSICAL(_virtual) \
-    ((_virtual)-KERNEL_HIGHER_HALF_OFFSET)
+    ((_virtual) - KERNEL_HIGHER_HALF_OFFSET)
 #define KERNEL_HIGHER_HALF_VIRTUAL(_physical) \
     ((_physical) + KERNEL_HIGHER_HALF_OFFSET)
 
@@ -97,7 +97,7 @@ static_assert(is_aligned(KERNEL_STACK_SIZE, PAGE_SIZE));
 /** Compute the physical equivalent of a higher half relocated virtual address
  */
 #define KERNEL_HIGHER_HALF_PHYSICAL(_virtual) \
-    ((u32)(_virtual)-KERNEL_HIGHER_HALF_OFFSET)
+    ((u32)(_virtual) - KERNEL_HIGHER_HALF_OFFSET)
 /** Compute the higher half virtual equivalent of a physical address */
 #define KERNEL_HIGHER_HALF_VIRTUAL(_physical) \
     ((u32)(_physical) + KERNEL_HIGHER_HALF_OFFSET)
@@ -113,7 +113,7 @@ static_assert(is_aligned(KERNEL_STACK_SIZE, PAGE_SIZE));
  * @note this address is defined inside the kernel's linker scrpit.
  */
 extern u32 _kernel_code_start;
-#define KERNEL_CODE_START ((u32)&_kernel_code_start)
+#define KERNEL_CODE_START ((u32) & _kernel_code_start)
 
 /**
  * @brief Address of the byte located just after the end of the kernel's code
@@ -124,7 +124,7 @@ extern u32 _kernel_code_start;
  * @note this address is defined inside the kernel's linker scrpit.
  */
 extern u32 _kernel_code_end;
-#define KERNEL_CODE_END ((u32)&_kernel_code_end)
+#define KERNEL_CODE_END ((u32) & _kernel_code_end)
 
 #endif /* __ASSEMBLER__ */
 
