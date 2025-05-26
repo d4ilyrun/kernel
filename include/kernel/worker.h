@@ -59,11 +59,11 @@ struct worker {
 };
 
 /** Initialize a worker */
-#define INIT_WORKER(_worker)                      \
-    _worker = ((struct worker){                   \
-        .queue = WAITQUEUE_INIT((_worker).queue), \
-        .done = true,                             \
-        .thread = NULL,                           \
+#define INIT_WORKER(_worker)                        \
+    _worker = ((struct worker){                     \
+        .queue = __WAITQUEUE_INIT((_worker).queue), \
+        .done = true,                               \
+        .thread = NULL,                             \
     })
 
 /** Declare and initialize a worker */
