@@ -20,9 +20,14 @@ typedef struct spinlock {
 } spinlock_t;
 
 /** Default init value (unlocked) */
-#define SPINLOCK_INIT ((spinlock_t){.locked = false})
+#define __SPINLOCK_INIT \
+    {                   \
+        .locked = false \
+    }
+#define SPINLOCK_INIT ((spinlock_t)__SPINLOCK_INIT)
 
 /** Initialize a spinlock */
+#define __INIT_SPINLOCK(_lock) _lock = __SPINLOCK_INIT
 #define INIT_SPINLOCK(_lock) _lock = SPINLOCK_INIT
 
 /** Declare a spinlock and initialize it */

@@ -20,11 +20,11 @@ struct semaphore {
 typedef struct semaphore semaphore_t;
 
 /** Initialize a semaphore */
-#define INIT_SEMAPHORE(_name, _count)                 \
-    _name = ((struct semaphore){                      \
-        .count = (_count),                            \
-        INIT_SPINLOCK(.lock),                         \
-        .waitqueue = WAITQUEUE_INIT(_name.waitqueue), \
+#define INIT_SEMAPHORE(_name, _count)                   \
+    _name = ((struct semaphore){                        \
+        .count = (_count),                              \
+        __INIT_SPINLOCK(.lock),                         \
+        .waitqueue = __WAITQUEUE_INIT(_name.waitqueue), \
     })
 
 /** Declare and initialize a semaphore */

@@ -30,7 +30,7 @@ struct thread kernel_process_initial_thread = {
 
 struct process kernel_process = {
     .name = "kstartup",
-    .threads = LLIST_INIT(&kernel_process_initial_thread.proc_this),
+    .threads = __LLIST_INIT(&kernel_process_initial_thread.proc_this),
     .refcount = 1, /* static initial thread */
     .pid = PROCESS_KERNEL_PID,
 };

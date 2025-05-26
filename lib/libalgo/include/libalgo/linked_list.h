@@ -44,10 +44,17 @@ typedef struct linked_list_head {
 } llist_t;
 
 /** Linked list head default init value (one entry) */
-#define LLIST_INIT(_head) ((llist_t){.head = {_head, _head}})
+#define __LLIST_INIT(_head) \
+    {                       \
+        {                   \
+            _head, _head    \
+        }                   \
+    }
+#define LLIST_INIT(_list) ((llist_t)__LLIST_INIT(&_list.head))
 
 /** Initialize an empty linked list head */
-#define INIT_LLIST(_name) _name = LLIST_INIT(&_name.head)
+#define __INIT_LLIST(_name) _name = __LLIST_INIT(_name)
+#define INIT_LLIST(_name) _name = LLIST_INIT(_name)
 
 /** Declare empty linked list head */
 #define DECLARE_LLIST(_name) llist_t INIT_LLIST(_name)
