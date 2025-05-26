@@ -59,7 +59,8 @@ extern void arch_thread_switch(thread_context_t *);
  *
  * @return Whether we succeded or not
  */
-extern bool arch_thread_init(thread_t *, thread_entry_t, void *data, void *esp);
+extern error_t
+arch_thread_init(thread_t *, thread_entry_t, void *data, void *esp);
 
 extern void arch_process_free(struct process *);
 
@@ -210,21 +211,23 @@ thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
 {
     thread_t *thread;
     void *kstack = NULL;
+    error_t err;
 
     /* Userland processes cannot spawn kernel threads */
     if (flags & THREAD_KERNEL && process != &kernel_process)
-        return NULL;
+        return PTR_ERR(E_INVAL);
 
     thread = kcalloc(1, sizeof(*thread), KMALLOC_KERNEL);
     if (thread == NULL) {
         log_err("Failed to allocate new thread");
-        return NULL;
+        return PTR_ERR(E_NOMEM);
     }
 
     kstack = vm_alloc(&kernel_address_space, KERNEL_STACK_SIZE,
                       VM_KERNEL_RW | VM_CLEAR);
     if (kstack == NULL) {
         log_err("Failed to allocate new kernel stack");
+        err = E_NOMEM;
         goto thread_free;
     }
 
@@ -237,8 +240,9 @@ thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
     else
         thread->tid = g_highest_pid++;
 
-    if (!arch_thread_init(thread, entrypoint, data, esp)) {
-        log_err("Failed to initialize new thread");
+    err = arch_thread_init(thread, entrypoint, data, esp);
+    if (err) {
+        log_err("Failed to initialize new thread: %s", err_to_str(err));
         goto kstack_free;
     }
 
@@ -251,7 +255,7 @@ kstack_free:
     vm_free(&kernel_address_space, kstack);
 thread_free:
     kfree(thread);
-    return NULL;
+    return PTR_ERR(err);
 }
 
 static void thread_free(thread_t *thread)

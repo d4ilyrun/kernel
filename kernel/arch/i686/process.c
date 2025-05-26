@@ -99,8 +99,8 @@ error_exit:
     thread_kill(current);
 }
 
-bool arch_thread_init(thread_t *thread, thread_entry_t entrypoint, void *data,
-                      void *esp)
+error_t arch_thread_init(thread_t *thread, thread_entry_t entrypoint,
+                         void *data, void *esp)
 {
     u32 *kstack = thread_get_kernel_stack_top(thread);
 
@@ -129,7 +129,7 @@ bool arch_thread_init(thread_t *thread, thread_entry_t entrypoint, void *data,
 
 #undef KSTACK
 
-    return true;
+    return E_SUCCESS;
 }
 
 void arch_thread_free(thread_t *thread)
