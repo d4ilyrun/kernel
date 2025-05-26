@@ -19,9 +19,11 @@
 typedef llist_t queue_t;
 
 /** Default value for queue (empty) */
+#define __QUEUE_INIT __LLIST_INIT
 #define QUEUE_INIT LLIST_INIT
 
 /** Initialize an empty queue */
+#define __INIT_QUEUE __INIT_LLIST
 #define INIT_QUEUE INIT_LLIST
 
 /** Declare an empty queue */

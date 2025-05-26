@@ -42,13 +42,14 @@ struct waitqueue {
 };
 
 /** Default init value */
-#define WAITQUEUE_INIT(_queue)                     \
-    ((struct waitqueue){                           \
-        INIT_SPINLOCK(.lock),                      \
-        .queue = QUEUE_INIT(&(_queue).queue.head), \
-    })
+#define __WAITQUEUE_INIT(_queue)                                             \
+    {                                                                        \
+        __INIT_SPINLOCK(.lock), .queue = __QUEUE_INIT(&(_queue).queue.head), \
+    }
+#define WAITQUEUE_INIT(_queue) ((struct waitqueue)__WAITQUEUE_INIT(_queue))
 
 /** Initialize a waitqueue */
+#define __INIT_WAITQUEUE(_queue) _queue = __WAITQUEUE_INIT(_queue)
 #define INIT_WAITQUEUE(_queue) _queue = WAITQUEUE_INIT(_queue)
 
 /** Declare and initialize a waitqueue */
