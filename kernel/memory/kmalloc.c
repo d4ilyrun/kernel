@@ -72,11 +72,11 @@ static inline size_t bucket_compute_size(size_t block_size)
 }
 
 /** Find a bucket containing with at least one free block of the given size */
-static bucket_t *bucket_find(llist_t buckets, size_t size, const u16 flags)
+static bucket_t *bucket_find(llist_t *buckets, size_t size, const u16 flags)
 {
     FOREACH_LLIST (node, buckets) {
         bucket_t *bucket = to_bucket(node);
-        if (bucket->block_size == size && bucket->free != NULL &&
+        if (bucket->block_size == size && !llist_is_empty(&bucket->free) &&
             bucket->flags == flags)
             return bucket;
     }
@@ -109,14 +109,16 @@ static struct bucket_meta *bucket_create(struct address_space *as,
     bucket->block_count = 0;
     bucket->flags = flags;
 
+    INIT_LLIST(bucket->free);
+
     // Generate the intrusive freelist
     node_t *node = (node_t *)bucket->data;
     size_t nb_blocks = (bucket_size - sizeof(bucket_t)) / block_size;
-    for (size_t i = 0; i < nb_blocks - 1; ++i) {
+    for (size_t i = 0; i < nb_blocks; ++i) {
         *BLOCK_FREE_MAGIC(node) = KMALLOC_FREE_MAGIC;
-        node = node->next = (void *)node + block_size;
+        llist_add(&bucket->free, node);
+        node = (void *)node + block_size;
     }
-    bucket->free = (llist_t)bucket->data;
 
     llist_add(buckets, &bucket->this);
 
@@ -124,8 +126,8 @@ static struct bucket_meta *bucket_create(struct address_space *as,
 }
 
 /** Free a block inside a bucket */
-static void bucket_free_block(struct address_space *as, bucket_t *bucket,
-                              void *block, llist_t *buckets)
+static void
+bucket_free_block(struct address_space *as, bucket_t *bucket, void *block)
 {
     // Check if block is already free or not
     uint32_t *const block_free_magic = BLOCK_FREE_MAGIC(block);
@@ -134,7 +136,7 @@ static void bucket_free_block(struct address_space *as, bucket_t *bucket,
 
     // If all blocks are free, unmap the bucket to avoid hording memory
     if (bucket->block_count == 1) {
-        llist_remove(buckets, &bucket->this);
+        llist_remove(&bucket->this);
         vm_free(as, bucket);
         return;
     }
@@ -166,7 +168,7 @@ void *kmalloc(size_t size, int flags)
     size = align_up(size, KMALLOC_ALIGNMENT);
     size = bit_next_pow32(size);
 
-    bucket_t *bucket = bucket_find(*buckets, size, flags);
+    bucket_t *bucket = bucket_find(buckets, size, flags);
     if (bucket == NULL)
         bucket = bucket_create(as, buckets, size, flags);
 
@@ -196,8 +198,7 @@ void kfree(void *ptr)
         return;
 
     as = IS_KERNEL_ADDRESS(ptr) ? &kernel_address_space : current->process->as;
-
-    bucket_free_block(as, bucket_from_block(ptr), ptr, &as->kmalloc);
+    bucket_free_block(as, bucket_from_block(ptr), ptr);
 }
 
 void *krealloc(void *ptr, size_t size, int flags)

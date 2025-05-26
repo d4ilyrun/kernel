@@ -132,6 +132,8 @@ static tar_node_t *tar_create_node(const path_segment_t *segment, hdr_t *header)
         return PTR_ERR(E_NOMEM);
     }
 
+    INIT_TREE_NODE(new->this);
+
     size_t name_len = path_segment_length(segment);
     char *name = kmalloc(name_len + 1, KMALLOC_KERNEL);
     if (name == NULL) {
@@ -179,6 +181,8 @@ static tree_t tar_init_tree(u32 start, u32 end)
     tar_node_t *tar_root = kcalloc(1, sizeof(tar_node_t), KMALLOC_KERNEL);
     if (IS_ERR(tar_root))
         return (tree_t)tar_root;
+
+    INIT_TREE_NODE(tar_root->this);
 
     tar_root->header = kcalloc(1, sizeof(hdr_t), KMALLOC_KERNEL);
     if (tar_root->header == NULL) {

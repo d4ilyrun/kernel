@@ -19,7 +19,7 @@ tree_node_t *tree_remove(tree_node_t *node)
     if (node->parent == NULL)
         return node;
 
-    llist_remove(&node->parent->children, &node->this);
+    llist_remove(&node->this);
     node->parent = NULL;
 
     return node;
@@ -44,7 +44,7 @@ void tree_free(tree_t root, void (*free_function)(tree_node_t *))
 
     while (!queue_is_empty(&nodes)) {
         tree_node_t *node = tree_node(queue_dequeue(&nodes));
-        queue_enqueue_all(&nodes, node->children);
+        queue_enqueue_all(&nodes, &node->children);
         free_function(node);
     }
 }

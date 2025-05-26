@@ -52,7 +52,7 @@ struct device *device_find(const char *name)
 {
     struct device *dev;
 
-    FOREACH_LLIST (node, registered_devices) {
+    FOREACH_LLIST (node, &registered_devices) {
         dev = container_of(node, device_t, this);
         if (!strcmp(dev->name, name))
             return dev;
@@ -89,7 +89,7 @@ devtmpfs_vnode_lookup(vnode_t *node, const path_segment_t *child)
     if (node != root)
         return PTR_ERR(E_INVAL);
 
-    FOREACH_LLIST (node, registered_devices) {
+    FOREACH_LLIST (node, &registered_devices) {
         dev = container_of(node, device_t, this);
         if (path_segment_is(device_name(dev), child))
             break;

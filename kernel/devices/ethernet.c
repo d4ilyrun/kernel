@@ -94,7 +94,7 @@ static int __ethernet_device_match_mac(const void *dev_node, const void *data)
 
 struct ethernet_device *ethernet_device_find_by_name(const char *name)
 {
-    node_t *dev_node = llist_find_first(ethernet_registered_devices, name,
+    node_t *dev_node = llist_find_first(&ethernet_registered_devices, name,
                                         __ethernet_device_match_name);
     if (!dev_node)
         return NULL;
@@ -104,7 +104,7 @@ struct ethernet_device *ethernet_device_find_by_name(const char *name)
 
 struct ethernet_device *ethernet_device_find_by_mac(mac_address_t mac)
 {
-    node_t *dev_node = llist_find_first(ethernet_registered_devices, mac,
+    node_t *dev_node = llist_find_first(&ethernet_registered_devices, mac,
                                         __ethernet_device_match_mac);
     if (!dev_node)
         return NULL;
@@ -115,7 +115,7 @@ struct ethernet_device *ethernet_device_find_by_mac(mac_address_t mac)
 static void __ethernet_device_receive_packet(void *cookie)
 {
     struct ethernet_device *netdev = cookie;
-    struct queue queue = netdev->rx_queue;
+    queue_t queue = netdev->rx_queue;
     struct packet *packet;
     node_t *node;
     error_t err;

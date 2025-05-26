@@ -37,22 +37,22 @@
 
 /** Waiting Queue */
 struct waitqueue {
-    spinlock_t lock;    /*<! Synchronization lock */
-    struct queue queue; /*<! The queue of waiting threads */
+    spinlock_t lock; /*<! Synchronization lock */
+    queue_t queue;   /*<! The queue of waiting threads */
 };
 
 /** Default init value */
-#define WAITQUEUE_INIT        \
-    ((struct waitqueue){      \
-        INIT_SPINLOCK(.lock), \
-        INIT_QUEUE(.queue),   \
+#define WAITQUEUE_INIT(_queue)                     \
+    ((struct waitqueue){                           \
+        INIT_SPINLOCK(.lock),                      \
+        .queue = QUEUE_INIT(&(_queue).queue.head), \
     })
 
 /** Initialize a waitqueue */
-#define INIT_WAITQUEUE(_queue) _queue = WAITQUEUE_INIT
+#define INIT_WAITQUEUE(_queue) _queue = WAITQUEUE_INIT(_queue)
 
 /** Declare and initialize a waitqueue */
-#define DECLARE_WAITQUEUE(_queue) struct waitqueue _queue = WAITQUEUE_INIT
+#define DECLARE_WAITQUEUE(_queue) struct waitqueue INIT_WAITQUEUE(_queue)
 
 /** Check whether anyone is waiting for this event to finish */
 bool waitqueue_is_empty(struct waitqueue *);

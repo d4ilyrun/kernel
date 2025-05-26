@@ -117,6 +117,7 @@ static void idle_task(void *data __attribute__((unused)))
 void scheduler_init(void)
 {
     atomic_write(&scheduler.sync.preemption_level, 0);
+    INIT_QUEUE(scheduler.ready);
 
     idle_thread = thread_spawn(&kernel_process, idle_task, NULL, NULL,
                                THREAD_KERNEL);

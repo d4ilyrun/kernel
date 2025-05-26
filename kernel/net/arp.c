@@ -36,7 +36,7 @@ static int __arp_match_ip(const void *entry_ptr, const void *ip)
 
 static struct arp_entry *arp_get_entry(__be ipv4_t ip)
 {
-    node_t *entry_node = llist_find_first(arp_table, (void *)ip,
+    node_t *entry_node = llist_find_first(&arp_table, (void *)ip,
                                           __arp_match_ip);
 
     if (entry_node == NULL)

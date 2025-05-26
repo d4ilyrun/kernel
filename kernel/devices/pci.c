@@ -121,7 +121,7 @@ static struct pci_bus *pci_bus_register_with_parent(struct pci_bus *parent)
 
     /* highest_bus_number + 1 */
     if (parent)
-        number = to_pci_bus(llist_tail(pci_registered_buses))->number + 1;
+        number = to_pci_bus(llist_last(&pci_registered_buses))->number + 1;
 
     bus->number = number;
     bus->parent = parent;
@@ -146,7 +146,7 @@ static struct pci_bus *pci_bridge_register(struct pci_device *device)
     if (IS_ERR(bridge))
         return bridge;
 
-    subordinate = to_pci_bus(llist_tail(&bridge->this));
+    subordinate = to_pci_bus(llist_last(&pci_registered_buses));
     pci_device_write_header(device, BRIDGE,
                             PCI_HEADER_BRIDGE_SUBORDINATE(subordinate->number) |
                                 PCI_HEADER_BRIDGE_SECONDARY(bridge->number) |

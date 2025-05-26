@@ -61,7 +61,7 @@ struct ethernet_device {
     LLIST_NODE(this); /** Node inside the linked list of registered devices */
 
     struct worker *worker;
-    struct queue rx_queue;
+    queue_t rx_queue;
 };
 
 /** Boundary onto which the ethernet device's private data must be aligned */

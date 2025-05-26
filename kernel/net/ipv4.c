@@ -103,7 +103,7 @@ error_t ipv4_receive_packet(struct packet *packet)
      * - If connected to the source address (when connected)
      */
     spinlock_acquire(&af_inet_raw_sockets_lock);
-    FOREACH_LLIST (node, af_inet_raw_sockets) {
+    FOREACH_LLIST (node, &af_inet_raw_sockets) {
         isock = container_of(node, struct af_inet_sock, this);
         socket_lock(isock->socket);
         if (isock->proto != iphdr->protocol ||

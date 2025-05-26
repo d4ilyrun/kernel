@@ -94,13 +94,13 @@ static DEFINE_INTERRUPT_HANDLER(irq_timer)
     if (!scheduler_initialized)
         return E_INVAL;
 
-    const node_t *next_wakeup = llist_head(sleeping_tasks);
+    const node_t *next_wakeup = llist_head(&sleeping_tasks);
     while (next_wakeup &&
            container_of(next_wakeup, thread_t, this)->sleep.wakeup <=
                timer_ticks_counter) {
         next_wakeup = llist_pop(&sleeping_tasks);
         sched_unblock_thread(container_of(next_wakeup, thread_t, this));
-        next_wakeup = llist_head(sleeping_tasks);
+        next_wakeup = llist_head(&sleeping_tasks);
     }
 
     if (current->running.preempt <= timer_ticks_counter)

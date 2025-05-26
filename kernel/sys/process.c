@@ -30,7 +30,7 @@ struct thread kernel_process_initial_thread = {
 
 struct process kernel_process = {
     .name = "kstartup",
-    .threads = &kernel_process_initial_thread.proc_this,
+    .threads = LLIST_INIT(&kernel_process_initial_thread.proc_this),
     .refcount = 1, /* static initial thread */
     .pid = PROCESS_KERNEL_PID,
 };
@@ -164,7 +164,7 @@ void process_kill(struct process *process)
     // Avoid race condition where the current thread would be rescheduled after
     // being marked killable, and before having marked the rest of the threads
     no_preemption_scope () {
-        FOREACH_LLIST (node, process->threads) {
+        FOREACH_LLIST (node, &process->threads) {
             struct thread *thread = container_of(node, struct thread,
                                                  proc_this);
             thread->state = SCHED_KILLED;
@@ -251,7 +251,7 @@ thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
     thread_set_mmu(thread, process->as->mmu);
 
     /* The initial thread's TID is equal to its containing process's PID */
-    if (llist_is_empty(process->threads))
+    if (llist_is_empty(&process->threads))
         thread->tid = process->pid;
     else
         thread->tid = process_next_pid();
@@ -284,7 +284,7 @@ static void thread_free(thread_t *thread)
 
     no_preemption_scope () {
 
-        llist_remove(&process->threads, &thread->proc_this);
+        llist_remove(&thread->proc_this);
 
         arch_thread_free(thread);
 

@@ -77,7 +77,7 @@ static error_t icmp_handle_echo_reply(struct packet *packet)
         return E_INVAL;
 
     locked_scope (&af_inet_icmp_sockets_lock) {
-        FOREACH_LLIST (node, af_inet_icmp_sockets) {
+        FOREACH_LLIST (node, &af_inet_icmp_sockets) {
             isock = to_isock(node);
             if (isock->identifier > icmphdr->identifier) {
                 packet_free(packet);
