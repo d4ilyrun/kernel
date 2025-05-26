@@ -37,7 +37,7 @@ static const struct execfmt *execfmt_find_matching(void *data)
 {
     node_t *match = NULL;
 
-    match = llist_find_first(registered_execfmt, data, __execfmt_match);
+    match = llist_find_first(&registered_execfmt, data, __execfmt_match);
     if (match == NULL)
         return PTR_ERR(E_NOENT);
 

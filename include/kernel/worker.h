@@ -58,19 +58,16 @@ struct worker {
     void *data;              /// Passed as an argument to @ref function
 };
 
-/** Default init value */
-#define WORKER_INIT             \
-    ((struct worker){           \
-        INIT_WAITQUEUE(.queue), \
-        .done = true,           \
-        .thread = NULL,         \
+/** Initialize a worker */
+#define INIT_WORKER(_worker)                      \
+    _worker = ((struct worker){                   \
+        .queue = WAITQUEUE_INIT((_worker).queue), \
+        .done = true,                             \
+        .thread = NULL,                           \
     })
 
-/** Initialize a worker */
-#define INIT_WORKER(_worker) _worker = WORKER_INIT
-
 /** Declare and initialize a worker */
-#define DECLARE_WORKER(_worker) struct worker _worker = WORKER_INIT
+#define DECLARE_WORKER(_worker) struct worker INIT_WORKER(_worker)
 
 /** Inititalize a worker thread */
 error_t worker_init(struct worker *);

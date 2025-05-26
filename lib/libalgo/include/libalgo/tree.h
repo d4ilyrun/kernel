@@ -16,6 +16,12 @@
 #include <libalgo/linked_list.h>
 #include <utils/compiler.h>
 
+/** Initialize an empty tree node */
+#define INIT_TREE_NODE(_node)                       \
+    _node = ((struct tree_node){                    \
+        .children = LLIST_INIT((_node).children), \
+    })
+
 /** @struct tree_node
  *  @brief A single node inside a tree
  */
@@ -32,7 +38,7 @@ typedef tree_node_t *tree_t;
  *  @param _iter The name of the iterator used inside the loop
  *  @param _node The tree node
  */
-#define FOREACH_CHILDREN(_iter, _node) FOREACH_LLIST (_iter, (_node)->children)
+#define FOREACH_CHILDREN(_iter, _node) FOREACH_LLIST (_iter, &(_node)->children)
 
 /** Convert a linked list node to its containing tree node
  *

@@ -29,7 +29,7 @@ error_t socket_init(struct socket *socket, int domain, int type, int proto)
     struct socket_domain *socket_domain;
     node_t *node;
 
-    node = llist_find_first(socket_domains, &to_find.this,
+    node = llist_find_first(&socket_domains, &to_find.this,
                             socket_domain_compare);
     if (!node)
         return E_AF_NOT_SUPPORTED;

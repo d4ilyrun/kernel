@@ -6,10 +6,6 @@
  * @defgroup libalgo_queue Queue
  * @ingroup libalgo
  *
- * # Queue
- *
- * Our queue is just a wrapper around a @ref llist_t
- *
  * @{
  */
 
@@ -17,68 +13,51 @@
 
 #include "linked_list.h"
 
-/** @struct queue
- *  @brief A single queue instance
+/** A queue instance.
+ *  Our queue is just a wrapper around a @ref libalgo_linked_list
  */
-typedef struct queue {
-    node_t *head; ///< The head of the queue, NULL if empty
-    node_t *tail; ///< The tail of the queue, NULL if empty
-} queue_t;
+typedef llist_t queue_t;
 
 /** Default value for queue (empty) */
-#define QUEUE_INIT ((queue_t){NULL, NULL})
+#define QUEUE_INIT LLIST_INIT
 
 /** Initialize an empty queue */
-#define INIT_QUEUE(_name) _name = QUEUE_INIT
+#define INIT_QUEUE INIT_LLIST
 
 /** Declare an empty queue */
-#define DECLARE_QUEUE(_name) queue_t _name = QUEUE_INIT
+#define DECLARE_QUEUE DECLARE_LLIST
 
 /** @return Whether the queue is empty or not */
-static ALWAYS_INLINE bool queue_is_empty(const queue_t *queue)
+static inline bool queue_is_empty(const queue_t *queue)
 {
-    return queue->head == NULL;
+    return llist_is_empty(queue);
 }
 
 /** Insert the new element as the tail of the queue */
 static inline void queue_enqueue(queue_t *queue, node_t *new)
 {
-    new->next = NULL;
-
-    if (queue_is_empty(queue))
-        queue->head = new;
-    else
-        __llist_add(&queue->tail->next, queue->tail, new);
-
-    queue->tail = new;
+    llist_add_after(llist_last(queue), new);
 }
 
-/** Remove the head from the queue and return it */
+/** Pop the head from the queue
+ *  @return The popped head, or NULL if empty
+ */
 static inline node_t *queue_dequeue(queue_t *queue)
 {
-    node_t *head = llist_pop(&queue->head);
-    if (queue_is_empty(queue))
-        queue->tail = NULL;
-    return head;
+    return llist_pop(queue);
 }
 
-/** Return the head of the queue, but do not remove it */
-static ALWAYS_INLINE const node_t *queue_peek(const queue_t *queue)
+/** @return the current head of the queue */
+static inline const node_t *queue_peek(const queue_t *queue)
 {
-    return queue->head;
+    return llist_first(queue);
 }
 
-static inline void queue_enqueue_all(queue_t *queue, llist_t elements)
+/* Enqueue a list of elements */
+static inline void queue_enqueue_all(queue_t *queue, llist_t *elements)
 {
-    if (llist_is_empty(elements))
-        return;
-
-    if (queue_is_empty(queue))
-        queue->head = elements;
-    else {
-        queue->tail->next = elements;
-        elements->prev = queue->tail;
-    }
-
-    queue->tail = (node_t *)llist_tail(elements);
+    llist_head(queue)->prev = llist_last(elements);
+    llist_last(elements)->next = llist_head(queue);
+    llist_first(elements)->prev = llist_last(queue);
+    llist_last(queue)->next = llist_first(elements);
 }
