@@ -209,6 +209,7 @@ thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
                        void *data, void *esp, u32 flags)
 {
     thread_t *thread;
+    void *kstack = NULL;
 
     /* Userland processes cannot spawn kernel threads */
     if (flags & THREAD_KERNEL && process != &kernel_process)
@@ -220,8 +221,15 @@ thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
         return NULL;
     }
 
-    thread->flags = flags;
-    thread->process = process_get(process);
+    kstack = vm_alloc(&kernel_address_space, KERNEL_STACK_SIZE,
+                      VM_KERNEL_RW | VM_CLEAR);
+    if (kstack == NULL) {
+        log_err("Failed to allocate new kernel stack");
+        goto thread_free;
+    }
+
+    thread_set_kernel_stack(thread, kstack);
+    thread_set_mmu(thread, process->as->mmu);
 
     /* The initial thread's TID is equal to its containing process's PID */
     if (llist_is_empty(process->threads))
@@ -231,34 +239,42 @@ thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
 
     if (!arch_thread_init(thread, entrypoint, data, esp)) {
         log_err("Failed to initialize new thread");
-        kfree(thread);
-        return NULL;
+        goto kstack_free;
     }
 
+    thread->flags = flags;
+    thread->process = process_get(process);
+
     return thread;
+
+kstack_free:
+    vm_free(&kernel_address_space, kstack);
+thread_free:
+    kfree(thread);
+    return NULL;
 }
 
-MAYBE_UNUSED static void thread_free(thread_t *thread)
+static void thread_free(thread_t *thread)
 {
-    const bool interrupts = scheduler_preempt_disable();
     struct process *process = thread->process;
 
     log_info("terminating thread %d (%s)", thread->tid, process->name);
 
-    llist_remove(&process->threads, &thread->proc_this);
+    no_preemption_scope () {
 
-    // Actually free the thread.
-    arch_thread_free(thread);
-    kfree(thread);
+        llist_remove(&process->threads, &thread->proc_this);
 
-    /*
-     * Release reference this threads holds onto the process.
-     * This will also free the process if this is the process' last
-     * running thread.
-     */
-    process_put(process);
+        arch_thread_free(thread);
+        vm_free(&kernel_address_space, thread_get_kernel_stack(thread));
+        kfree(thread);
 
-    scheduler_preempt_enable(interrupts);
+        /*
+         * Release reference this threads holds onto the process.
+         * This will also free the process if this is the process' last
+         * running thread.
+         */
+        process_put(process);
+    }
 }
 
 bool thread_switch(thread_t *thread)

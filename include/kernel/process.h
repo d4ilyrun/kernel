@@ -171,6 +171,63 @@ static ALWAYS_INLINE bool thread_is_initial(thread_t *thread)
     return thread->tid == thread->process->pid;
 }
 
+/** Set the thread's current stack pointer */
+static inline void thread_set_stack_pointer(struct thread *thread, void *stack)
+{
+    arch_thread_set_stack_pointer(&thread->context, stack);
+}
+
+/** Get the thread's current stack pointer */
+static inline void *thread_get_stack_pointer(struct thread *thread)
+{
+    return arch_thread_get_stack_pointer(&thread->context);
+}
+
+/** Set the thread's kernel stack bottom address */
+static inline void thread_set_kernel_stack(struct thread *thread, void *stack)
+{
+    arch_thread_set_kernel_stack_top(&thread->context,
+                                     stack + KERNEL_STACK_SIZE);
+}
+
+/** Get the thread's kernel stack top address */
+static inline void *thread_get_kernel_stack_top(const struct thread *thread)
+{
+    return arch_thread_get_kernel_stack_top(&thread->context);
+}
+
+/** Get the thread's kernel stack bottom address */
+static inline void *thread_get_kernel_stack(const struct thread *thread)
+{
+    void *top = thread_get_kernel_stack_top(thread);
+    if (!top)
+        return NULL;
+
+    return top - KERNEL_STACK_SIZE;
+}
+
+/** Set the thread's user stack bottom address */
+static inline void thread_set_user_stack(struct thread *thread, void *stack)
+{
+    arch_thread_set_user_stack_top(&thread->context, stack + USER_STACK_SIZE);
+}
+
+/** Get the thread's user stack top address */
+static inline void *thread_get_user_stack_top(const struct thread *thread)
+{
+    return arch_thread_get_user_stack_top(&thread->context);
+}
+
+/** Get the thread's user stack bottom address */
+static inline void *thread_get_user_stack(const struct thread *thread)
+{
+    void *top = thread_get_user_stack_top(thread);
+    if (!top)
+        return NULL;
+
+    return top - USER_STACK_SIZE;
+}
+
 /** Process used when starting up the kernel.
  *
  * It is necesary to define it statically, since memory management functions are

@@ -55,6 +55,16 @@
 #define KERNEL_STACK_SIZE 0x4000U /*!< Size of the kernel's stack */
 #endif
 
+#ifndef __ASSEMBLER__
+
+#include <utils/compiler.h>
+#include <utils/math.h>
+
+/* We want to allocate stack using the VM API, which can only allocate pages */
+static_assert(is_aligned(KERNEL_STACK_SIZE, PAGE_SIZE));
+
+#endif
+
 /* Starting from #6, our kernel uses the higher-half design.
  *
  * This means that the kernel code's virtual address differs from its physical

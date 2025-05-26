@@ -25,14 +25,13 @@ arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data)
 {
     segment_selector ds = {.index = GDT_ENTRY_USER_DATA, .rpl = 3};
     segment_selector cs = {.index = GDT_ENTRY_USER_CODE, .rpl = 3};
-    u32 ustack_bottom = current->context.esp_user - KERNEL_STACK_SIZE;
 
     UNUSED(data);
 
     /* Reset user stack */
-    memset((void *)ustack_bottom, 0, KERNEL_STACK_SIZE);
+    memset(thread_get_user_stack(current), 0, KERNEL_STACK_SIZE);
     __arch_thread_jump_to_userland(entrypoint, cs, ds,
-                                   current->context.esp_user);
+                                   (vaddr_t)thread_get_user_stack_top(current));
 
     assert_not_reached();
 }
@@ -81,12 +80,14 @@ arch_thread_entrypoint(thread_entry_t entrypoint, void *data, void *esp)
         goto error_exit;
     }
 
+    thread_set_user_stack(current, ustack);
+
     /*
      * When kicking-off a forked thread the original thread's stack pointer
      * should have been specified during the thread's creation.
      */
     if (esp)
-        current->context.esp_user = (u32)esp;
+        thread_set_stack_pointer(current, esp);
 
     if (thread_is_kernel(current)) {
         entrypoint(data);
@@ -101,20 +102,13 @@ error_exit:
 bool arch_thread_init(thread_t *thread, thread_entry_t entrypoint, void *data,
                       void *esp)
 {
-    u32 *kstack = NULL;
-
-    // Allocate a kernel stack for the new thread
-    kstack = kcalloc(KERNEL_STACK_SIZE, 1, KMALLOC_KERNEL);
-    if (kstack == NULL) {
-        log_err("Failed to allocate new kernel stack");
-        return false;
-    }
+    u32 *kstack = thread_get_kernel_stack_top(thread);
 
     // Setup basic stack frame to be able to start the thread using 'ret'
     // 1. Return into 'arch_thread_entrypoint'
     // 2. From entrypoint, jump to the thread's entrypoint
 
-#define KSTACK(_i) kstack[KERNEL_STACK_SIZE / sizeof(u32) - (_i) - 1]
+#define KSTACK(_i) kstack[-(_i) - 1]
 
     // Stack frame for arch_thread_entrypoint
     KSTACK(0) = (u32)esp;        // arg3
@@ -131,9 +125,7 @@ bool arch_thread_init(thread_t *thread, thread_entry_t entrypoint, void *data,
 
     // Set new thread's stack pointer to the top of our manually created
     // context_switching stack
-    thread->context.esp = (u32)&KSTACK(8);
-    thread->context.esp0 = (u32)&KSTACK(0);
-    thread->context.cr3 = thread->process->as->mmu;
+    thread_set_stack_pointer(thread, &KSTACK(8));
 
 #undef KSTACK
 
@@ -142,7 +134,6 @@ bool arch_thread_init(thread_t *thread, thread_entry_t entrypoint, void *data,
 
 void arch_thread_free(thread_t *thread)
 {
-    kfree((void *)thread->context.esp0);
     kfree((void *)thread->context.esp_user);
 }
 

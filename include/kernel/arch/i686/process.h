@@ -41,4 +41,38 @@ typedef struct x86_thread {
 
 } thread_context_t;
 
+static inline void
+arch_thread_set_stack_pointer(thread_context_t *ctx, void *stack)
+{
+    ctx->esp = (u32)stack;
+}
+
+static inline void *arch_thread_get_stack_pointer(thread_context_t *ctx)
+{
+    return (void *)ctx->esp;
+}
+
+static inline void
+arch_thread_set_kernel_stack_top(thread_context_t *ctx, void *top)
+{
+    ctx->esp0 = (u32)top;
+}
+
+static inline void *
+arch_thread_get_kernel_stack_top(const thread_context_t *ctx)
+{
+    return (void *)ctx->esp0;
+}
+
+static inline void
+arch_thread_set_user_stack_top(thread_context_t *ctx, void *top)
+{
+    ctx->esp_user = (u32)top;
+}
+
+static inline void *arch_thread_get_user_stack_top(const thread_context_t *ctx)
+{
+    return (void *)ctx->esp_user;
+}
+
 #endif /* KERNEL_ARCH_I686_PROCESS_H */
