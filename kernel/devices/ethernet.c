@@ -63,6 +63,9 @@ error_t ethernet_device_register(struct ethernet_device *device)
         goto register_failed_free_worker;
     }
 
+    INIT_LLIST(interface->subnets);
+    INIT_QUEUE(device->rx_queue);
+
     device->interface = interface;
     device->worker = worker;
 
@@ -94,7 +97,7 @@ static int __ethernet_device_match_mac(const void *dev_node, const void *data)
 
 struct ethernet_device *ethernet_device_find_by_name(const char *name)
 {
-    node_t *dev_node = llist_find_first(ethernet_registered_devices, name,
+    node_t *dev_node = llist_find_first(&ethernet_registered_devices, name,
                                         __ethernet_device_match_name);
     if (!dev_node)
         return NULL;
@@ -104,7 +107,7 @@ struct ethernet_device *ethernet_device_find_by_name(const char *name)
 
 struct ethernet_device *ethernet_device_find_by_mac(mac_address_t mac)
 {
-    node_t *dev_node = llist_find_first(ethernet_registered_devices, mac,
+    node_t *dev_node = llist_find_first(&ethernet_registered_devices, mac,
                                         __ethernet_device_match_mac);
     if (!dev_node)
         return NULL;
@@ -115,13 +118,15 @@ struct ethernet_device *ethernet_device_find_by_mac(mac_address_t mac)
 static void __ethernet_device_receive_packet(void *cookie)
 {
     struct ethernet_device *netdev = cookie;
-    struct queue queue = netdev->rx_queue;
     struct packet *packet;
+    queue_t queue;
     node_t *node;
     error_t err;
 
     /* Reset the queue so that we can receive new packets while processing */
     no_preemption_scope () {
+        INIT_QUEUE(queue);
+        queue_enqueue_all(&queue, &netdev->rx_queue);
         INIT_QUEUE(netdev->rx_queue);
     }
 

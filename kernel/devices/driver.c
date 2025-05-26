@@ -67,7 +67,7 @@ static int __driver_is_match(const void *this, const void *data)
 
 driver_t *driver_find_match(device_t *dev)
 {
-    node_t *driver = llist_find_first(loaded_drivers, dev, __driver_is_match);
+    node_t *driver = llist_find_first(&loaded_drivers, dev, __driver_is_match);
     if (driver == NULL)
         return NULL;
 

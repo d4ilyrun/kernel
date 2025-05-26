@@ -30,10 +30,10 @@ struct socket {
     struct file *file;                   /*!< The socket's backing file */
     const struct socket_protocol *proto; /*!< Socket protocol type */
     enum socket_state state;             /*!< Socket connection state*/
-    spinlock_t lock;         /*!< Socket wide synchronisation lock */
-    void *data;              /*!< Domain-specific socket data */
-    struct queue rx_packets; /*!< Packets received */
-    spinlock_t rx_lock;      /*!< Synchronisation lock for rx_packets */
+    spinlock_t lock;    /*!< Socket wide synchronisation lock */
+    void *data;         /*!< Domain-specific socket data */
+    queue_t rx_packets; /*!< Packets received */
+    spinlock_t rx_lock; /*!< Synchronisation lock for rx_packets */
 };
 
 /** Check whether the socket is connection oriented (TCP, ...) */

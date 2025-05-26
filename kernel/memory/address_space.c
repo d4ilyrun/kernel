@@ -28,7 +28,7 @@ static_assert((int)VM_KERNEL == (int)PROT_KERNEL);
 struct address_space kernel_address_space = {
     .mmu = 0, // Initialized when enabling paging
     .vmm = &kernel_vmm,
-    .segments = NULL,
+    .segments = LLIST_INIT(kernel_address_space.segments),
 };
 
 /** Data used to match a vm_alloc request with the appropriate driver.
@@ -114,7 +114,7 @@ error_t address_space_clear(struct address_space *as)
     WARN_ON(as != current->process->as);
     WARN_ON(as == &kernel_address_space);
 
-    FOREACH_LLIST_SAFE(this, node, as->segments)
+    FOREACH_LLIST_SAFE(this, node, &as->segments)
     {
         segment = to_segment(this);
         for (size_t off = 0; off < segment->size; off += PAGE_SIZE) {
@@ -157,7 +157,7 @@ error_t address_space_copy_current(struct address_space *dst)
 {
     // The destination address space should be emptied before copying into it.
     // This is to avoid having 'zombie' segments left inaccessible after.
-    if (!llist_is_empty(dst->segments) || dst->kmalloc)
+    if (!llist_is_empty(&dst->segments) || !llist_is_empty(&dst->kmalloc))
         return E_BUSY;
 
     no_preemption_scope () {
@@ -261,7 +261,7 @@ void vm_free(struct address_space *as, void *addr)
         return;
     }
 
-    llist_remove(&as->segments, &segment->this);
+    llist_remove(&segment->this);
     segment->driver->vm_free(as, segment);
 }
 
@@ -277,7 +277,7 @@ static int vm_segment_contains(const void *this, const void *addr)
 
 struct vm_segment *vm_find(const struct address_space *as, void *addr)
 {
-    node_t *segment = llist_find_first(as->segments, addr, vm_segment_contains);
+    node_t *segment = llist_find_first(&as->segments, addr, vm_segment_contains);
 
     return segment ? to_segment(segment) : NULL;
 }
@@ -294,5 +294,6 @@ void vm_segment_insert(struct address_space *as, struct vm_segment *segment)
 
 void vm_segment_remove(struct address_space *as, struct vm_segment *segment)
 {
-    llist_remove(&as->segments, &segment->this);
+    UNUSED(as);
+    llist_remove(&segment->this);
 }

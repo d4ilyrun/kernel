@@ -33,9 +33,10 @@ static const vfs_fs_t *vfs_find_fs(const char *fs_type)
 
 static vfs_t *vfs_root_fs()
 {
-    if (llist_is_empty(vfs_mountpoints))
+    if (llist_is_empty(&vfs_mountpoints))
         return NULL;
-    return container_of(llist_head(vfs_mountpoints), vfs_t, this);
+
+    return container_of(llist_first(&vfs_mountpoints), vfs_t, this);
 }
 
 static error_t
@@ -60,7 +61,7 @@ vfs_mount_at(vnode_t *vnode, const char *fs_type, u32 start, u32 end)
 error_t vfs_mount_root(const char *fs_type, u32 start, u32 end)
 {
     // Mounting a new root is not supported for the time being
-    if (!llist_is_empty(vfs_mountpoints))
+    if (!llist_is_empty(&vfs_mountpoints))
         return E_INVAL;
 
     return vfs_mount_at(NULL, fs_type, start, end);
@@ -99,7 +100,7 @@ error_t vfs_unmount(const char *path)
         return E_INVAL;
     }
 
-    llist_remove(&vfs_mountpoints, &vnode->mounted_here->this);
+    llist_remove(&vnode->mounted_here->this);
     vnode->mounted_here->operations->delete (vnode->mounted_here);
     // The mounted FS kept a reference to the vnode it was mounted on
     vfs_vnode_release(vnode);

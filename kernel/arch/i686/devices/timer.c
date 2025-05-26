@@ -71,6 +71,8 @@ void timer_start(u32 frequency)
 
 static DEFINE_INTERRUPT_HANDLER(irq_timer)
 {
+    struct thread *next_wakeup;
+
     UNUSED(data);
 
     if (timer_ticks_counter == UINT64_MAX) {
@@ -94,13 +96,14 @@ static DEFINE_INTERRUPT_HANDLER(irq_timer)
     if (!scheduler_initialized)
         return E_INVAL;
 
-    const node_t *next_wakeup = llist_head(sleeping_tasks);
-    while (next_wakeup &&
-           container_of(next_wakeup, thread_t, this)->sleep.wakeup <=
-               timer_ticks_counter) {
-        next_wakeup = llist_pop(&sleeping_tasks);
-        sched_unblock_thread(container_of(next_wakeup, thread_t, this));
-        next_wakeup = llist_head(sleeping_tasks);
+    while (!llist_is_empty(&sleeping_tasks)) {
+        next_wakeup = container_of(llist_first(&sleeping_tasks), struct thread,
+                                   this);
+        if (next_wakeup->sleep.wakeup > timer_ticks_counter)
+            break;
+
+        llist_pop(&sleeping_tasks);
+        sched_unblock_thread(next_wakeup);
     }
 
     if (current->running.preempt <= timer_ticks_counter)
