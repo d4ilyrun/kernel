@@ -8,6 +8,7 @@
 #include <kernel/pmm.h>
 #include <kernel/process.h>
 #include <kernel/sched.h>
+#include <kernel/spinlock.h>
 
 #include <libalgo/linked_list.h>
 #include <utils/container_of.h>
@@ -19,12 +20,6 @@
 
 /** Minimum PID, should be given to the very first started thread */
 #define PROCESS_FIRST_PID 1
-
-/*
- * Global pool of PIDs.
- * NOTE: PIDs and TIDs use the same pool.
- */
-static pid_t g_highest_pid = PROCESS_FIRST_PID;
 
 struct thread kernel_process_initial_thread = {
     .process = &kernel_process,
@@ -70,6 +65,28 @@ NO_RETURN void
 arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data);
 
 extern void arch_thread_set_mmu(struct thread *thread, paddr_t mmu);
+
+static void thread_free(thread_t *thread);
+
+/**
+ * @return the next available PID.
+ *  NOTE: PIDs and TIDs use the same pool.
+ */
+static pid_t process_next_pid(void)
+{
+    static pid_t g_highest_pid = PROCESS_FIRST_PID;
+    static DECLARE_SPINLOCK(pid_lock);
+
+    pid_t pid;
+
+    locked_scope (&pid_lock) {
+        pid = g_highest_pid;
+        if (__builtin_add_overflow(g_highest_pid, 1, &g_highest_pid))
+            log_err("!!! PID OVERFLOW !!!");
+    }
+
+    return pid;
+}
 
 /** Free all resources currently held by a thread.
  *
@@ -238,7 +255,7 @@ thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
     if (llist_is_empty(process->threads))
         thread->tid = process->pid;
     else
-        thread->tid = g_highest_pid++;
+        thread->tid = process_next_pid();
 
     err = arch_thread_init(thread, entrypoint, data, esp);
     if (err) {
