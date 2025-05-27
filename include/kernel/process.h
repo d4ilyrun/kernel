@@ -299,10 +299,21 @@ void thread_set_mmu(struct thread *thread, paddr_t mmu);
  */
 void thread_kill(thread_t *);
 
+/** Create a new fork of the given thread.
+ *
+ * A new process is created to execute the forked thread.
+ * The address space of the original thread's process is duplicated
+ * inside the newly created process.
+ *
+ * If the duplicated process had multiple threads, only the one that
+ * called this function is replicated.
+ *
+ * @return The newly created thread
+ */
+struct thread *thread_fork(struct thread *, thread_entry_t, void *);
+
 /** @defgroup arch_process Processes - arch specifics
  *  @ingroup x86_process
- *
- *  @{
  */
 
 /** @} */

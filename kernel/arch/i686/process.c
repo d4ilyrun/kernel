@@ -36,30 +36,14 @@ arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data)
     assert_not_reached();
 }
 
-/** Finish setting up the thread before jumping to its entrypoint
+/**
+ * Finish setting up the thread before jumping to its entrypoint
  *
  * This function initializes components that could not be setup from another
  * process's address space.
  *
  * The return to the thread's entry point is done implicitely through the
  * artificial stack setup in @arch_thread_create.
- *
- * FIXME: We should not take an entrypoint when creating a new process.
- *
- * The logic behind that is :
- * 1- There should be only one kernel process, and many kernel threads
- * 2- The only way to create a new process is to fork. Forking duplicates
- *    the running process's execution context, and continue the execution
- *    where it left => No need to specify an entrypoint, just exit out of
- *    the syscall
- * 3- When wanting to run a new executable, the forked process uses the
- *    execve syscall. This is where the real entrypoint is. Once again,
- *    no need to create a new process, simply free VMMs and FDs (man 2),
- *    setup a new stack and return to userland. But in no way do we create
- *    a new process to run the executable!
- *
- * This should be fixed when refactoring the task model (add threads & delayed
- * work).
  */
 static void
 arch_thread_entrypoint(thread_entry_t entrypoint, void *data, void *esp)
@@ -69,18 +53,32 @@ arch_thread_entrypoint(thread_entry_t entrypoint, void *data, void *esp)
     /* scheduler was locked by the previous thread before starting this one */
     scheduler_preempt_enable(true);
 
-    if (thread_is_initial(current)) {
-        if (address_space_init(current->process->as))
-            log_err("Failed to initilize VMM (%s)", current->process->name);
-    }
+    /*
+     * Allocate the user stack.
+     *
+     * This is necessary when there is no pre-allocated user stack (creating
+     * a new thread of an existing process).
+     *
+     * TODO: This should in theory not be needed since:
+     * 1. Kernel threads all share a common pre-allocated user stack
+     * 2. User-threads can only be created using clone(), which needs the user
+     *    to pass in a pre-allocated user-stack as argument.
+     */
+    if (!thread_get_user_stack(current)) {
+        if (thread_is_kernel(current)) {
+            /* Kernel threads share a common user stack. */
+            ustack = thread_get_user_stack(&kernel_process_initial_thread);
+        } else {
+            ustack = vm_alloc(current->process->as, USER_STACK_SIZE,
+                              VM_READ | VM_WRITE | VM_CLEAR);
+            if (ustack == NULL) {
+                log_err("Failed to allocate new user stack");
+                goto error_exit;
+            }
+        }
 
-    ustack = kcalloc(KERNEL_STACK_SIZE, 1, KMALLOC_DEFAULT);
-    if (ustack == NULL) {
-        log_err("Failed to allocate new user stack");
-        goto error_exit;
+        thread_set_user_stack(current, ustack);
     }
-
-    thread_set_user_stack(current, ustack);
 
     /*
      * When kicking-off a forked thread the original thread's stack pointer
@@ -134,7 +132,7 @@ error_t arch_thread_init(thread_t *thread, thread_entry_t entrypoint,
 
 void arch_thread_free(thread_t *thread)
 {
-    kfree((void *)thread->context.esp_user);
+    UNUSED(thread);
 }
 
 void arch_process_free(struct process *process)
