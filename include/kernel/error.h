@@ -27,6 +27,7 @@
  */
 typedef enum error {
     E_SUCCESS,                   ///< No error
+    E_PERM = 1,                  ///< Operation not permitted
     E_NOENT = 2,                 ///< Entry not found
     E_WOULD_BLOCK = 11,          ///< Resource temporarily unavailable
     E_NOMEM = 12,                ///< Out of memory
@@ -71,7 +72,7 @@ static ALWAYS_INLINE error_t ERR_FROM_PTR(const void *ptr)
 }
 
 /** Check if an integer can be interpreted as an error */
-#define IS_ERR(_x) ((native_t)(_x) > ((u32)-E_TOTAL_COUNT))
+#define IS_ERR(_x) ((native_t)(_x) > ((u32) - E_TOTAL_COUNT))
 
 /** Retrieve the string description of an error code */
 const char *err_to_str(error_t);

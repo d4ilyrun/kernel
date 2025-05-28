@@ -6,7 +6,6 @@
 #include <kernel/pmm.h>
 #include <kernel/types.h>
 
-#include <libalgo/bitmap.h>
 #include <utils/bits.h>
 #include <utils/compiler.h>
 #include <utils/macro.h>
@@ -27,23 +26,13 @@
  */
 
 /**
- * @brief The Physical Memory Allocator
+ * @brief The static array of all existing pages
  *
- * This allocator is responsible for keeping track of available
- * framepages, returning them for memory allocations and free unused ones.
- *
- * For simplicity's sake, we use a bitmap allocator.
- * It keeps track of the available pageframe's index inside a static array.
- *
- * @todo  TODO: Implement a buddy Allocator
- *        The buddy allocator is less memory efficient, but way faster when it
- *        comes to retrieving available pages.
- *
- * @note The bitmap's size is hardcoded to be able to fit each and every
+ * @note The arrays's size is hardcoded to be able to fit each and every
  *       pageframes (even though only part of them will be available at
  *       runtime).
  */
-static BITMAP(g_pmm_free_bitmap, TOTAL_PAGEFRAMES_COUNT);
+struct page pmm_pageframes[TOTAL_PAGEFRAMES_COUNT];
 
 /**
  * @struct pmm_frame_allocator
@@ -57,35 +46,37 @@ static BITMAP(g_pmm_free_bitmap, TOTAL_PAGEFRAMES_COUNT);
  */
 typedef struct {
     paddr_t first_available; ///< Address of the first available pageframe
-    vaddr_t start;           ///< Start of the allocator's physical range
-    vaddr_t end;             ///< End of the allocator's physical range
+    paddr_t start;           ///< Start of the allocator's physical range
+    paddr_t end;             ///< End of the allocator's physical range
     bool initialized;        ///< Whether this allocator has been initialized
 } pmm_frame_allocator;
 
 /** Allocator for 'classical' pageframes */
 static pmm_frame_allocator g_pmm_allocator = {
-    .start = 0,
-    .end = ADDRESS_SPACE_END,
+    .start = PHYSICAL_MEMORY_START,
+    .end = PHYSICAL_MEMORY_END,
     .first_available = PMM_INVALID_PAGEFRAME,
     .initialized = false,
 };
 
-// Wether a pageframe is marked available or not inside the allocator's bitmap
-#define PMM_AVAILABLE (1)
-#define PMM_UNAVAILABLE (0)
-
-#define BITMAP_INDEX(address) (address / PAGE_SIZE)
-
-/** Mark a pageframe as PMM_AVAILABLE or PMM_UNAVAILABLE */
-static inline void pmm_set_availability(paddr_t pf, u8 availability)
+/* TODO: Take in the PFN as parameter directly */
+static inline void pmm_set_availability(paddr_t pageframe, bool available)
 {
-    bitmap_assign(g_pmm_free_bitmap, BITMAP_INDEX(pf), availability);
+    struct page *page = &pmm_pageframes[TO_PFN(pageframe)];
+
+    if (available) {
+        page->flags |= PAGE_AVAILABLE;
+        page->refcount = 0;
+    } else {
+        page->flags &= ~PAGE_AVAILABLE;
+        page->refcount = 1;
+    }
 }
 
-/** Return a pageframe's state according to the allocator's bitmap */
-static inline int pmm_is_available(paddr_t pageframe)
+static inline bool pmm_is_available(paddr_t pageframe)
 {
-    return bitmap_read(g_pmm_free_bitmap, BITMAP_INDEX(pageframe));
+    struct page *page = &pmm_pageframes[TO_PFN(pageframe)];
+    return boolean(page->flags & PAGE_AVAILABLE);
 }
 
 static inline bool
@@ -95,7 +86,7 @@ pmm_is_last_pageframe(pmm_frame_allocator *allocator, paddr_t pageframe)
 }
 
 /**
- * @brief Initialize the pageframe bitmap
+ * @brief Initialize the static array of page structs
  *
  * Using the bootloader's information, we mark unusable pageframes as being
  * unavailable. The kernel's code is also marked as unavailable, since this
@@ -108,7 +99,7 @@ pmm_is_last_pageframe(pmm_frame_allocator *allocator, paddr_t pageframe)
  *
  * @return Whether the initialization process succeeded
  */
-static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
+static bool pmm_initialize_pages(struct multiboot_info *mbt)
 {
     struct multiboot_tag_mmap *mmap = NULL;
     multiboot_memory_map_t *entry;
@@ -125,8 +116,9 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
         return false;
     }
 
-    // Mark all pages as UNAVAILABLE
-    memset(g_pmm_free_bitmap, PMM_UNAVAILABLE, sizeof(g_pmm_free_bitmap));
+    // Mark all pages as unavailable.
+    // The page's addresss will be filled in if it is available.
+    memset(pmm_pageframes, 0, sizeof(pmm_pageframes));
 
     log_info("Memory ranges:");
 
@@ -157,7 +149,11 @@ static bool pmm_initialize_bitmap(struct multiboot_info *mbt)
                 if (IN_RANGE(KERNEL_HIGHER_HALF_VIRTUAL(addr),
                              KERNEL_CODE_START, KERNEL_CODE_END))
                     continue;
-                pmm_set_availability(addr, PMM_AVAILABLE);
+
+                if (!IN_RANGE(addr, g_pmm_allocator.start, g_pmm_allocator.end))
+                    continue;
+
+                pmm_set_availability(addr, true);
                 available_pageframes += 1;
 
                 pmm_frame_allocator *allocator = &g_pmm_allocator;
@@ -182,7 +178,7 @@ static void pmm_allocator_allocate_at(pmm_frame_allocator *allocator,
                                       paddr_t address, size_t size)
 {
     for (size_t off = 0; off < size; off += PAGE_SIZE)
-        pmm_set_availability(address + off, PMM_UNAVAILABLE);
+        pmm_set_availability(address + off, false);
 
     // Need to update the first available pageframe
     if (address != allocator->first_available)
@@ -200,13 +196,38 @@ static void pmm_allocator_allocate_at(pmm_frame_allocator *allocator,
     allocator->first_available = address;
 }
 
+static void
+pmm_allocator_free_at(pmm_frame_allocator *allocator, paddr_t pageframe)
+{
+    if (allocator->first_available == PMM_INVALID_PAGEFRAME ||
+        pageframe < allocator->first_available)
+        allocator->first_available = pageframe;
+}
+
 /** @} */
+
+struct page *page_get(struct page *page)
+{
+    page->refcount += 1;
+    return page;
+}
+
+void page_put(struct page *page)
+{
+    if (page->refcount == 0)
+        return;
+
+    page->refcount -= 1;
+
+    if (page->refcount == 0)
+        pmm_allocator_free_at(&g_pmm_allocator, page_address(page));
+}
 
 bool pmm_init(struct multiboot_info *mbt)
 {
     log_info("Initializing pageframe allocator");
 
-    if (!pmm_initialize_bitmap(mbt)) {
+    if (!pmm_initialize_pages(mbt)) {
         return false;
     }
 
@@ -221,13 +242,11 @@ bool pmm_init(struct multiboot_info *mbt)
     return true;
 }
 
-paddr_t pmm_allocate_pages(size_t size, int flags)
+paddr_t pmm_allocate_pages(size_t size)
 {
     pmm_frame_allocator *allocator = &g_pmm_allocator;
     bool found = false;
     paddr_t address;
-
-    UNUSED(flags);
 
     if (!allocator->initialized) {
         log_err("Trying to allocate using an uninitialized allocator");
@@ -287,12 +306,7 @@ void pmm_free_pages(paddr_t pageframe, size_t size)
         return;
     }
 
-    pmm_frame_allocator *allocator = &g_pmm_allocator;
-
+    /* pages are released when their refcount reaches 0 */
     for (size_t off = 0; off < size; off += PAGE_SIZE)
-        pmm_set_availability(pageframe + off, PMM_AVAILABLE);
-
-    if (allocator->first_available == PMM_INVALID_PAGEFRAME ||
-        pageframe < allocator->first_available)
-        allocator->first_available = pageframe;
+        page_put(address_to_page(pageframe + off));
 }

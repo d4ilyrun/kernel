@@ -60,21 +60,29 @@ startup_kernel_stack_top:
  *
  * Refer to #6 for more info.
  *
- * WARNING: Each and every block of 4MiB inside the address space are mapped to the first 1024 pageframes.
- *          This only works if the kernel is smaller than 3MiB in size.
+ * WARNING: Mapped the whole address space to the first n*4MiB of physical memory.
+ *          This only works if the kernel is smaller than n*4MiB in size. Be careful
+ *          when changing this value, as 768 MUST be divisible by n for
+ *          KERNEL_VIRTUAL_START to correspond to pysical address 0.
  */
 
 .section .data
 .align PAGE_SIZE
 startup_page_directory:
-    .rept 1024
-    .long KERNEL_HIGHER_HALF_PHYSICAL(startup_page_table) + 1
+    .rept 256
+    .set offset, 0
+    .rept 4
+    .long KERNEL_HIGHER_HALF_PHYSICAL(startup_page_table + offset) + 1
+    .set offset, offset + 0x1000
+    .endr
     .endr
 startup_page_table:
     .set addr, 0
+    .rept 4
     .rept 1024
     .long addr | 3
     .set addr, addr + 0x1000
+    .endr
     .endr
 
 /*
