@@ -118,7 +118,8 @@ void scheduler_init(void)
 {
     atomic_write(&scheduler.sync.preemption_level, 0);
 
-    idle_thread = thread_spawn(&kernel_process, idle_task, NULL, THREAD_KERNEL);
+    idle_thread = thread_spawn(&kernel_process, idle_task, NULL, NULL,
+                               THREAD_KERNEL);
     // use the largest PID possible to avoid any conflict later on
     idle_thread->tid = (pid_t)-1;
     sched_new_thread(idle_thread);

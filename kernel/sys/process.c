@@ -55,10 +55,11 @@ extern void arch_thread_switch(thread_context_t *);
  * @param thread Pointer to thread to initialize
  * @param entrypoint The entrypoint used for starting this thread
  * @param data Data passed to the entry function (can be NULL)
+ * @param esp The value to put inside the stack pointer before starting
  *
  * @return Whether we succeded or not
  */
-extern bool arch_thread_init(thread_t *, thread_entry_t, void *);
+extern bool arch_thread_init(thread_t *, thread_entry_t, void *data, void *esp);
 
 extern void arch_process_free(struct process *);
 
@@ -205,7 +206,7 @@ void process_init_kernel_process(void)
 }
 
 thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
-                       void *data, u32 flags)
+                       void *data, void *esp, u32 flags)
 {
     thread_t *thread;
 
@@ -228,7 +229,7 @@ thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
     else
         thread->tid = g_highest_pid++;
 
-    if (!arch_thread_init(thread, entrypoint, data)) {
+    if (!arch_thread_init(thread, entrypoint, data, esp)) {
         log_err("Failed to initialize new thread");
         kfree(thread);
         return NULL;

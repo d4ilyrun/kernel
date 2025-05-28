@@ -62,7 +62,8 @@ arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data)
  * This should be fixed when refactoring the task model (add threads & delayed
  * work).
  */
-static void arch_thread_entrypoint(thread_entry_t entrypoint, void *data)
+static void
+arch_thread_entrypoint(thread_entry_t entrypoint, void *data, void *esp)
 {
     u32 *ustack = NULL;
 
@@ -80,7 +81,12 @@ static void arch_thread_entrypoint(thread_entry_t entrypoint, void *data)
         goto error_exit;
     }
 
-    current->context.esp_user = (u32)ustack + KERNEL_STACK_SIZE;
+    /*
+     * When kicking-off a forked thread the original thread's stack pointer
+     * should have been specified during the thread's creation.
+     */
+    if (esp)
+        current->context.esp_user = (u32)esp;
 
     if (thread_is_kernel(current)) {
         entrypoint(data);
@@ -92,7 +98,8 @@ error_exit:
     thread_kill(current);
 }
 
-bool arch_thread_init(thread_t *thread, thread_entry_t entrypoint, void *data)
+bool arch_thread_init(thread_t *thread, thread_entry_t entrypoint, void *data,
+                      void *esp)
 {
     u32 *kstack = NULL;
 
@@ -110,20 +117,21 @@ bool arch_thread_init(thread_t *thread, thread_entry_t entrypoint, void *data)
 #define KSTACK(_i) kstack[KERNEL_STACK_SIZE / sizeof(u32) - (_i) - 1]
 
     // Stack frame for arch_thread_entrypoint
-    KSTACK(0) = (u32)data;       // arg2
-    KSTACK(1) = (u32)entrypoint; // arg1
-    KSTACK(2) = 0;               // nuke ebp
+    KSTACK(0) = (u32)esp;        // arg3
+    KSTACK(1) = (u32)data;       // arg2
+    KSTACK(2) = (u32)entrypoint; // arg1
+    KSTACK(3) = 0;               // nuke ebp
 
     // Stack frame for arch_thread_switch
-    KSTACK(3) = (u32)arch_thread_entrypoint;
-    KSTACK(4) = 0;               // edi
-    KSTACK(5) = 0;               // esi
-    KSTACK(6) = 0;               // ebx
-    KSTACK(7) = (u32)&KSTACK(3); // ebp
+    KSTACK(4) = (u32)arch_thread_entrypoint;
+    KSTACK(5) = 0;               // edi
+    KSTACK(6) = 0;               // esi
+    KSTACK(7) = 0;               // ebx
+    KSTACK(8) = (u32)&KSTACK(4); // ebp
 
     // Set new thread's stack pointer to the top of our manually created
     // context_switching stack
-    thread->context.esp = (u32)&KSTACK(7);
+    thread->context.esp = (u32)&KSTACK(8);
     thread->context.esp0 = (u32)&KSTACK(0);
     thread->context.cr3 = thread->process->as->mmu;
 

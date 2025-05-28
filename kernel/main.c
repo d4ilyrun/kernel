@@ -173,7 +173,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     sched_new_thread_create(kernel_task_ping, NULL, THREAD_KERNEL);
 
     thread_t *kernel_timer_test = thread_spawn(
-        current->process, kernel_task_timer, NULL, THREAD_KERNEL);
+        current->process, kernel_task_timer, NULL, NULL, THREAD_KERNEL);
     sched_new_thread(kernel_timer_test);
 
     log_dbg("Re-started task: '%s' (TID=%d)", current->process->name,
@@ -407,9 +407,9 @@ void kernel_task_mutex(void *data)
 
     UNUSED(data);
 
-    thread_a = thread_spawn(&kernel_process, __kernel_task_mutex, &mutex,
+    thread_a = thread_spawn(&kernel_process, __kernel_task_mutex, &mutex, NULL,
                             THREAD_KERNEL);
-    thread_b = thread_spawn(&kernel_process, __kernel_task_mutex, &mutex,
+    thread_b = thread_spawn(&kernel_process, __kernel_task_mutex, &mutex, NULL,
                             THREAD_KERNEL);
 
     sched_new_thread(thread_a);

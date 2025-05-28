@@ -207,9 +207,12 @@ bool thread_switch(thread_t *);
  * @param process The process the newly created thread belongs to
  * @param entrypoint The function called when starting the thread
  * @param data Data passed to the entry function (can be NULL)
+ * @param esp The value to place inside the stack pointer register before
+ *            first kicking off the thread. This is mainly useful when forking
+ *            an existing thread. Ignored if NULL.
  * @param flags Feature flags: a combination of \ref thread_flags enum values
  */
-thread_t *thread_spawn(struct process *, thread_entry_t, void *, u32);
+thread_t *thread_spawn(struct process *, thread_entry_t, void *, void *, u32);
 
 /** Start executing code in userland
  *
