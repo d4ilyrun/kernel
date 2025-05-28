@@ -8,48 +8,23 @@
  *
  * This module contains the definition for our kernel's syscalls.
  *
- * I'll try to stick to something similar to POSIX syscalls as much as possible,
- * as it is what I've already become accustomed to, and that this should make
- * eventually porting programs less of a hassle.
- *
- * Some core POSIX concepts are still missing, so some syscalls might be missing
- * crucial arguments (namely file descriptors). This will surely change in the
- * future once we implement the necessary aspects of the kernel.
- *
- * So, as always, this API is subject to change along with the kernel.
- *
- * ## ABI
- *
- * for convenience, our kernel's ABI is the same as Linux's:
- *
- * ### x86
- *
- * The arguments are passed in the following order:
- * > eax, ebx, ecx, edx, esi, edi, ebp
- *
- * The first argument (eax) is **always** the number of the syscall to call.
+ * We'll aim to be as POSIX compliant as possible. This has multiple benefits:
+ * 1. I'm familiar with these syscalls already
+ * 2. It will make porting existing programs easier eventually
+ * 3. I can directly re-use the knowledge I gain from implementing them
  *
  * @{
  */
 #ifndef KERNEL_SYSCALLS_H
 #define KERNEL_SYSCALLS_H
 
+#if ARCH == I686
+#include <kernel/arch/i686/syscalls.h>
+#endif
+
 #include <kernel/types.h>
 
 #include <stddef.h>
-#include <stdint.h>
-
-/** The interrupt used to trigger a syscall */
-#define SYSCALL_INTERRUPT_NR 0x80
-
-/** The list of available syscall vectors
- *  @enum syscall_nr
- */
-typedef enum syscall_nr {
-    SYS_FORK = 2,
-    SYS_WRITE = 4,
-    SYSCALL_COUNT
-} syscall_nr;
 
 typedef struct syscall_args {
     u32 nr;
