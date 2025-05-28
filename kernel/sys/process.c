@@ -9,6 +9,7 @@
 #include <kernel/process.h>
 #include <kernel/sched.h>
 #include <kernel/spinlock.h>
+#include <kernel/syscalls.h>
 
 #include <libalgo/linked_list.h>
 #include <utils/container_of.h>
@@ -380,6 +381,19 @@ process_destroy:
     address_space_destroy(new_process->as);
     kfree(new_process);
     return PTR_ERR(err);
+}
+
+pid_t sys_fork(void)
+{
+    struct thread *fork;
+
+    fork = thread_fork(current, (void *)current->frame.state.eip, NULL);
+    if (IS_ERR(fork))
+        return -ERR_FROM_PTR(fork);
+
+    sched_new_thread(fork);
+
+    return fork->tid;
 }
 
 NO_RETURN void thread_jump_to_userland(thread_entry_t entrypoint, void *data)

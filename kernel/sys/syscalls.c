@@ -7,23 +7,31 @@
 #include <kernel/logger.h>
 #include <kernel/syscalls.h>
 
-struct syscall_info {
+struct syscall {
     /// The name of the syscall
     const char *name;
     /// The function that handles this syscall
     /// Cannot use a generic type, as all syscalls do not have the
     /// same signature
     void *handler;
+    /// The number of arguments to the syscall
+    int arg_count;
 };
 
 /** Parse the sycall's arguments from the arch-specific interrupt frame */
-void syscall_arch_get_args(interrupt_frame *frame, syscall_args_t *args);
+void arch_syscall_get_args(interrupt_frame *frame, syscall_args_t *args);
 
-#define DECLARE_SYSCALL(_sc, _name, _handler) \
-    [SYS_##_sc] = {_name, (void *)sys_##_handler}
+/** Set the value to be returned by the syscall */
+void arch_syscall_set_return_value(interrupt_frame *frame, u32 value);
+
+#define DECLARE_SYSCALL(_sc, _name, _handler, _arg_count) \
+    [SYS_##_sc] = {_name, (void *)_handler, _arg_count}
 
 /** The list of all the available syscalls and their respective handler */
-static const struct syscall_info syscalls[SYSCALL_COUNT] = {};
+static const struct syscall syscalls[SYSCALL_COUNT] = {
+    DECLARE_SYSCALL(FORK, "fork", sys_fork, 0)};
+
+#define DO_SYSCALL_0(_syscall) (((u32(*)(void))_syscall)())
 
 /** Find a syscall's name when porting a program that was compiled for Linux */
 static const char *syscall_linux_syscalls[];
@@ -31,8 +39,11 @@ static const char *syscall_linux_syscalls[];
 /** Perform a syscall */
 static u32 syscall(void *frame)
 {
+    const struct syscall *syscall;
     syscall_args_t args;
-    syscall_arch_get_args(frame, &args);
+    u32 ret;
+
+    arch_syscall_get_args(frame, &args);
 
     if (args.nr >= SYSCALL_COUNT || !syscalls[args.nr].handler) {
         log_err("Unimplemented syscall: '%s' (%d)",
@@ -40,7 +51,21 @@ static u32 syscall(void *frame)
         return -E_NOT_IMPLEMENTED;
     }
 
-    return 0;
+    syscall = &syscalls[args.nr];
+
+    switch (syscall->arg_count) {
+    case 0:
+        ret = DO_SYSCALL_0(syscall->handler);
+        break;
+    default:
+        log_err("%s: unsupported arg count (%d)", syscall->name,
+                syscall->arg_count);
+        ret = -E_NOT_SUPPORTED;
+    }
+
+    arch_syscall_set_return_value(frame, ret);
+
+    return ret;
 }
 
 void syscall_init(void)

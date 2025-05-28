@@ -46,6 +46,7 @@
  *  @enum syscall_nr
  */
 typedef enum syscall_nr {
+    SYS_FORK = 2,
     SYS_WRITE = 4,
     SYSCALL_COUNT
 } syscall_nr;
@@ -57,5 +58,9 @@ typedef struct syscall_args {
 
 /** Initialize the sycsall API */
 void syscall_init(void);
+
+/* SYSCALLS HANDLER */
+
+pid_t sys_fork(void);
 
 #endif /* KERNEL_SYSCALLS_H */
