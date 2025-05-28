@@ -2,7 +2,6 @@
 
 #include <kernel/error.h>
 #include <kernel/file.h>
-#include <kernel/interrupts.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
@@ -22,8 +21,6 @@
 #define VMA_SIZE (64)
 static_assert(sizeof(vma_t) <= VMA_SIZE, "Update the allocated size for VMA "
                                          "structures!");
-
-static DEFINE_INTERRUPT_HANDLER(page_fault);
 
 static inline struct vma *to_vma_by_address(const struct avl *avl)
 {
@@ -177,11 +174,6 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
     vmm->vmas.by_address = &first_area->avl.by_address;
 
     INIT_SPINLOCK(vmm->lock);
-
-    // TODO: Refactor such calls (hooks, initcalls, there are better ways to do)
-    //       Even more so for this one since we'll be updating the interrupt
-    //       handler each time we create a new process!
-    interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault), NULL);
 
     log_info("Initialized VMM { start=" FMT32 ", end=" FMT32 " }", vmm->start,
              vmm->end);
@@ -616,42 +608,6 @@ void vmm_destroy(vmm_t *vmm)
     }
 
     kfree(vmm);
-}
-
-/// Structure of the page fault's error code
-/// @link https://wiki.osdev.org/Exceptions#Page_Fault
-typedef struct PACKED {
-    u8 present : 1;
-    u8 write : 1;
-    u8 user : 1;
-    u8 reserved_write : 1;
-    u8 fetch : 1;
-    u8 protection_key : 1;
-    u8 ss : 1;
-    u16 _unused1 : 8;
-    u8 sgx : 1;
-    u16 _unused2 : 15;
-} page_fault_error;
-
-static DEFINE_INTERRUPT_HANDLER(page_fault)
-{
-    // The CR2 register holds the virtual address which caused the Page Fault
-    void *faulty_address = (void *)read_cr2();
-    interrupt_frame *frame = data;
-    page_fault_error error = *(page_fault_error *)&frame->error;
-    bool is_cow = error.present && error.write;
-    struct address_space *as;
-
-    if (!error.present || is_cow) {
-        as = IS_KERNEL_ADDRESS(faulty_address) ? &kernel_address_space
-                                               : current->process->as;
-        return address_space_fault(as, faulty_address, is_cow);
-    }
-
-    PANIC("PAGE FAULT at " FMT32 ": %s access on a %s page %s", faulty_address,
-          error.write ? "write" : "read",
-          error.present ? "protected" : "non-present",
-          error.user ? "while in user-mode" : "");
 }
 
 void *map_file(struct file *file, int prot)

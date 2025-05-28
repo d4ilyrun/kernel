@@ -61,6 +61,7 @@
 
 #include <kernel/cpu.h>
 #include <kernel/error.h>
+#include <kernel/interrupts.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/memory.h>
@@ -78,6 +79,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
+
+static DEFINE_INTERRUPT_HANDLER(page_fault);
 
 /** Number of entries inside the page directory */
 #define MMU_PDE_COUNT (1024)
@@ -503,6 +506,9 @@ bool mmu_init(void)
         return false;
     }
 
+    // TODO: Refactor such calls (hooks, initcalls, there are better ways to do)
+    interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault), NULL);
+
     page_directory = KERNEL_HIGHER_HALF_PHYSICAL(kernel_startup_page_directory);
 
     // Initialize the kernel's page directory
@@ -561,4 +567,40 @@ bool mmu_init(void)
     }
 
     return true;
+}
+
+/// Structure of the page fault's error code
+/// @link https://wiki.osdev.org/Exceptions#Page_Fault
+typedef struct PACKED {
+    u8 present : 1;
+    u8 write : 1;
+    u8 user : 1;
+    u8 reserved_write : 1;
+    u8 fetch : 1;
+    u8 protection_key : 1;
+    u8 ss : 1;
+    u16 _unused1 : 8;
+    u8 sgx : 1;
+    u16 _unused2 : 15;
+} page_fault_error;
+
+static DEFINE_INTERRUPT_HANDLER(page_fault)
+{
+    // The CR2 register holds the virtual address which caused the Page Fault
+    void *faulty_address = (void *)read_cr2();
+    interrupt_frame *frame = data;
+    page_fault_error error = *(page_fault_error *)&frame->error;
+    bool is_cow = error.present && error.write;
+    struct address_space *as;
+
+    if (!error.present || is_cow) {
+        as = IS_KERNEL_ADDRESS(faulty_address) ? &kernel_address_space
+                                               : current->process->as;
+        return address_space_fault(as, faulty_address, is_cow);
+    }
+
+    PANIC("PAGE FAULT at " FMT32 ": %s access on a %s page %s", faulty_address,
+          error.write ? "write" : "read",
+          error.present ? "protected" : "non-present",
+          error.user ? "while in user-mode" : "");
 }
