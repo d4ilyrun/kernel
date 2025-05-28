@@ -31,6 +31,7 @@
  * @{
  */
 
+#include <kernel/interrupts.h>
 #include <kernel/types.h>
 #include <kernel/vmm.h>
 
@@ -131,6 +132,9 @@ typedef struct thread {
 
     struct process *process; /*!< Containing process */
     node_t proc_this; /*!< Linked list used by the process to list threads */
+
+    /** Frame pushed during the last userland -> kernel context switch. */
+    struct interrupt_frame frame;
 
     pid_t tid; /*!< Thread ID */
     u32 flags; /*!< Combination of \ref thread_flags values */

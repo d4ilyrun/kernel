@@ -216,6 +216,9 @@ void default_interrupt_handler(interrupt_frame frame)
         return;
     }
 
+    current->frame = frame;
+    thread_set_stack_pointer(current, (void *)frame.state.esp);
+
     // Pass the frame as argument if no data was given
     // This is done to not have to differiente CPU exceptions from custom IRQs
     handler->handler(handler->data ? handler->data : &frame);
