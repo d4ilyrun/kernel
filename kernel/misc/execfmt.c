@@ -8,6 +8,7 @@
 #include <kernel/process.h>
 
 #include <utils/container_of.h>
+#include <utils/math.h>
 
 static DECLARE_LLIST(registered_execfmt);
 
@@ -70,8 +71,7 @@ error_t execfmt_execute(struct file *exec_file)
     error_t ret = E_SUCCESS;
     void *content;
 
-    content = mmap_file(NULL, file_size(exec_file), PROT_READ, MAP_KERNEL,
-                        exec_file);
+    content = map_file(exec_file, PROT_READ);
     if (content == MMAP_INVALID) {
         log_err("failed to read 'busybox'");
         return E_NOMEM;
@@ -107,7 +107,7 @@ release_executable:
     /* FIXME: The executable may be partially loaded when failing.
      * We need to release the loaded content when failing.
      */
-    munmap(content, file_size(exec_file));
+    unmap_file(exec_file, content);
     kfree(executable);
     return ret;
 }

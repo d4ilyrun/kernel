@@ -53,24 +53,20 @@
 #define KERNEL_VMM_H
 
 #include <kernel/memory.h>
+#include <kernel/spinlock.h>
 #include <kernel/types.h>
+#include <kernel/vm.h>
 
 #include <libalgo/avl.h>
 #include <libalgo/bitmap.h>
 #include <libalgo/linked_list.h>
 #include <utils/compiler.h>
+#include <utils/container_of.h>
 
 #include <stdbool.h>
 #include <stddef.h>
 
 struct file;
-
-/*
- * TODO: For now we only use a single static VMM.
- *       To allow for multiprocessing, which would require one VMM per process,
- *       we should either return a new VMM from the init function or ask for a
- *       pointer to a VMM instance as parameter.
- */
 
 /**
  * @brief Virtual Memory Area
@@ -94,9 +90,7 @@ struct file;
  */
 typedef struct vma {
 
-    vaddr_t start; /*!< Starting virtual address of this area */
-    size_t size;   /*!< Size of the area */
-    u32 flags;     /*!< Feature flags, combination of @ref vma_flags */
+    struct vm_segment segment; /*!< Used by the address space API */
 
     bool allocated; /*!< Whether this area is currently being used */
 
@@ -109,8 +103,6 @@ typedef struct vma {
         struct avl by_size;    /*!< AVL tree ordered by size */
     } avl;
 
-    node_t this; /*!< Used by processes to list the VMAs they currently own */
-
 } vma_t;
 
 /* For simplicity, we will allocate 64B for each VMA structure */
@@ -121,7 +113,23 @@ static_assert(sizeof(vma_t) <= VMA_SIZE, "Update the allocated size for VMA "
 /** Compute the end address of a VMA. */
 static inline vaddr_t vma_end(const vma_t *vma)
 {
-    return vma->start + vma->size;
+    return segment_end(&vma->segment);
+}
+
+/** @return the start address of a VMA. */
+static inline vaddr_t vma_start(const vma_t *vma)
+{
+    return vma->segment.start;
+}
+
+static inline size_t vma_size(const vma_t *vma)
+{
+    return vma->segment.size;
+}
+
+static inline u32 vma_flags(const vma_t *vma)
+{
+    return vma->segment.flags;
 }
 
 /**
@@ -153,11 +161,15 @@ typedef struct vmm {
     vaddr_t start; /*!< The start of the VMM's assigned range */
     vaddr_t end;   /*!< The end of the VMM's assigned range (excluded) */
 
+    struct address_space *as;
+
     /** Roots of the AVL trees containing the VMAs */
     struct vmm_vma_roots {
         avl_t *by_address;
         avl_t *by_size;
     } vmas;
+
+    spinlock_t lock; /*!< Used restrict access to the VMM when modifying it */
 
     /** Bitmap of the available virtual addreses inside the reserved area
      *
@@ -169,34 +181,13 @@ typedef struct vmm {
 } vmm_t;
 
 /** Returned by VMM functions in case of error */
-#define VMM_INVALID ((vaddr_t)NULL)
 #define MMAP_INVALID NULL
-
-/** @enum vma_flags
- * @brief Feature flags for VMAs
- */
-typedef enum vma_flags {
-    VMA_NONE = 0,     /*!< Default */
-    VMA_EXEC = 0x1,   /*!< Pages inside the area are executable */
-    VMA_READ = 0x2,   /*!< Pages inside the area are readable */
-    VMA_WRITE = 0x4,  /*!< Pages inside the area are writable */
-    VMA_KERNEL = 0x8, /*!< Should be mapped inside kernel pages */
-    VMA_CLEAR = 0x10, /*!< Page content should be reset when allocating */
-} vma_flags;
-
-/* For mmap */
-typedef enum mmap_flags {
-    MAP_KERNEL = VMA_KERNEL,
-    MAP_CLEAR = VMA_CLEAR,
-} mmap_flags;
 
 /**
  * Global kernel VMM, used to allocate shared kernel addresses.
  *
  * These addresses are stored in the PTEs above KERNEL_VIRTUAL_START, and are
  * shared across all processes. That is why we must use a global shared VMM.
- *
- * @todo TODO: This behaviour could be generalised once we implement MAP_SHARED
  */
 extern vmm_t kernel_vmm;
 
@@ -205,6 +196,9 @@ extern vmm_t kernel_vmm;
  */
 #define IS_KERNEL_ADDRESS(_addr) \
     IN_RANGE((vaddr_t)(_addr), KERNEL_MEMORY_START, KERNEL_MEMORY_END)
+
+/* Allocate a new VMM structure */
+struct vmm *vmm_new(struct address_space *);
 
 /**
  * @brief Initialize a VMM instance
@@ -216,6 +210,14 @@ extern vmm_t kernel_vmm;
  * @return Whether the init processes suceeded or not
  */
 bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end);
+
+/** @brief Copy the content of a VMM instance inside another one.
+ *
+ * This function only copies the VMM's metadata. The actual content
+ * of the address space managed by the VMM should be duplicated using
+ * the CoW mechanism (@see mmu_clone).
+ */
+void vmm_copy(vmm_t *dst, vmm_t *src);
 
 /**
  * @brief Allocate a virtual area of the given size
@@ -233,9 +235,9 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end);
  * @param flags Feature flags used for the allocated area.
  *              Must be a combination of @link vma_flags @endlink
  *
- * @return The virtual start address of the area, or VMM_INVALID
+ * @return The virtual start address of the area, or NULL
  */
-vaddr_t vmm_allocate(vmm_t *, vaddr_t, size_t size, int flags);
+struct vm_segment *vmm_allocate(vmm_t *, vaddr_t, size_t size, int flags);
 
 /**
  * @brief Free a virtual address
@@ -243,10 +245,6 @@ vaddr_t vmm_allocate(vmm_t *, vaddr_t, size_t size, int flags);
  * @warning This does not free the underlying page nor the PTE entry.
  *          All it does is mark the corresponding VMA as available for later
  *          allocations.
- *
- * @note Is this a good design? Should I free the corresponding PTE and PF also?
- *       I guess we'll see later on when dealing with actual dynamic allocation
- *       using our heap allocator, or implementing munmap.
  */
 void vmm_free(vmm_t *, vaddr_t, size_t length);
 
@@ -254,44 +252,35 @@ void vmm_free(vmm_t *, vaddr_t, size_t length);
  * @brief Find the VMA to which a virtual address belongs
  * @return The VMA containing this address, or NULL if not found
  */
-const vma_t *vmm_find(vmm_t *, vaddr_t);
+struct vm_segment *vmm_find(const vmm_t *, vaddr_t);
 
 /** Release all the VMAs inside a VMM instance.
  *
  *  @warning This does not release the actual virtual addresses referenced
  *  by the VMAs, please make sure to release it at some point.
  */
+void vmm_clear(vmm_t *vmm);
+
+/** Free the VMM struct
+ *  @note You should release its content using @ref vmm_clear before calling
+ *        this function
+ */
 void vmm_destroy(vmm_t *vmm);
 
 /**
- * Create a new mapping in the virtual address space of the calling process.
+ * Map a file into kernel memory
  *
- * @param addr The starting address of the new mapping
- * @param length The length of the mapping (must be greater than 0)
+ * @param file The file to be mapped
  * @param prot Protection flags for the mapping.
  *             Must be a combination of @ref mmu_prot
- * @param flags Feature flags for the mapping (mapping, sharing, etc ...).
- *              Must be a combination of @ref vma_flags
  */
-void *mmap(void *addr, size_t length, int prot, int flags);
+void *map_file(struct file *file, int prot);
 
 /**
- * Map a file into memory
+ * Delete a file's memory mapping.
  *
- * @note TODO: This should be modified to take a file descriptor as parameter
- *             instead. it should also be merge together with mmap theoretically
- *             but I don't think mmap is destined to be kept inside the kernel's
- *             API so we'll see about that.
- *
- * @see mmap
- */
-void *mmap_file(void *addr, size_t length, int prot, int flags, struct file *);
-
-/**
- * Delete a mapping for the specified address range
- *
- * @param addr The starting address of the range
- * @param length The length of the range
+ * @param file The memory mapped file
+ * @param addr The starting address of the mapped memory
  *
  * The starting address MUST be page aligned (EINVAL).
  *
@@ -300,7 +289,7 @@ void *mmap_file(void *addr, size_t length, int prot, int flags, struct file *);
  * @info Every page that the range is inside of will be unmaped, even if it's
  *       only for one byte. Beware of overflows and mind the alignment!
  */
-int munmap(void *addr, size_t length);
+error_t unmap_file(struct file *file, void *addr);
 
 #endif /* KERNEL_VMM_H */
 

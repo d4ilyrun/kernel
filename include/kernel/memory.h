@@ -150,4 +150,6 @@ extern u32 _kernel_code_end;
 #define NULL_PAGE_START 0x0
 #define NULL_PAGE_END (NULL_PAGE_START + NULL_PAGE_SIZE)
 
+#define PAGE_ALIGNED(_ptr) is_aligned_ptr(_ptr, PAGE_SIZE)
+
 #endif /* KERNEL_MEMORY_H */

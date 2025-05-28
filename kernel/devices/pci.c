@@ -4,6 +4,8 @@
 #include <kernel/devices/pci.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
+#include <kernel/memory.h>
+#include <kernel/vm.h>
 
 #include <utils/bits.h>
 #include <utils/container_of.h>
@@ -185,7 +187,12 @@ static void pci_device_setup_bars(struct pci_device *device)
             size = ~(size & PCI_BAR_MEMORY_ADDRESS_MASK) + 1;
             device->bars[i].size = size;
             device->bars[i].phys = bar & PCI_BAR_MEMORY_ADDRESS_MASK;
-            device->bars[i].data = kmalloc_dma_at(device->bars[i].phys, size);
+            device->bars[i].data = vm_alloc_at(
+                &kernel_address_space, device->bars[i].phys,
+                align_up(size, PAGE_SIZE), VM_READ | VM_WRITE);
+            if (IS_ERR(device->bars[i].data))
+                log_warn("failed to allocate bar[%d]: %d", i,
+                         ERR_FROM_PTR(device->bars[i].data));
             break;
 
         case PCI_BAR_IO:

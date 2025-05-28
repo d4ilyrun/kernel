@@ -7,6 +7,7 @@
 #include <kernel/logger.h>
 #include <kernel/memory.h>
 #include <kernel/mmu.h>
+#include <kernel/process.h>
 #include <kernel/vmm.h>
 
 #include <utils/macro.h>
@@ -124,7 +125,7 @@ static error_t elf32_load_segment(const struct elf32_ehdr *elf,
     void *allocated;
     void *in_file;
     size_t size;
-    int prot = 0;
+    vm_flags_t prot = 0;
 
     if (segment->p_type != PT_LOAD)
         return E_SUCCESS;
@@ -147,14 +148,11 @@ static error_t elf32_load_segment(const struct elf32_ehdr *elf,
     }
 
     if (segment->p_pflags & PF_R)
-        prot |= PROT_READ;
+        prot |= VM_READ;
     if (segment->p_pflags & PF_W)
-        prot |= PROT_WRITE;
+        prot |= VM_WRITE;
     if (segment->p_pflags & PF_X)
-        prot |= PROT_EXEC;
-
-    log_dbg("allocating segment @ %p (size=%04x, flags=%x)",
-            (void *)segment->p_vaddr, segment->p_memsz, prot);
+        prot |= VM_EXEC;
 
     /* NOTE: We also alocate the start of the containing page when vaddr is not
      * aligned. This is necessary because mmap will automatically align up the
@@ -166,13 +164,16 @@ static error_t elf32_load_segment(const struct elf32_ehdr *elf,
 
     in_memory = (void *)align_down(segment->p_vaddr, PAGE_SIZE);
     size = segment->p_memsz + (segment->p_vaddr % PAGE_SIZE);
+    size = align_up(size, PAGE_SIZE);
 
-    /* The file must be mapped 1:1 any other
-     * TODO: MAP_FIXED
-     */
-    allocated = mmap(in_memory, size, prot, 0);
+    log_dbg("allocating segment @ %p (size=%#04x, start=%p, alloc_size=%#04lx, "
+            "flags=%x)",
+            (void *)segment->p_vaddr, segment->p_memsz, in_memory, size, prot);
+
+    /* TODO: MAP_FIXED */
+    allocated = vm_alloc_start(current->process->as, in_memory, size, prot);
     if (allocated != in_memory) {
-        munmap(allocated, size);
+        vm_free(current->process->as, allocated);
         return E_NOMEM;
     }
 
