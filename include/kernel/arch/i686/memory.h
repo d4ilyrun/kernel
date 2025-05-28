@@ -17,10 +17,21 @@
 #error <kernel/arch/i686/memory.h> must not be used as a standalone header. Please include <kernel/memory.h> instead.
 #endif
 
-/** The size of a single page */
-#define PAGE_SIZE (4096U)
-/** */
+/** Number of bits to shift one bit left to get the size of a page */
 #define PAGE_SHIFT 12
+/** The size of a single page */
+#define PAGE_SIZE (1 << PAGE_SHIFT)
+
+/** First usable physical address
+ *
+ * The first 256KiB of physical memory contain the BIOS' code and real mode
+ * interrupt vectors table. It may still be used when switching back to real
+ * mode so we should not overwrite it.
+ */
+#define PHYSICAL_MEMORY_START 0x500
+
+/** Last usable physical address */
+#define PHYSICAL_MEMORY_END 0xFFFFFFFF
 
 /**
  * @brief The size of the virtual address space

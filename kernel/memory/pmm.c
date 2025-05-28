@@ -53,8 +53,8 @@ typedef struct {
 
 /** Allocator for 'classical' pageframes */
 static pmm_frame_allocator g_pmm_allocator = {
-    .start = 0,
-    .end = ADDRESS_SPACE_END,
+    .start = PHYSICAL_MEMORY_START,
+    .end = PHYSICAL_MEMORY_END,
     .first_available = PMM_INVALID_PAGEFRAME,
     .initialized = false,
 };
@@ -148,6 +148,9 @@ static bool pmm_initialize_pages(struct multiboot_info *mbt)
                 // its code.
                 if (IN_RANGE(KERNEL_HIGHER_HALF_VIRTUAL(addr),
                              KERNEL_CODE_START, KERNEL_CODE_END))
+                    continue;
+
+                if (!IN_RANGE(addr, g_pmm_allocator.start, g_pmm_allocator.end))
                     continue;
 
                 pmm_set_availability(addr, true);
