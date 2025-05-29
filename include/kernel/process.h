@@ -31,6 +31,7 @@
  * @{
  */
 
+#include <kernel/interrupts.h>
 #include <kernel/types.h>
 #include <kernel/vmm.h>
 
@@ -132,6 +133,9 @@ typedef struct thread {
     struct process *process; /*!< Containing process */
     node_t proc_this; /*!< Linked list used by the process to list threads */
 
+    /** Frame pushed during the last userland -> kernel context switch. */
+    struct interrupt_frame frame;
+
     pid_t tid; /*!< Thread ID */
     u32 flags; /*!< Combination of \ref thread_flags values */
 
@@ -171,6 +175,63 @@ static ALWAYS_INLINE bool thread_is_initial(thread_t *thread)
     return thread->tid == thread->process->pid;
 }
 
+/** Set the thread's current stack pointer */
+static inline void thread_set_stack_pointer(struct thread *thread, void *stack)
+{
+    arch_thread_set_stack_pointer(&thread->context, stack);
+}
+
+/** Get the thread's current stack pointer */
+static inline void *thread_get_stack_pointer(struct thread *thread)
+{
+    return arch_thread_get_stack_pointer(&thread->context);
+}
+
+/** Set the thread's kernel stack bottom address */
+static inline void thread_set_kernel_stack(struct thread *thread, void *stack)
+{
+    arch_thread_set_kernel_stack_top(&thread->context,
+                                     stack + KERNEL_STACK_SIZE);
+}
+
+/** Get the thread's kernel stack top address */
+static inline void *thread_get_kernel_stack_top(const struct thread *thread)
+{
+    return arch_thread_get_kernel_stack_top(&thread->context);
+}
+
+/** Get the thread's kernel stack bottom address */
+static inline void *thread_get_kernel_stack(const struct thread *thread)
+{
+    void *top = thread_get_kernel_stack_top(thread);
+    if (!top)
+        return NULL;
+
+    return top - KERNEL_STACK_SIZE;
+}
+
+/** Set the thread's user stack bottom address */
+static inline void thread_set_user_stack(struct thread *thread, void *stack)
+{
+    arch_thread_set_user_stack_top(&thread->context, stack + USER_STACK_SIZE);
+}
+
+/** Get the thread's user stack top address */
+static inline void *thread_get_user_stack_top(const struct thread *thread)
+{
+    return arch_thread_get_user_stack_top(&thread->context);
+}
+
+/** Get the thread's user stack bottom address */
+static inline void *thread_get_user_stack(const struct thread *thread)
+{
+    void *top = thread_get_user_stack_top(thread);
+    if (!top)
+        return NULL;
+
+    return top - USER_STACK_SIZE;
+}
+
 /** Process used when starting up the kernel.
  *
  * It is necesary to define it statically, since memory management functions are
@@ -207,9 +268,12 @@ bool thread_switch(thread_t *);
  * @param process The process the newly created thread belongs to
  * @param entrypoint The function called when starting the thread
  * @param data Data passed to the entry function (can be NULL)
+ * @param esp The value to place inside the stack pointer register before
+ *            first kicking off the thread. This is mainly useful when forking
+ *            an existing thread. Ignored if NULL.
  * @param flags Feature flags: a combination of \ref thread_flags enum values
  */
-thread_t *thread_spawn(struct process *, thread_entry_t, void *, u32);
+thread_t *thread_spawn(struct process *, thread_entry_t, void *, void *, u32);
 
 /** Start executing code in userland
  *
@@ -239,10 +303,21 @@ void thread_set_mmu(struct thread *thread, paddr_t mmu);
  */
 void thread_kill(thread_t *);
 
+/** Create a new fork of the given thread.
+ *
+ * A new process is created to execute the forked thread.
+ * The address space of the original thread's process is duplicated
+ * inside the newly created process.
+ *
+ * If the duplicated process had multiple threads, only the one that
+ * called this function is replicated.
+ *
+ * @return The newly created thread
+ */
+struct thread *thread_fork(struct thread *, thread_entry_t, void *);
+
 /** @defgroup arch_process Processes - arch specifics
  *  @ingroup x86_process
- *
- *  @{
  */
 
 /** @} */

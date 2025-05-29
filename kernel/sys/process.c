@@ -8,6 +8,8 @@
 #include <kernel/pmm.h>
 #include <kernel/process.h>
 #include <kernel/sched.h>
+#include <kernel/spinlock.h>
+#include <kernel/syscalls.h>
 
 #include <libalgo/linked_list.h>
 #include <utils/container_of.h>
@@ -19,12 +21,6 @@
 
 /** Minimum PID, should be given to the very first started thread */
 #define PROCESS_FIRST_PID 1
-
-/*
- * Global pool of PIDs.
- * NOTE: PIDs and TIDs use the same pool.
- */
-static pid_t g_highest_pid = PROCESS_FIRST_PID;
 
 struct thread kernel_process_initial_thread = {
     .process = &kernel_process,
@@ -55,10 +51,12 @@ extern void arch_thread_switch(thread_context_t *);
  * @param thread Pointer to thread to initialize
  * @param entrypoint The entrypoint used for starting this thread
  * @param data Data passed to the entry function (can be NULL)
+ * @param esp The value to put inside the stack pointer before starting
  *
  * @return Whether we succeded or not
  */
-extern bool arch_thread_init(thread_t *, thread_entry_t, void *);
+extern error_t
+arch_thread_init(thread_t *, thread_entry_t, void *data, void *esp);
 
 extern void arch_process_free(struct process *);
 
@@ -68,6 +66,28 @@ NO_RETURN void
 arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data);
 
 extern void arch_thread_set_mmu(struct thread *thread, paddr_t mmu);
+
+static void thread_free(thread_t *thread);
+
+/**
+ * @return the next available PID.
+ *  NOTE: PIDs and TIDs use the same pool.
+ */
+static pid_t process_next_pid(void)
+{
+    static pid_t g_highest_pid = PROCESS_FIRST_PID;
+    static DECLARE_SPINLOCK(pid_lock);
+
+    pid_t pid;
+
+    locked_scope (&pid_lock) {
+        pid = g_highest_pid;
+        if (__builtin_add_overflow(g_highest_pid, 1, &g_highest_pid))
+            log_err("!!! PID OVERFLOW !!!");
+    }
+
+    return pid;
+}
 
 /** Free all resources currently held by a thread.
  *
@@ -113,11 +133,9 @@ static struct process *process_put(struct process *process)
     return process;
 }
 
-struct process *
-process_create(const char *name, thread_entry_t entrypoint, void *data)
+static struct process *process_new(void)
 {
     struct process *process = NULL;
-    struct thread *initial_thread = NULL;
 
     process = kcalloc(1, sizeof(*process), KMALLOC_KERNEL);
     if (process == NULL)
@@ -125,28 +143,15 @@ process_create(const char *name, thread_entry_t entrypoint, void *data)
 
     process->as = address_space_new();
     if (IS_ERR(process->as)) {
-        log_err("failed to create process %s: %s", name,
+        log_err("failed to create process: %s",
                 err_to_str(ERR_FROM_PTR(process->as)));
         kfree(process);
         return (void *)process->as;
     }
 
-    strncpy(process->name, name, PROCESS_NAME_MAX_LEN);
-
-    // The initial execution thread is created along with the process
-    initial_thread = thread_spawn(process, entrypoint, data, THREAD_KERNEL);
-    if (initial_thread == NULL)
-        goto process_destroy;
-
-    llist_add(&process->threads, &initial_thread->proc_this);
+    process->pid = process_next_pid();
 
     return process;
-
-process_destroy:
-    kfree(initial_thread);
-    address_space_destroy(process->as);
-    kfree(process);
-    return PTR_ERR(E_NOMEM);
 }
 
 void process_kill(struct process *process)
@@ -172,6 +177,7 @@ void process_kill(struct process *process)
 
 void process_init_kernel_process(void)
 {
+    void *ustack = NULL;
     error_t err;
 
     /*
@@ -202,62 +208,100 @@ void process_init_kernel_process(void)
     if (err != E_SUCCESS)
         PANIC("Failed to initialize kernel user address space: %s",
               err_to_str(err));
+
+    ustack = vm_alloc(kernel_process.as, USER_STACK_SIZE,
+                      VM_READ | VM_WRITE | VM_CLEAR);
+    if (ustack == NULL)
+        PANIC("Fail to initialize initial user stack");
+
+    /* Makes it easier for us to retrieve the kernel user stack when needed. */
+    if (current != &kernel_process_initial_thread)
+        PANIC("Kernel process initialization MUST come before creating "
+              "any other thread");
+
+    thread_set_user_stack(&kernel_process_initial_thread, ustack);
 }
 
 thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
-                       void *data, u32 flags)
+                       void *data, void *esp, u32 flags)
 {
     thread_t *thread;
+    void *kstack = NULL;
+    error_t err;
 
     /* Userland processes cannot spawn kernel threads */
     if (flags & THREAD_KERNEL && process != &kernel_process)
-        return NULL;
+        return PTR_ERR(E_INVAL);
 
     thread = kcalloc(1, sizeof(*thread), KMALLOC_KERNEL);
     if (thread == NULL) {
         log_err("Failed to allocate new thread");
-        return NULL;
+        return PTR_ERR(E_NOMEM);
     }
 
-    thread->flags = flags;
-    thread->process = process_get(process);
+    kstack = vm_alloc(&kernel_address_space, KERNEL_STACK_SIZE,
+                      VM_KERNEL_RW | VM_CLEAR);
+    if (kstack == NULL) {
+        log_err("Failed to allocate new kernel stack");
+        err = E_NOMEM;
+        goto thread_free;
+    }
+
+    thread_set_kernel_stack(thread, kstack);
+    thread_set_mmu(thread, process->as->mmu);
 
     /* The initial thread's TID is equal to its containing process's PID */
     if (llist_is_empty(process->threads))
         thread->tid = process->pid;
     else
-        thread->tid = g_highest_pid++;
+        thread->tid = process_next_pid();
 
-    if (!arch_thread_init(thread, entrypoint, data)) {
-        log_err("Failed to initialize new thread");
-        kfree(thread);
-        return NULL;
+    err = arch_thread_init(thread, entrypoint, data, esp);
+    if (err) {
+        log_err("Failed to initialize new thread: %s", err_to_str(err));
+        goto kstack_free;
     }
 
+    thread->flags = flags;
+    thread->process = process_get(process);
+
+    llist_add(&process->threads, &thread->proc_this);
+
     return thread;
+
+kstack_free:
+    vm_free(&kernel_address_space, kstack);
+thread_free:
+    kfree(thread);
+    return PTR_ERR(err);
 }
 
-MAYBE_UNUSED static void thread_free(thread_t *thread)
+static void thread_free(thread_t *thread)
 {
-    const bool interrupts = scheduler_preempt_disable();
     struct process *process = thread->process;
 
     log_info("terminating thread %d (%s)", thread->tid, process->name);
 
-    llist_remove(&process->threads, &thread->proc_this);
+    no_preemption_scope () {
 
-    // Actually free the thread.
-    arch_thread_free(thread);
-    kfree(thread);
+        llist_remove(&process->threads, &thread->proc_this);
 
-    /*
-     * Release reference this threads holds onto the process.
-     * This will also free the process if this is the process' last
-     * running thread.
-     */
-    process_put(process);
+        arch_thread_free(thread);
 
-    scheduler_preempt_enable(interrupts);
+        /* Kernel user stack is shared across kthreads */
+        if (!thread_is_kernel(thread))
+            vm_free(process->as, thread_get_user_stack(thread));
+        vm_free(&kernel_address_space, thread_get_kernel_stack(thread));
+
+        kfree(thread);
+
+        /*
+         * Release reference this threads holds onto the process.
+         * This will also free the process if this is the process' last
+         * running thread.
+         */
+        process_put(process);
+    }
 }
 
 bool thread_switch(thread_t *thread)
@@ -278,6 +322,78 @@ void thread_kill(thread_t *thread)
     thread->state = SCHED_KILLED;
     if (thread == current)
         schedule_preempt();
+}
+
+struct thread *
+thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
+{
+    struct process *new_process;
+    struct thread *new;
+    int flags;
+    error_t err;
+
+    /*
+     * It is currently impossible to duplicate any other address space than the
+     * one used by the current thread (loaded).
+     */
+    if (thread != current) {
+        WARN("Cannot fork a non-running thread.");
+        return PTR_ERR(E_INVAL);
+    }
+
+    /*
+     * Forked processes can only be usermode processes.
+     * The only kernel-mode process in the system is @ref kernel_process.
+     */
+    flags = thread->flags & ~THREAD_KERNEL;
+    if (IS_KERNEL_ADDRESS(entrypoint))
+        return PTR_ERR(E_PERM);
+
+    new_process = process_new();
+    if (IS_ERR(new_process))
+        return (void *)new_process;
+
+    /* Duplicate the current thread's process's state */
+    strncpy(new_process->name, current->process->name, PROCESS_NAME_MAX_LEN);
+
+    /* Duplicate the current thread's address space */
+    address_space_init(new_process->as);
+    address_space_copy_current(new_process->as);
+
+    new = thread_spawn(new_process, entrypoint, arg,
+                       thread_get_stack_pointer(thread), flags);
+    if (new == NULL) {
+        err = E_NOMEM;
+        goto process_destroy;
+    }
+
+    /*
+     * Duplicate the current thread's stack.
+     *
+     * The content of the stack has already been copied when duplicating the
+     * address space, so we just need to update the pointers.
+     */
+    thread_set_user_stack(new, thread_get_user_stack(thread));
+
+    return thread;
+
+process_destroy:
+    address_space_destroy(new_process->as);
+    kfree(new_process);
+    return PTR_ERR(err);
+}
+
+pid_t sys_fork(void)
+{
+    struct thread *fork;
+
+    fork = thread_fork(current, (void *)current->frame.state.eip, NULL);
+    if (IS_ERR(fork))
+        return -ERR_FROM_PTR(fork);
+
+    sched_new_thread(fork);
+
+    return fork->tid;
 }
 
 NO_RETURN void thread_jump_to_userland(thread_entry_t entrypoint, void *data)

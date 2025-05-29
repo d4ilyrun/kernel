@@ -55,6 +55,21 @@
 #define KERNEL_STACK_SIZE 0x4000U /*!< Size of the kernel's stack */
 #endif
 
+#ifndef USER_STACK_SIZE
+#define USER_STACK_SIZE 0x10000U /*!< Size of the user stack */
+#endif
+
+#ifndef __ASSEMBLER__
+
+#include <utils/compiler.h>
+#include <utils/math.h>
+
+/* We want to allocate stacks using the VM API, which can only allocate pages */
+static_assert(is_aligned(KERNEL_STACK_SIZE, PAGE_SIZE));
+static_assert(is_aligned(USER_STACK_SIZE, PAGE_SIZE));
+
+#endif
+
 /* Starting from #6, our kernel uses the higher-half design.
  *
  * This means that the kernel code's virtual address differs from its physical
@@ -78,7 +93,7 @@
 #ifdef __ASSEMBLER__
 
 #define KERNEL_HIGHER_HALF_PHYSICAL(_virtual) \
-    ((_virtual)-KERNEL_HIGHER_HALF_OFFSET)
+    ((_virtual) - KERNEL_HIGHER_HALF_OFFSET)
 #define KERNEL_HIGHER_HALF_VIRTUAL(_physical) \
     ((_physical) + KERNEL_HIGHER_HALF_OFFSET)
 
@@ -87,7 +102,7 @@
 /** Compute the physical equivalent of a higher half relocated virtual address
  */
 #define KERNEL_HIGHER_HALF_PHYSICAL(_virtual) \
-    ((u32)(_virtual)-KERNEL_HIGHER_HALF_OFFSET)
+    ((u32)(_virtual) - KERNEL_HIGHER_HALF_OFFSET)
 /** Compute the higher half virtual equivalent of a physical address */
 #define KERNEL_HIGHER_HALF_VIRTUAL(_physical) \
     ((u32)(_physical) + KERNEL_HIGHER_HALF_OFFSET)
@@ -103,7 +118,7 @@
  * @note this address is defined inside the kernel's linker scrpit.
  */
 extern u32 _kernel_code_start;
-#define KERNEL_CODE_START ((u32)&_kernel_code_start)
+#define KERNEL_CODE_START ((u32) & _kernel_code_start)
 
 /**
  * @brief Address of the byte located just after the end of the kernel's code
@@ -114,7 +129,7 @@ extern u32 _kernel_code_start;
  * @note this address is defined inside the kernel's linker scrpit.
  */
 extern u32 _kernel_code_end;
-#define KERNEL_CODE_END ((u32)&_kernel_code_end)
+#define KERNEL_CODE_END ((u32) & _kernel_code_end)
 
 #endif /* __ASSEMBLER__ */
 

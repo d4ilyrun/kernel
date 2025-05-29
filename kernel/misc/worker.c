@@ -27,7 +27,7 @@ error_t worker_init(struct worker *worker)
 
     INIT_WORKER(*worker);
 
-    thread = thread_spawn(&kernel_process, worker_entrypoint, worker,
+    thread = thread_spawn(&kernel_process, worker_entrypoint, worker, NULL,
                           THREAD_KERNEL);
     if (thread == NULL) {
         log_err("failed to spawn worker thread");

@@ -173,7 +173,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     sched_new_thread_create(kernel_task_ping, NULL, THREAD_KERNEL);
 
     thread_t *kernel_timer_test = thread_spawn(
-        current->process, kernel_task_timer, NULL, THREAD_KERNEL);
+        current->process, kernel_task_timer, NULL, NULL, THREAD_KERNEL);
     sched_new_thread(kernel_timer_test);
 
     log_dbg("Re-started task: '%s' (TID=%d)", current->process->name,
@@ -195,6 +195,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 void kernel_task_rootfs(void *data)
 {
     struct multiboot_tag_module *ramdev_module = NULL;
+    struct thread *thread;
 
     UNUSED(data);
 
@@ -251,7 +252,15 @@ void kernel_task_rootfs(void *data)
     vnode = vfs_find_by_path("/dev/eth0");
     log_info("/dev/eth0: %s", err_to_str(ERR_FROM_PTR(vnode)));
 
-    // sched_new_thread_create(kernel_task_elf, NULL, THREAD_KERNEL);
+    log_info("forking current thread");
+    thread = thread_fork(current, kernel_task_elf, NULL);
+    if (IS_ERR(thread)) {
+        log_err("Failed to fork current thread: %s",
+                err_to_str(ERR_FROM_PTR(thread)));
+        return;
+    }
+
+    sched_new_thread(thread);
 }
 
 #undef LOG_DOMAIN
@@ -407,9 +416,9 @@ void kernel_task_mutex(void *data)
 
     UNUSED(data);
 
-    thread_a = thread_spawn(&kernel_process, __kernel_task_mutex, &mutex,
+    thread_a = thread_spawn(&kernel_process, __kernel_task_mutex, &mutex, NULL,
                             THREAD_KERNEL);
-    thread_b = thread_spawn(&kernel_process, __kernel_task_mutex, &mutex,
+    thread_b = thread_spawn(&kernel_process, __kernel_task_mutex, &mutex, NULL,
                             THREAD_KERNEL);
 
     sched_new_thread(thread_a);
