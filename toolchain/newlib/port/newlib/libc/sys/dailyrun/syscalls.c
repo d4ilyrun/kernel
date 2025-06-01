@@ -11,12 +11,12 @@
 char **environ; /* pointer to array of char * strings that define the current
                    environment variables */
 
-#define DEFINE_SYSCALL_0(_ret_type, _syscall, _nr)                      \
-    _ret_type _syscall(void)                                            \
-    {                                                                   \
-        int ret = _nr;                                                  \
-        __asm__ volatile("int 0x80" : "=a"(ret) : "a"(ret) : "memory"); \
-        return ret;                                                     \
+#define DEFINE_SYSCALL_0(_ret_type, _syscall, _nr)                       \
+    _ret_type _syscall(void)                                             \
+    {                                                                    \
+        int ret = _nr;                                                   \
+        __asm__ volatile("int $0x80" : "=a"(ret) : "a"(ret) : "memory"); \
+        return ret;                                                      \
     }
 
 DEFINE_SYSCALL_0(int, fork, 2);
