@@ -96,6 +96,13 @@ define newline
 
 endef
 
+define CHECK_VERSION
+  if  ! $(1) --version | grep '$(2)' &> /dev/null; then \
+    echo "error: $(1): invalid version (expected $(2))" >&2; \
+    exit 1; \
+  fi
+endef
+
 all: kernel
 
 include $(TOOLCHAIN_DIR)/build.mk

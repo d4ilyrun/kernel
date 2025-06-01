@@ -13,6 +13,8 @@ $(NEWLIB_TAR):
 
 newlib/prepare: $(NEWLIB_DIR)
 $(NEWLIB_DIR): $(NEWLIB_TAR)
+	$(SILENT)$(call CHECK_VERSION,autoconf,2.69)
+	$(SILENT)$(call CHECK_VERSION,automake,1.15.1)
 	$(call COMPILE,EXTRACT,$@)
 	$(SILENT)tar xf $(NEWLIB_TAR) -C $(dir $@)
 	$(call LOG,PATCH,$@)
