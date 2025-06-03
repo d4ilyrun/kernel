@@ -1921,7 +1921,7 @@ x86_64-*-rdos*)
     tmake_file="i386/t-i386elf t-svr4"
     ;;
 i[34567]86-*-dailyrun*)
-    tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h glibc-stdint.h i386/i386elf.h i386/dailyrun.h"
+    tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h newlib-stdint.h i386/i386elf.h i386/dailyrun.h"
 	;;
 i[34567]86-*-dragonfly*)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h dragonfly.h dragonfly-stdint.h i386/dragonfly.h"
