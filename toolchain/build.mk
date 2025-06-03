@@ -8,6 +8,23 @@ PREFIX ?= $(PWD)/$(TOOLCHAIN_LOCATION)
 # Add manually built compiler to the path
 export PATH := $(PREFIX)/bin:$(PREFIX)/usr/bin:$(PATH)
 
+# Use our own toolchain to compile our kernel.
+# This lets us be sure that the userland constants (syscall flags, ...) used
+# by our kernel are the same as the one used to compile userland programs.
+CROSS_COMPILE ?= $(TARGET)-
+
+# Add the toolchain's include directory to the header search path so that
+# it can be used by clangd.
+CPPFLAGS      += -I$(PREFIX)/$(TARGET)/include -I$(PREFIX)/include
+
+ifeq ($(ARCH),)
+  $(info Target architecture: Undefined)
+else
+  $(info Target architecture: $(ARCH))
+endif
+
+$(info Toolchain: $(CROSS_COMPILE))
+
 include $(TOOLCHAIN_DIR)/binutils/build.mk
 include $(TOOLCHAIN_DIR)/gcc/build.mk
 include $(TOOLCHAIN_DIR)/newlib/build.mk

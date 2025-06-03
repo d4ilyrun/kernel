@@ -1,22 +1,10 @@
 NAME := dailyrun
 
-CC   := $(CROSS_COMPILE)gcc
-CPP  := $(CROSS_COMPILE)cpp
-LD   := $(CROSS_COMPILE)ld
-AR   := $(CROSS_COMPILE)ar
-NASM := nasm
-
-ifeq ($(ARCH),)
-  $(info Target architecture: Undefined)
-else
-  $(info Target architecture: $(ARCH))
-endif
-
-ifneq ($(CROSS_COMPILE),)
-  $(info Cross compiling for target: $(CROSS_COMPILE))
-else
-  $(info Compiling using host toolchain)
-endif
+CC   = $(CROSS_COMPILE)gcc
+CPP  = $(CROSS_COMPILE)cpp
+LD   = $(CROSS_COMPILE)ld
+AR   = $(CROSS_COMPILE)ar
+NASM = nasm
 
 NCORES ?= $(shell nproc)
 $(info Compiling sub-targets using $(NCORES) cores)
