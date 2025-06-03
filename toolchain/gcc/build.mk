@@ -34,7 +34,7 @@ $(GCC_BUILD_DIR)/config.status: binutils $(GCC_DIR)
 		2> configure.err
 
 gcc: $(GCC_GCC)
-$(GCC_GCC): gcc/configure
+$(GCC_GCC): install-headers gcc/configure
 	$(call LOG,MAKE,gcc-$(GCC_VERSION)/$(TARGET))
 	$(call MAKE_RECURSIVE,$(GCC_BUILD_DIR),all-gcc,gcc/)
 	$(call MAKE_RECURSIVE,$(GCC_BUILD_DIR),all-target-libgcc,gcc/)

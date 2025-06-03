@@ -1,3 +1,5 @@
+NAME := dailyrun
+
 CC   := $(CROSS_COMPILE)gcc
 CPP  := $(CROSS_COMPILE)cpp
 LD   := $(CROSS_COMPILE)ld

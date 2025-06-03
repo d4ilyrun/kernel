@@ -31,6 +31,7 @@ $(NEWLIB_BUILD_DIR)/config.status: $(NEWLIB_DIR)
 		$(PWD)/$(NEWLIB_DIR)/configure \
 			--target="$(TARGET)" \
 			--prefix="$(PREFIX)" \
+			--with-sysroot="$(TOOLCHAIN_SYSROOT)" \
 			$(NEWLIB_CONFIGURE_FLAGS) \
 		>  configure.log \
 		2> configure.err
