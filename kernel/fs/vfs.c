@@ -6,6 +6,7 @@
 #include <utils/container_of.h>
 
 #include <string.h>
+#include <uapi/fcntl.h>
 
 DECLARE_LLIST(vfs_mountpoints);
 
@@ -264,4 +265,14 @@ vnode_t *vfs_vnode_release(vnode_t *node)
 
     node->refcount -= 1;
     return node;
+}
+
+int sys_openat(int fd, const char *path, int oflags)
+{
+    return -E_NOT_IMPLEMENTED;
+}
+
+int sys_open(const char *path, int oflags)
+{
+    return -E_NOT_IMPLEMENTED;
 }
