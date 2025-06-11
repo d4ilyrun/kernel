@@ -15,11 +15,11 @@ struct vnode;
 struct sockaddr;
 struct msghdr;
 
-/** Represents an opened file.
+/** Opened file description.
  *
  * @note This struct is also used by pseudo-filesystems, such as the
- * sockfs, used to allocated sockets. According to the UNIX philosophy,
- * everything is a file.
+ * sockfs, to allocated sockets or other objects. According to the UNIX
+ * philosophy, everything is a file.
  */
 struct file {
     size_t pos;                        ///< Current offset into the file
@@ -31,21 +31,21 @@ struct file {
 
 void __file_put(struct file *file);
 
-/** Increment an open file descriptor's reference count.
- *  @return The open file descriptor.
+/** Increment an open file description's reference count.
+ *  @return The open file description.
  */
-struct file *file_get(struct file *file)
+static inline struct file *file_get(struct file *file)
 {
     atomic_inc(&file->refcount);
     return file;
 }
 
-/** Decrement an open file descriptor's reference count.
+/** Decrement an open file description's reference count.
  *
- * If this was the last reference to this open file descriptor,
+ * If this was the last reference to this open file description,
  * the underlying structure is released.
  */
-void file_put(struct file *file)
+static inline void file_put(struct file *file)
 {
     int count;
 
