@@ -18,19 +18,21 @@ struct file *file_open(struct vnode *vnode, const struct file_operations *fops)
     file->ops = fops;
     file->vnode = vfs_vnode_acquire(vnode, NULL);
 
+    atomic_write(&file->refcount, 0);
+    file_get(file);
+
     if (fops->open)
         ret = fops->open(file);
 
     if (ret != E_SUCCESS) {
-        vfs_vnode_release(vnode);
-        kfree(file);
+        file_put(file);
         return PTR_ERR(ret);
     }
 
     return file;
 }
 
-void file_close(struct file *file)
+void __file_put(struct file *file)
 {
     if (file->ops->close)
         file->ops->close(file);

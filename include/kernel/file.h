@@ -8,6 +8,7 @@
 #ifndef KERNEL_FILE_H
 #define KERNEL_FILE_H
 
+#include <kernel/atomic.h>
 #include <kernel/error.h>
 
 struct vnode;
@@ -25,7 +26,35 @@ struct file {
     void *priv;                        ///< Private data used by the driver
     struct vnode *vnode;               ///< The file's vnode in the VFS
     const struct file_operations *ops; ///< @see file_operations
+    atomic_t refcount;                 ///< Number of references to this file
 };
+
+void __file_put(struct file *file);
+
+/** Increment an open file descriptor's reference count.
+ *  @return The open file descriptor.
+ */
+struct file *file_get(struct file *file)
+{
+    atomic_inc(&file->refcount);
+    return file;
+}
+
+/** Decrement an open file descriptor's reference count.
+ *
+ * If this was the last reference to this open file descriptor,
+ * the underlying structure is released.
+ */
+void file_put(struct file *file)
+{
+    int count;
+
+    count = atomic_dec(&file->refcount);
+    if (count > 1)
+        return;
+
+    __file_put(file);
+}
 
 /** Operations that can be performed on an opened file.
  *  @struct file_operations
@@ -65,7 +94,10 @@ struct file_operations {
 struct file *file_open(struct vnode *, const struct file_operations *);
 
 /** Free a file struct and release its content */
-void file_close(struct file *);
+static inline void file_close(struct file *file)
+{
+    file_put(file);
+}
 
 #define __file_function_wrapper(_ret_type, _default, _name, _signature, ...) \
     static inline _ret_type file_##_name _signature                          \
