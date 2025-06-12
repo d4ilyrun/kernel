@@ -23,6 +23,21 @@ char **environ; /* pointer to array of char * strings that define the current
         return ret;                                                      \
     }
 
+#define DEFINE_SYSCALL_2(_ret_type, _syscall, _nr, _type1, _type2) \
+    _ret_type _##_syscall(_type1 arg1, _type2 arg2)                \
+    {                                                              \
+        int ret = _nr;                                             \
+        __asm__ volatile("int $0x80"                               \
+                         : "=a"(ret)                               \
+                         : "a"(ret), "b"(arg1), "c"(arg2)          \
+                         : "memory");                              \
+        if (ret < 0) {                                             \
+            errno = ret;                                           \
+            ret = -1;                                              \
+        }                                                          \
+        return ret;                                                \
+    }
+
 #define DEFINE_SYSCALL_3(_ret_type, _syscall, _nr, _type1, _type2, _type3) \
     _ret_type _##_syscall(_type1 arg1, _type2 arg2, _type3 arg3)           \
     {                                                                      \
@@ -41,6 +56,27 @@ char **environ; /* pointer to array of char * strings that define the current
 DEFINE_SYSCALL_0(int, fork, 2);
 DEFINE_SYSCALL_3(int, lseek, 19, int, int, int);
 
+/*
+ * Open cannot be declared using the regular macros because it takes in
+ * a variadic parameter.
+ */
+int _open(const char *path, int oflags, ...)
+{
+    int eax = 5;
+
+    __asm__ volatile("int $0x80"
+                     : "=a"(eax)
+                     : "a"(eax), "b"(path), "c"(oflags)
+                     : "memory");
+
+    if (eax < 0) {
+        errno = eax;
+        eax = -1;
+    }
+
+    return eax;
+}
+
 /* Unimplemented syscalls */
 void _exit(int val);
 int close(int file);
@@ -50,7 +86,6 @@ int getpid();
 int isatty(int file);
 int kill(int pid, int sig);
 int link(char *old, char *new);
-int open(const char *name, int flags, ...);
 int read(int file, char *ptr, int len);
 caddr_t sbrk(int incr);
 int stat(const char *file, struct stat *st);

@@ -1,7 +1,10 @@
 #include <kernel/error.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
+#include <kernel/process.h>
 #include <kernel/vfs.h>
+#include <uapi/fcntl.h>
+#include <uapi/unistd.h>
 
 #include <utils/container_of.h>
 
@@ -299,4 +302,64 @@ vnode_t *vfs_vnode_release(vnode_t *node)
 
     node->refcount -= 1;
     return node;
+}
+
+/*
+ * https://pubs.opengroup.org/onlinepubs/9699919799/functions/open.html
+ */
+int sys_open(const char *path, int oflags)
+{
+    vnode_t *vnode;
+    struct file *file;
+    int fd;
+
+    // TODO: open(): ENOTDIR
+    // TODO: open(): EROFS
+    // TODO: open(): EACCESS
+
+    if (oflags & (O_TRUNC | O_NOCTTY | O_CLOEXEC))
+        return -E_INVAL;
+
+    vnode = vfs_find_by_path(path);
+
+    if (oflags & O_CREAT) {
+        /*
+         * If O_CREAT and O_EXCL are set, fail if the file exists.
+         */
+        if (oflags & O_EXCL && !IS_ERR(vnode))
+            return -E_EXIST;
+
+        /*
+         * TODO: Create file if it does not exist.
+         */
+        if (IS_ERR(vnode) && ERR_FROM_PTR(vnode) == E_NOENT) {
+            vnode = vfs_create(path, VNODE_FILE);
+        }
+    }
+
+    if (IS_ERR(vnode))
+        return -ERR_FROM_PTR(vnode);
+
+    /*
+     * Cannot write into a directory node.
+     */
+    if (vnode->type == VNODE_DIRECTORY && O_WRITABLE(oflags))
+        return -E_IS_DIRECTORY;
+
+    if (vnode->type != VNODE_DIRECTORY && oflags & O_DIRECTORY)
+        return -E_NOT_DIRECTORY;
+
+    file = vfs_open_at(vnode);
+    if (IS_ERR(file))
+        return -E_IO;
+
+    file->flags = oflags;
+    if (oflags & O_APPEND)
+        file_seek(file, 0, SEEK_END);
+
+    fd = process_register_file(current->process, file);
+    if (fd < 0)
+        file_put(file);
+
+    return fd;
 }

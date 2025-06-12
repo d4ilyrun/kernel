@@ -29,15 +29,19 @@ typedef enum error {
     E_SUCCESS,                   ///< No error
     E_PERM = 1,                  ///< Operation not permitted
     E_NOENT = 2,                 ///< Entry not found
+    E_IO = 5,                    ///< I/O error
     E_WOULD_BLOCK = 11,          ///< Resource temporarily unavailable
     E_NOMEM = 12,                ///< Out of memory
     E_BUSY = 16,                 ///< Device or resource busy
     E_EXIST = 17,                ///< File exists
     E_NODEV = 19,                ///< No such device
+    E_NOT_DIRECTORY = 20,        ///< Is not a directory
+    E_IS_DIRECTORY = 21,         ///< Is a directory
     E_INVAL = 22,                ///< Invalid argument
     E_NFILE = 23,                ///< File table overflow
     E_MFILE = 24,                ///< Too many opened files
     E_SEEK_PIPE = 29,            ///< Illegal seek
+    E_READ_ONLY_FS = 30,         ///< Read-only file system
     E_NAME_TOO_LONG = 36,        ///< File name too long
     E_NOT_IMPLEMENTED = 38,      ///< Function not implemented
     E_BAD_FD = 81,               ///< File descriptor in bad state
