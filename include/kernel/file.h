@@ -120,53 +120,31 @@ static inline void file_close(struct file *file)
     file_put(file);
 }
 
-#define __file_function_wrapper(_ret_type, _default, _name, _signature, ...) \
-    static inline _ret_type file_##_name _signature                          \
-    {                                                                        \
-        if (!file->ops->_name)                                               \
-            return _default;                                                 \
-                                                                             \
-        return file->ops->_name(__VA_ARGS__);                                \
-    }
+#define __file_ops(_default, _file, _ops, ...)                             \
+    (_file->ops->_ops ? _file->ops->_ops(_file __VA_OPT__(, ) __VA_ARGS__) \
+                      : _default)
 
-#define file_function_wrapper(_name, _signature, ...)                    \
-    __file_function_wrapper(error_t, E_NOT_SUPPORTED, _name, _signature, \
-                            __VA_ARGS__)
+#define file_ops(_file, _ops, ...) \
+    __file_ops(E_NOT_SUPPORTED, _file, _ops, __VA_ARGS__)
 
-__file_function_wrapper(size_t, 0, size, (struct file * file), file);
+#define file_size(file) file_ops(file, size)
 
-file_function_wrapper(write, (struct file * file, const char *buf, size_t len),
-                      file, buf, len);
+#define file_write(file, buf, len) file_ops(file, write, buf, len)
+#define file_read(file, buf, len) file_ops(file, read, buf, len)
+#define file_seek(file, off, whence) file_ops(file, seek, off, whence)
 
-file_function_wrapper(read, (struct file * file, char *buf, size_t len), file,
-                      buf, len);
+#define file_bind(file, addr, len) file_ops(file, bind, addr, len)
+#define file_connect(file, addr, len) file_ops(file, connect, addr, len)
 
-file_function_wrapper(bind,
-                      (struct file * file, struct sockaddr *addr, size_t len),
-                      file, addr, len);
-
-file_function_wrapper(connect,
-                      (struct file * file, struct sockaddr *addr, size_t len),
-                      file, addr, len);
-
-file_function_wrapper(sendmsg,
-                      (struct file * file, const struct msghdr *msg, int flags),
-                      file, msg, flags);
-
-file_function_wrapper(recvmsg,
-                      (struct file * file, struct msghdr *msg, int flags), file,
-                      msg, flags);
-
+#define file_sendmsg(file, msg, flags) file_ops(file, sendmsg, msg, flags)
 error_t file_send(struct file *file, const char *data, size_t len, int flags);
 error_t file_sendto(struct file *file, const char *data, size_t len, int flags,
                     struct sockaddr *addr, size_t addrlen);
 
+#define file_recvmsg(file, msg, flags) file_ops(file, recvmsg, msg, flags)
 error_t file_recv(struct file *file, const char *data, size_t len, int flags);
 error_t file_recvfrom(struct file *file, const char *data, size_t len,
                       int flags, struct sockaddr *addr, size_t *addrlen);
-
-file_function_wrapper(seek, (struct file * file, off_t off, int whence), file,
-                      off, whence);
 
 #endif /* KERNEL_FILE_H */
 
