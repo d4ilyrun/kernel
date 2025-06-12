@@ -29,9 +29,18 @@ void arch_syscall_set_return_value(interrupt_frame *frame, u32 value);
 
 /** The list of all the available syscalls and their respective handler */
 static const struct syscall syscalls[SYSCALL_COUNT] = {
-    DECLARE_SYSCALL(FORK, "fork", sys_fork, 0)};
+    DECLARE_SYSCALL(FORK, "fork", sys_fork, 0),
+    DECLARE_SYSCALL(LSEEK, "lseek", sys_lseek, 3),
+};
 
 #define DO_SYSCALL_0(_syscall) (((u32(*)(void))_syscall)())
+#define DO_SYSCALL_1(_syscall, _arg1) \
+    (((u32(*)(void *))_syscall)((void *)_arg1))
+#define DO_SYSCALL_2(_syscall, _arg1, _arg2) \
+    (((u32(*)(void *, void *))_syscall)((void *)_arg1, (void *)_arg2))
+#define DO_SYSCALL_3(_syscall, _arg1, _arg2, _arg3)                           \
+    (((u32(*)(void *, void *, void *))_syscall)((void *)_arg1, (void *)_arg2, \
+                                                (void *)_arg3))
 
 /**
  * Find a syscall's name when porting a program that was compiled for Linux.
@@ -60,6 +69,15 @@ static u32 syscall(void *frame)
     switch (syscall->arg_count) {
     case 0:
         ret = DO_SYSCALL_0(syscall->handler);
+        break;
+    case 1:
+        ret = DO_SYSCALL_1(syscall->handler, args.arg1);
+        break;
+    case 2:
+        ret = DO_SYSCALL_2(syscall->handler, args.arg1, args.arg2);
+        break;
+    case 3:
+        ret = DO_SYSCALL_3(syscall->handler, args.arg1, args.arg2, args.arg3);
         break;
     default:
         log_err("%s: unsupported arg count (%d)", syscall->name,

@@ -23,7 +23,23 @@ char **environ; /* pointer to array of char * strings that define the current
         return ret;                                                      \
     }
 
+#define DEFINE_SYSCALL_3(_ret_type, _syscall, _nr, _type1, _type2, _type3) \
+    _ret_type _##_syscall(_type1 arg1, _type2 arg2, _type3 arg3)           \
+    {                                                                      \
+        int ret = _nr;                                                     \
+        __asm__ volatile("int $0x80"                                       \
+                         : "=a"(ret)                                       \
+                         : "a"(ret), "b"(arg1), "c"(arg2), "d"(arg3)       \
+                         : "memory");                                      \
+        if (ret < 0) {                                                     \
+            errno = ret;                                                   \
+            ret = -1;                                                      \
+        }                                                                  \
+        return ret;                                                        \
+    }
+
 DEFINE_SYSCALL_0(int, fork, 2);
+DEFINE_SYSCALL_3(int, lseek, 19, int, int, int);
 
 /* Unimplemented syscalls */
 void _exit(int val);
@@ -34,7 +50,6 @@ int getpid();
 int isatty(int file);
 int kill(int pid, int sig);
 int link(char *old, char *new);
-int lseek(int file, int ptr, int dir);
 int open(const char *name, int flags, ...);
 int read(int file, char *ptr, int len);
 caddr_t sbrk(int incr);

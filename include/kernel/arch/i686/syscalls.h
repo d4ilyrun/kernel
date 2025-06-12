@@ -36,8 +36,9 @@
  *  @enum syscall_nr
  */
 typedef enum syscall_nr {
-    SYS_FORK = 2,  /*!< fork() */
-    SYS_WRITE = 4, /*!< write() */
+    SYS_FORK = 2,   /*!< fork() */
+    SYS_WRITE = 4,  /*!< write() */
+    SYS_LSEEK = 19, /*! lseek() */
     SYSCALL_COUNT
 } syscall_nr;
 
