@@ -1,7 +1,9 @@
 #include <kernel/file.h>
 #include <kernel/kmalloc.h>
+#include <kernel/process.h>
 #include <kernel/vfs.h>
 #include <uapi/kernel/net.h> /* struct msghdr */
+#include <uapi/unistd.h>
 
 struct file *file_open(struct vnode *vnode, const struct file_operations *fops)
 {
@@ -17,6 +19,8 @@ struct file *file_open(struct vnode *vnode, const struct file_operations *fops)
 
     file->ops = fops;
     file->vnode = vfs_vnode_acquire(vnode, NULL);
+
+    INIT_SPINLOCK(file->lock);
 
     atomic_write(&file->refcount, 0);
     file_get(file);
@@ -40,6 +44,34 @@ void __file_put(struct file *file)
     vfs_vnode_release(file->vnode);
 
     kfree(file);
+}
+
+off_t default_file_seek(struct file *file, off_t off, int whence)
+{
+    enum vnode_type type = file->vnode->type;
+
+    if (type == VNODE_SOCKET || type == VNODE_FIFO)
+        return -E_SEEK_PIPE;
+
+    spinlock_acquire(&file->lock);
+
+    switch (whence) {
+    case SEEK_CUR:
+        file->pos += off;
+        break;
+    case SEEK_END:
+        file->pos = file_size(file) + off;
+        break;
+    case SEEK_SET:
+        file->pos = off;
+        break;
+    default:
+        spinlock_release(&file->lock);
+        return -E_INVAL;
+    }
+
+    spinlock_release(&file->lock);
+    return file->pos;
 }
 
 error_t file_sendto(struct file *file, const char *data, size_t len, int flags,
@@ -90,4 +122,21 @@ error_t file_recvfrom(struct file *file, const char *data, size_t len,
 error_t file_recv(struct file *file, const char *data, size_t len, int flags)
 {
     return file_recvfrom(file, data, len, flags, NULL, NULL);
+}
+
+/*
+ * https://pubs.opengroup.org/onlinepubs/9699919799/functions/lseek.html
+ */
+off_t sys_lseek(int fd, off_t off, int whence)
+{
+    struct file *file;
+
+    file = process_file_get(current->process, fd);
+    if (!file)
+        return -E_BAD_FD;
+
+    off = file_seek(file, off, whence);
+    process_file_put(current->process, file);
+
+    return off;
 }

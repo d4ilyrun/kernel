@@ -37,5 +37,6 @@ void syscall_init(void);
 /* SYSCALLS HANDLER */
 
 pid_t sys_fork(void);
+off_t sys_lseek(int fd, off_t off, int whence);
 
 #endif /* KERNEL_SYSCALLS_H */

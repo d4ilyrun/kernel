@@ -10,6 +10,7 @@
 
 #include <kernel/atomic.h>
 #include <kernel/error.h>
+#include <kernel/spinlock.h>
 
 struct vnode;
 struct sockaddr;
@@ -22,11 +23,12 @@ struct msghdr;
  * philosophy, everything is a file.
  */
 struct file {
-    size_t pos;                        ///< Current offset into the file
+    off_t pos;                         ///< Current offset into the file
     void *priv;                        ///< Private data used by the driver
     struct vnode *vnode;               ///< The file's vnode in the VFS
     const struct file_operations *ops; ///< @see file_operations
     atomic_t refcount;                 ///< Number of references to this file
+    spinlock_t lock;                   ///< Synchronization lock
 };
 
 void __file_put(struct file *file);
@@ -88,10 +90,28 @@ struct file_operations {
     error_t (*sendmsg)(struct file *, const struct msghdr *, int flags);
     /** Send a message through an endpoint (socket) */
     error_t (*recvmsg)(struct file *, struct msghdr *, int flags);
+    /** Reposition the open file description offset.
+     *
+     * @note It is possible for a description's offset to go beyond the
+     *       backing file's size. In this case subsequent reads will return
+     *       empty bytes until data is actually written into the gap.
+     *
+     * @return The updated offset
+     *
+     * @see man 2 lseek
+     */
+    off_t (*seek)(struct file *, off_t, int whence);
 };
 
 /** Create a new file structure */
 struct file *file_open(struct vnode *, const struct file_operations *);
+
+/** Reposition the open file description offset
+ *
+ * This is the default implementation for @ref file_operations.seek().
+ * It simply increments the description's offset.
+ */
+off_t default_file_seek(struct file *file, off_t off, int whence);
 
 /** Free a file struct and release its content */
 static inline void file_close(struct file *file)
@@ -143,6 +163,9 @@ error_t file_sendto(struct file *file, const char *data, size_t len, int flags,
 error_t file_recv(struct file *file, const char *data, size_t len, int flags);
 error_t file_recvfrom(struct file *file, const char *data, size_t len,
                       int flags, struct sockaddr *addr, size_t *addrlen);
+
+file_function_wrapper(seek, (struct file * file, off_t off, int whence), file,
+                      off, whence);
 
 #endif /* KERNEL_FILE_H */
 

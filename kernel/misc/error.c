@@ -15,6 +15,7 @@ static const char *const ERROR_DESCRIPTIONS[E_TOTAL_COUNT] = {
     [E_INVAL] = "Invalid argument",
     [E_NFILE] = "File table overflow",
     [E_MFILE] = "Too many opened files",
+    [E_SEEK_PIPE] = "Illegal seek",
     [E_NAME_TOO_LONG] = "File name too long",
     [E_NOT_IMPLEMENTED] = "Not implemented",
     [E_BAD_FD] = "File descriptor in bad state",

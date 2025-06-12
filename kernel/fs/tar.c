@@ -364,6 +364,7 @@ static error_t tar_file_read(struct file *file, char *buffer, size_t len)
 static struct file_operations tar_file_ops = {
     .size = tar_file_size,
     .read = tar_file_read,
+    .seek = default_file_seek,
 };
 
 vfs_t *tar_new(u32 start, u32 end)

@@ -37,6 +37,7 @@ typedef enum error {
     E_INVAL = 22,                ///< Invalid argument
     E_NFILE = 23,                ///< File table overflow
     E_MFILE = 24,                ///< Too many opened files
+    E_SEEK_PIPE = 29,            ///< Illegal seek
     E_NAME_TOO_LONG = 36,        ///< File name too long
     E_NOT_IMPLEMENTED = 38,      ///< Function not implemented
     E_BAD_FD = 81,               ///< File descriptor in bad state
