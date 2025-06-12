@@ -54,6 +54,7 @@ char **environ; /* pointer to array of char * strings that define the current
     }
 
 DEFINE_SYSCALL_0(int, fork, 2);
+DEFINE_SYSCALL_3(int, read, 3, int, char *, int);
 DEFINE_SYSCALL_3(int, lseek, 19, int, int, int);
 
 /*
@@ -86,7 +87,6 @@ int getpid();
 int isatty(int file);
 int kill(int pid, int sig);
 int link(char *old, char *new);
-int read(int file, char *ptr, int len);
 caddr_t sbrk(int incr);
 int stat(const char *file, struct stat *st);
 clock_t times(struct tms *buf);

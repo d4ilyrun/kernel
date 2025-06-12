@@ -30,6 +30,7 @@ void arch_syscall_set_return_value(interrupt_frame *frame, u32 value);
 /** The list of all the available syscalls and their respective handler */
 static const struct syscall syscalls[SYSCALL_COUNT] = {
     DECLARE_SYSCALL(FORK, "fork", sys_fork, 0),
+    DECLARE_SYSCALL(READ, "read", sys_read, 3),
     DECLARE_SYSCALL(OPEN, "open", sys_open, 2),
     DECLARE_SYSCALL(LSEEK, "lseek", sys_lseek, 3),
 };

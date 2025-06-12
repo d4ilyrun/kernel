@@ -2,6 +2,7 @@
 #include <kernel/kmalloc.h>
 #include <kernel/process.h>
 #include <kernel/vfs.h>
+#include <uapi/fcntl.h>
 #include <uapi/kernel/net.h> /* struct msghdr */
 #include <uapi/unistd.h>
 
@@ -139,4 +140,46 @@ off_t sys_lseek(int fd, off_t off, int whence)
     process_file_put(current->process, file);
 
     return off;
+}
+
+/*
+ * https://pubs.opengroup.org/onlinepubs/9699919799/functions/read.html
+ *
+ * TODO: Non-blocking IO.
+ * TODO: Copy buffer from userland.
+ */
+ssize_t sys_read(int fd, char *buf, size_t nbyte)
+{
+    struct file *file;
+    ssize_t count = 0;
+
+    file = process_file_get(current->process, fd);
+    if (!file)
+        return -E_BAD_FD;
+
+    /*
+     * File was not opened for reading.
+     */
+    if (!O_READABLE(file->flags)) {
+        count = -E_BAD_FD;
+        goto out;
+    }
+
+    if (file->vnode->type == VNODE_DIRECTORY) {
+        count = -E_IS_DIRECTORY;
+        goto out;
+    }
+
+    if (nbyte == 0)
+        goto out;
+
+    locked_scope (&file->lock) {
+        locked_scope (&file->vnode->lock) {
+            count = file_read(file, buf, nbyte);
+        }
+    }
+
+out:
+    process_file_put(current->process, file);
+    return count;
 }

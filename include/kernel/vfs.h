@@ -205,6 +205,7 @@ struct vnode {
     vnode_ops_t *operations; ///< @ref vnode_operations
     void *pdata;             ///< Private node data
     vfs_t *mounted_here;     ///< Potential filesystem mounted over this node
+    spinlock_t lock;         ///< Must be held when accessing the node's data.
 };
 
 /** Increment the refcount of a vnode
