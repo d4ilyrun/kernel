@@ -183,3 +183,45 @@ out:
     process_file_put(current->process, file);
     return count;
 }
+
+/*
+ * https://pubs.opengroup.org/onlinepubs/9699919799/functions/write.html
+ */
+ssize_t sys_write(int fd, const char *buf, size_t nbyte)
+{
+    struct file *file;
+    ssize_t count = 0;
+
+    file = process_file_get(current->process, fd);
+    if (!file)
+        return -E_BAD_FD;
+
+    /*
+     * File was not opened for writing.
+     */
+    if (!O_WRITABLE(file->flags)) {
+        count = -E_BAD_FD;
+        goto out;
+    }
+
+    if (nbyte == 0)
+        goto out;
+
+    locked_scope (&file->lock) {
+        /*
+         * If O_APPEND, the file offset shall be set to the end of the file
+         * prior to each write and no intervening file modification operation
+         * shall occur between changing the file offset and the write operation.
+         */
+        if (file->flags & O_APPEND)
+            file->pos = file_size(file);
+
+        locked_scope (&file->vnode->lock) {
+            count = file_write(file, buf, nbyte);
+        }
+    }
+
+out:
+    process_file_put(current->process, file);
+    return count;
+}

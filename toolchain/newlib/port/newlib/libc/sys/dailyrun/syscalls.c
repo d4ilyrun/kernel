@@ -6,8 +6,6 @@
 #include <sys/times.h>
 #include <sys/types.h>
 
-/* TODO: Expose syscall numbers through uapi headers */
-
 char **environ; /* pointer to array of char * strings that define the current
                    environment variables */
 
@@ -53,8 +51,11 @@ char **environ; /* pointer to array of char * strings that define the current
         return ret;                                                        \
     }
 
+/* TODO: Expose syscall numbers through uapi headers */
+
 DEFINE_SYSCALL_0(int, fork, 2);
 DEFINE_SYSCALL_3(int, read, 3, int, char *, int);
+DEFINE_SYSCALL_3(int, write, 4, int, const char *, int);
 DEFINE_SYSCALL_3(int, lseek, 19, int, int, int);
 
 /*
@@ -92,5 +93,4 @@ int stat(const char *file, struct stat *st);
 clock_t times(struct tms *buf);
 int unlink(char *name);
 int wait(int *status);
-int write(int file, char *ptr, int len);
 int gettimeofday(struct timeval *p, void *z);
