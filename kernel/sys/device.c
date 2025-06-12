@@ -61,14 +61,14 @@ struct device *device_find(const char *name)
     return NULL;
 }
 
-static error_t
+static vnode_t *
 devtmpfs_vnode_create(vnode_t *node, const char *name, vnode_type type)
 {
     /* This fs only lists existing devices, cannot remove them */
     UNUSED(node);
     UNUSED(name);
     UNUSED(type);
-    return E_NOT_SUPPORTED;
+    return PTR_ERR(E_NOT_SUPPORTED);
 }
 
 static error_t devtmpfs_vnode_remove(vnode_t *node, const char *child)

@@ -303,14 +303,14 @@ static vnode_t *tar_get_vnode(tar_node_t *node, vfs_t *fs)
     return node->vnode;
 }
 
-static error_t
+static vnode_t *
 tar_vnode_create(vnode_t *vnode, const char *name, vnode_type type)
 {
     UNUSED(vnode);
     UNUSED(name);
     UNUSED(type);
 
-    return E_NOT_SUPPORTED;
+    return PTR_ERR(E_NOT_SUPPORTED);
 }
 
 static error_t tar_vnode_remove(vnode_t *vnode, const char *name)
