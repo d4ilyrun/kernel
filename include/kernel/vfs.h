@@ -131,22 +131,22 @@ vnode_t *vfs_find_by_path(const char *path);
  *  @param path The path of the new child
  *  @param type The type of the new file
  *
- *  @return filesystem specific errors, or:
+ *  @return The created vnode, or a pointer-encoded error:
  *      * E_NOENT - Path is invalid
  *      * E_EXIST - File already exists
  */
-error_t vfs_create_at(const char *path, vnode_type type);
+vnode_t *vfs_create(const char *path, vnode_type type);
 
 /** Remove the file located at the given path
  *
  *  @return E_NOENT if the file does not exist
  */
-error_t vfs_remove_at(const char *path);
+error_t vfs_remove(const char *path);
 
 /** Open the file located at the given path
  *  @return The file's struct, or a pointed encoded error
  */
-struct file *vfs_open_at(const char *path);
+struct file *vfs_open(const char *path);
 
 /** @} */
 
@@ -179,7 +179,7 @@ typedef struct vnode_operations {
     vnode_t *(*lookup)(vnode_t *, const path_segment_t *);
 
     /** Add a new child to the vnode. */
-    error_t (*create)(vnode_t *node, const char *name, vnode_type);
+    vnode_t *(*create)(vnode_t *node, const char *name, vnode_type);
 
     /** Remove a child from a directory */
     error_t (*remove)(vnode_t *node, const char *child);

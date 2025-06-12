@@ -243,8 +243,7 @@ void kernel_task_rootfs(void *data)
             log_err("Failed to unmount '/bin': %s", err_to_str(ret));
         if ((ret = vfs_unmount("/bin") != E_INVAL))
             log_err("Should not be able to unmount twice");
-        log_dbg("creating file: %s",
-                err_to_str(vfs_create_at("/usr/bin/gcc///", VNODE_FILE)));
+        log_dbg("New vnode: %p", vfs_create("/usr/bin/gcc///", VNODE_FILE));
     }
 
     ret = vfs_mount("/dev", "devtmpfs", 0, 0);
@@ -277,7 +276,7 @@ void kernel_task_elf(MAYBE_UNUSED void *data)
         return;
     }
 
-    busybox = vfs_open_at("/bin/busybox");
+    busybox = vfs_open("/bin/busybox");
     if (IS_ERR(busybox)) {
         log_err("failed to open binary");
         return;
