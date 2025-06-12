@@ -281,6 +281,7 @@ vnode_t *vfs_vnode_acquire(vnode_t *node, bool *new)
             return PTR_ERR(E_NOMEM);
         if (new)
             *new = true;
+        INIT_SPINLOCK(node->lock);
     } else {
         if (new)
             *new = false;
@@ -317,7 +318,7 @@ int sys_open(const char *path, int oflags)
     // TODO: open(): EROFS
     // TODO: open(): EACCESS
 
-    if (oflags & (O_TRUNC | O_NOCTTY | O_CLOEXEC))
+    if (oflags & (O_TRUNC | O_NOCTTY | O_CLOEXEC | O_NONBLOCK))
         return -E_INVAL;
 
     vnode = vfs_find_by_path(path);

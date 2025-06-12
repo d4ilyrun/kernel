@@ -38,6 +38,7 @@ void syscall_init(void);
 
 pid_t sys_fork(void);
 int sys_open(const char *, int oflags);
+int sys_read(int fd, char *, size_t len);
 off_t sys_lseek(int fd, off_t off, int whence);
 
 #endif /* KERNEL_SYSCALLS_H */
