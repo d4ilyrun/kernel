@@ -177,20 +177,21 @@ exit_connect:
     return ret;
 }
 
-static error_t
+static ssize_t
 af_inet_ping_send_one(struct socket *socket, const struct iovec *iov, int flags)
 {
     struct icmp_sock *isock = socket->data;
     struct icmp_echo_header *icmphdr = iov->iov_base;
     struct packet *packet;
+    error_t error;
 
     UNUSED(flags);
 
     if (iov->iov_len < sizeof(struct icmp_echo_header))
-        return E_INVAL;
+        return -E_INVAL;
 
     if (icmphdr->icmp.type != ICMP_ECHO_REQUEST)
-        return E_NOT_SUPPORTED;
+        return -E_NOT_SUPPORTED;
 
     icmphdr->identifier = isock->identifier;
     icmphdr->icmp.checksum = 0;
@@ -199,34 +200,39 @@ af_inet_ping_send_one(struct socket *socket, const struct iovec *iov, int flags)
     packet = ipv4_build_packet(&isock->route, socket->proto->proto,
                                iov->iov_base, iov->iov_len);
     if (IS_ERR(packet))
-        return ERR_FROM_PTR(packet);
+        return -ERR_FROM_PTR(packet);
 
-    return packet_send(packet);
+    error = packet_send(packet);
+    return error ? -error : iov->iov_len;
 }
 
-static error_t
+static ssize_t
 af_inet_ping_sendmsg(struct socket *socket, const struct msghdr *msg, int flags)
 {
-    error_t ret = E_SUCCESS;
+    ssize_t sent = 0;
+    ssize_t ret;
 
     if (flags) {
         not_implemented("recvmsg: flags");
-        return E_NOT_SUPPORTED;
+        return -E_NOT_SUPPORTED;
     }
 
     if (msg->msg_name) {
         not_implemented("overriding destination address in sendmsg");
         if (msg->msg_namelen != sizeof(struct sockaddr_in))
-            return E_INVAL;
-        return E_NOT_IMPLEMENTED;
+            return -E_INVAL;
+        return -E_NOT_IMPLEMENTED;
     }
 
     socket_lock(socket);
 
     for (size_t i = 0; i < msg->msg_iovlen; ++i) {
         ret = af_inet_ping_send_one(socket, &msg->msg_iov[i], flags);
-        if (ret)
+        if (ret < 0) {
+            sent = ret;
             break;
+        }
+        sent += ret;
     }
 
     socket_unlock(socket);
@@ -234,45 +240,47 @@ af_inet_ping_sendmsg(struct socket *socket, const struct msghdr *msg, int flags)
     return ret;
 }
 
-static error_t
+static ssize_t
 af_inet_ping_recvmsg(struct socket *socket, struct msghdr *msg, int flags)
 {
-    error_t ret = E_SUCCESS;
     struct packet *packet;
     struct iovec *iov;
+    ssize_t received = 0;
 
     if (flags) {
         not_implemented("recvmsg: flags");
-        return E_NOT_SUPPORTED;
+        return -E_NOT_SUPPORTED;
     }
 
     if (socket->state != SOCKET_CONNECTED) {
         if (msg->msg_namelen != sizeof(struct sockaddr_in))
-            return E_INVAL;
+            return -E_INVAL;
         not_implemented("overriding source address in recvmsg");
-        return E_NOT_IMPLEMENTED;
+        return -E_NOT_IMPLEMENTED;
     }
 
     // TODO: Block until packets are received (check flags/options for NOBLOCK)
     packet = socket_dequeue_packet(socket);
     if (!packet)
-        return E_WOULD_BLOCK;
+        return -E_WOULD_BLOCK;
 
     packet_pop(packet, NULL, packet_header_size(packet));
 
     for (size_t i = 0; i < msg->msg_iovlen; ++i) {
+        size_t popped;
         iov = &msg->msg_iov[i];
         if (iov->iov_len > packet_read_size(packet)) {
             // TODO: Block until enough data
-            ret = E_WOULD_BLOCK;
         }
-        if (packet_pop(packet, iov->iov_base, iov->iov_len) < iov->iov_len)
+        popped = packet_pop(packet, iov->iov_base, iov->iov_len);
+        received += popped;
+        if (popped < iov->iov_len)
             break;
     }
 
     packet_free(packet);
 
-    return ret;
+    return received;
 }
 
 static error_t af_inet_ping_init(struct socket *socket)
