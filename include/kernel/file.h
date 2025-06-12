@@ -78,9 +78,9 @@ struct file_operations {
      */
     void (*close)(struct file *);
     /** Write a buffer to the file at the current position. */
-    error_t (*write)(struct file *, const char *, size_t);
+    ssize_t (*write)(struct file *, const char *, size_t);
     /** Read the content at the current position in the file. */
-    error_t (*read)(struct file *, char *, size_t);
+    ssize_t (*read)(struct file *, char *, size_t);
     /** Compute the file's total size in memory */
     size_t (*size)(struct file *);
     /** Associate a socket with a local address */
@@ -88,9 +88,9 @@ struct file_operations {
     /** Connect to a remote host */
     error_t (*connect)(struct file *, struct sockaddr *addr, size_t len);
     /** Send a message through an endpoint (socket) */
-    error_t (*sendmsg)(struct file *, const struct msghdr *, int flags);
+    ssize_t (*sendmsg)(struct file *, const struct msghdr *, int flags);
     /** Send a message through an endpoint (socket) */
-    error_t (*recvmsg)(struct file *, struct msghdr *, int flags);
+    ssize_t (*recvmsg)(struct file *, struct msghdr *, int flags);
     /** Reposition the open file description offset.
      *
      * @note It is possible for a description's offset to go beyond the
@@ -137,13 +137,13 @@ static inline void file_close(struct file *file)
 #define file_connect(file, addr, len) file_ops(file, connect, addr, len)
 
 #define file_sendmsg(file, msg, flags) file_ops(file, sendmsg, msg, flags)
-error_t file_send(struct file *file, const char *data, size_t len, int flags);
-error_t file_sendto(struct file *file, const char *data, size_t len, int flags,
+ssize_t file_send(struct file *file, const char *data, size_t len, int flags);
+ssize_t file_sendto(struct file *file, const char *data, size_t len, int flags,
                     struct sockaddr *addr, size_t addrlen);
 
 #define file_recvmsg(file, msg, flags) file_ops(file, recvmsg, msg, flags)
-error_t file_recv(struct file *file, const char *data, size_t len, int flags);
-error_t file_recvfrom(struct file *file, const char *data, size_t len,
+ssize_t file_recv(struct file *file, const char *data, size_t len, int flags);
+ssize_t file_recvfrom(struct file *file, const char *data, size_t len,
                       int flags, struct sockaddr *addr, size_t *addrlen);
 
 #endif /* KERNEL_FILE_H */

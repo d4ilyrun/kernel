@@ -74,7 +74,7 @@ off_t default_file_seek(struct file *file, off_t off, int whence)
     return file->pos;
 }
 
-error_t file_sendto(struct file *file, const char *data, size_t len, int flags,
+ssize_t file_sendto(struct file *file, const char *data, size_t len, int flags,
                     struct sockaddr *addr, socklen_t addrlen)
 {
     struct iovec iov = {
@@ -91,12 +91,12 @@ error_t file_sendto(struct file *file, const char *data, size_t len, int flags,
     return file_sendmsg(file, &msg, flags);
 }
 
-error_t file_send(struct file *file, const char *data, size_t len, int flags)
+ssize_t file_send(struct file *file, const char *data, size_t len, int flags)
 {
     return file_sendto(file, data, len, flags, NULL, 0);
 }
 
-error_t file_recvfrom(struct file *file, const char *data, size_t len,
+ssize_t file_recvfrom(struct file *file, const char *data, size_t len,
                       int flags, struct sockaddr *addr, size_t *addrlen)
 {
     error_t ret;
@@ -119,7 +119,7 @@ error_t file_recvfrom(struct file *file, const char *data, size_t len,
     return ret;
 }
 
-error_t file_recv(struct file *file, const char *data, size_t len, int flags)
+ssize_t file_recv(struct file *file, const char *data, size_t len, int flags)
 {
     return file_recvfrom(file, data, len, flags, NULL, NULL);
 }

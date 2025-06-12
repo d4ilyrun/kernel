@@ -347,18 +347,18 @@ static size_t tar_file_size(struct file *file)
     return tar_node->size;
 }
 
-static error_t tar_file_read(struct file *file, char *buffer, size_t len)
+static ssize_t tar_file_read(struct file *file, char *buffer, size_t len)
 {
     vnode_t *vnode = file->vnode;
     tar_node_t *tar_node = vnode->pdata;
     void *file_start = tar_file(tar_node->header);
 
     if (len > tar_node->size)
-        return E_INVAL;
+        return -E_INVAL;
 
     memcpy(buffer, file_start, len);
 
-    return E_SUCCESS;
+    return len;
 }
 
 static struct file_operations tar_file_ops = {
