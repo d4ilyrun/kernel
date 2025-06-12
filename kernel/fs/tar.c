@@ -310,7 +310,7 @@ tar_vnode_create(vnode_t *vnode, const char *name, vnode_type type)
     UNUSED(name);
     UNUSED(type);
 
-    return PTR_ERR(E_NOT_SUPPORTED);
+    return PTR_ERR(E_READ_ONLY_FS);
 }
 
 static error_t tar_vnode_remove(vnode_t *vnode, const char *name)
@@ -318,7 +318,7 @@ static error_t tar_vnode_remove(vnode_t *vnode, const char *name)
     UNUSED(vnode);
     UNUSED(name);
 
-    return E_NOT_SUPPORTED;
+    return E_READ_ONLY_FS;
 }
 
 static struct file *tar_vnode_open(vnode_t *vnode)
