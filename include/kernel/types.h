@@ -54,8 +54,6 @@ typedef native_t paddr_t;
 /// Architecture independent type for virtual addresses
 typedef native_t vaddr_t;
 
-typedef u64 timestamp_t;
-
 /** An IPv4 address */
 typedef uint32_t ipv4_t;
 

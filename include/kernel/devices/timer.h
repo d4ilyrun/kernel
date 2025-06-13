@@ -30,21 +30,21 @@
 void timer_start(u32 frequency);
 
 /** Return the number of intervals that passed since the timer started */
-u64 timer_gettick(void);
+clock_t timer_gettick(void);
 
 /**
  *  @brief Wait a certain amount of miliseconds
  *  @warning Calls to this function are blocking
  */
-void timer_wait_ms(u64);
+void timer_wait_ms(time_t);
 
 /** Convert a number of ticks to a time in miliseconds */
-u64 timer_to_ms(u64 ticks);
+time_t timer_to_ms(time_t ticks);
 
 /** Convert a number of ticks to a time in microseconds */
-u64 timer_to_us(u64 ticks);
+time_t timer_to_us(time_t ticks);
 
 /** Get the number of time in ms elapsed since the machine started */
-uint64_t gettime(void);
+time_t gettime(void);
 
 #endif /* KERNEL_DEVICES_TIMER_H */

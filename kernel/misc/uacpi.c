@@ -393,8 +393,8 @@ uacpi_bool uacpi_kernel_wait_for_event(uacpi_handle handle, uacpi_u16 timeout)
     uacpi_kernel_event *event = handle;
     uacpi_u32 original = event->semaphore;
 
-    timestamp_t start = timer_to_ms(timer_gettick());
-    timestamp_t end = start + timeout;
+    time_t start = timer_to_ms(timer_gettick());
+    time_t end = start + timeout;
 
     while (event->semaphore == original) {
         if (timer_to_ms(timer_gettick()) > end)
