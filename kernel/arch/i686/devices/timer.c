@@ -36,7 +36,7 @@
  *
  * This MUST be incremented EACH time we recieve an interrupt of type IRQ_TIMER.
  */
-static volatile u64 timer_ticks_counter = 0;
+static volatile clock_t timer_ticks_counter = 0;
 
 /** The current frequency of the PIT channel associated with the timer. */
 static volatile u32 timer_kernel_frequency = 0;
@@ -52,15 +52,17 @@ static DECLARE_LLIST(sleeping_tasks);
  * interrupt, which MUST be handled to update our internal
  * timer tick value.
  *
- * @warning The frequency must be between 19 and 1.9MhZ
- *          Any other value will be adjusted back into this range.
+ * @warning The frequency must be between 19 and 1.9MhZ.
  *
  * @param frequency The timer's frequency (Hz)
  */
 void timer_start(u32 frequency)
 {
-    timer_kernel_frequency = pit_config_channel(PIT_CHANNEL_TIMER, frequency,
-                                                PIT_RATE_GENERATOR);
+    error_t err;
+
+    err = pit_config_channel(PIT_CHANNEL_TIMER, frequency, PIT_RATE_GENERATOR);
+    if (err)
+        PANIC("Failed to start kernel timer.");
 
     // Setup the timer's IRQ handler
     // It is responsible for updating our internal timer representation
@@ -75,7 +77,7 @@ static DEFINE_INTERRUPT_HANDLER(irq_timer)
 
     UNUSED(data);
 
-    if (timer_ticks_counter == UINT64_MAX) {
+    if (timer_ticks_counter == INT64_MAX) {
         log_warn("The internal timer has reached its max capacity.");
         log_warn("THIS WILL CAUSE AN OVERFLOW!");
     }
@@ -112,11 +114,6 @@ static DEFINE_INTERRUPT_HANDLER(irq_timer)
     return E_SUCCESS;
 }
 
-u64 timer_gettick(void)
-{
-    return timer_ticks_counter;
-}
-
 static int process_cmp_wakeup(const void *current_node, const void *cmp_node)
 {
     const thread_t *current = container_of(current_node, thread_t, this);
@@ -125,28 +122,17 @@ static int process_cmp_wakeup(const void *current_node, const void *cmp_node)
     RETURN_CMP(current->sleep.wakeup, cmp->sleep.wakeup);
 }
 
-void timer_wait_ms(u64 ms)
+void timer_wait_ms(time_t ms)
 {
-    const u64 start = timer_ticks_counter;
-    const u64 end = start + (1000 * timer_kernel_frequency) / ms;
+    const clock_t start = timer_ticks_counter;
+    const clock_t end = start + MS_TO_TICKS(ms);
 
     current->sleep.wakeup = end;
     llist_insert_sorted(&sleeping_tasks, &current->this, process_cmp_wakeup);
     sched_block_thread(current);
 }
 
-u64 timer_to_ms(u64 ticks)
+clock_t timer_gettick(void)
 {
-    return (1000 * ticks) / timer_kernel_frequency;
-}
-
-u64 timer_to_us(u64 ticks)
-{
-    return (US(ticks)) / timer_kernel_frequency;
-}
-
-uint64_t gettime(void)
-{
-    // FIXME: replace with timer_get_ms() or sth along those lines
-    return timer_to_ms(timer_gettick());
+    return timer_ticks_counter;
 }

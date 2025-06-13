@@ -146,11 +146,11 @@ typedef struct thread {
         /** For running threads only */
         struct {
             /** End of the currently running thread's timeslice */
-            timestamp_t preempt;
+            clock_t preempt;
         } running;
         /** For sleeping threads only */
         struct {
-            timestamp_t wakeup; /*!< Time when it should wakeup (in ticks) */
+            clock_t wakeup; /*!< Time when it should wakeup (in ticks) */
         } sleep;
     };
 

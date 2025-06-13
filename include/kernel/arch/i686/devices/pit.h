@@ -31,6 +31,7 @@
 #define KERNEL_ARCH_I686_DEVICES_PIT_H
 
 #include <kernel/types.h>
+#include <kernel/error.h>
 
 #define PIT_INTERNAL_FREQUENCY (1193182)
 
@@ -77,7 +78,7 @@ typedef enum {
  * @return The new channel frequency (after adjustments), -1 if invalid
  * channel
  */
-u32 pit_config_channel(pit_channel, u32 frequency, pit_mode);
+error_t pit_config_channel(pit_channel, u32 frequency, pit_mode);
 
 /** Read the current value inside the channel's counter */
 u16 pit_read_channel(pit_channel);
