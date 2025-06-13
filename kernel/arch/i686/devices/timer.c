@@ -52,15 +52,17 @@ static DECLARE_LLIST(sleeping_tasks);
  * interrupt, which MUST be handled to update our internal
  * timer tick value.
  *
- * @warning The frequency must be between 19 and 1.9MhZ
- *          Any other value will be adjusted back into this range.
+ * @warning The frequency must be between 19 and 1.9MhZ.
  *
  * @param frequency The timer's frequency (Hz)
  */
 void timer_start(u32 frequency)
 {
-    timer_kernel_frequency = pit_config_channel(PIT_CHANNEL_TIMER, frequency,
-                                                PIT_RATE_GENERATOR);
+    error_t err;
+
+    err = pit_config_channel(PIT_CHANNEL_TIMER, frequency, PIT_RATE_GENERATOR);
+    if (err)
+        PANIC("Failed to start kernel timer.");
 
     // Setup the timer's IRQ handler
     // It is responsible for updating our internal timer representation
