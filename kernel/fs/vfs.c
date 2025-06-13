@@ -181,10 +181,27 @@ static vnode_t *vfs_find_parent(path_t *path)
 static vnode_t *
 vfs_create_at(struct vnode *parent, const char *name, vnode_type type)
 {
+    struct vnode *vnode;
+
     if (parent->operations->create == NULL)
         return PTR_ERR(E_NOT_SUPPORTED);
 
-    return parent->operations->create(parent, name, type);
+    vnode = parent->operations->create(parent, name, type);
+    if (IS_ERR(vnode))
+        return vnode;
+
+    /*
+     * The GID of the file shall be set to the GID of the file's parent
+     * directory or to the effective group ID of the process.
+     *
+     * TODO: Provide a way to set the GID of the file to that of the process.
+     * TODO: Set file UID.
+     * TODO: Set file permissions mode.
+     */
+    vnode->stat.st_gid = parent->stat.st_gid;
+    vnode->stat.st_nlink = 1;
+
+    return vnode;
 }
 
 vnode_t *vfs_create(const char *raw_path, vnode_type type)
@@ -260,6 +277,9 @@ static struct file *vfs_open_at(struct vnode *vnode)
     if (!vnode->operations->open)
         return PTR_ERR(E_NOT_SUPPORTED);
 
+    /*
+     * TODO: Check against file permissions.
+     */
     return vnode->operations->open(vnode);
 }
 

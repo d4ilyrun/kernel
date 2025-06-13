@@ -12,6 +12,7 @@
 
 #define LOG_DOMAIN "socket"
 
+#include <kernel/devices/timer.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/socket.h>
@@ -35,6 +36,7 @@ struct socket *socket_alloc(void)
     struct socket *socket;
     struct vnode *vnode;
     struct file *file;
+    struct stat *stat;
 
     node = kcalloc(1, sizeof(*node), KMALLOC_DEFAULT);
     if (node == NULL)
@@ -48,6 +50,12 @@ struct socket *socket_alloc(void)
     vnode->fs = NULL;
     vnode->operations = &socket_vnode_ops;
     vnode->type = VNODE_SOCKET;
+
+    stat = &vnode->stat;
+    clock_get_time(&stat->st_mtim);
+    stat->st_ctim = stat->st_mtim;
+    stat->st_mode = S_IRWU | S_IRWG | S_IRWO;
+    stat->st_nlink = 1;
 
     file = file_open(vnode, &socket_fops);
     if (IS_ERR(file)) {

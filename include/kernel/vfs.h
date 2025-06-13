@@ -39,6 +39,7 @@
 #include <kernel/error.h>
 #include <kernel/file.h>
 #include <kernel/types.h>
+#include <uapi/sys/stat.h>
 
 #include <lib/path.h>
 #include <libalgo/linked_list.h>
@@ -158,13 +159,13 @@ struct file *vfs_open(const char *path);
  *  @brief The different existing types of vnodes
  */
 typedef enum vnode_type {
-    VNODE_FIFO = 0x1000,
-    VNODE_CHARDEVICE = 0x2000,
-    VNODE_DIRECTORY = 0x4000, ///< Regular directory
-    VNODE_BLOCKDEVICE = 0x6000,
-    VNODE_FILE = 0x8000,    ///< Regular file
-    VNODE_SYMLINK = 0xA000, ///< Symbolic link
-    VNODE_SOCKET = 0xC000,
+    VNODE_FIFO = S_IFIFO,        ///< FIFO
+    VNODE_CHARDEVICE = S_IFCHR,  ///< Character device
+    VNODE_DIRECTORY = S_IFDIR,   ///< Regular directory
+    VNODE_BLOCKDEVICE = S_IFBLK, ///< Block device
+    VNODE_FILE = S_IFREG,        ///< Regular file
+    VNODE_SYMLINK = S_IFLNK,     ///< Symbolic link
+    VNODE_SOCKET = S_IFSOCK,     ///< Socket file
 } vnode_type;
 
 /** @struct vnode_operations
@@ -205,6 +206,7 @@ struct vnode {
     vnode_ops_t *operations; ///< @ref vnode_operations
     void *pdata;             ///< Private node data
     vfs_t *mounted_here;     ///< Potential filesystem mounted over this node
+    struct stat stat;        ///< File statistics
     spinlock_t lock;         ///< Must be held when accessing the node's data.
 };
 
