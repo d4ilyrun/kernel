@@ -114,11 +114,6 @@ static DEFINE_INTERRUPT_HANDLER(irq_timer)
     return E_SUCCESS;
 }
 
-time_t timer_gettick(void)
-{
-    return timer_ticks_counter;
-}
-
 static int process_cmp_wakeup(const void *current_node, const void *cmp_node)
 {
     const thread_t *current = container_of(current_node, thread_t, this);
@@ -130,25 +125,14 @@ static int process_cmp_wakeup(const void *current_node, const void *cmp_node)
 void timer_wait_ms(time_t ms)
 {
     const clock_t start = timer_ticks_counter;
-    const clock_t end = start + (1000 * timer_kernel_frequency) / ms;
+    const clock_t end = start + MS_TO_TICKS(ms);
 
     current->sleep.wakeup = end;
     llist_insert_sorted(&sleeping_tasks, &current->this, process_cmp_wakeup);
     sched_block_thread(current);
 }
 
-time_t timer_to_ms(time_t ticks)
+clock_t timer_gettick(void)
 {
-    return (1000 * ticks) / timer_kernel_frequency;
-}
-
-time_t timer_to_us(time_t ticks)
-{
-    return (US(ticks)) / timer_kernel_frequency;
-}
-
-time_t gettime(void)
-{
-    // FIXME: replace with timer_get_ms() or sth along those lines
-    return timer_to_ms(timer_gettick());
+    return timer_ticks_counter;
 }

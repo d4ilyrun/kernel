@@ -263,7 +263,7 @@ void uacpi_kernel_release_mutex(uacpi_handle mutex)
 
 uacpi_u64 uacpi_kernel_get_ticks(void)
 {
-    return 10 * timer_to_us(timer_gettick());
+    return 10 * timer_get_us();
 }
 
 void uacpi_kernel_stall(uacpi_u8 usec)
@@ -393,11 +393,11 @@ uacpi_bool uacpi_kernel_wait_for_event(uacpi_handle handle, uacpi_u16 timeout)
     uacpi_kernel_event *event = handle;
     uacpi_u32 original = event->semaphore;
 
-    time_t start = timer_to_ms(timer_gettick());
+    time_t start = timer_get_ms();
     time_t end = start + timeout;
 
     while (event->semaphore == original) {
-        if (timer_to_ms(timer_gettick()) > end)
+        if (timer_get_ms() > end)
             return UACPI_FALSE;
     }
 
