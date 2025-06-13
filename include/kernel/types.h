@@ -1,7 +1,15 @@
 #ifndef KERNEL_TYPES_H
 #define KERNEL_TYPES_H
 
-#define _SYS_TYPES_H // To avoid incompatibility with glibc during tests
+/*
+ * Our custom defined types may collide with the host toolchain's definition
+ * when compiling host executables that require the <kernel/types.h> header.
+ *
+ * This is the case for example when compiling the testsuite for libalgo.
+ */
+#ifdef KERNEL
+#include <uapi/types.h>
+#endif
 
 #include <arch.h>
 #include <stdbool.h>
@@ -31,8 +39,6 @@ typedef int64_t s64;
 typedef float f32;  //< 32b floating point value
 typedef double f64; //< 64b floating point value
 
-typedef long int ssize_t;
-
 /** Guaranteed to be the size of a native word, regardless of the architecture
  */
 #ifdef ARCH_IS_32_BITS
@@ -48,7 +54,6 @@ typedef native_t paddr_t;
 /// Architecture independent type for virtual addresses
 typedef native_t vaddr_t;
 
-typedef u32 pid_t;
 typedef u64 timestamp_t;
 
 /** An IPv4 address */
