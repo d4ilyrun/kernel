@@ -181,8 +181,8 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     while (1) {
         timer_wait_ms(1000);
-        log_info("Elapsed miliseconds: %lld", gettime());
-        if (BETWEEN(gettime(), 5000, 6000))
+        log_info("Elapsed miliseconds: %lld", timer_get_ms());
+        if (BETWEEN(timer_get_ms(), 5000, 6000))
             thread_kill(kernel_timer_test);
     }
 }
@@ -337,7 +337,7 @@ void kernel_task_timer(void *data)
 
     while (1) {
         timer_wait_ms(1000);
-        log_info("Elapsed miliseconds: %lld", gettime());
+        log_info("Elapsed miliseconds: %lld", timer_get_ms());
     }
 }
 
@@ -375,19 +375,19 @@ void kernel_task_worker(void *data)
         return;
     }
 
-    log_info("%lld: creating worker", gettime());
+    log_info("%lld: creating worker", timer_get_ms());
     worker_start(&worker, __kernel_task_worker, (void *)message);
     worker_wait(&worker);
-    log_info("%lld: worker finished", gettime());
+    log_info("%lld: worker finished", timer_get_ms());
 
-    log_info("%lld: restarting worker", gettime());
+    log_info("%lld: restarting worker", timer_get_ms());
     worker_start(&worker, __kernel_task_worker, (void *)message);
     worker_wait(&worker);
-    log_info("%lld: worker finished", gettime());
+    log_info("%lld: worker finished", timer_get_ms());
 
-    log_info("%lld: retesting worker", gettime());
+    log_info("%lld: retesting worker", timer_get_ms());
     worker_wait(&worker);
-    log_info("%lld: worker finished", gettime());
+    log_info("%lld: worker finished", timer_get_ms());
 }
 
 #undef LOG_DOMAIN

@@ -58,22 +58,31 @@
  */
 void timer_start(u32 frequency);
 
-/** Return the number of intervals that passed since the timer started */
+/** @return the number of timer intervals elapsed since startup */
 clock_t timer_gettick(void);
+
+/** @return the number of miliseconds elapsed since startup. */
+static inline time_t timer_get_ms(void)
+{
+    return TICKS_TO_MS(timer_gettick());
+}
+
+/** @return the number of microseconds elapsed since startup. */
+static inline time_t timer_get_us(void)
+{
+    return TICKS_TO_US(timer_gettick());
+}
+
+/** @return the number of nanoseconds elapsed since startup. */
+static inline time_t timer_get_ns(void)
+{
+    return TICKS_TO_NS(timer_gettick());
+}
 
 /**
  *  @brief Wait a certain amount of miliseconds
  *  @warning Calls to this function are blocking
  */
 void timer_wait_ms(time_t);
-
-/** Convert a number of ticks to a time in miliseconds */
-time_t timer_to_ms(time_t ticks);
-
-/** Convert a number of ticks to a time in microseconds */
-time_t timer_to_us(time_t ticks);
-
-/** Get the number of time in ms elapsed since the machine started */
-time_t gettime(void);
 
 #endif /* KERNEL_DEVICES_TIMER_H */
