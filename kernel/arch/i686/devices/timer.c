@@ -36,7 +36,7 @@
  *
  * This MUST be incremented EACH time we recieve an interrupt of type IRQ_TIMER.
  */
-static volatile u64 timer_ticks_counter = 0;
+static volatile clock_t timer_ticks_counter = 0;
 
 /** The current frequency of the PIT channel associated with the timer. */
 static volatile u32 timer_kernel_frequency = 0;
@@ -75,7 +75,7 @@ static DEFINE_INTERRUPT_HANDLER(irq_timer)
 
     UNUSED(data);
 
-    if (timer_ticks_counter == UINT64_MAX) {
+    if (timer_ticks_counter == INT64_MAX) {
         log_warn("The internal timer has reached its max capacity.");
         log_warn("THIS WILL CAUSE AN OVERFLOW!");
     }
@@ -112,7 +112,7 @@ static DEFINE_INTERRUPT_HANDLER(irq_timer)
     return E_SUCCESS;
 }
 
-u64 timer_gettick(void)
+time_t timer_gettick(void)
 {
     return timer_ticks_counter;
 }
@@ -125,27 +125,27 @@ static int process_cmp_wakeup(const void *current_node, const void *cmp_node)
     RETURN_CMP(current->sleep.wakeup, cmp->sleep.wakeup);
 }
 
-void timer_wait_ms(u64 ms)
+void timer_wait_ms(time_t ms)
 {
-    const u64 start = timer_ticks_counter;
-    const u64 end = start + (1000 * timer_kernel_frequency) / ms;
+    const clock_t start = timer_ticks_counter;
+    const clock_t end = start + (1000 * timer_kernel_frequency) / ms;
 
     current->sleep.wakeup = end;
     llist_insert_sorted(&sleeping_tasks, &current->this, process_cmp_wakeup);
     sched_block_thread(current);
 }
 
-u64 timer_to_ms(u64 ticks)
+time_t timer_to_ms(time_t ticks)
 {
     return (1000 * ticks) / timer_kernel_frequency;
 }
 
-u64 timer_to_us(u64 ticks)
+time_t timer_to_us(time_t ticks)
 {
     return (US(ticks)) / timer_kernel_frequency;
 }
 
-uint64_t gettime(void)
+time_t gettime(void)
 {
     // FIXME: replace with timer_get_ms() or sth along those lines
     return timer_to_ms(timer_gettick());
