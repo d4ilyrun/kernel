@@ -16,7 +16,12 @@ else
   $(info Compiling using host toolchain)
 endif
 
-NCORES ?= $(shell nproc)
+# If no -j option has been specified, use the maximum amount of cores available.
+# It can also be overriden using the NCORES variable.
+NCORES ?= $(patsubst -j%,%,$(filter -j%,$(MAKEFLAGS)))
+ifeq ($(NCORES),)
+NCORES := $(shell nproc)
+endif
 $(info Compiling sub-targets using $(NCORES) cores)
 
 WGET := wget --no-verbose --show-progress
