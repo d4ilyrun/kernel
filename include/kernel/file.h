@@ -120,6 +120,11 @@ static inline void file_close(struct file *file)
     file_put(file);
 }
 
+/** Update the file's vnode's last access time. */
+void file_accessed(struct file *file);
+/** Update the file's vnode's last modification time. */
+void file_modified(struct file *file);
+
 #define __file_ops(_default, _file, _ops, ...)                             \
     (_file->ops->_ops ? _file->ops->_ops(_file __VA_OPT__(, ) __VA_ARGS__) \
                       : _default)

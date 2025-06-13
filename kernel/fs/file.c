@@ -1,3 +1,4 @@
+#include <kernel/devices/timer.h>
 #include <kernel/file.h>
 #include <kernel/kmalloc.h>
 #include <kernel/process.h>
@@ -45,6 +46,16 @@ void __file_put(struct file *file)
     vfs_vnode_release(file->vnode);
 
     kfree(file);
+}
+
+void file_accessed(struct file *file)
+{
+    clock_get_time(&file->vnode->stat.st_atim);
+}
+
+void file_modified(struct file *file)
+{
+    clock_get_time(&file->vnode->stat.st_mtim);
 }
 
 off_t default_file_seek(struct file *file, off_t off, int whence)
@@ -176,6 +187,7 @@ ssize_t sys_read(int fd, char *buf, size_t nbyte)
     locked_scope (&file->lock) {
         locked_scope (&file->vnode->lock) {
             count = file_read(file, buf, nbyte);
+            file_accessed(file);
         }
     }
 
@@ -218,6 +230,7 @@ ssize_t sys_write(int fd, const char *buf, size_t nbyte)
 
         locked_scope (&file->vnode->lock) {
             count = file_write(file, buf, nbyte);
+            file_modified(file);
         }
     }
 
