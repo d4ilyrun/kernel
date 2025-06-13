@@ -37,7 +37,7 @@ static pit_config pit_channels[PIT_CHANNELS_COUNT] = {
 
 static u32 pit_channel_frequencies[PIT_CHANNELS_COUNT] = {0};
 
-static void pit_set_divider(pit_channel channel, u32 value)
+static error_t pit_set_divider(pit_channel channel, u32 value)
 {
     int counter = PIT_COUNTER(channel);
 
@@ -50,8 +50,7 @@ static void pit_set_divider(pit_channel channel, u32 value)
 
     if (value > UINT16_MAX) {
         log_warn("Divider value does not fit into 16 bits: " FMT32, value);
-        log_warn("Using divider of UINT16_MAX (18.2Hz)");
-        value = UINT16_MAX;
+        return E_INVAL;
     }
 
     switch (pit_channels[channel].policy) {
@@ -80,39 +79,38 @@ static void pit_set_divider(pit_channel channel, u32 value)
 
     log_dbg("New frequency divisor value for channel %d: %d (%d Hz)", channel,
             value, pit_channel_frequencies[channel]);
+
+    return E_SUCCESS;
 }
 
-u32 pit_config_channel(pit_channel channel, u32 frequency, pit_mode mode)
+error_t pit_config_channel(pit_channel channel, u32 frequency, pit_mode mode)
 {
     if (frequency == 0) {
         log_err("Trying to configure channel %d using NULL frequency. Skip.",
                 channel);
-        return pit_channel_frequencies[channel];
+        return E_INVAL;
     }
 
-    if (frequency > PIT_MAX_CHANNEL_FREQUENCY) {
-        log_warn("Timer's frequency is higher than the maximum possible value "
-                 "frequency (" FMT32 " > " FMT32 ")",
-                 frequency, PIT_MAX_CHANNEL_FREQUENCY);
-
-        frequency = PIT_MAX_CHANNEL_FREQUENCY;
-        log_warn("Limiting frequency to the maximum value (" FMT32 ")",
-                 frequency);
+    if (!IN_RANGE(frequency, PIT_MIN_CHANNEL_FREQUENCY,
+                  PIT_MAX_CHANNEL_FREQUENCY)) {
+        log_warn("Invalid timer frequency: %dHz (must be between %d and %dHz)",
+                 frequency, PIT_MIN_CHANNEL_FREQUENCY,
+                 PIT_MAX_CHANNEL_FREQUENCY);
+        return E_INVAL;
     }
 
     if (channel >= PIT_CHANNELS_COUNT) {
         log_err("Invalid channel: " FMT8, channel);
-        return -1;
+        return E_INVAL;
     }
 
-    // Convert 8b control register to raw 8b value
+    /*
+     * Set new chanel configuration.
+     */
     pit_channels[channel].mode = mode;
-    u8 *raw_config = (u8 *)&pit_channels[channel];
+    outb(PIT_CONTROL_REGISTER, *(u8 *)&pit_channels[channel]);
 
-    outb(PIT_CONTROL_REGISTER, *raw_config);
-    pit_set_divider(channel, PIT_INTERNAL_FREQUENCY / frequency);
-
-    return pit_channel_frequencies[channel];
+    return pit_set_divider(channel, PIT_INTERNAL_FREQUENCY / frequency);
 }
 
 u16 pit_read_channel(pit_channel channel)
