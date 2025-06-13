@@ -120,7 +120,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     // IRQs are setup, we can safely enable interrupts
     interrupts_enable();
 
-    timer_start(TIMER_TICK_FREQUENCY);
+    timer_start(HZ);
 
     if (!pmm_init(mbt))
         PANIC("Could not initialize the physical memory manager");

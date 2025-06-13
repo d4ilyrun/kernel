@@ -12,7 +12,7 @@
 bool scheduler_initialized = false;
 
 /** The maximum timeslice given to a thread by the scheduler */
-#define SCHED_TIMESLICE MS(2ULL * TIMER_TICK_FREQUENCY) // 2MS
+#define SCHED_TIMESLICE MS_TO_TICKS(2ULL) // 2MS
 
 typedef struct scheduler {
 
