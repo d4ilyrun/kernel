@@ -37,6 +37,7 @@
 
 #include <libalgo/linked_list.h>
 #include <utils/compiler.h>
+#include <kernel/file.h>
 
 #if ARCH == i686
 #include <kernel/arch/i686/process.h>
@@ -46,6 +47,9 @@
 
 /** The max length of a process's name */
 #define PROCESS_NAME_MAX_LEN 32
+
+/** Maximum number of files that one process can have open at any one time. */
+#define PROCESS_FD_COUNT 32
 
 struct address_space;
 
@@ -76,6 +80,14 @@ struct process {
     size_t refcount; /*!< Reference count to this process.
                          We only kill a process once all of its threads have
                          been released. */
+
+    /** Open file descriptors table.
+     *
+     * This table is lock protected by @ref files_lock, one must **always**
+     * take this lock when accessing a process' open files (read AND write).
+     */
+    struct file *files[PROCESS_FD_COUNT];
+    spinlock_t files_lock; /*!< Lock for @ref open_files */
 };
 
 /** Create a new process
@@ -250,6 +262,27 @@ extern struct thread kernel_process_initial_thread;
  *  just like any other process later on.
  */
 void process_init_kernel_process(void);
+
+/** Register an open file inside the process's open file descriptor table.
+ *  @return The registered file's index inside the open file descriptor table.
+ */
+int process_register_file(struct process *, struct file *);
+
+/** Remove an open file from the process's open file descriptor table. */
+error_t process_unregister_file(struct process *, int fd);
+
+/**
+ * @return A reference to the file description at index @ref fd
+ * inside @ref process 's file descriptor table.
+ */
+struct file *process_file_get(struct process *, int fd);
+
+/** Release a file description retreived using @ref process_file_get(). */
+static inline void process_file_put(struct process *process, struct file *file)
+{
+    UNUSED(process);
+    file_put(file);
+}
 
 /** The currently running thread */
 extern thread_t *current;

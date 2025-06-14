@@ -79,6 +79,19 @@ static inline time_t timer_get_ns(void)
     return TICKS_TO_NS(timer_gettick());
 }
 
+/** Fill a timespec structure with the current time of the day.
+ *
+ * FIXME: Change this to use the system's clock once clock_settime().
+ *        For now we'll use the system's timer instead.
+ */
+static inline void clock_get_time(struct timespec *time)
+{
+    time_t ns = timer_get_ns();
+
+    time->tv_sec = NS_TO_SEC(ns);
+    time->tv_nsec = ns % NS(1);
+}
+
 /**
  *  @brief Wait a certain amount of miliseconds
  *  @warning Calls to this function are blocking

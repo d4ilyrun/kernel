@@ -132,9 +132,9 @@ struct socket_protocol_ops {
     error_t (*connect)(struct socket *, struct sockaddr *addr,
                        socklen_t addrlen);
     /** Send a message through the socket */
-    error_t (*sendmsg)(struct socket *, const struct msghdr *, int flags);
+    ssize_t (*sendmsg)(struct socket *, const struct msghdr *, int flags);
     /** Read a message received by the socket */
-    error_t (*recvmsg)(struct socket *, struct msghdr *, int flags);
+    ssize_t (*recvmsg)(struct socket *, struct msghdr *, int flags);
 };
 
 /** */

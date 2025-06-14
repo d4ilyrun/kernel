@@ -8,24 +8,56 @@
 #ifndef KERNEL_FILE_H
 #define KERNEL_FILE_H
 
+#include <kernel/atomic.h>
 #include <kernel/error.h>
+#include <kernel/spinlock.h>
 
 struct vnode;
 struct sockaddr;
 struct msghdr;
 
-/** Represents an opened file.
+/** Opened file description.
  *
  * @note This struct is also used by pseudo-filesystems, such as the
- * sockfs, used to allocated sockets. According to the UNIX philosophy,
- * everything is a file.
+ * sockfs, to allocated sockets or other objects. According to the UNIX
+ * philosophy, everything is a file.
  */
 struct file {
-    size_t pos;                        ///< Current offset into the file
+    off_t pos;                         ///< Current offset into the file
     void *priv;                        ///< Private data used by the driver
     struct vnode *vnode;               ///< The file's vnode in the VFS
     const struct file_operations *ops; ///< @see file_operations
+    atomic_t refcount;                 ///< Number of references to this file
+    spinlock_t lock;                   ///< Synchronization lock
+    int flags;                         ///< Parameter flags (@see man 2 open)
 };
+
+void __file_put(struct file *file);
+
+/** Increment an open file description's reference count.
+ *  @return The open file description.
+ */
+static inline struct file *file_get(struct file *file)
+{
+    atomic_inc(&file->refcount);
+    return file;
+}
+
+/** Decrement an open file description's reference count.
+ *
+ * If this was the last reference to this open file description,
+ * the underlying structure is released.
+ */
+static inline void file_put(struct file *file)
+{
+    int count;
+
+    count = atomic_dec(&file->refcount);
+    if (count > 1)
+        return;
+
+    __file_put(file);
+}
 
 /** Operations that can be performed on an opened file.
  *  @struct file_operations
@@ -46,9 +78,9 @@ struct file_operations {
      */
     void (*close)(struct file *);
     /** Write a buffer to the file at the current position. */
-    error_t (*write)(struct file *, const char *, size_t);
+    ssize_t (*write)(struct file *, const char *, size_t);
     /** Read the content at the current position in the file. */
-    error_t (*read)(struct file *, char *, size_t);
+    ssize_t (*read)(struct file *, char *, size_t);
     /** Compute the file's total size in memory */
     size_t (*size)(struct file *);
     /** Associate a socket with a local address */
@@ -56,60 +88,67 @@ struct file_operations {
     /** Connect to a remote host */
     error_t (*connect)(struct file *, struct sockaddr *addr, size_t len);
     /** Send a message through an endpoint (socket) */
-    error_t (*sendmsg)(struct file *, const struct msghdr *, int flags);
+    ssize_t (*sendmsg)(struct file *, const struct msghdr *, int flags);
     /** Send a message through an endpoint (socket) */
-    error_t (*recvmsg)(struct file *, struct msghdr *, int flags);
+    ssize_t (*recvmsg)(struct file *, struct msghdr *, int flags);
+    /** Reposition the open file description offset.
+     *
+     * @note It is possible for a description's offset to go beyond the
+     *       backing file's size. In this case subsequent reads will return
+     *       empty bytes until data is actually written into the gap.
+     *
+     * @return The updated offset
+     *
+     * @see man 2 lseek
+     */
+    off_t (*seek)(struct file *, off_t, int whence);
 };
 
 /** Create a new file structure */
 struct file *file_open(struct vnode *, const struct file_operations *);
 
+/** Reposition the open file description offset
+ *
+ * This is the default implementation for @ref file_operations.seek().
+ * It simply increments the description's offset.
+ */
+off_t default_file_seek(struct file *file, off_t off, int whence);
+
 /** Free a file struct and release its content */
-void file_close(struct file *);
+static inline void file_close(struct file *file)
+{
+    file_put(file);
+}
 
-#define __file_function_wrapper(_ret_type, _default, _name, _signature, ...) \
-    static inline _ret_type file_##_name _signature                          \
-    {                                                                        \
-        if (!file->ops->_name)                                               \
-            return _default;                                                 \
-                                                                             \
-        return file->ops->_name(__VA_ARGS__);                                \
-    }
+/** Update the file's vnode's last access time. */
+void file_accessed(struct file *file);
+/** Update the file's vnode's last modification time. */
+void file_modified(struct file *file);
 
-#define file_function_wrapper(_name, _signature, ...)                    \
-    __file_function_wrapper(error_t, E_NOT_SUPPORTED, _name, _signature, \
-                            __VA_ARGS__)
+#define __file_ops(_default, _file, _ops, ...)                             \
+    (_file->ops->_ops ? _file->ops->_ops(_file __VA_OPT__(, ) __VA_ARGS__) \
+                      : _default)
 
-__file_function_wrapper(size_t, 0, size, (struct file * file), file);
+#define file_ops(_file, _ops, ...) \
+    __file_ops(E_NOT_SUPPORTED, _file, _ops, __VA_ARGS__)
 
-file_function_wrapper(write, (struct file * file, const char *buf, size_t len),
-                      file, buf, len);
+#define file_size(file) file_ops(file, size)
 
-file_function_wrapper(read, (struct file * file, char *buf, size_t len), file,
-                      buf, len);
+#define file_write(file, buf, len) file_ops(file, write, buf, len)
+#define file_read(file, buf, len) file_ops(file, read, buf, len)
+#define file_seek(file, off, whence) file_ops(file, seek, off, whence)
 
-file_function_wrapper(bind,
-                      (struct file * file, struct sockaddr *addr, size_t len),
-                      file, addr, len);
+#define file_bind(file, addr, len) file_ops(file, bind, addr, len)
+#define file_connect(file, addr, len) file_ops(file, connect, addr, len)
 
-file_function_wrapper(connect,
-                      (struct file * file, struct sockaddr *addr, size_t len),
-                      file, addr, len);
-
-file_function_wrapper(sendmsg,
-                      (struct file * file, const struct msghdr *msg, int flags),
-                      file, msg, flags);
-
-file_function_wrapper(recvmsg,
-                      (struct file * file, struct msghdr *msg, int flags), file,
-                      msg, flags);
-
-error_t file_send(struct file *file, const char *data, size_t len, int flags);
-error_t file_sendto(struct file *file, const char *data, size_t len, int flags,
+#define file_sendmsg(file, msg, flags) file_ops(file, sendmsg, msg, flags)
+ssize_t file_send(struct file *file, const char *data, size_t len, int flags);
+ssize_t file_sendto(struct file *file, const char *data, size_t len, int flags,
                     struct sockaddr *addr, size_t addrlen);
 
-error_t file_recv(struct file *file, const char *data, size_t len, int flags);
-error_t file_recvfrom(struct file *file, const char *data, size_t len,
+#define file_recvmsg(file, msg, flags) file_ops(file, recvmsg, msg, flags)
+ssize_t file_recv(struct file *file, const char *data, size_t len, int flags);
+ssize_t file_recvfrom(struct file *file, const char *data, size_t len,
                       int flags, struct sockaddr *addr, size_t *addrlen);
 
 #endif /* KERNEL_FILE_H */
