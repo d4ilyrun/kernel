@@ -1,8 +1,8 @@
 #ifndef UAPI_SYS_STAT_H
 #define UAPI_SYS_STAT_H
 
+#include <uapi/sys/types.h>
 #include <uapi/time.h>
-#include <uapi/types.h>
 
 struct stat {
     dev_t st_dev;
