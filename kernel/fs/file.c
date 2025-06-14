@@ -40,10 +40,19 @@ struct file *file_open(struct vnode *vnode, const struct file_operations *fops)
 
 void __file_put(struct file *file)
 {
+    struct vnode *vnode = file->vnode;
+
     if (file->ops->close)
         file->ops->close(file);
 
-    vfs_vnode_release(file->vnode);
+    locked_scope(&vnode->lock) {
+        /*
+         * TODO: If the link count of the file is 0, the space occupied
+         *       by the file shall be freed and the file shall no longer
+         *       be accessible.
+         */
+        vfs_vnode_release(vnode);
+    }
 
     kfree(file);
 }
@@ -237,4 +246,12 @@ ssize_t sys_write(int fd, const char *buf, size_t nbyte)
 out:
     process_file_put(current->process, file);
     return count;
+}
+
+/*
+ * https://pubs.opengroup.org/onlinepubs/9699919799/functions/close.html
+ */
+int sys_close(int fd)
+{
+    return process_unregister_file(current->process, fd);
 }
