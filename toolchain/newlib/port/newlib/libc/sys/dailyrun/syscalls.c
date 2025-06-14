@@ -57,6 +57,8 @@ DEFINE_SYSCALL_0(int, fork, 2);
 DEFINE_SYSCALL_3(int, read, 3, int, char *, int);
 DEFINE_SYSCALL_3(int, write, 4, int, const char *, int);
 DEFINE_SYSCALL_3(int, lseek, 19, int, int, int);
+DEFINE_SYSCALL_2(int, stat, 106, const char *, struct stat *);
+DEFINE_SYSCALL_2(int, lstat, 107, const char *, struct stat *);
 
 /*
  * Open cannot be declared using the regular macros because it takes in

@@ -384,3 +384,35 @@ int sys_open(const char *path, int oflags)
 
     return fd;
 }
+
+/*
+ * https://pubs.opengroup.org/onlinepubs/9799919799/functions/stat.html
+ */
+int sys_lstat(const char *path, struct stat *buf)
+{
+    vnode_t *vnode;
+
+    // TODO: open(): ENOTDIR
+    // TODO: open(): EACCESS
+
+    vnode = vfs_find_by_path(path);
+    if (IS_ERR(vnode))
+        return -ERR_FROM_PTR(vnode);
+
+    *buf = vnode->stat;
+
+    return E_SUCCESS;
+}
+
+/*
+ * https://pubs.opengroup.org/onlinepubs/9799919799/functions/stat.html
+ *
+ * TODO: If the named file is a symbolic link, the stat() function shall
+ * continue pathname resolution using the contents of the symbolic link, and
+ * shall return information pertaining to the resulting file if the file
+ * exists.
+ */
+int sys_stat(const char *path, struct stat *buf)
+{
+    return sys_lstat(path, buf);
+}
