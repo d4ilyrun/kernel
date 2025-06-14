@@ -21,6 +21,21 @@ char **environ; /* pointer to array of char * strings that define the current
         return ret;                                                      \
     }
 
+#define DEFINE_SYSCALL_1(_ret_type, _syscall, _nr, _type1) \
+    _ret_type _##_syscall(_type1 arg1)                     \
+    {                                                      \
+        int ret = _nr;                                     \
+        __asm__ volatile("int $0x80"                       \
+                         : "=a"(ret)                       \
+                         : "a"(ret), "b"(arg1)             \
+                         : "memory");                      \
+        if (ret < 0) {                                     \
+            errno = ret;                                   \
+            ret = -1;                                      \
+        }                                                  \
+        return ret;                                        \
+    }
+
 #define DEFINE_SYSCALL_2(_ret_type, _syscall, _nr, _type1, _type2) \
     _ret_type _##_syscall(_type1 arg1, _type2 arg2)                \
     {                                                              \
@@ -56,6 +71,7 @@ char **environ; /* pointer to array of char * strings that define the current
 DEFINE_SYSCALL_0(int, fork, 2);
 DEFINE_SYSCALL_3(int, read, 3, int, char *, int);
 DEFINE_SYSCALL_3(int, write, 4, int, const char *, int);
+DEFINE_SYSCALL_1(int, close, 6, int);
 DEFINE_SYSCALL_3(int, lseek, 19, int, int, int);
 DEFINE_SYSCALL_2(int, stat, 106, const char *, struct stat *);
 DEFINE_SYSCALL_2(int, lstat, 107, const char *, struct stat *);
