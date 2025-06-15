@@ -88,28 +88,40 @@ static ALWAYS_INLINE __atomic_t atomic_exchange(atomic_t *atomic,
     return stdatomic_exchange(&atomic->val, val);
 }
 
-/** Increment the value of an atomic variable */
-static ALWAYS_INLINE void atomic_add(atomic_t *atomic, __atomic_t val)
+/** Increment the value of an atomic variable
+ *
+ * @return The value @ref atomic held previously.
+ */
+static ALWAYS_INLINE __atomic_t atomic_add(atomic_t *atomic, __atomic_t val)
 {
-    stdatomic_add(&atomic->val, val);
+    return stdatomic_add(&atomic->val, val);
 }
 
-/** Decrement the value of an atomic variable */
-static ALWAYS_INLINE void atomic_sub(atomic_t *atomic, __atomic_t val)
+/** Decrement the value of an atomic variable.
+ *
+ * @return The value @ref atomic held previously.
+ */
+static ALWAYS_INLINE __atomic_t atomic_sub(atomic_t *atomic, __atomic_t val)
 {
-    stdatomic_sub(&atomic->val, val);
+    return stdatomic_sub(&atomic->val, val);
 }
 
-/** Increment the value of an atomic variable by one */
-static ALWAYS_INLINE void atomic_inc(atomic_t *atomic)
+/** Increment the value of an atomic variable by one.
+ *
+ * @return The value @ref atomic held previously.
+ */
+static ALWAYS_INLINE __atomic_t atomic_inc(atomic_t *atomic)
 {
-    atomic_add(atomic, 1);
+    return atomic_add(atomic, 1);
 }
 
-/** Decrement the value of an atomic variable by one */
-static ALWAYS_INLINE void atomic_dec(atomic_t *atomic)
+/** Decrement the value of an atomic variable by one.
+ *
+ * @return The value @ref atomic held previously.
+ */
+static ALWAYS_INLINE __atomic_t atomic_dec(atomic_t *atomic)
 {
-    atomic_sub(atomic, 1);
+    return atomic_sub(atomic, 1);
 }
 
 #endif /* KERNEL_ATOMIC_H */

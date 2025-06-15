@@ -1,4 +1,5 @@
 #include <kernel/device.h>
+#include <kernel/devices/timer.h>
 #include <kernel/error.h>
 #include <kernel/file.h>
 #include <kernel/kmalloc.h>
@@ -30,12 +31,25 @@ error_t device_register(device_t *dev)
 static inline struct vnode *device_acquire_vnode(struct device *dev)
 {
     bool new;
+    struct stat *stat;
 
     dev->vnode = vfs_vnode_acquire(dev->vnode, &new);
-    if (new) {
-        dev->vnode->operations = &devtmpfs_vnode_ops;
-        dev->vnode->pdata = dev;
-    }
+    if (!new)
+        return dev->vnode;
+
+    dev->vnode->operations = &devtmpfs_vnode_ops;
+    dev->vnode->pdata = dev;
+
+    /*
+     * TODO: Set vnode rdev.
+     * TODO: Set vnode uid/gid.
+     * TODO: Determine device's permission.
+     */
+    stat = &dev->vnode->stat;
+    clock_get_time(&stat->st_mtim);
+    stat->st_ctim = stat->st_mtim;
+    stat->st_mode = S_IRWU | S_IRWG | S_IRWO;
+    stat->st_nlink = 1;
 
     return dev->vnode;
 }
@@ -61,14 +75,14 @@ struct device *device_find(const char *name)
     return NULL;
 }
 
-static error_t
+static vnode_t *
 devtmpfs_vnode_create(vnode_t *node, const char *name, vnode_type type)
 {
     /* This fs only lists existing devices, cannot remove them */
     UNUSED(node);
     UNUSED(name);
     UNUSED(type);
-    return E_NOT_SUPPORTED;
+    return PTR_ERR(E_NOT_SUPPORTED);
 }
 
 static error_t devtmpfs_vnode_remove(vnode_t *node, const char *child)
@@ -84,7 +98,6 @@ devtmpfs_vnode_lookup(vnode_t *node, const path_segment_t *child)
 {
     vnode_t *root = node->fs->operations->root(node->fs);
     device_t *dev;
-    bool new;
 
     if (node != root)
         return PTR_ERR(E_INVAL);
@@ -98,12 +111,6 @@ devtmpfs_vnode_lookup(vnode_t *node, const path_segment_t *child)
 
     if (dev == NULL)
         return PTR_ERR(E_NODEV);
-
-    dev->vnode = vfs_vnode_acquire(dev->vnode, &new);
-    if (new) {
-        dev->vnode->operations = &devtmpfs_vnode_ops;
-        dev->vnode->pdata = dev;
-    }
 
     return device_acquire_vnode(dev);
 }

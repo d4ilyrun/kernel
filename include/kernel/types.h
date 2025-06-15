@@ -8,7 +8,9 @@
  * This is the case for example when compiling the testsuite for libalgo.
  */
 #ifdef KERNEL
-#include <uapi/types.h>
+#include <uapi/sys/types.h>
+#else
+#include <sys/types.h>
 #endif
 
 #include <arch.h>

@@ -1,6 +1,7 @@
 #define LOG_DOMAIN "process"
 
 #include <kernel/error.h>
+#include <kernel/file.h>
 #include <kernel/interrupts.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
@@ -89,16 +90,26 @@ static pid_t process_next_pid(void)
     return pid;
 }
 
-/** Free all resources currently held by a thread.
+/** Free all resources currently held by a process.
  *
  * This should never be called directly. Instead, it should be
  * automatically called when the process' reference count reaches 0.
  *
- * @see process_get process_put
+ * @see process_get() process_put()
  */
 static void process_free(struct process *process)
 {
     log_info("freeing process: %s", process->name);
+
+    /*
+     * Release all open files.
+     */
+    locked_scope (&process->files_lock) {
+        for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
+            if (process->files[i])
+                file_put(process->files[i]);
+        }
+    }
 
     arch_process_free(process);
 
@@ -150,6 +161,8 @@ static struct process *process_new(void)
     }
 
     process->pid = process_next_pid();
+
+    INIT_SPINLOCK(process->files_lock);
 
     return process;
 }
@@ -220,6 +233,61 @@ void process_init_kernel_process(void)
               "any other thread");
 
     thread_set_user_stack(&kernel_process_initial_thread, ustack);
+}
+
+int process_register_file(struct process *process, struct file *file)
+{
+    int fd = -E_MFILE;
+
+    /*
+     * Find the first available file descriptor index.
+     */
+    locked_scope (&process->files_lock) {
+        for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
+            if (process->files[i] == NULL)
+                continue;
+            fd = i;
+            process->files[i] = file;
+            break;
+        }
+    }
+
+    return fd;
+}
+
+error_t process_unregister_file(struct process *process, int fd)
+{
+    struct file *file;
+
+    if (fd >= PROCESS_FD_COUNT)
+        return E_BAD_FD;
+
+    locked_scope (&process->files_lock) {
+        file = process->files[fd];
+        if (!file)
+            return E_BAD_FD;
+        file_put(file);
+        process->files[fd] = NULL;
+    }
+
+    return E_SUCCESS;
+}
+
+struct file *process_file_get(struct process *process, int fd)
+{
+    struct file *file;
+
+    if (fd >= PROCESS_FD_COUNT)
+        return NULL;
+
+    locked_scope (&process->files_lock) {
+        file = process->files[fd];
+        if (file)
+            file_get(file);
+
+    }
+
+    return file;
 }
 
 thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
@@ -355,6 +423,16 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
 
     /* Duplicate the current thread's process's state */
     strncpy(new_process->name, current->process->name, PROCESS_NAME_MAX_LEN);
+
+    /*
+     * Duplicate the current process' open files.
+     */
+    locked_scope (&current->process->files_lock) {
+        for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
+            if (current->process->files[i])
+                new_process->files[i] = file_get(current->process->files[i]);
+        }
+    }
 
     /* Duplicate the current thread's address space */
     address_space_init(new_process->as);

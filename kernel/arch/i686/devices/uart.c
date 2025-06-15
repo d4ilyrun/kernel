@@ -92,26 +92,20 @@ static error_t uart_reset(void)
     return E_SUCCESS;
 }
 
-static error_t __uart_write(const char *buf, size_t length, size_t *pos)
+static ssize_t __uart_write(const char *buf, size_t length)
 {
-    for (size_t i = 0; i < length; i++) {
-        if (pos)
-            *pos += 1;
+    for (size_t i = 0; i < length; i++)
         uart_putc(buf[i]);
-    }
 
-    return E_SUCCESS;
+    return length;
 }
 
-static error_t __uart_read(char *buf, size_t length, size_t *pos)
+static ssize_t __uart_read(char *buf, size_t length)
 {
-    for (size_t i = 0; i < length; i++) {
-        if (pos)
-            *pos += 1;
+    for (size_t i = 0; i < length; i++)
         buf[i] = uart_getc();
-    }
 
-    return E_SUCCESS;
+    return length;
 }
 
 static error_t uart_open(struct file *file)
@@ -120,14 +114,16 @@ static error_t uart_open(struct file *file)
     return uart_reset();
 }
 
-static error_t uart_write(struct file *file, const char *buf, size_t length)
+static ssize_t uart_write(struct file *file, const char *buf, size_t length)
 {
-    return __uart_write(buf, length, &file->pos);
+    UNUSED(file);
+    return __uart_write(buf, length);
 }
 
-static error_t uart_read(struct file *file, char *buf, size_t length)
+static ssize_t uart_read(struct file *file, char *buf, size_t length)
 {
-    return __uart_read(buf, length, &file->pos);
+    UNUSED(file);
+    return __uart_read(buf, length);
 }
 
 struct file_operations uart_file_ops = {
@@ -154,7 +150,8 @@ static error_t uart_early_init(void *pdata)
 
 static error_t uart_early_write(const char *buffer, size_t size, void *pdata)
 {
-    return __uart_write(buffer, size, pdata);
+    UNUSED(pdata);
+    return __uart_write(buffer, size);
 }
 
 static struct early_console uart_early_console = {

@@ -12,6 +12,7 @@
 
 #define LOG_DOMAIN "socket"
 
+#include <kernel/devices/timer.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/socket.h>
@@ -35,6 +36,7 @@ struct socket *socket_alloc(void)
     struct socket *socket;
     struct vnode *vnode;
     struct file *file;
+    struct stat *stat;
 
     node = kcalloc(1, sizeof(*node), KMALLOC_DEFAULT);
     if (node == NULL)
@@ -48,6 +50,12 @@ struct socket *socket_alloc(void)
     vnode->fs = NULL;
     vnode->operations = &socket_vnode_ops;
     vnode->type = VNODE_SOCKET;
+
+    stat = &vnode->stat;
+    clock_get_time(&stat->st_mtim);
+    stat->st_ctim = stat->st_mtim;
+    stat->st_mode = S_IRWU | S_IRWG | S_IRWO;
+    stat->st_nlink = 1;
 
     file = file_open(vnode, &socket_fops);
     if (IS_ERR(file)) {
@@ -88,27 +96,27 @@ socket_connect(struct file *file, struct sockaddr *addr, socklen_t len)
 /*
  * https://pubs.opengroup.org/onlinepubs/9699919799/functions/sendmsg.html
  */
-static error_t
+static ssize_t
 socket_sendmsg(struct file *file, const struct msghdr *msg, int flags)
 {
     struct socket *socket = file->priv;
 
     if (file->vnode->type != VNODE_SOCKET)
-        return E_NOT_SOCKET;
+        return -E_NOT_SOCKET;
 
     if (msg->msg_namelen > NAME_MAX)
-        return E_NAME_TOO_LONG;
+        return -E_NAME_TOO_LONG;
 
     if (msg->msg_iovlen <= 0 || msg->msg_iovlen > IOV_MAX)
-        return E_MSG_SIZE;
+        return -E_MSG_SIZE;
 
     // In connection-mode, specified address is ignored
     if (socket_mode_is_connection(socket->proto->type)) {
         if (socket->state != SOCKET_CONNECTED)
-            return E_NOT_CONNECTED;
+            return -E_NOT_CONNECTED;
     } else {
         if (!msg->msg_name && socket->state != SOCKET_CONNECTED)
-            return E_DEST_ADDR_REQUIRED;
+            return -E_DEST_ADDR_REQUIRED;
     }
 
     return socket->proto->ops->sendmsg(socket, msg, flags);
@@ -117,30 +125,35 @@ socket_sendmsg(struct file *file, const struct msghdr *msg, int flags)
 /*
  * https://pubs.opengroup.org/onlinepubs/9699919799/functions/recvmsg.html
  */
-static error_t socket_recvmsg(struct file *file, struct msghdr *msg, int flags)
+static ssize_t socket_recvmsg(struct file *file, struct msghdr *msg, int flags)
 {
     struct socket *socket = file->priv;
 
     if (file->vnode->type != VNODE_SOCKET)
-        return E_NOT_SOCKET;
+        return -E_NOT_SOCKET;
 
     if (msg->msg_iovlen <= 0 || msg->msg_iovlen > IOV_MAX)
-        return E_MSG_SIZE;
+        return -E_MSG_SIZE;
 
     if (socket_mode_is_connection(socket->proto->type)) {
         if (socket->state != SOCKET_CONNECTED)
-            return E_NOT_CONNECTED;
+            return -E_NOT_CONNECTED;
     }
 
     if (socket->state != SOCKET_CONNECTED && !msg->msg_name)
-        return E_NOT_CONNECTED;
+        return -E_NOT_CONNECTED;
 
     return socket->proto->ops->recvmsg(socket, msg, flags);
 }
 
-static error_t socket_write(struct file *file, const char *data, size_t len)
+static ssize_t socket_write(struct file *file, const char *data, size_t len)
 {
     return file_send(file, data, len, 0);
+}
+
+static ssize_t socket_read(struct file *file, char *data, size_t len)
+{
+    return file_recv(file, data, len, 0);
 }
 
 static struct file_operations socket_fops = {
@@ -149,4 +162,5 @@ static struct file_operations socket_fops = {
     .sendmsg = socket_sendmsg,
     .recvmsg = socket_recvmsg,
     .write = socket_write,
+    .read = socket_read,
 };

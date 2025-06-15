@@ -39,6 +39,7 @@
 #include <kernel/error.h>
 #include <kernel/file.h>
 #include <kernel/types.h>
+#include <uapi/sys/stat.h>
 
 #include <lib/path.h>
 #include <libalgo/linked_list.h>
@@ -131,22 +132,22 @@ vnode_t *vfs_find_by_path(const char *path);
  *  @param path The path of the new child
  *  @param type The type of the new file
  *
- *  @return filesystem specific errors, or:
+ *  @return The created vnode, or a pointer-encoded error:
  *      * E_NOENT - Path is invalid
  *      * E_EXIST - File already exists
  */
-error_t vfs_create_at(const char *path, vnode_type type);
+vnode_t *vfs_create(const char *path, vnode_type type);
 
 /** Remove the file located at the given path
  *
  *  @return E_NOENT if the file does not exist
  */
-error_t vfs_remove_at(const char *path);
+error_t vfs_remove(const char *path);
 
 /** Open the file located at the given path
  *  @return The file's struct, or a pointed encoded error
  */
-struct file *vfs_open_at(const char *path);
+struct file *vfs_open(const char *path);
 
 /** @} */
 
@@ -158,13 +159,13 @@ struct file *vfs_open_at(const char *path);
  *  @brief The different existing types of vnodes
  */
 typedef enum vnode_type {
-    VNODE_FIFO = 0x1000,
-    VNODE_CHARDEVICE = 0x2000,
-    VNODE_DIRECTORY = 0x4000, ///< Regular directory
-    VNODE_BLOCKDEVICE = 0x6000,
-    VNODE_FILE = 0x8000,    ///< Regular file
-    VNODE_SYMLINK = 0xA000, ///< Symbolic link
-    VNODE_SOCKET = 0xC000,
+    VNODE_FIFO = S_IFIFO,        ///< FIFO
+    VNODE_CHARDEVICE = S_IFCHR,  ///< Character device
+    VNODE_DIRECTORY = S_IFDIR,   ///< Regular directory
+    VNODE_BLOCKDEVICE = S_IFBLK, ///< Block device
+    VNODE_FILE = S_IFREG,        ///< Regular file
+    VNODE_SYMLINK = S_IFLNK,     ///< Symbolic link
+    VNODE_SOCKET = S_IFSOCK,     ///< Socket file
 } vnode_type;
 
 /** @struct vnode_operations
@@ -179,7 +180,7 @@ typedef struct vnode_operations {
     vnode_t *(*lookup)(vnode_t *, const path_segment_t *);
 
     /** Add a new child to the vnode. */
-    error_t (*create)(vnode_t *node, const char *name, vnode_type);
+    vnode_t *(*create)(vnode_t *node, const char *name, vnode_type);
 
     /** Remove a child from a directory */
     error_t (*remove)(vnode_t *node, const char *child);
@@ -205,6 +206,8 @@ struct vnode {
     vnode_ops_t *operations; ///< @ref vnode_operations
     void *pdata;             ///< Private node data
     vfs_t *mounted_here;     ///< Potential filesystem mounted over this node
+    struct stat stat;        ///< File statistics
+    spinlock_t lock;         ///< Must be held when accessing the node's data.
 };
 
 /** Increment the refcount of a vnode
