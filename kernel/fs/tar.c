@@ -110,7 +110,7 @@ static vnode_t *tar_get_vnode(tar_node_t *node, vfs_t *fs);
  *  @param field The ascii representation
  *  @param len The number of bytes inside the field
  */
-static size_t tar_read_number(const char *field, size_t len)
+static size_t tar_read_number_len(const char *field, size_t len)
 {
     size_t count = 0;
     for (size_t i = 0; i < len; ++i) {
@@ -122,6 +122,8 @@ static size_t tar_read_number(const char *field, size_t len)
 
     return count;
 }
+
+#define tar_read_number(_number) tar_read_number_len(_number, sizeof(_number))
 
 static tar_node_t *tar_create_node(const path_segment_t *segment, hdr_t *header)
 {
@@ -216,7 +218,7 @@ static tree_t tar_init_tree(u32 start, u32 end)
             current = node;
         });
 
-        size_t size = tar_read_number(header->size, 11);
+        size_t size = tar_read_number_len(header->size, 11);
         header = ((void *)header) + TAR_HEADER_SIZE + size;
         header = (void *)align_up((uint32_t)header, TAR_HEADER_SIZE);
     }
@@ -267,50 +269,74 @@ static void tar_vfs_delete(vfs_t *vfs)
 static vnode_t *tar_get_vnode(tar_node_t *node, vfs_t *fs)
 {
     struct tar_header *header = node->header;
+    struct stat *stat;
     bool new;
 
     node->vnode = vfs_vnode_acquire(node->vnode, &new);
-    node->size = tar_read_number(header->size, sizeof(header->size));
+    node->size = tar_read_number(header->size);
 
-    if (new) {
-        node->vnode->fs = fs;
-        node->vnode->operations = &tar_vnode_ops;
-        node->vnode->pdata = node;
+    if (!new)
+        return node->vnode;
 
-        switch (header->type) {
-        case TAR_TYPE_FILE:
-            node->vnode->type = VNODE_FILE;
-            break;
-        case TAR_TYPE_HARDLINK:
-        case TAR_TYPE_SYMLINK:
-            node->vnode->type = VNODE_SYMLINK;
-            break;
-        case TAR_TYPE_CHARDEV:
-            node->vnode->type = VNODE_CHARDEVICE;
-            break;
-        case TAR_TYPE_BLOCKDEV:
-            node->vnode->type = VNODE_BLOCKDEVICE;
-            break;
-        case TAR_TYPE_DIRECTORY:
-            node->vnode->type = VNODE_DIRECTORY;
-            break;
-        case TAR_TYPE_FIFO:
-            node->vnode->type = VNODE_FIFO;
-            break;
-        }
+    node->vnode->fs = fs;
+    node->vnode->operations = &tar_vnode_ops;
+    node->vnode->pdata = node;
+
+    /*
+     * Initialize vnode statistics.
+     *
+     * The TAR file system does not use an inode number nor block IO, so
+     * these fields are kept empty. Since this is a read-only filesystem,
+     * we'll also omit the st_ctime field (the file's status is fixed).
+     *
+     * Because the TAR header does not include any access time information
+     * we set it to the time of the last modification time until the file is
+     * accessed for real.
+     *
+     * TODO: File device information.
+     */
+    stat = &node->vnode->stat;
+    stat->st_size = node->size;
+    stat->st_mode = tar_read_number(header->mode);
+    stat->st_uid = tar_read_number(header->uid);
+    stat->st_gid = tar_read_number(header->gid);
+    stat->st_mtim.tv_nsec = tar_read_number(header->mtime);
+    stat->st_atim = stat->st_mtim;
+    stat->st_nlink = 1;
+
+    switch (header->type) {
+    case TAR_TYPE_FILE:
+        node->vnode->type = VNODE_FILE;
+        break;
+    case TAR_TYPE_HARDLINK:
+    case TAR_TYPE_SYMLINK:
+        node->vnode->type = VNODE_SYMLINK;
+        break;
+    case TAR_TYPE_CHARDEV:
+        node->vnode->type = VNODE_CHARDEVICE;
+        break;
+    case TAR_TYPE_BLOCKDEV:
+        node->vnode->type = VNODE_BLOCKDEVICE;
+        break;
+    case TAR_TYPE_DIRECTORY:
+        node->vnode->type = VNODE_DIRECTORY;
+        break;
+    case TAR_TYPE_FIFO:
+        node->vnode->type = VNODE_FIFO;
+        break;
     }
 
     return node->vnode;
 }
 
-static error_t
+static vnode_t *
 tar_vnode_create(vnode_t *vnode, const char *name, vnode_type type)
 {
     UNUSED(vnode);
     UNUSED(name);
     UNUSED(type);
 
-    return E_NOT_SUPPORTED;
+    return PTR_ERR(E_READ_ONLY_FS);
 }
 
 static error_t tar_vnode_remove(vnode_t *vnode, const char *name)
@@ -318,7 +344,7 @@ static error_t tar_vnode_remove(vnode_t *vnode, const char *name)
     UNUSED(vnode);
     UNUSED(name);
 
-    return E_NOT_SUPPORTED;
+    return E_READ_ONLY_FS;
 }
 
 static struct file *tar_vnode_open(vnode_t *vnode)
@@ -347,23 +373,24 @@ static size_t tar_file_size(struct file *file)
     return tar_node->size;
 }
 
-static error_t tar_file_read(struct file *file, char *buffer, size_t len)
+static ssize_t tar_file_read(struct file *file, char *buffer, size_t len)
 {
     vnode_t *vnode = file->vnode;
     tar_node_t *tar_node = vnode->pdata;
     void *file_start = tar_file(tar_node->header);
 
     if (len > tar_node->size)
-        return E_INVAL;
+        return -E_INVAL;
 
     memcpy(buffer, file_start, len);
 
-    return E_SUCCESS;
+    return len;
 }
 
 static struct file_operations tar_file_ops = {
     .size = tar_file_size,
     .read = tar_file_read,
+    .seek = default_file_seek,
 };
 
 vfs_t *tar_new(u32 start, u32 end)

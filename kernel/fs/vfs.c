@@ -1,7 +1,10 @@
 #include <kernel/error.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
+#include <kernel/process.h>
 #include <kernel/vfs.h>
+#include <uapi/fcntl.h>
+#include <uapi/unistd.h>
 
 #include <utils/container_of.h>
 
@@ -40,19 +43,25 @@ static vfs_t *vfs_root_fs()
 }
 
 static error_t
-vfs_mount_at(vnode_t *vnode, const char *fs_type, u32 start, u32 end)
+vfs_mount_at(vnode_t *mountpoint, const char *fs_type, u32 start, u32 end)
 {
-    const vfs_fs_t *fs = vfs_find_fs(fs_type);
+    const vfs_fs_t *fs;
+    vfs_t *new;
+
+    if (mountpoint->mounted_here || mountpoint->type != VNODE_DIRECTORY)
+        return E_INVAL;
+
+    fs = vfs_find_fs(fs_type);
     if (fs == NULL)
         return E_INVAL;
 
-    vfs_t *new = fs->new (start, end);
+    new = fs->new(start, end);
     if (IS_ERR(new))
         return ERR_FROM_PTR(new);
 
-    new->node = vnode;
-    if (vnode)
-        vnode->mounted_here = new;
+    new->node = mountpoint;
+    if (mountpoint)
+        mountpoint->mounted_here = new;
 
     llist_add_tail(&vfs_mountpoints, &new->this);
     return E_SUCCESS;
@@ -70,21 +79,29 @@ error_t vfs_mount_root(const char *fs_type, u32 start, u32 end)
 error_t
 vfs_mount(const char *mount_path, const char *fs_type, u32 start, u32 end)
 {
-    vnode_t *mountpoint = vfs_find_by_path(mount_path);
+    vnode_t *mountpoint;
+    error_t err;
+
+    mountpoint = vfs_find_by_path(mount_path);
     if (IS_ERR(mountpoint))
         return ERR_FROM_PTR(mountpoint);
 
-    if (mountpoint->mounted_here != NULL ||
-        mountpoint->type != VNODE_DIRECTORY) {
-        vfs_vnode_release(mountpoint);
-        return E_INVAL;
-    }
-
-    error_t err = vfs_mount_at(mountpoint, fs_type, start, end);
+    err = vfs_mount_at(mountpoint, fs_type, start, end);
     if (err != E_SUCCESS) {
         vfs_vnode_release(mountpoint);
         return err;
     }
+
+    return E_SUCCESS;
+}
+
+static error_t vfs_unmount_at(struct vnode *vnode)
+{
+    llist_remove(&vnode->mounted_here->this);
+    vnode->mounted_here->operations->delete(vnode->mounted_here);
+
+    /* A mounted FS keeps a reference to the vnode it is mounted on */
+    vfs_vnode_release(vnode);
 
     return E_SUCCESS;
 }
@@ -100,12 +117,9 @@ error_t vfs_unmount(const char *path)
         return E_INVAL;
     }
 
-    llist_remove(&vnode->mounted_here->this);
-    vnode->mounted_here->operations->delete (vnode->mounted_here);
-    // The mounted FS kept a reference to the vnode it was mounted on
-    vfs_vnode_release(vnode);
+    vfs_unmount_at(vnode);
 
-    // Release the reference acquired by vfs_find_by_path
+    /* Release the reference acquired by vfs_find_by_path(). */
     vfs_vnode_release(vnode);
 
     return E_SUCCESS;
@@ -164,75 +178,119 @@ static vnode_t *vfs_find_parent(path_t *path)
     return parent;
 }
 
-error_t vfs_create_at(const char *raw_path, vnode_type type)
+static vnode_t *
+vfs_create_at(struct vnode *parent, const char *name, vnode_type type)
 {
-    error_t ret;
+    struct vnode *vnode;
+
+    if (parent->operations->create == NULL)
+        return PTR_ERR(E_NOT_SUPPORTED);
+
+    vnode = parent->operations->create(parent, name, type);
+    if (IS_ERR(vnode))
+        return vnode;
+
+    /*
+     * The GID of the file shall be set to the GID of the file's parent
+     * directory or to the effective group ID of the process.
+     *
+     * TODO: Provide a way to set the GID of the file to that of the process.
+     * TODO: Set file UID.
+     * TODO: Set file permissions mode.
+     */
+    vnode->stat.st_gid = parent->stat.st_gid;
+    vnode->stat.st_nlink = 1;
+
+    return vnode;
+}
+
+vnode_t *vfs_create(const char *raw_path, vnode_type type)
+{
     path_t path = NEW_DYNAMIC_PATH(raw_path);
     vnode_t *parent = vfs_find_parent(&path);
+    path_segment_t file;
+    char end_char;
+    vnode_t *vnode;
 
+    if (IS_ERR(parent))
+        return parent;
+
+    path_walk_last(&path, &file);
+
+    /*
+     * Extract the last component from the path and normalize it.
+     * The path segment's end is not guaranteed to be the nul character, so
+     * we must temporarily insert a nul byte (e.g.: vfs_remove("/usr/bin/")).
+     */
+    end_char = *file.end;
+    *((char *)file.end) = '\0';
+
+    vnode = vfs_create_at(parent, file.start, type);
+
+    /* Undo path normalization. */
+    *((char *)file.end) = end_char;
+
+    vfs_vnode_release(parent);
+    return vnode;
+}
+
+static error_t vfs_remove_at(struct vnode *parent, const char *name)
+{
+    if (parent->operations->remove == NULL)
+        return E_NOT_SUPPORTED;
+
+    return parent->operations->remove(parent, name);
+}
+
+error_t vfs_remove(const char *raw_path)
+{
+    path_t path = NEW_DYNAMIC_PATH(raw_path);
+    path_segment_t file;
+    char end_char;
+    vnode_t *parent;
+    error_t ret;
+
+    parent = vfs_find_parent(&path);
     if (IS_ERR(parent))
         return ERR_FROM_PTR(parent);
 
-    if (parent->operations->create == NULL) {
-        ret = E_NOT_IMPLEMENTED;
-    } else {
-        path_segment_t file;
-        path_walk_last(&path, &file);
+    /*
+     * Extract the last component from the path and normalize it.
+     * @see comment in vfs_create_at().
+     */
+    path_walk_last(&path, &file);
+    end_char = *file.end;
+    *((char *)file.end) = '\0';
 
-        // Artificially normalize the file name
-        const char end_char = *file.end;
-        *((char *)file.end) = '\0';
+    ret = vfs_remove_at(parent, file.start);
 
-        ret = parent->operations->create(parent, file.start, type);
-
-        // Do not modify the original string
-        *((char *)file.end) = end_char;
-    }
+    /* Undo path normalization. */
+    *((char *)file.end) = end_char;
 
     vfs_vnode_release(parent);
+
     return ret;
 }
 
-error_t vfs_remove_at(const char *raw_path)
+static struct file *vfs_open_at(struct vnode *vnode)
 {
-    error_t ret;
-    path_t path = NEW_DYNAMIC_PATH(raw_path);
-    vnode_t *parent = vfs_find_parent(&path);
+    if (!vnode->operations->open)
+        return PTR_ERR(E_NOT_SUPPORTED);
 
-    if (IS_ERR(parent))
-        return ERR_FROM_PTR(parent);
-
-    if (parent->operations->remove == NULL) {
-        ret = E_NOT_IMPLEMENTED;
-    } else {
-        path_segment_t file;
-        path_walk_last(&path, &file);
-
-        // Artificially normalize the file name
-        const char end_char = *file.end;
-        *((char *)file.end) = '\0';
-
-        ret = parent->operations->remove(parent, file.start);
-
-        // Do not modify the original string
-        *((char *)file.end) = end_char;
-    }
-
-    vfs_vnode_release(parent);
-    return ret;
+    /*
+     * TODO: Check against file permissions.
+     */
+    return vnode->operations->open(vnode);
 }
 
-struct file *vfs_open_at(const char *raw_path)
+struct file *vfs_open(const char *raw_path)
 {
     vnode_t *vnode = vfs_find_by_path(raw_path);
 
     if (IS_ERR(vnode))
         return (void *)vnode;
 
-    if (!vnode->operations->open)
-        return PTR_ERR(E_NOT_SUPPORTED);
-
-    return vnode->operations->open(vnode);
+    return vfs_open_at(vnode);
 }
 
 vnode_t *vfs_vnode_acquire(vnode_t *node, bool *new)
@@ -243,6 +301,7 @@ vnode_t *vfs_vnode_acquire(vnode_t *node, bool *new)
             return PTR_ERR(E_NOMEM);
         if (new)
             *new = true;
+        INIT_SPINLOCK(node->lock);
     } else {
         if (new)
             *new = false;
@@ -264,4 +323,96 @@ vnode_t *vfs_vnode_release(vnode_t *node)
 
     node->refcount -= 1;
     return node;
+}
+
+/*
+ * https://pubs.opengroup.org/onlinepubs/9699919799/functions/open.html
+ */
+int sys_open(const char *path, int oflags)
+{
+    vnode_t *vnode;
+    struct file *file;
+    int fd;
+
+    // TODO: open(): ENOTDIR
+    // TODO: open(): EROFS
+    // TODO: open(): EACCESS
+
+    if (oflags & (O_TRUNC | O_NOCTTY | O_CLOEXEC | O_NONBLOCK))
+        return -E_INVAL;
+
+    vnode = vfs_find_by_path(path);
+
+    if (oflags & O_CREAT) {
+        /*
+         * If O_CREAT and O_EXCL are set, fail if the file exists.
+         */
+        if (oflags & O_EXCL && !IS_ERR(vnode))
+            return -E_EXIST;
+
+        /*
+         * TODO: Create file if it does not exist.
+         */
+        if (IS_ERR(vnode) && ERR_FROM_PTR(vnode) == E_NOENT) {
+            vnode = vfs_create(path, VNODE_FILE);
+        }
+    }
+
+    if (IS_ERR(vnode))
+        return -ERR_FROM_PTR(vnode);
+
+    /*
+     * Cannot write into a directory node.
+     */
+    if (vnode->type == VNODE_DIRECTORY && O_WRITABLE(oflags))
+        return -E_IS_DIRECTORY;
+
+    if (vnode->type != VNODE_DIRECTORY && oflags & O_DIRECTORY)
+        return -E_NOT_DIRECTORY;
+
+    file = vfs_open_at(vnode);
+    if (IS_ERR(file))
+        return -E_IO;
+
+    file->flags = oflags;
+    if (oflags & O_APPEND)
+        file_seek(file, 0, SEEK_END);
+
+    fd = process_register_file(current->process, file);
+    if (fd < 0)
+        file_put(file);
+
+    return fd;
+}
+
+/*
+ * https://pubs.opengroup.org/onlinepubs/9799919799/functions/stat.html
+ */
+int sys_lstat(const char *path, struct stat *buf)
+{
+    vnode_t *vnode;
+
+    // TODO: open(): ENOTDIR
+    // TODO: open(): EACCESS
+
+    vnode = vfs_find_by_path(path);
+    if (IS_ERR(vnode))
+        return -ERR_FROM_PTR(vnode);
+
+    *buf = vnode->stat;
+
+    return E_SUCCESS;
+}
+
+/*
+ * https://pubs.opengroup.org/onlinepubs/9799919799/functions/stat.html
+ *
+ * TODO: If the named file is a symbolic link, the stat() function shall
+ * continue pathname resolution using the contents of the symbolic link, and
+ * shall return information pertaining to the resulting file if the file
+ * exists.
+ */
+int sys_stat(const char *path, struct stat *buf)
+{
+    return sys_lstat(path, buf);
 }

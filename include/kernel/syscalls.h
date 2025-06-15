@@ -23,6 +23,7 @@
 #endif
 
 #include <kernel/types.h>
+#include <uapi/sys/stat.h>
 
 #include <stddef.h>
 
@@ -37,5 +38,12 @@ void syscall_init(void);
 /* SYSCALLS HANDLER */
 
 pid_t sys_fork(void);
+int sys_read(int fd, char *, size_t len);
+int sys_write(int fd, const char *, size_t len);
+int sys_open(const char *, int oflags);
+int sys_close(int fd);
+off_t sys_lseek(int fd, off_t off, int whence);
+int sys_stat(const char *path, struct stat *buf);
+int sys_lstat(const char *path, struct stat *buf);
 
 #endif /* KERNEL_SYSCALLS_H */
