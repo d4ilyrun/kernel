@@ -1,13 +1,14 @@
 #include <kernel/interrupts.h>
+#include <kernel/init.h>
 #include <kernel/memory.h>
+#include <kernel/logger.h>
 
 #include <kernel/arch/i686/devices/pic.h>
 #include <kernel/arch/i686/gdt.h>
 
 #include <utils/constants.h>
-#include <kernel/logger.h>
 
-void arch_setup(void)
+static error_t arch_bootstrap(void)
 {
     size_t kernel_size = KERNEL_CODE_END - KERNEL_CODE_START;
 
@@ -23,6 +24,16 @@ void arch_setup(void)
 
     gdt_init();
     gdt_log();
-    interrupts_init();
-    pic_reset();
+
+    return E_SUCCESS;
 }
+
+static error_t arch_early(void)
+{
+    pic_reset();
+
+    return E_SUCCESS;
+}
+
+DECLARE_INITCALL(INIT_BOOTSTRAP, arch_bootstrap);
+DECLARE_INITCALL(INIT_EARLY, arch_early);

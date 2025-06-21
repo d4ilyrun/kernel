@@ -3,6 +3,7 @@
 #include <kernel/devices/timer.h>
 #include <kernel/devices/uart.h>
 #include <kernel/error.h>
+#include <kernel/init.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/syscalls.h>
@@ -96,9 +97,12 @@ static u32 syscall(void *frame)
     return ret;
 }
 
-void syscall_init(void)
+static error_t syscall_init(void)
 {
     // The switch from user to kernel mode is performed by triggering the
     // 128th interrupt (the most common way).
     interrupts_set_handler(0x80, syscall, NULL);
+    return E_SUCCESS;
 }
+
+DECLARE_INITCALL(INIT_LATE, syscall_init);

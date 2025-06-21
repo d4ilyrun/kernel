@@ -66,7 +66,4 @@ void acpi_driver_register(struct acpi_driver *);
  */
 error_t acpi_init(struct multiboot_info *mbt);
 
-/** Probe all ACPI devices which correspond to a loaded ACPI driver */
-void acpi_probe_devices(void);
-
 /** @} */
