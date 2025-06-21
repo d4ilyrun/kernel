@@ -45,14 +45,12 @@ void __file_put(struct file *file)
     if (file->ops->close)
         file->ops->close(file);
 
-    locked_scope(&vnode->lock) {
-        /*
-         * TODO: If the link count of the file is 0, the space occupied
-         *       by the file shall be freed and the file shall no longer
-         *       be accessible.
-         */
-        vfs_vnode_release(vnode);
-    }
+    /*
+     * TODO: If the link count of the file is 0, the space occupied
+     *       by the file shall be freed and the file shall no longer
+     *       be accessible.
+     */
+    vfs_vnode_release(vnode);
 
     kfree(file);
 }
