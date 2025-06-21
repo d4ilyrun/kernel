@@ -52,6 +52,15 @@ void interrupts_enable(void);
  */
 void interrupts_init(void);
 
+typedef unsigned long irq_t;
+
+struct interrupt_controller {
+    void *data;
+    void (*enable)(struct interrupt_controller *, irq_t);
+    void (*mask)(struct interrupt_controller *, irq_t);
+    void (*eoi)(struct interrupt_controller *, irq_t);
+};
+
 /**
  *  @brief Frame passed onto the interrupt handlers when triggering an interrupt
  *  @note This is a only a forward declaration. The actual definition

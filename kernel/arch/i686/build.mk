@@ -17,6 +17,7 @@ KERNEL_ARCH_SRCS := \
     terminal.c \
     panic.c \
     devices/pic.c \
+    devices/apic.c \
     devices/pit.c \
     devices/timer.c \
     devices/uart.c

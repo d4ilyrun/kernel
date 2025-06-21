@@ -117,9 +117,6 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     arch_setup();
 
-    // IRQs are setup, we can safely enable interrupts
-    interrupts_enable();
-
     timer_start(HZ);
 
     if (!pmm_init(mbt))
@@ -128,6 +125,9 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     log_info("Initializing MMU");
     if (!mmu_init())
         PANIC("Failed to initialize virtual address space");
+
+    // IRQs are setup, we can safely enable interrupts
+    interrupts_enable();
 
     address_space_init(&kernel_address_space);
     process_init_kernel_process();

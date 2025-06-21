@@ -79,6 +79,8 @@ static ALWAYS_INLINE void hlt(void)
     ASM("hlt");
 }
 
+#define CPUID_LEAF_GETFEATURES 1
+
 static inline void
 cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx)
 {
@@ -109,6 +111,8 @@ CPUID_FUNCTION(edx)
 
 #undef CPUID_FUNCTION
 
+#define MSR_IA32_APIC_BASE 0x27
+
 /*
  * @return Whether the CPU supports model specific registers (MSR).
  * This should only be the case with old hardware.
@@ -134,5 +138,4 @@ static inline void wrmsr(uint32_t msr, uint64_t val)
     uint32_t edx = val >> 32;
     ASM("wrmsr" : : "a"(eax), "d"(edx), "c"(msr));
 }
-
 #endif /* KERNEL_I686_UTILS_CPU_OPS_H */

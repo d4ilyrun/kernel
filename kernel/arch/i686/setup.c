@@ -1,5 +1,8 @@
+#define LOG_DOMAIN "i686"
+
 #include <kernel/interrupts.h>
 #include <kernel/memory.h>
+#include <kernel/logger.h>
 
 #include <kernel/arch/i686/devices/pic.h>
 #include <kernel/arch/i686/gdt.h>
@@ -23,6 +26,17 @@ void arch_setup(void)
 
     gdt_init();
     gdt_log();
+
     interrupts_init();
-    pic_reset();
+
+    /*
+     * Try to use the more modern APIC interrupt controller.
+     * If we failed to do so, we fallback to using the original PIC.
+     */
+    // err = apic_init();
+    if (1) {
+        log_info("Failed to setup APIC, falling back to old 9259 PIC.");
+        // apic_disable();
+        pic_reset();
+    }
 }
