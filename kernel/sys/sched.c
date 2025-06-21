@@ -1,6 +1,7 @@
 #include <kernel/atomic.h>
 #include <kernel/cpu.h>
 #include <kernel/devices/timer.h>
+#include <kernel/init.h>
 #include <kernel/interrupts.h>
 #include <kernel/sched.h>
 #include <kernel/spinlock.h>
@@ -114,19 +115,6 @@ static void idle_task(void *data __attribute__((unused)))
     }
 }
 
-void scheduler_init(void)
-{
-    atomic_write(&scheduler.sync.preemption_level, 0);
-    INIT_QUEUE(scheduler.ready);
-
-    idle_thread = thread_spawn(&kernel_process, idle_task, NULL, NULL,
-                               THREAD_KERNEL);
-    // use the largest PID possible to avoid any conflict later on
-    idle_thread->tid = (pid_t)-1;
-    sched_new_thread(idle_thread);
-    scheduler_initialized = true;
-}
-
 void sched_new_thread(thread_t *thread)
 {
     if (thread == NULL)
@@ -167,3 +155,20 @@ void sched_unblock_thread(thread_t *thread)
 
     scheduler_preempt_enable(old_if);
 }
+
+static error_t scheduler_init(void)
+{
+    atomic_write(&scheduler.sync.preemption_level, 0);
+    INIT_QUEUE(scheduler.ready);
+
+    idle_thread = thread_spawn(&kernel_process, idle_task, NULL, NULL,
+                               THREAD_KERNEL);
+    // use the largest PID possible to avoid any conflict later on
+    idle_thread->tid = (pid_t)-1;
+    sched_new_thread(idle_thread);
+    scheduler_initialized = true;
+
+    return E_SUCCESS;
+}
+
+DECLARE_INITCALL(INIT_LATE, scheduler_init);

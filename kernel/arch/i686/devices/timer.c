@@ -22,6 +22,7 @@
 #include <kernel/logger.h>
 #include <kernel/sched.h>
 #include <kernel/types.h>
+#include <kernel/init.h>
 
 #include <kernel/arch/i686/devices/pic.h>
 #include <kernel/arch/i686/devices/pit.h>

@@ -1,6 +1,7 @@
 #define LOG_DOMAIN "interrupt"
 
 #include <kernel/devices/uart.h>
+#include <kernel/init.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/printk.h>
@@ -149,32 +150,6 @@ interrupts_set_idt(u16 nr, idt_gate_type type, interrupt_handler handler)
     idt[nr] = entry; // NOLINT
 }
 
-void interrupts_init(void)
-{
-    interrupts_disable();
-
-    // Load up the IDTR
-    static volatile idtr idtr = {.size = IDT_SIZE - 1, .offset = (size_t)idt};
-    ASM("lidt (%0)" : : "m"(idtr) : "memory");
-
-    // Empty descriptor slots in the IDT should have the present flag set to 0.
-    // Fill the whole IDT with null descriptors
-    memset((void *)idt, 0, IDT_SIZE);
-
-    // Empty the list of custom ISRs
-    memset(custom_interrupt_handlers, 0, sizeof(custom_interrupt_handlers));
-
-    log_info("Setting up interrupt handler stubs");
-    for (int i = 0; i < IDT_LENGTH; ++i) {
-        interrupts_set_idt(i, INTERRUPT_GATE_32B, interrupt_handler_stubs[i]);
-    }
-
-    // Mark syscall interrupt as callable from userland
-    idt[SYSCALL_INTERRUPT_NR].access |= (3 << 5);
-
-    log_dbg("Finished setting up the IDT");
-}
-
 void idt_log(void)
 {
     idtr idtr;
@@ -223,3 +198,33 @@ void default_interrupt_handler(interrupt_frame frame)
     // This is done to not have to differiente CPU exceptions from custom IRQs
     handler->handler(handler->data ? handler->data : &frame);
 }
+
+static error_t interrupts_init(void)
+{
+    interrupts_disable();
+
+    // Load up the IDTR
+    static volatile idtr idtr = {.size = IDT_SIZE - 1, .offset = (size_t)idt};
+    ASM("lidt (%0)" : : "m"(idtr) : "memory");
+
+    // Empty descriptor slots in the IDT should have the present flag set to 0.
+    // Fill the whole IDT with null descriptors
+    memset((void *)idt, 0, IDT_SIZE);
+
+    // Empty the list of custom ISRs
+    memset(custom_interrupt_handlers, 0, sizeof(custom_interrupt_handlers));
+
+    log_info("Setting up interrupt handler stubs");
+    for (int i = 0; i < IDT_LENGTH; ++i) {
+        interrupts_set_idt(i, INTERRUPT_GATE_32B, interrupt_handler_stubs[i]);
+    }
+
+    // Mark syscall interrupt as callable from userland
+    idt[SYSCALL_INTERRUPT_NR].access |= (3 << 5);
+
+    log_dbg("Finished setting up the IDT");
+
+    return E_SUCCESS;
+}
+
+DECLARE_INITCALL(INIT_BOOTSTRAP, interrupts_init);

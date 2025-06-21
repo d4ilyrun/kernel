@@ -72,6 +72,19 @@ SECTIONS
         _kernel_drivers_start = .;
         *(.data.driver.init)
         _kernel_drivers_end = .;
+
+#define INITCALL_SECTION(_section) \
+        _kernel_init_ ## _section ## _start = .; \
+        *(.data.init._section) \
+        _kernel_init_ ## _section ## _end = .; \
+
+        /* Used to automatically execute init functions at startup */
+        _kernel_init_start = .;
+        INITCALL_SECTION(bootstrap)
+        INITCALL_SECTION(early)
+        INITCALL_SECTION(normal)
+        INITCALL_SECTION(late)
+        _kernel_init_end = .;
     }
 
     /* Uninitialized data and stack (RW) */

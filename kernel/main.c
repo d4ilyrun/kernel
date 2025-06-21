@@ -8,6 +8,7 @@
 #include <kernel/devices/uart.h>
 #include <kernel/elf32.h>
 #include <kernel/execfmt.h>
+#include <kernel/init.h>
 #include <kernel/interrupts.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
@@ -27,12 +28,11 @@
 #include <kernel/worker.h>
 
 #include <utils/macro.h>
+#include <utils/map.h>
 #include <utils/math.h>
 
 #include <multiboot.h>
 #include <string.h>
-
-void arch_setup(void);
 
 static struct multiboot_info *mbt_info;
 
@@ -49,6 +49,7 @@ union {
 } mbt_tmp;
 
 // Tasks used for manually testing
+void kernel_test(void);
 void kernel_task_timer(void *data);
 void kernel_task_malloc(void *data);
 void kernel_task_rootfs(void *data);
@@ -81,6 +82,41 @@ void kernel_relocate_module(struct multiboot_tag_module *module)
     module->mod_start = (u32)reloc;
 }
 
+void initcall_do_level(enum init_step level)
+{
+
+#define INITCALL_IMPORT_LEVEL(_level)           \
+    extern void *_kernel_init_##_level##_start; \
+    extern void *_kernel_init_##_level##_end;
+
+#define INITCALL_SECTION(_level)                                    \
+    {                                                               \
+        .start = (struct initcall *)&_kernel_init_##_level##_start, \
+        .end = (struct initcall *)&_kernel_init_##_level##_end,     \
+    },
+
+    /*
+     * Import all initcall sections defined inside the linkerscript,
+     * and generate a table of [start, end] address to easily iterate over
+     * each section's initcalls.
+     */
+    MAP(INITCALL_IMPORT_LEVEL, INIT_STEPS);
+    static const struct initcall_section initall_sections[] = {
+        MAP(INITCALL_SECTION, INIT_STEPS)};
+
+    const struct initcall_section *section = &initall_sections[level];
+    error_t err;
+
+    for (struct initcall *initcall = section->start; initcall < section->end;
+         initcall += 1) {
+        log(LOG_LEVEL_DEBUG, "initcall", "%s", initcall->name);
+        err = initcall->call();
+        if (err)
+            log(LOG_LEVEL_WARN, "initcall", "%s failed with %s", initcall->name,
+                err_to_str(err));
+    }
+}
+
 void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 {
     memcpy(mbt_tmp.raw, mbt, mbt->total_size);
@@ -99,9 +135,15 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     interrupts_disable();
 
+    /*
+     * Try to initialize the system's early console first. This lets us
+     * print debug logs early on.
+     */
     if (uart_init() != E_SUCCESS) {
         // TODO: arch_reboot();
     }
+
+    tty_init();
 
     if (magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
         PANIC("Invalid magic number recieved from multiboot "
@@ -109,19 +151,21 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
               magic);
     }
 
-    tty_init();
-
     log(LOG_LEVEL_INFO, "kernel", "Starting");
     log(LOG_LEVEL_INFO, "kernel", "Size: %d bytes",
         KERNEL_CODE_END - KERNEL_CODE_START);
 
-    arch_setup();
+    /*
+     * Called with paging disabled to initialize the very first things
+     * that need to be setup in the system.
+     */
+    initcall_do_level(INIT_STEP_BOOTSTRAP);
 
-    // IRQs are setup, we can safely enable interrupts
-    interrupts_enable();
-
-    timer_start(HZ);
-
+    /*
+     * Now that we have a minimal working setup, we can enable paging
+     * and initialize the virtual memory allocation API.
+     * After this step, we are able to allocate & free kernel memory as usual.
+     */
     if (!pmm_init(mbt))
         PANIC("Could not initialize the physical memory manager");
 
@@ -132,37 +176,48 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     address_space_init(&kernel_address_space);
     process_init_kernel_process();
 
+    /*
+     * Initialize arch-specific features:
+     * - Interrupt controllers
+     * - Timers
+     * - ...
+     */
+    initcall_do_level(INIT_STEP_EARLY);
+
+    /*
+     * IRQs and controllers are setup, we can safely enable interrupts.
+     */
+    interrupts_enable();
+    timer_start(HZ);
+
     mbt_info = kmalloc(mbt_tmp.mbt.total_size, KMALLOC_KERNEL);
     memcpy(mbt_info, mbt_tmp.raw, mbt_tmp.mbt.total_size);
 
-    struct file *uart = device_open(device_find("uart"));
-    if (uart == NULL)
-        log_warn("failed to open uart");
-    else {
-        file_write(uart, "Hello, World!\n", sizeof("Hello, World!\n"));
-        file_close(uart);
-    }
-
-    // We need to relocate the content of the multiboot modules inside the
-    // kernel address space if we want them to be accessible from every
-    // processes
+    /*
+     * We need to relocate the content of the multiboot modules inside the
+     * kernel address space if we want them to be accessible from every
+     * processes
+     */
     FOREACH_MULTIBOOT_TAG (tag, mbt_info) {
         if (tag->type == MULTIBOOT_TAG_TYPE_MODULE) {
             kernel_relocate_module((struct multiboot_tag_module *)tag);
         }
     }
 
-    ipv4_init();
-
-    scheduler_init();
-    syscall_init();
-
-    driver_load_drivers();
     acpi_init(mbt_info);
-    acpi_probe_devices();
+    driver_load_drivers();
 
-    // Testing !
+    initcall_do_level(INIT_STEP_NORMAL);
+    initcall_do_level(INIT_STEP_LATE);
 
+    /*
+     * Testing !
+     */
+    kernel_test();
+}
+
+void kernel_test(void)
+{
     ASM("int $0");
 
     sched_new_thread_create(kernel_task_malloc, NULL, THREAD_KERNEL);
