@@ -126,4 +126,31 @@ static ALWAYS_INLINE void insl(uint16_t port, uint32_t *buffer, size_t size)
                  : "memory");
 }
 
+#include <cpuid.h> /* provided by GCC */
+
+#define cpuid(leaf, eax, ebx, ecx, edx) __get_cpuid(leaf, eax, ebx, ecx, edx)
+
+/*
+ * Define quick helper functions for CPUID calls that only need to access one
+ * of the result registers.
+ */
+#define CPUID_FUNCTION(_reg)                           \
+    static inline uint32_t cpuid_##_reg(uint32_t leaf) \
+    {                                                  \
+        uint32_t eax;                                  \
+        uint32_t ebx;                                  \
+        uint32_t ecx;                                  \
+        uint32_t edx;                                  \
+                                                       \
+        cpuid(leaf, &eax, &ebx, &ecx, &edx);           \
+        return _reg;                                   \
+    }
+
+CPUID_FUNCTION(eax)
+CPUID_FUNCTION(ebx)
+CPUID_FUNCTION(ecx)
+CPUID_FUNCTION(edx)
+
+#undef CPUID_FUNCTION
+
 #endif /* KERNEL_I686_UTILS_CPU_OPS_H */
