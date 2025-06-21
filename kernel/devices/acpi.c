@@ -3,6 +3,7 @@
 #include <kernel/devices/acpi.h>
 #include <kernel/devices/driver.h>
 #include <kernel/error.h>
+#include <kernel/init.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
@@ -149,12 +150,6 @@ out:
     return UACPI_NS_ITERATION_DECISION_CONTINUE;
 }
 
-void acpi_probe_devices(void)
-{
-    uacpi_namespace_for_each_node_depth_first(
-        uacpi_namespace_root(), acpi_start_one_device, UACPI_NULL);
-}
-
 static bool acpi_driver_match_device(const driver_t *drv, const device_t *dev)
 {
     struct acpi_driver *acpi_drv = to_acpi_drv((driver_t *)drv);
@@ -168,3 +163,14 @@ void acpi_driver_register(struct acpi_driver *driver)
     driver->driver.operations.match = acpi_driver_match_device;
     driver_register(&driver->driver);
 }
+
+/** Probe all ACPI devices which correspond to a loaded ACPI driver */
+static error_t acpi_probe_devices(void)
+{
+    uacpi_namespace_for_each_node_depth_first(
+        uacpi_namespace_root(), acpi_start_one_device, UACPI_NULL);
+    return E_SUCCESS;
+}
+
+DECLARE_INITCALL(INIT_NORMAL, acpi_probe_devices);
+

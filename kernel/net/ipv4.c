@@ -1,5 +1,6 @@
 #define LOG_DOMAIN "ipv4"
 
+#include <kernel/init.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/net.h>
@@ -421,8 +422,11 @@ struct socket_domain af_inet = {
     .socket_init = af_inet_socket_init,
 };
 
-void ipv4_init(void)
+error_t ipv4_init(void)
 {
     error_t err = socket_domain_register(&af_inet);
     log_info("Registering AF_INET domain: %s", err_to_str(err));
+    return err;
 }
+
+DECLARE_INITCALL(INIT_NORMAL, ipv4_init);

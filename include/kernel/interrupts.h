@@ -43,16 +43,6 @@ void interrupts_enable(void);
 #endif
 
 /**
- * @brief Initialize interrupt related registers.
- *
- * @note This function must be called during the kernel setup phase.
- *
- * @note This is architecure dependant, as such it should be implemented
- *       inside the `arch` directory.
- */
-void interrupts_init(void);
-
-/**
  *  @brief Frame passed onto the interrupt handlers when triggering an interrupt
  *  @note This is a only a forward declaration. The actual definition
  *        is done inside the arch-specific header.

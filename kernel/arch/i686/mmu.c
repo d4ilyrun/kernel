@@ -506,7 +506,6 @@ bool mmu_init(void)
         return false;
     }
 
-    // TODO: Refactor such calls (hooks, initcalls, there are better ways to do)
     interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault), NULL);
 
     page_directory = KERNEL_HIGHER_HALF_PHYSICAL(kernel_startup_page_directory);

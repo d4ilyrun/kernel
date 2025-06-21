@@ -91,11 +91,6 @@ static inline bool ipv4_is_broadcast(__be ipv4_t addr)
     return addr == 0XFFFFFFFF;
 }
 
-/** Initialize the ipv4 API
- *  TODO: Should be removed in favor of initcalls
- */
-void ipv4_init(void);
-
 /** Process a newly received IP packet */
 error_t ipv4_receive_packet(struct packet *packet);
 

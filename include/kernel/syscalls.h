@@ -32,9 +32,6 @@ typedef struct syscall_args {
     u32 arg1, arg2, arg3, arg4, arg5, arg6;
 } syscall_args_t;
 
-/** Initialize the sycsall API */
-void syscall_init(void);
-
 /* SYSCALLS HANDLER */
 
 pid_t sys_fork(void);
