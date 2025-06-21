@@ -109,4 +109,29 @@ CPUID_FUNCTION(edx)
 
 #undef CPUID_FUNCTION
 
+/*
+ * @return Whether the CPU supports model specific registers (MSR).
+ * This should only be the case with old hardware.
+ */
+static inline bool cpu_has_msr(void)
+{
+    return (cpuid_edx(CPUID_LEAF_GETFEATURES) >> 5) & 0x1;
+}
+
+/* Read from specific register */
+static inline uint64_t rdmsr(uint32_t msr)
+{
+    uint32_t eax;
+    uint32_t edx;
+    ASM("rdmsr" : "=a"(eax), "=d"(edx) : "c"(msr));
+    return (((uint64_t)edx) << 32) | eax;
+}
+
+/* Write into model specific register */
+static inline void wrmsr(uint32_t msr, uint64_t val)
+{
+    uint32_t eax = val;
+    uint32_t edx = val >> 32;
+    ASM("wrmsr" : : "a"(eax), "d"(edx), "c"(msr));
+}
 #endif /* KERNEL_I686_UTILS_CPU_OPS_H */
