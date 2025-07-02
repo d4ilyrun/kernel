@@ -30,7 +30,7 @@ static error_t arch_bootstrap(void)
 
 static error_t arch_early(void)
 {
-    pic_reset();
+    pic_init();
 
     return E_SUCCESS;
 }

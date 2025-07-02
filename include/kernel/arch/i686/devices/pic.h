@@ -57,11 +57,11 @@ typedef enum pic_irq {
 /** The total number of IRQ */
 #define PIC_IRQ_COUNT (IRQ_ATA_SECONDARY + 1)
 
-/** @brief Reset the PIC.
+/** @brief Initialize the PIC.
  *
  * Should be called when entering protected mode.
  */
-void pic_reset();
+void pic_init(void);
 
 /** @brief Send an End Of Interrupt command to the PIC.
  *

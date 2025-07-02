@@ -31,7 +31,7 @@
 
 static DEFINE_INTERRUPT_HANDLER(irq_keyboard);
 
-void pic_reset()
+void pic_reset(void)
 {
     // ICW1: Start init process
     outb(PIC_COMMAND(PIC_MASTER), PIC_CMD_INIT);
@@ -52,6 +52,11 @@ void pic_reset()
     // Disable all interrupts
     outb(PIC_DATA(PIC_MASTER), 0xFF);
     outb(PIC_DATA(PIC_SLAVE), 0xFF);
+}
+
+void pic_init(void)
+{
+    pic_reset();
 
     // Set and enable custom interrupts
     log_info("Setting up custom IRQs handlers");
