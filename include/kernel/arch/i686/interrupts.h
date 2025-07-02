@@ -45,9 +45,7 @@
 
 #include <utils/compiler.h>
 
-#define IDT_LENGTH 256
-#define IDT_SIZE (IDT_LENGTH * sizeof(idt_descriptor))
-#define IDT_BASE_ADDRESS 0x00000000UL
+#define INTERRUPTS_COUNT 256
 
 /**
  * @enum x86_exceptions
@@ -80,43 +78,6 @@ typedef enum {
     SECURITY_EXCEPTION,
 } x86_exceptions;
 
-/**
- * @enum idt_gate_type
- * @brief The different types of interrupt gates
- * @ref Intel developper manual, section 6-11
- */
-typedef enum idt_gate_type {
-    TASK_GATE = 0x5,
-    INTERRUPT_GATE = 0x6,
-    TRAP_GATE = 0x7,
-    INTERRUPT_GATE_32B = 0xE,
-    TRAP_GATE_32B = 0xF,
-} idt_gate_type;
-
-/** @struct idtr IDT Register
- *  The location of the IDT is kept inside the IDTR (IDT register).
- */
-typedef struct idtr idtr;
-struct PACKED idtr {
-    /** Size of the IDT */
-    u16 size;
-    /** Linear address of the IDT  */
-    u32 offset;
-};
-
-/** @struct idt_descriptor Single entry inside the IDT */
-typedef struct PACKED idt_descriptor {
-    /** 16 lower bits of the handler function's address  */
-    u16 offset_low;
-    /** Selector for the segment inside which we want to run the handler */
-    segment_selector segment;
-    u8 _reserved;
-    /** Acess restriction flags for this interrupt  */
-    u8 access;
-    /** 16 higher bits of the handler function's address  */
-    u16 offset_high;
-} idt_descriptor;
-
 /** @brief Frame passed onto the interrupt handlers by our stub handler */
 struct interrupt_frame {
 
@@ -147,10 +108,17 @@ struct interrupt_frame {
     } state;
 };
 
-/** Print the content of the IDT and IDTR */
-void idt_log(void);
-
 #define INLINED_INTERRUPTS_DISABLE_ENABLE
+
+/* @brief Disable CPU interrupts
+ * @return Whether the interrupts where previously enabled
+ */
+static ALWAYS_INLINE bool interrupts_enabled(void)
+{
+    u32 eflags;
+    ASM("pushf; popl %0" : "=r"(eflags) :: "memory");
+    return boolean(eflags & 0x200); // flag: IF
+}
 
 /** @brief Disable CPU interrupts */
 static ALWAYS_INLINE void interrupts_disable(void)

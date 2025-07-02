@@ -27,20 +27,13 @@
 
 #include <kernel/types.h>
 
-#ifndef INLINED_INTERRUPTS_DISABLE_ENABLE
-
-/** @brief Disable CPU interrupts */
-void interrupts_disable(void);
-
-/* @brief Disable CPU interrupts
- * @return Whether the interrupts where previously enabled
- */
-bool interrupts_test_and_disable(void);
-
-/**@brief Enable CPU interrupts */
-void interrupts_enable(void);
-
+#ifndef INTERRUPTS_COUNT
+#error arch/interrupts.h must define INTERRUPTS_COUNT
 #endif
+
+extern const char *interrupt_names[INTERRUPTS_COUNT];
+
+
 
 /**
  *  @brief Frame passed onto the interrupt handlers when triggering an interrupt
@@ -79,10 +72,13 @@ static inline bool interrupts_has_been_installed(u8 irq)
     return interrupts_get_handler(irq, NULL) != NULL;
 }
 
-/** Returns the name of an interrupt from its vector number */
-const char *interrupts_to_str(u8 nr);
+/** Return the name associated with an interrupt number, or NULL. */
+static inline const char *interrupt_name(u8 nr)
+{
+    return interrupt_names[nr];
+}
 
-/** Compute the interrupt's handler's name */
+/** Generate an interrupt handler's name */
 #define INTERRUPT_HANDLER(_interrupt) _interrupt##_handler
 
 /**

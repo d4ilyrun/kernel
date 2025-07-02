@@ -22,6 +22,7 @@ KERNEL_SRCS := 	\
 	sys/sched.c \
 	sys/syscalls.c \
 	sys/process.c \
+	sys/interrupts.c \
 	sys/pci.c \
 	misc/printk.c \
 	misc/logger.c \

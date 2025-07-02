@@ -346,7 +346,7 @@ uacpi_kernel_install_interrupt_handler(uacpi_u32 irq,
                                        uacpi_handle ctx,
                                        uacpi_handle *out_irq_handle)
 {
-    if (irq > IDT_LENGTH)
+    if (irq > INTERRUPTS_COUNT)
         return UACPI_STATUS_INVALID_ARGUMENT;
 
     uacpi_irq_handle *handle = kmalloc(sizeof(*handle), KMALLOC_KERNEL);
