@@ -34,8 +34,6 @@ static gdt_descriptor g_global_segments[] = {
 
 void gdt_init(void)
 {
-    interrupts_disable();
-
     /**
      * Initialize the content of the GDTR register.
      *

@@ -1,3 +1,5 @@
+#define LOG_DOMAIN "i686"
+
 #include <kernel/interrupts.h>
 #include <kernel/init.h>
 #include <kernel/memory.h>
@@ -5,6 +7,7 @@
 
 #include <kernel/arch/i686/devices/pic.h>
 #include <kernel/arch/i686/gdt.h>
+#include <kernel/arch/i686/apic.h>
 
 #include <utils/constants.h>
 
@@ -30,7 +33,18 @@ static error_t arch_bootstrap(void)
 
 static error_t arch_early(void)
 {
-    pic_init();
+    error_t err;
+
+    /*
+     * Try to use the more modern APIC interrupt controller.
+     * If we failed to do so, we fallback to using the original PIC.
+     */
+    err = apic_init();
+    if (err) {
+        log_info("Failed to setup APIC, falling back to old 8259 PIC.");
+        apic_disable();
+        pic_init();
+    }
 
     return E_SUCCESS;
 }

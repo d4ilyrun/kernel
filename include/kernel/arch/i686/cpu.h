@@ -79,6 +79,8 @@ static ALWAYS_INLINE void hlt(void)
     ASM("hlt");
 }
 
+#define CPUID_LEAF_GETFEATURES 1
+
 static inline void
 cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx)
 {
@@ -108,6 +110,8 @@ CPUID_FUNCTION(ecx)
 CPUID_FUNCTION(edx)
 
 #undef CPUID_FUNCTION
+
+#define MSR_IA32_APIC_BASE 0x27
 
 /*
  * @return Whether the CPU supports model specific registers (MSR).

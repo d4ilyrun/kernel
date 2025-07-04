@@ -33,8 +33,6 @@
 
 extern const char *interrupt_names[INTERRUPTS_COUNT];
 
-
-
 /**
  *  @brief Frame passed onto the interrupt handlers when triggering an interrupt
  *  @note This is a only a forward declaration. The actual definition
