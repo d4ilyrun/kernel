@@ -76,6 +76,13 @@ DEFINE_SYSCALL_3(int, lseek, 19, int, int, int);
 DEFINE_SYSCALL_2(int, stat, 106, const char *, struct stat *);
 DEFINE_SYSCALL_2(int, lstat, 107, const char *, struct stat *);
 
+void _exit(int status)
+{
+    int eax = 1;
+
+    __asm__ volatile("int $0x80" :: "a"(eax), "b"(status) : "memory");
+};
+
 /*
  * Open cannot be declared using the regular macros because it takes in
  * a variadic parameter.
@@ -98,8 +105,6 @@ int _open(const char *path, int oflags, ...)
 }
 
 /* Unimplemented syscalls */
-void _exit(int val);
-int close(int file);
 int execve(char *name, char **argv, char **env);
 int fstat(int file, struct stat *st);
 int getpid();

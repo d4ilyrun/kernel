@@ -34,6 +34,7 @@ typedef struct syscall_args {
 
 /* SYSCALLS HANDLER */
 
+void sys_exit(int status);
 pid_t sys_fork(void);
 int sys_read(int fd, char *, size_t len);
 int sys_write(int fd, const char *, size_t len);

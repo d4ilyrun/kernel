@@ -36,6 +36,7 @@
  *  @enum syscall_nr
  */
 typedef enum syscall_nr {
+    SYS_EXIT = 1,    /*!< exit() */
     SYS_FORK = 2,    /*!< fork() */
     SYS_READ = 3,    /*!< read() */
     SYS_WRITE = 4,   /*!< write() */

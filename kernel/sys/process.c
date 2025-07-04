@@ -92,8 +92,10 @@ static pid_t process_next_pid(void)
 
 /** Free all resources currently held by a process.
  *
- * This should never be called directly. Instead, it should be
- * automatically called when the process' reference count reaches 0.
+ * This is the core of the process_kill() function. It is called once
+ * all of the process' threads have been killed. This should never be called
+ * directly. Instead, it should be automatically called when the process'
+ * reference count reaches 0.
  *
  * @see process_get() process_put()
  */
@@ -116,6 +118,22 @@ static void process_free(struct process *process)
     address_space_clear(process->as);
     address_space_load(&kernel_address_space);
     address_space_destroy(process->as);
+
+    /*
+     * TODO:
+     *
+     * - If the parent process is calling wait, it shall be notified
+     *   of the calling process' termination, else the calling process should
+     *   be transformed into a zombie and its status kept until its parent
+     *   calls wait.
+     *
+     * - The parent process ID of all of the calling process' existing child
+     *   processes and zombie processes shall be set to the process ID
+     *   of an implementation-defined system process. That is, these processes
+     *   shall be inherited by a special system process.
+     *
+     * - a SIGCHLD shall be sent to the parent process.
+     */
 
     kfree(process);
 }
@@ -161,30 +179,49 @@ static struct process *process_new(void)
     }
 
     process->pid = process_next_pid();
+    process->state = SCHED_RUNNING;
 
     INIT_SPINLOCK(process->files_lock);
+    INIT_SPINLOCK(process->lock);
 
     return process;
 }
 
-void process_kill(struct process *process)
+void process_kill(struct process *process, int status)
 {
     if (process == &kernel_process) {
         log_err("Trying to free the kernel process");
+        stack_trace();
         return;
     }
 
-    // Avoid race condition where the current thread would be rescheduled after
-    // being marked killable, and before having marked the rest of the threads
+    /*
+     * In a multiprocessor environment, we could well have 2 threads (or more)
+     * of a same process calling the _exit() syscall at the same time. This
+     * would create a race condition where the second thread's exit status
+     * would overwrite the first one.
+     */
+    locked_scope (&process->lock) {
+
+        if (process->state == SCHED_KILLED)
+            goto reschedule_current;
+
+    /*
+     * Avoid race condition where the current thread would be rescheduled after
+     * being marked killable, and before having marked the rest of the threads
+     */
     no_preemption_scope () {
         FOREACH_LLIST (node, &process->threads) {
             struct thread *thread = container_of(node, struct thread,
                                                  proc_this);
             thread->state = SCHED_KILLED;
         }
+
+        process->exit_status = status;
     }
 
-    if (current->process == process)
+reschedule_current:
+    if (process == current->process)
         schedule_preempt();
 }
 
@@ -482,4 +519,9 @@ NO_RETURN void thread_jump_to_userland(thread_entry_t entrypoint, void *data)
 void thread_set_mmu(struct thread *thread, paddr_t mmu)
 {
     arch_thread_set_mmu(thread, mmu);
+}
+
+void sys_exit(int status)
+{
+    process_kill(current->process, status);
 }

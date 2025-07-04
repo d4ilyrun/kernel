@@ -31,13 +31,13 @@
  * @{
  */
 
+#include <kernel/file.h>
 #include <kernel/interrupts.h>
 #include <kernel/types.h>
 #include <kernel/vmm.h>
 
 #include <libalgo/linked_list.h>
 #include <utils/compiler.h>
-#include <kernel/file.h>
 
 #if ARCH == i686
 #include <kernel/arch/i686/process.h>
@@ -60,6 +60,15 @@ struct address_space;
  * @note We never return from this function
  */
 typedef void (*thread_entry_t)(void *data);
+
+/** The different states a thread can be in
+ *  @enum thread_state
+ */
+typedef enum thread_state {
+    SCHED_RUNNING, ///< Currently running (or ready to run)
+    SCHED_WAITING, ///< Currently waiting for a resource (timer, lock ...)
+    SCHED_KILLED,  ///< The thread has been killed waiting to be destroyed
+} thread_state_t;
 
 /**
  * @brief A single process
@@ -88,36 +97,12 @@ struct process {
      */
     struct file *files[PROCESS_FD_COUNT];
     spinlock_t files_lock; /*!< Lock for @ref open_files */
+
+    thread_state_t state;
+    int exit_status; /** Transmitted to the parent process during wait() */
+
+    spinlock_t lock;
 };
-
-/** Create a new process
- *
- * Along with the process is allocated its initial execution thread.
- *
- * @ref thread_spawn
- *
- * @param name The name of the process
- * @param entrypoint The entrypoint used when starting the initial thread
- * @param data Data passed to the initial thread's entrypoint
- *
- * @return The newly created proces, or an pointer encoded error
- */
-struct process *process_create(const char *name, thread_entry_t, void *data);
-
-/** Forcibly kill an active process.
- *
- *  If the process has any active threads, they will all be killed.
- */
-void process_kill(struct process *);
-
-/** The different states a thread can be in
- *  @enum thread_state
- */
-typedef enum thread_state {
-    SCHED_RUNNING, ///< Currently running (or ready to run)
-    SCHED_WAITING, ///< Currently waiting for a resource (timer, lock ...)
-    SCHED_KILLED,  ///< The thread has been killed waiting to be destroyed
-} thread_state_t;
 
 /**
  * @brief A single thread.
