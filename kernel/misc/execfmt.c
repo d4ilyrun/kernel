@@ -82,8 +82,10 @@ error_t execfmt_execute(struct file *exec_file)
         return ERR_FROM_PTR(fmt);
 
     executable = executable_new();
-    if (IS_ERR(executable))
-        return ERR_FROM_PTR(executable);
+    if (IS_ERR(executable)) {
+        ret = ERR_FROM_PTR(executable);
+        goto release_executable;
+    }
 
     if (fmt->load) {
         ret = fmt->load(executable, content);
@@ -101,13 +103,14 @@ error_t execfmt_execute(struct file *exec_file)
         assert_not_reached();
     }
 
-    log_err("no entrypoint");
+    log_err("executable has no entrypoint");
 
 release_executable:
     /* FIXME: The executable may be partially loaded when failing.
      * We need to release the loaded content when failing.
      */
     unmap_file(exec_file, content);
-    kfree(executable);
+    if (!IS_ERR(content))
+        kfree(executable);
     return ret;
 }
