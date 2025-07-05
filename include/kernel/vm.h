@@ -203,7 +203,4 @@ void vm_free(struct address_space *, void *);
 /** Find the address space's segment that contains the given address */
 struct vm_segment *vm_find(const struct address_space *, void *);
 
-void vm_segment_insert(struct address_space *, struct vm_segment *);
-void vm_segment_remove(struct address_space *, struct vm_segment *);
-
 #endif /* KERNEL_VM_H */

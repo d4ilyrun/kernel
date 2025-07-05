@@ -51,6 +51,24 @@ static inline struct vm_segment *to_segment(const node_t *this)
     return container_of(this, struct vm_segment, this);
 }
 
+static inline int vm_segment_compare(const void *left, const void *right)
+{
+    RETURN_CMP(to_segment(left)->start, to_segment(right)->start);
+}
+
+static inline void
+vm_segment_insert(struct address_space *as, struct vm_segment *segment)
+{
+    llist_insert_sorted(&as->segments, &segment->this, vm_segment_compare);
+}
+
+static inline void
+vm_segment_remove(struct address_space *as, struct vm_segment *segment)
+{
+    UNUSED(as);
+    llist_remove(&segment->this);
+}
+
 static const struct vm_segment_driver *vm_find_driver(vm_flags_t flags)
 {
     struct vm_segment_driver_match *match;
@@ -211,6 +229,7 @@ void *vm_alloc_start(struct address_space *as, void *addr, size_t size,
     segment = driver->vm_alloc(as, (vaddr_t)addr, size, flags);
     if (IS_ERR(segment))
         return NULL;
+    vm_segment_insert(as, segment);
 
     segment->flags = flags;
     segment->driver = driver;
@@ -242,6 +261,7 @@ void *vm_alloc_at(struct address_space *as, paddr_t phys, size_t size,
     segment = driver->vm_alloc_at(as, phys, size, flags);
     if (IS_ERR(segment))
         return NULL;
+    vm_segment_insert(as, segment);
 
     segment->flags = flags;
     segment->driver = driver;
@@ -267,7 +287,7 @@ void vm_free(struct address_space *as, void *addr)
         return;
     }
 
-    llist_remove(&segment->this);
+    vm_segment_remove(as, segment);
     segment->driver->vm_free(as, segment);
 }
 
@@ -288,18 +308,3 @@ struct vm_segment *vm_find(const struct address_space *as, void *addr)
     return segment ? to_segment(segment) : NULL;
 }
 
-static int vm_segment_compare(const void *left, const void *right)
-{
-    RETURN_CMP(to_segment(left)->start, to_segment(right)->start);
-}
-
-void vm_segment_insert(struct address_space *as, struct vm_segment *segment)
-{
-    llist_insert_sorted(&as->segments, &segment->this, vm_segment_compare);
-}
-
-void vm_segment_remove(struct address_space *as, struct vm_segment *segment)
-{
-    UNUSED(as);
-    llist_remove(&segment->this);
-}

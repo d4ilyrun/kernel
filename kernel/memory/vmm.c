@@ -500,8 +500,6 @@ vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
         return (void *)inserted;
     }
 
-    vm_segment_insert(vmm->as, &allocated->segment);
-
     allocated->allocated = true;
 
     vmm_unlock(vmm);
@@ -524,7 +522,6 @@ static void vmm_free_locked(vmm_t *vmm, vaddr_t addr, size_t length)
         return;
 
     vma_t *area = container_of(freed, vma_t, avl.by_address);
-    vm_segment_remove(vmm->as, &area->segment);
 
     // If only freeing part of the area, extract the part of interest
     if (vma_size(area) != length) {
