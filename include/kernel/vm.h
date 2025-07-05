@@ -48,6 +48,7 @@ struct address_space {
     llist_t segments;  /*!< List of currently allocated segments */
     kmalloc_t kmalloc; /*!< Opaque struct used by the memory allocator to
                           allocate memory blocks inside the user area */
+    vaddr_t data_end;  /*!< End of the process's data segment */
 };
 
 /** @enum vm_flags */

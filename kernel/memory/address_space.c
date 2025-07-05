@@ -114,6 +114,8 @@ error_t address_space_clear(struct address_space *as)
     WARN_ON(as != current->process->as);
     WARN_ON(as == &kernel_address_space);
 
+    as->data_end = 0;
+
     FOREACH_LLIST_SAFE(this, node, &as->segments)
     {
         segment = to_segment(this);
@@ -155,6 +157,8 @@ error_t address_space_load(struct address_space *as)
 
 error_t address_space_copy_current(struct address_space *dst)
 {
+    struct address_space *src = current->process->as;
+
     // The destination address space should be emptied before copying into it.
     // This is to avoid having 'zombie' segments left inaccessible after.
     if (!llist_is_empty(&dst->segments) || !llist_is_empty(&dst->kmalloc))
@@ -162,8 +166,10 @@ error_t address_space_copy_current(struct address_space *dst)
 
     no_preemption_scope () {
         mmu_clone(dst->mmu); /* Clone current MMU into the destination AS */
-        vmm_copy(dst->vmm, current->process->as->vmm);
+        vmm_copy(dst->vmm, src->vmm);
     }
+
+    dst->data_end = src->data_end;
 
     return E_SUCCESS;
 }

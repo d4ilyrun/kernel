@@ -177,6 +177,12 @@ static error_t elf32_load_segment(const struct elf32_ehdr *elf,
         return E_NOMEM;
     }
 
+    /*
+     * Increase the size of the process's data area.
+     */
+    if (allocated + size > (void *)current->process->as->data_end)
+        current->process->as->data_end = (vaddr_t)allocated + size;
+
     in_file = elf32_at_offset(elf, segment->p_offset);
     memcpy((void *)segment->p_vaddr, in_file, segment->p_filesz);
 

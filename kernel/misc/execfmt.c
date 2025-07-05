@@ -71,6 +71,16 @@ error_t execfmt_execute(struct file *exec_file)
     error_t ret = E_SUCCESS;
     void *content;
 
+    /*
+     * The kernel cannot be allowed to run external executables.
+     * It should instead create user processes and make them run the executable
+     * in its stead (e.g. the init process).
+     */
+    if (unlikely(current->process == &kernel_process)) {
+        log_err("kernel process cannot execute executables\n");
+        return E_PERM;
+    }
+
     content = map_file(exec_file, PROT_READ);
     if (content == MMAP_INVALID) {
         log_err("failed to read 'busybox'");
@@ -87,10 +97,18 @@ error_t execfmt_execute(struct file *exec_file)
         goto release_executable;
     }
 
+    ret = address_space_clear(current->process->as);
+    if (ret) {
+        log_err("failed to clear address space: %s", err_to_str(ret));
+        goto release_executable;
+    }
+
     if (fmt->load) {
         ret = fmt->load(executable, content);
-        if (ret)
+        if (ret) {
+            log_err("failed to load executable: %s\n", err_to_str(ret));
             goto release_executable;
+        }
     }
 
     /*
