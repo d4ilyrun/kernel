@@ -595,7 +595,8 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
     if (!error.present || is_cow) {
         as = IS_KERNEL_ADDRESS(faulty_address) ? &kernel_address_space
                                                : current->process->as;
-        return address_space_fault(as, faulty_address, is_cow);
+        if (!address_space_fault(as, faulty_address, is_cow))
+            return E_SUCCESS;
     }
 
     PANIC("PAGE FAULT at " FMT32 ": %s access on a %s page %s", faulty_address,
