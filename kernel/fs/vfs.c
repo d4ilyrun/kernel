@@ -48,7 +48,8 @@ vfs_mount_at(vnode_t *mountpoint, const char *fs_type, u32 start, u32 end)
     const vfs_fs_t *fs;
     vfs_t *new;
 
-    if (mountpoint->mounted_here || mountpoint->type != VNODE_DIRECTORY)
+    if (mountpoint &&
+        (mountpoint->mounted_here || mountpoint->type != VNODE_DIRECTORY))
         return E_INVAL;
 
     fs = vfs_find_fs(fs_type);
