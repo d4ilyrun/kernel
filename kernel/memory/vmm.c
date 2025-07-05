@@ -411,7 +411,7 @@ struct vm_segment *
 vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
 {
     vma_t requested;
-    const avl_t *area_avl;
+    avl_t *area_avl;
     vma_t *allocated;
 
     if (size == 0)
@@ -430,9 +430,22 @@ vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
     if (addr != 0) {
         area_avl = avl_remove(&vmm->vmas.by_address, &requested.avl.by_address,
                               vma_search_free_by_address_and_size);
+        allocated = container_of(area_avl, vma_t, avl.by_address);
+        /*
+         * When using VM_FIXED the exact requested sart address must
+         * be contained inside the allocated area. This is not a hint anymore.
+         */
+        if (flags & VM_FIXED &&
+            !IN_RANGE(vma_start(&requested), vma_start(allocated),
+                      vma_end(allocated))) {
+            avl_insert(&vmm->vmas.by_address, area_avl, vma_compare_address);
+            vmm_unlock(vmm);
+            return PTR_ERR(E_NOMEM);
+        }
     } else {
         area_avl = avl_remove(&vmm->vmas.by_size, &requested.avl.by_size,
                               vma_search_free_by_size);
+        allocated = container_of(area_avl, vma_t, avl.by_size);
     }
 
     if (area_avl == NULL) {
@@ -444,11 +457,9 @@ vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
     // We also need to remove the newly found area from the other tree than
     // the one used to find it
     if (addr != 0) {
-        allocated = container_of(area_avl, vma_t, avl.by_address);
         avl_remove(&vmm->vmas.by_size, &allocated->avl.by_size,
                    vma_compare_size);
     } else {
-        allocated = container_of(area_avl, vma_t, avl.by_size);
         avl_remove(&vmm->vmas.by_address, &allocated->avl.by_address,
                    vma_compare_address);
     }

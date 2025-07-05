@@ -59,6 +59,7 @@ typedef enum vm_flags {
     VM_WRITE = BIT(2),  /*!< Pages inside the area are writable */
     VM_KERNEL = BIT(3), /*!< Pages should only be accessible from kernel */
     VM_CLEAR = BIT(4),  /*!< Page content should be reset when allocating */
+    VM_FIXED = BIT(5),  /*!< Start address in vm_alloc_at() is not a hint */
 } vm_flags_t;
 
 #define VM_KERNEL_RO (VM_KERNEL | VM_READ)

@@ -170,10 +170,13 @@ static error_t elf32_load_segment(const struct elf32_ehdr *elf,
             "flags=%x)",
             (void *)segment->p_vaddr, segment->p_memsz, in_memory, size, prot);
 
-    /* TODO: MAP_FIXED */
-    allocated = vm_alloc_start(current->process->as, in_memory, size, prot);
-    if (allocated != in_memory) {
-        vm_free(current->process->as, allocated);
+    allocated = vm_alloc_start(current->process->as, in_memory, size,
+                               prot | VM_FIXED);
+    if (!allocated) {
+        log_warn("failed ot allocate segment @ %p "
+                 "(size=%#04x, start=%p, alloc_size=%#04lx, flags=%x)",
+                 (void *)segment->p_vaddr, segment->p_memsz, in_memory, size,
+                 prot);
         return E_NOMEM;
     }
 
