@@ -490,7 +490,7 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
      */
     thread_set_user_stack(new, thread_get_user_stack(thread));
 
-    return thread;
+    return new;
 
 process_destroy:
     address_space_destroy(new_process->as);
