@@ -109,6 +109,17 @@ struct vm_segment_driver {
      */
     void (*vm_free)(struct address_space *, struct vm_segment *);
 
+    /** Resize a virtual memory segment.
+     *
+     *  When expanding, if the required virtual memory range has already
+     *  been allocated, this function returns E_NOMEM.
+     *
+     *  Calling this function with a size of 0 is equivalent to vm_free().
+     *
+     *  @param size The new size of the segment
+     */
+    error_t (*vm_resize)(struct address_space *, struct vm_segment *, size_t);
+
     /** Handle a page fault exception on a known segment.
      *
      *  @param as The address space the segment belongs to

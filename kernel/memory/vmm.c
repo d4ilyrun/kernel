@@ -408,22 +408,17 @@ static void vma_try_merge(vmm_t *vmm, vma_t *dst, vaddr_t src_start)
 }
 
 struct vm_segment *
-vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
+vmm_allocate_locked(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
 {
     vma_t requested;
     avl_t *area_avl;
     vma_t *allocated;
-
-    if (size == 0)
-        return PTR_ERR(E_INVAL);
 
     size = align_up(size, PAGE_SIZE);
     if (addr != 0)
         addr = align_up(addr, PAGE_SIZE);
 
     requested = (vma_t){.segment = {.size = size, .start = addr}};
-
-    vmm_lock(vmm);
 
     // Look for a large enough free area. If specified a starting address,
     // the area's starting address must be superior or equal to it.
@@ -439,7 +434,6 @@ vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
             !IN_RANGE(vma_start(&requested), vma_start(allocated),
                       vma_end(allocated))) {
             avl_insert(&vmm->vmas.by_address, area_avl, vma_compare_address);
-            vmm_unlock(vmm);
             return PTR_ERR(E_NOMEM);
         }
     } else {
@@ -502,9 +496,22 @@ vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
 
     allocated->allocated = true;
 
+    return &allocated->segment;
+}
+
+struct vm_segment *
+vmm_allocate(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
+{
+    struct vm_segment *segment;
+
+    if (size == 0)
+        return PTR_ERR(E_INVAL);
+
+    vmm_lock(vmm);
+    segment = vmm_allocate_locked(vmm, addr, size, flags);
     vmm_unlock(vmm);
 
-    return &allocated->segment;
+    return segment;
 }
 
 static void vmm_free_locked(vmm_t *vmm, vaddr_t addr, size_t length)
@@ -564,6 +571,48 @@ void vmm_free(vmm_t *vmm, vaddr_t addr, size_t length)
     vmm_lock(vmm);
     vmm_free_locked(vmm, addr, length);
     vmm_unlock(vmm);
+}
+
+static error_t vmm_merge_vmas(vmm_t *vmm, vma_t *first, vma_t *second)
+{
+    /*
+     * Cannot merge 2 memory areas with different protection flags as they
+     * are fundamentally different.
+     */
+    if (vma_flags(first) != vma_flags(second))
+        return E_INVAL;
+
+    first->segment.size += second->segment.size;
+    vma_reserved_free(vmm, second);
+
+    return E_SUCCESS;
+}
+
+error_t vmm_resize(vmm_t *vmm, vma_t *vma, size_t new_size)
+{
+    struct vm_segment *segment;
+    ssize_t size_difference;
+
+    new_size = align_up(new_size, PAGE_SIZE);
+    size_difference = new_size - vma_size(vma);
+
+    if (!size_difference)
+        return E_SUCCESS;
+
+    vmm_lock(vmm);
+
+    if (size_difference > 0) {
+        segment = vmm_allocate_locked(vmm, vma_end(vma), size_difference,
+                                      vma_flags(vma));
+        if (vmm_merge_vmas(vmm, vma, to_vma(segment)))
+            log_warn("resize: failed to merge VMAs");
+    } else {
+        vmm_free_locked(vmm, vma_end(vma) + size_difference, -size_difference);
+    }
+
+    vmm_unlock(vmm);
+
+    return E_SUCCESS;
 }
 
 struct vm_segment *vmm_find(const vmm_t *vmm, vaddr_t addr)

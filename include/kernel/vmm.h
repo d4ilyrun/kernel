@@ -110,6 +110,11 @@ typedef struct vma {
 static_assert(sizeof(vma_t) <= VMA_SIZE, "Update the allocated size for VMA "
                                          "structures!");
 
+static inline struct vma *to_vma(struct vm_segment *segment)
+{
+    return container_of(segment, struct vma, segment);
+}
+
 /** Compute the end address of a VMA. */
 static inline vaddr_t vma_end(const vma_t *vma)
 {
@@ -247,6 +252,15 @@ struct vm_segment *vmm_allocate(vmm_t *, vaddr_t, size_t size, int flags);
  *          allocations.
  */
 void vmm_free(vmm_t *, vaddr_t, size_t length);
+
+/** Change the size of a VMA.
+ *
+ * When increasing the VMA's size, if the required virtual memory is already
+ * being used, this fuction returns E_NOMEM.
+ *
+ * @param size The new size of the VMA
+ */
+error_t vmm_resize(vmm_t *, vma_t *, size_t);
 
 /**
  * @brief Find the VMA to which a virtual address belongs

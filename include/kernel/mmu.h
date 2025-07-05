@@ -145,4 +145,10 @@ void mmu_identity_map(paddr_t start, paddr_t end, int prot);
  */
 paddr_t mmu_find_physical(vaddr_t);
 
+/** @return Whether the current MMU contains a mapping for a virtual address. */
+static inline bool mmu_is_mapped(vaddr_t addr)
+{
+    return !IS_ERR(mmu_find_physical(addr));
+}
+
 #endif /* KERNEL_MMU_H */

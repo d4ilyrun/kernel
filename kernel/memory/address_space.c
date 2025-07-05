@@ -308,3 +308,24 @@ struct vm_segment *vm_find(const struct address_space *as, void *addr)
     return segment ? to_segment(segment) : NULL;
 }
 
+error_t vm_resize_segment(struct address_space *as, struct vm_segment *segment,
+                          size_t new_size)
+{
+    if (!PAGE_ALIGNED(new_size)) {
+        log_err("resize: segment size must be page aligned");
+        return E_INVAL;
+    }
+
+    if (new_size == segment->size)
+        return E_SUCCESS;
+
+    if (new_size == 0) {
+        segment->driver->vm_free(as, segment);
+        return E_SUCCESS;
+    }
+
+    if (!segment->driver->vm_resize)
+        return E_NOT_SUPPORTED;
+
+    return segment->driver->vm_resize(as, segment, new_size);
+}

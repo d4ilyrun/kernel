@@ -73,6 +73,12 @@ vm_normal_fault(struct address_space *as, struct vm_segment *segment)
      */
     err = E_NOMEM;
     for (off = 0; off < segment->size; off += PAGE_SIZE) {
+        /*
+         * Part of the segment may already have been mapped in case the faulty
+         * address is one resulting from a segment resizing.
+         */
+        if (mmu_is_mapped(segment->start + off))
+            continue;
         phys = pmm_allocate();
         if (phys == PMM_INVALID_PAGEFRAME)
             goto err_release_allocated;
@@ -103,9 +109,38 @@ err_release_allocated:
     return err;
 }
 
+static error_t vm_normal_resize(struct address_space *as,
+                                struct vm_segment *segment, size_t new_size)
+{
+    vaddr_t old_end = segment_end(segment);
+    paddr_t phys;
+    error_t ret;
+
+    AS_ASSERT_OWNED(as);
+
+    ret = vmm_resize(as->vmm, to_vma(segment), new_size);
+    if (ret != E_SUCCESS)
+        return ret;
+
+    /*
+     * If the segment's size has been reduced free the allocated memory.
+     */
+    if (segment_end(segment) < old_end) {
+        for (vaddr_t page = segment_end(segment); page < old_end;
+             page += PAGE_SIZE) {
+            phys = mmu_unmap(page);
+            if (phys != PMM_INVALID_PAGEFRAME)
+                pmm_free(phys);
+        }
+    }
+
+    return E_SUCCESS;
+}
+
 const struct vm_segment_driver vm_normal = {
     .vm_alloc = vm_normal_alloc,
     .vm_alloc_at = vm_normal_alloc_at,
     .vm_free = vm_normal_free,
     .vm_fault = vm_normal_fault,
+    .vm_resize = vm_normal_resize,
 };
