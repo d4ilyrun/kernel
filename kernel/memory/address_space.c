@@ -113,6 +113,7 @@ error_t address_space_init(struct address_space *as)
 
     INIT_LLIST(as->segments);
     INIT_LLIST(as->kmalloc);
+    INIT_SPINLOCK(as->lock);
 
     if (as == &kernel_address_space)
         success = vmm_init(as->vmm, KERNEL_MEMORY_START, KERNEL_MEMORY_END);
@@ -132,19 +133,20 @@ error_t address_space_clear(struct address_space *as)
     WARN_ON(as != current->process->as);
     WARN_ON(as == &kernel_address_space);
 
-    as->data_end = 0;
+    locked_scope (&as->lock) {
+        as->data_end = 0;
 
-    FOREACH_LLIST_SAFE(this, node, &as->segments)
-    {
-        segment = to_segment(this);
-        for (size_t off = 0; off < segment->size; off += PAGE_SIZE) {
-            phys = mmu_unmap(segment->start + off);
-            if (phys != PMM_INVALID_PAGEFRAME)
-                pmm_free(phys);
+        FOREACH_LLIST_SAFE (this, node, &as->segments) {
+            segment = to_segment(this);
+            for (size_t off = 0; off < segment->size; off += PAGE_SIZE) {
+                phys = mmu_unmap(segment->start + off);
+                if (phys != PMM_INVALID_PAGEFRAME)
+                    pmm_free(phys);
+            }
         }
-    }
 
-    vmm_clear(as->vmm);
+        vmm_clear(as->vmm);
+    }
 
     return E_SUCCESS;
 }
@@ -157,8 +159,11 @@ error_t address_space_destroy(struct address_space *as)
         return E_INVAL;
     }
 
-    vmm_destroy(as->vmm);
-    mmu_destroy(as->mmu);
+    locked_scope (&as->lock) {
+        vmm_destroy(as->vmm);
+        mmu_destroy(as->mmu);
+    }
+
     return E_SUCCESS;
 }
 
@@ -182,12 +187,14 @@ error_t address_space_copy_current(struct address_space *dst)
     if (!llist_is_empty(&dst->segments) || !llist_is_empty(&dst->kmalloc))
         return E_BUSY;
 
-    no_preemption_scope () {
-        mmu_clone(dst->mmu); /* Clone current MMU into the destination AS */
-        vmm_copy(dst->vmm, src->vmm);
-    }
+    locked_scope (&dst->lock) {
+        no_preemption_scope () {
+            mmu_clone(dst->mmu); /* Clone current MMU into the destination AS */
+            vmm_copy(dst->vmm, src->vmm);
+        }
 
-    dst->data_end = src->data_end;
+        dst->data_end = src->data_end;
+    }
 
     return E_SUCCESS;
 }
@@ -226,10 +233,12 @@ void *vm_alloc_start(struct address_space *as, void *addr, size_t size,
     if (!driver)
         return NULL;
 
-    segment = driver->vm_alloc(as, (vaddr_t)addr, size, flags);
-    if (IS_ERR(segment))
-        return NULL;
-    vm_segment_insert(as, segment);
+    locked_scope (&as->lock) {
+        segment = driver->vm_alloc(as, (vaddr_t)addr, size, flags);
+        if (IS_ERR(segment))
+            return NULL;
+        vm_segment_insert(as, segment);
+    }
 
     segment->flags = flags;
     segment->driver = driver;
@@ -258,10 +267,12 @@ void *vm_alloc_at(struct address_space *as, paddr_t phys, size_t size,
     if (!driver)
         return NULL;
 
-    segment = driver->vm_alloc_at(as, phys, size, flags);
-    if (IS_ERR(segment))
-        return NULL;
-    vm_segment_insert(as, segment);
+    locked_scope (&as->lock) {
+        segment = driver->vm_alloc_at(as, phys, size, flags);
+        if (IS_ERR(segment))
+            return NULL;
+        vm_segment_insert(as, segment);
+    }
 
     segment->flags = flags;
     segment->driver = driver;
@@ -281,14 +292,16 @@ void vm_free(struct address_space *as, void *addr)
         return;
     }
 
-    segment = vm_find(as, addr);
-    if (!segment) {
-        log_dbg("free: no backing segment for %p", addr);
-        return;
-    }
+    locked_scope (&as->lock) {
+        segment = vm_find(as, addr);
+        if (!segment) {
+            log_dbg("free: no backing segment for %p", addr);
+            return;
+        }
 
-    vm_segment_remove(as, segment);
-    segment->driver->vm_free(as, segment);
+        vm_segment_remove(as, segment);
+        segment->driver->vm_free(as, segment);
+    }
 }
 
 static int vm_segment_contains(const void *this, const void *addr)
@@ -303,7 +316,8 @@ static int vm_segment_contains(const void *this, const void *addr)
 
 struct vm_segment *vm_find(const struct address_space *as, void *addr)
 {
-    node_t *segment = llist_find_first(&as->segments, addr, vm_segment_contains);
+    node_t *segment = llist_find_first(&as->segments, addr,
+                                       vm_segment_contains);
 
     return segment ? to_segment(segment) : NULL;
 }
@@ -319,13 +333,18 @@ error_t vm_resize_segment(struct address_space *as, struct vm_segment *segment,
     if (new_size == segment->size)
         return E_SUCCESS;
 
-    if (new_size == 0) {
-        segment->driver->vm_free(as, segment);
-        return E_SUCCESS;
+    locked_scope(&as->lock) {
+        if (new_size == 0) {
+            segment->driver->vm_free(as, segment);
+            return E_SUCCESS;
+        }
+
+        if (!segment->driver->vm_resize)
+            return E_NOT_SUPPORTED;
+
+        return segment->driver->vm_resize(as, segment, new_size);
     }
 
-    if (!segment->driver->vm_resize)
-        return E_NOT_SUPPORTED;
-
-    return segment->driver->vm_resize(as, segment, new_size);
+    assert_not_reached();
 }
+

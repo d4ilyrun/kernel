@@ -30,6 +30,7 @@
 #define KERNEL_VM_H
 
 #include <kernel/error.h>
+#include <kernel/spinlock.h>
 
 #include <libalgo/linked_list.h>
 #include <utils/bits.h>
@@ -43,6 +44,9 @@ typedef llist_t kmalloc_t;
 
 /** Address space */
 struct address_space {
+    // TODO: replace this lock with a R/W one.
+    spinlock_t lock;   /*!< Address space wide lock. Functions that modify
+                         the address space should take that lock. */
     struct vmm *vmm;   /*!< Used to allocate virtual memory segments */
     paddr_t mmu;       /*!< Used to map virtual addresses to physical memory */
     llist_t segments;  /*!< List of currently allocated segments */
