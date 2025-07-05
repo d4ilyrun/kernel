@@ -29,6 +29,8 @@ struct address_space kernel_address_space = {
     .mmu = 0, // Initialized when enabling paging
     .vmm = &kernel_vmm,
     .segments = LLIST_INIT(kernel_address_space.segments),
+    .kmalloc = LLIST_INIT(kernel_address_space.kmalloc),
+    .lock = SPINLOCK_INIT,
 };
 
 /** Data used to match a vm_alloc request with the appropriate driver.
@@ -99,6 +101,10 @@ struct address_space *address_space_new(void)
     if (as->mmu == PMM_INVALID_PAGEFRAME)
         goto vm_new_nomem;
 
+    INIT_LLIST(as->segments);
+    INIT_LLIST(as->kmalloc);
+    INIT_SPINLOCK(as->lock);
+
     return as;
 
 vm_new_nomem:
@@ -110,10 +116,6 @@ vm_new_nomem:
 error_t address_space_init(struct address_space *as)
 {
     bool success;
-
-    INIT_LLIST(as->segments);
-    INIT_LLIST(as->kmalloc);
-    INIT_SPINLOCK(as->lock);
 
     if (as == &kernel_address_space)
         success = vmm_init(as->vmm, KERNEL_MEMORY_START, KERNEL_MEMORY_END);

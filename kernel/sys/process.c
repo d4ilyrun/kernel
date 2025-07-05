@@ -472,7 +472,6 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
     }
 
     /* Duplicate the current thread's address space */
-    address_space_init(new_process->as);
     address_space_copy_current(new_process->as);
 
     new = thread_spawn(new_process, entrypoint, arg,
