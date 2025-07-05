@@ -183,6 +183,7 @@ static struct process *process_new(void)
 
     INIT_SPINLOCK(process->files_lock);
     INIT_SPINLOCK(process->lock);
+    INIT_LLIST(process->threads);
 
     return process;
 }
