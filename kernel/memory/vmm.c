@@ -181,28 +181,6 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
     return true;
 }
 
-void vmm_copy(vmm_t *dst, vmm_t *src)
-{
-    vmm_lock(src);
-    vmm_lock(dst);
-
-    dst->start = src->start;
-    dst->end = dst->end;
-
-    /*
-     * Replace the destination VMM's VMAs, and release the old ones.
-     * Their actual content should be copied through CoW.
-     */
-    vmm_clear(dst);
-    dst->vmas.by_address = src->vmas.by_address;
-    dst->vmas.by_size = src->vmas.by_size;
-
-    memcpy(dst->reserved, src->reserved, sizeof(src->reserved));
-
-    vmm_unlock(dst);
-    vmm_unlock(src);
-}
-
 static void vmm_print_node_by_size(const struct avl *node)
 {
     struct vma *vma = to_vma_by_size(node);
@@ -633,14 +611,12 @@ struct vm_segment *vmm_find(const vmm_t *vmm, vaddr_t addr)
     return &container_of(vma, vma_t, avl.by_address)->segment;
 }
 
-void vmm_clear(vmm_t *vmm)
+static void vmm_clear_locked(vmm_t *vmm)
 {
     if (vmm == &kernel_vmm) {
         log_err("Trying to free the kernel VMM. Skipping.");
         return;
     }
-
-    vmm_lock((vmm_t *)vmm);
 
     // Freeing all the pages allocated for storing the VMAs
     // See vma_reserved_allocate for an explanation of what's going on
@@ -653,7 +629,12 @@ void vmm_clear(vmm_t *vmm)
                 pmm_free(page);
         }
     }
+}
 
+void vmm_clear(vmm_t *vmm)
+{
+    vmm_lock(vmm);
+    vmm_clear_locked(vmm);
     vmm_unlock(vmm);
 }
 
@@ -665,6 +646,28 @@ void vmm_destroy(vmm_t *vmm)
     }
 
     kfree(vmm);
+}
+
+void vmm_copy(vmm_t *dst, vmm_t *src)
+{
+    vmm_lock(src);
+    vmm_lock(dst);
+
+    dst->start = src->start;
+    dst->end = dst->end;
+
+    /*
+     * Replace the destination VMM's VMAs, and release the old ones.
+     * Their actual content should be copied through CoW.
+     */
+    vmm_clear_locked(dst);
+    dst->vmas.by_address = src->vmas.by_address;
+    dst->vmas.by_size = src->vmas.by_size;
+
+    memcpy(dst->reserved, src->reserved, sizeof(src->reserved));
+
+    vmm_unlock(dst);
+    vmm_unlock(src);
 }
 
 void *map_file(struct file *file, int prot)
