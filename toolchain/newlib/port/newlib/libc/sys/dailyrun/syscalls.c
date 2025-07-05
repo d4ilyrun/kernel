@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <sys/errno.h>
 #include <sys/fcntl.h>
@@ -12,11 +13,11 @@ char **environ; /* pointer to array of char * strings that define the current
 #define DEFINE_SYSCALL_0(_ret_type, _syscall, _nr)                       \
     _ret_type _##_syscall(void)                                          \
     {                                                                    \
-        int ret = _nr;                                                   \
+        _ret_type ret = (_ret_type)_nr;                                  \
         __asm__ volatile("int $0x80" : "=a"(ret) : "a"(ret) : "memory"); \
         if (ret < 0) {                                                   \
-            errno = ret;                                                 \
-            ret = -1;                                                    \
+            errno = (int)ret;                                            \
+            ret = (_ret_type) - 1;                                       \
         }                                                                \
         return ret;                                                      \
     }
@@ -24,14 +25,14 @@ char **environ; /* pointer to array of char * strings that define the current
 #define DEFINE_SYSCALL_1(_ret_type, _syscall, _nr, _type1) \
     _ret_type _##_syscall(_type1 arg1)                     \
     {                                                      \
-        int ret = _nr;                                     \
+        _ret_type ret = (_ret_type)_nr;                    \
         __asm__ volatile("int $0x80"                       \
                          : "=a"(ret)                       \
                          : "a"(ret), "b"(arg1)             \
                          : "memory");                      \
         if (ret < 0) {                                     \
-            errno = ret;                                   \
-            ret = -1;                                      \
+            errno = (int)ret;                              \
+            ret = (_ret_type) - 1;                         \
         }                                                  \
         return ret;                                        \
     }
@@ -39,14 +40,14 @@ char **environ; /* pointer to array of char * strings that define the current
 #define DEFINE_SYSCALL_2(_ret_type, _syscall, _nr, _type1, _type2) \
     _ret_type _##_syscall(_type1 arg1, _type2 arg2)                \
     {                                                              \
-        int ret = _nr;                                             \
+        _ret_type ret = (_ret_type)_nr;                            \
         __asm__ volatile("int $0x80"                               \
                          : "=a"(ret)                               \
                          : "a"(ret), "b"(arg1), "c"(arg2)          \
                          : "memory");                              \
         if (ret < 0) {                                             \
-            errno = ret;                                           \
-            ret = -1;                                              \
+            errno = (int)ret;                                      \
+            ret = (_ret_type) - 1;                                 \
         }                                                          \
         return ret;                                                \
     }
@@ -54,14 +55,14 @@ char **environ; /* pointer to array of char * strings that define the current
 #define DEFINE_SYSCALL_3(_ret_type, _syscall, _nr, _type1, _type2, _type3) \
     _ret_type _##_syscall(_type1 arg1, _type2 arg2, _type3 arg3)           \
     {                                                                      \
-        int ret = _nr;                                                     \
+        _ret_type ret = (_ret_type)_nr;                                    \
         __asm__ volatile("int $0x80"                                       \
                          : "=a"(ret)                                       \
                          : "a"(ret), "b"(arg1), "c"(arg2), "d"(arg3)       \
                          : "memory");                                      \
         if (ret < 0) {                                                     \
-            errno = ret;                                                   \
-            ret = -1;                                                      \
+            errno = (int)ret;                                              \
+            ret = (_ret_type) - 1;                                         \
         }                                                                  \
         return ret;                                                        \
     }
@@ -73,6 +74,7 @@ DEFINE_SYSCALL_3(int, read, 3, int, char *, int);
 DEFINE_SYSCALL_3(int, write, 4, int, const char *, int);
 DEFINE_SYSCALL_1(int, close, 6, int);
 DEFINE_SYSCALL_3(int, lseek, 19, int, int, int);
+DEFINE_SYSCALL_1(int, brk, 45, void *);
 DEFINE_SYSCALL_2(int, stat, 106, const char *, struct stat *);
 DEFINE_SYSCALL_2(int, lstat, 107, const char *, struct stat *);
 
@@ -80,7 +82,7 @@ void _exit(int status)
 {
     int eax = 1;
 
-    __asm__ volatile("int $0x80" :: "a"(eax), "b"(status) : "memory");
+    __asm__ volatile("int $0x80" ::"a"(eax), "b"(status) : "memory");
 };
 
 /*
@@ -104,6 +106,23 @@ int _open(const char *path, int oflags, ...)
     return eax;
 }
 
+void *_sbrk(intptr_t increment)
+{
+    int eax = 463;
+    void *old_brk;
+
+    __asm__ volatile("int $0x80"
+                     : "=a"(old_brk)
+                     : "a"(eax), "b"(increment)
+                     : "memory");
+    if (old_brk < 0) {
+        errno = (int)old_brk;
+        return (void *)-1;
+    }
+
+    return old_brk;
+};
+
 /* Unimplemented syscalls */
 int execve(char *name, char **argv, char **env);
 int fstat(int file, struct stat *st);
@@ -111,7 +130,6 @@ int getpid();
 int isatty(int file);
 int kill(int pid, int sig);
 int link(char *old, char *new);
-caddr_t sbrk(int incr);
 int stat(const char *file, struct stat *st);
 clock_t times(struct tms *buf);
 int unlink(char *name);

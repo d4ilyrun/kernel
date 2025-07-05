@@ -287,6 +287,11 @@ static error_t elf32_load(struct executable *executable, void *data)
         }
     }
 
+    /*
+     * Set the brk segment's size to 0.
+     */
+    current->process->as->brk_end = current->process->as->data_end;
+
     for (size_t i = 0; i < elf->e_shnum; ++i) {
         err = elf32_load_section(elf, &shdr_table[i]);
         if (err) {

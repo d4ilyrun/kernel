@@ -135,6 +135,7 @@ error_t address_space_clear(struct address_space *as)
 
     locked_scope (&as->lock) {
         as->data_end = 0;
+        as->brk_end = as->data_end;
 
         FOREACH_LLIST_SAFE (this, node, &as->segments) {
             segment = to_segment(this);
@@ -194,6 +195,7 @@ error_t address_space_copy_current(struct address_space *dst)
         }
 
         dst->data_end = src->data_end;
+        dst->brk_end = src->brk_end;
     }
 
     return E_SUCCESS;
@@ -348,3 +350,61 @@ error_t vm_resize_segment(struct address_space *as, struct vm_segment *segment,
     assert_not_reached();
 }
 
+static void *vm_brk(struct address_space *as, vaddr_t new_end)
+{
+    void *curr_brk_end = (void *)as->brk_end;
+    struct vm_segment *brk;
+    size_t aligned_new_end;
+    size_t new_size;
+
+    if (new_end < as->data_end)
+        return PTR_ERR(E_NOMEM);
+
+    if (new_end == as->brk_end)
+        return curr_brk_end;
+
+    aligned_new_end = align_up(new_end, PAGE_SIZE);
+
+    /*
+     * If no break segment currently exists, we need to create it.
+     */
+    if (curr_brk_end == (void *)as->data_end) {
+        curr_brk_end = vm_alloc_start(as, (void *)as->data_end,
+                                      aligned_new_end - as->data_end,
+                                      VM_USER_RW | VM_FIXED);
+        if (!curr_brk_end) {
+            log_err("failed to allocate break segment");
+            return PTR_ERR(E_NOMEM);
+        }
+    } else {
+        /*
+         * Locate the segment inside which the last byte INSIDE the break area
+         * resides. A break segment should always exist inside the address space
+         * at this time.
+         */
+        brk = vm_find(as, curr_brk_end - 1);
+        if (!brk) {
+            log_err("break segment should exist but could not be found");
+            return PTR_ERR(E_NOMEM);
+        }
+
+        new_size = aligned_new_end - brk->start;
+        vm_resize_segment(as, brk, new_size);
+    }
+
+    as->brk_end = new_end;
+
+    return curr_brk_end;
+}
+
+error_t sys_brk(void *addr)
+{
+    void *old_end = vm_brk(current->process->as, (vaddr_t)addr);
+    return IS_ERR(old_end) ? ERR_FROM_PTR(old_end) : E_SUCCESS;
+}
+
+void *sys_sbrk(intptr_t increment)
+{
+    return vm_brk(current->process->as,
+                  current->process->as->brk_end + increment);
+}

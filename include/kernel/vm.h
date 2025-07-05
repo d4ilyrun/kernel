@@ -53,6 +53,7 @@ struct address_space {
     kmalloc_t kmalloc; /*!< Opaque struct used by the memory allocator to
                           allocate memory blocks inside the user area */
     vaddr_t data_end;  /*!< End of the process's data segment */
+    vaddr_t brk_end;   /*!< End of the process's brk segment */
 };
 
 /** @enum vm_flags */
@@ -69,6 +70,10 @@ typedef enum vm_flags {
 #define VM_KERNEL_RO (VM_KERNEL | VM_READ)
 #define VM_KERNEL_WO (VM_KERNEL | VM_WRITE)
 #define VM_KERNEL_RW (VM_KERNEL | VM_READ | VM_WRITE)
+
+#define VM_USER_RO (VM_READ)
+#define VM_USER_WO (VM_WRITE)
+#define VM_USER_RW (VM_READ | VM_WRITE)
 
 /** Segment driver
  *
