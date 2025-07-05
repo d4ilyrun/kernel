@@ -63,7 +63,7 @@ static void schedule_locked(bool preempt, bool reschedule)
     }
 
     // If some tasks are ready, do not reschedule the idle task
-    if (next == idle_thread && queue_peek(&scheduler.ready)) {
+    if (next == idle_thread && !queue_is_empty(&scheduler.ready)) {
         next_node = queue_dequeue(&scheduler.ready);
         next = container_of(next_node, thread_t, this);
         queue_enqueue(&scheduler.ready, &idle_thread->this);
