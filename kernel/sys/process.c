@@ -31,7 +31,6 @@ struct thread kernel_process_initial_thread = {
 
 struct process kernel_process = {
     .name = "kstartup",
-    .threads = __LLIST_INIT(&kernel_process_initial_thread.proc_this),
     .refcount = 1, /* static initial thread */
     .pid = PROCESS_KERNEL_PID,
 };
@@ -230,6 +229,13 @@ void process_init_kernel_process(void)
 {
     void *ustack = NULL;
     error_t err;
+
+    INIT_LLIST(kernel_process.threads);
+    INIT_SPINLOCK(kernel_process.lock);
+    INIT_SPINLOCK(kernel_process.files_lock);
+
+    llist_add(&kernel_process.threads,
+              &kernel_process_initial_thread.proc_this);
 
     /*
      * Userspace address space is inherited by processes when forking.
