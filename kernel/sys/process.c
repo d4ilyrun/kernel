@@ -394,6 +394,17 @@ static void thread_free(thread_t *thread)
 
     log_info("terminating thread %d (%s)", thread->tid, process->name);
 
+    /*
+     * A thread cannot be free'd if it is currently running since it would
+     * need to release the kernel stack it depends on.
+     *
+     * The thread's user memory should already have been free'd when marking
+     * it as killed. If this patterns occurs, this means something went wrong
+     * somewhere in our scheduler's logic.
+     */
+    if (unlikely(thread == current))
+        PANIC("thread %d tried to kill itself", thread->tid);
+
     no_preemption_scope () {
 
         llist_remove(&thread->proc_this);

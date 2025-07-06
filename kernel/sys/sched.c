@@ -62,11 +62,19 @@ static void schedule_locked(bool preempt, bool reschedule)
             queue_enqueue(&scheduler.ready, &current->this);
     }
 
-    // If some tasks are ready, do not reschedule the idle task
+    /*
+     * If some tasks are ready, do not reschedule the idle task
+     */
     if (next == idle_thread && !queue_is_empty(&scheduler.ready)) {
-        next_node = queue_dequeue(&scheduler.ready);
-        next = container_of(next_node, thread_t, this);
-        queue_enqueue(&scheduler.ready, &idle_thread->this);
+        /*
+         * Prevent the current thread from killing itself.
+         */
+        if (queue_peek(&scheduler.ready) != &current->this ||
+            current->state != SCHED_KILLED) {
+            next_node = queue_dequeue(&scheduler.ready);
+            next = container_of(next_node, thread_t, this);
+            queue_enqueue(&scheduler.ready, &idle_thread->this);
+        }
     }
 
     next->running.preempt = timer_gettick() + SCHED_TIMESLICE;
