@@ -53,7 +53,6 @@ void kernel_test(void);
 void kernel_task_timer(void *data);
 void kernel_task_malloc(void *data);
 void kernel_task_rootfs(void *data);
-void kernel_task_userland(void *data);
 void kernel_task_elf(void *data);
 void kernel_task_worker(void *data);
 void kernel_task_mutex(void *data);
@@ -222,7 +221,6 @@ void kernel_test(void)
 
     sched_new_thread_create(kernel_task_malloc, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_rootfs, NULL, THREAD_KERNEL);
-    sched_new_thread_create(kernel_task_userland, NULL, 0);
     sched_new_thread_create(kernel_task_worker, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_mutex, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_ping, NULL, THREAD_KERNEL);
@@ -393,16 +391,6 @@ void kernel_task_timer(void *data)
         timer_wait_ms(1000);
         log_info("Elapsed miliseconds: %lld", timer_get_ms());
     }
-}
-
-MAYBE_UNUSED void kernel_task_userland(void *data)
-{
-    write_eax(SYS_WRITE);
-    ASM("int $0x80");
-
-    (void)data;
-
-    while (1) {}
 }
 
 #undef LOG_DOMAIN
