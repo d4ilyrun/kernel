@@ -196,6 +196,8 @@ error_t address_space_copy_current(struct address_space *dst)
             vmm_copy(dst->vmm, src->vmm);
         }
 
+        dst->segments = src->segments;
+        dst->kmalloc = src->kmalloc;
         dst->data_end = src->data_end;
         dst->brk_end = src->brk_end;
     }
