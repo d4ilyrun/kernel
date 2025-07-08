@@ -125,6 +125,16 @@ static size_t tar_read_number_len(const char *field, size_t len)
 
 #define tar_read_number(_number) tar_read_number_len(_number, sizeof(_number))
 
+/*
+ * Parent directories are not present inside a tar archive.
+ *
+ * To circumvent this, we use this virtual empty directory TAR header instead
+ * to replace the one that would have been here.
+ */
+static struct tar_header tar_virtual_dir_hdr = {
+    .type = TAR_TYPE_DIRECTORY,
+};
+
 static tar_node_t *tar_create_node(const path_segment_t *segment, hdr_t *header)
 {
     tar_node_t *new = kmalloc(sizeof(tar_node_t), KMALLOC_KERNEL);
@@ -152,7 +162,7 @@ static tar_node_t *tar_create_node(const path_segment_t *segment, hdr_t *header)
     // The parent directory are not necessarily added to the tar archive
     // e.g. tar cvf initramfs.tar initramfs/bin/init initramfs/init
     //   => initramfs is not present in the archive
-    new->header = path_segment_is_last(segment) ? header : NULL;
+    new->header = path_segment_is_last(segment) ? header : &tar_virtual_dir_hdr;
 
     return new;
 }
