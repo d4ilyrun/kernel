@@ -48,7 +48,8 @@ static void vm_normal_free(struct address_space *as, struct vm_segment *segment)
     size_t size = segment->size;
     paddr_t phys;
 
-    AS_ASSERT_OWNED(as);
+    if (!IS_KERNEL_ADDRESS(segment->start))
+        AS_ASSERT_OWNED(as);
 
     for (size_t off = 0; off < size; off += PAGE_SIZE) {
         phys = mmu_unmap(segment->start + off);
