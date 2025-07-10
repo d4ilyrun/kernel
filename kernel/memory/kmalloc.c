@@ -163,7 +163,7 @@ void *kmalloc(size_t size, int flags)
 
     as = (flags & KMALLOC_KERNEL) ? &kernel_address_space
                                   : current->process->as;
-    buckets = &as->kmalloc;
+    buckets = as->kmalloc;
 
     size = align_up(size, KMALLOC_ALIGNMENT);
     size = bit_next_pow32(size);

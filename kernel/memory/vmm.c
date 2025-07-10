@@ -175,9 +175,6 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
 
     INIT_SPINLOCK(vmm->lock);
 
-    log_info("Initialized VMM { start=" FMT32 ", end=" FMT32 " }", vmm->start,
-             vmm->end);
-
     return true;
 }
 

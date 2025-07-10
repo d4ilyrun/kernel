@@ -103,6 +103,12 @@ error_t execfmt_execute(struct file *exec_file)
         goto release_executable;
     }
 
+    ret = address_space_init(current->process->as);
+    if (ret) {
+        log_err("failed to re-init the address space: %s", err_to_str(ret));
+        goto release_executable;
+    }
+
     if (fmt->load) {
         ret = fmt->load(executable, content);
         if (ret) {

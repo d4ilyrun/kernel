@@ -25,11 +25,14 @@ static_assert((int)VM_READ == (int)PROT_READ);
 static_assert((int)VM_WRITE == (int)PROT_WRITE);
 static_assert((int)VM_KERNEL == (int)PROT_KERNEL);
 
+static DECLARE_LLIST(kernel_kmalloc);
+static DECLARE_LLIST(kernel_segments);
+
 struct address_space kernel_address_space = {
     .mmu = 0, // Initialized when enabling paging
     .vmm = &kernel_vmm,
-    .segments = LLIST_INIT(kernel_address_space.segments),
-    .kmalloc = LLIST_INIT(kernel_address_space.kmalloc),
+    .segments = &kernel_segments,
+    .kmalloc = &kernel_kmalloc,
     .lock = SPINLOCK_INIT,
 };
 
@@ -61,7 +64,7 @@ static inline int vm_segment_compare(const void *left, const void *right)
 static inline void
 vm_segment_insert(struct address_space *as, struct vm_segment *segment)
 {
-    llist_insert_sorted(&as->segments, &segment->this, vm_segment_compare);
+    llist_insert_sorted(as->segments, &segment->this, vm_segment_compare);
 }
 
 static inline void
@@ -101,8 +104,6 @@ struct address_space *address_space_new(void)
     if (as->mmu == PMM_INVALID_PAGEFRAME)
         goto vm_new_nomem;
 
-    INIT_LLIST(as->segments);
-    INIT_LLIST(as->kmalloc);
     INIT_SPINLOCK(as->lock);
 
     return as;
@@ -115,12 +116,50 @@ vm_new_nomem:
 
 error_t address_space_init(struct address_space *as)
 {
+    struct vm_segment *segment;
+    llist_t *list_head;
+    paddr_t page;
     bool success;
 
-    if (as == &kernel_address_space)
+    if (as == &kernel_address_space) {
         success = vmm_init(as->vmm, KERNEL_MEMORY_START, KERNEL_MEMORY_END);
-    else
-        success = vmm_init(as->vmm, USER_MEMORY_START, USER_MEMORY_END);
+        return success ? E_SUCCESS : E_INVAL;
+    }
+
+    success = vmm_init(as->vmm, USER_MEMORY_START, USER_MEMORY_END);
+
+    /*
+     * Allocate the heads of the address space's lists.
+     *
+     * We need to dynamically allocate them so that they also get duplicated
+     * through coW. otherwise, we'd have to edit clone the whole list and update
+     * all next/prev pointers accordingly.
+     */
+
+    segment = vm_normal.vm_alloc(as, 0, sizeof(*list_head), VM_READ | VM_WRITE);
+    if (IS_ERR(segment))
+        return ERR_FROM_PTR(segment);
+
+    /*
+     * Since we cannot recursively keep track of the segment list head inside
+     * the segment list, we use segment we just allocated as its sentinel.
+     */
+    as->segments = (llist_t *)&segment->this;
+    as->kmalloc = (void *)segment->start;
+
+    /*
+     * We cannot lazily allocate the kmalloc list segment since the pagefault
+     * handler will not be able to retrive it and will see it as an
+     * actual faulty access.
+     */
+    page = pmm_allocate();
+    if (page == PMM_INVALID_PAGEFRAME)
+        return E_NOMEM;
+    if (!mmu_map(segment->start, page, PROT_WRITE | PROT_READ))
+        return E_EXIST;
+
+    INIT_LLIST(*as->segments);
+    INIT_LLIST(*as->kmalloc);
 
     return success ? E_SUCCESS : E_INVAL;
 }
@@ -134,12 +173,11 @@ error_t address_space_clear(struct address_space *as)
     // The physical addresses associated with segments.
     WARN_ON(as != current->process->as);
     WARN_ON(as == &kernel_address_space);
+    WARN_ON(as == kernel_process.as);
 
     locked_scope (&as->lock) {
-        as->data_end = 0;
-        as->brk_end = as->data_end;
 
-        FOREACH_LLIST_SAFE (this, node, &as->segments) {
+        FOREACH_LLIST_SAFE (this, node, as->segments) {
             segment = to_segment(this);
             for (size_t off = 0; off < segment->size; off += PAGE_SIZE) {
                 phys = mmu_unmap(segment->start + off);
@@ -147,6 +185,19 @@ error_t address_space_clear(struct address_space *as)
                     pmm_free(phys);
             }
         }
+
+        /* The list's sentinel was also dynamically allocated. */
+        segment = to_segment(llist_head(as->segments));
+        for (size_t off = 0; off < segment->size; off += PAGE_SIZE) {
+            phys = mmu_unmap(segment->start + off);
+            if (phys != PMM_INVALID_PAGEFRAME)
+                pmm_free(phys);
+        }
+
+        as->data_end = 0;
+        as->brk_end = as->data_end;
+        as->segments = NULL;
+        as->kmalloc = NULL;
 
         vmm_clear(as->vmm);
     }
@@ -185,9 +236,11 @@ error_t address_space_copy_current(struct address_space *dst)
 {
     struct address_space *src = current->process->as;
 
-    // The destination address space should be emptied before copying into it.
-    // This is to avoid having 'zombie' segments left inaccessible after.
-    if (!llist_is_empty(&dst->segments) || !llist_is_empty(&dst->kmalloc))
+    /*
+     * The destination address space should be cleared before copying into it.
+     * This is to avoid having 'zombie' segments left inaccessible after.
+     */
+    if (dst->segments)
         return E_BUSY;
 
     locked_scope (&dst->lock) {
@@ -322,7 +375,7 @@ static int vm_segment_contains(const void *this, const void *addr)
 
 struct vm_segment *vm_find(const struct address_space *as, void *addr)
 {
-    node_t *segment = llist_find_first(&as->segments, addr,
+    node_t *segment = llist_find_first(as->segments, addr,
                                        vm_segment_contains);
 
     return segment ? to_segment(segment) : NULL;

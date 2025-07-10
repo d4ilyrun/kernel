@@ -50,7 +50,7 @@ typedef struct linked_list_head {
             _head, _head    \
         }                   \
     }
-#define LLIST_INIT(_list) ((llist_t)__LLIST_INIT(&_list.head))
+#define LLIST_INIT(_list) ((llist_t)__LLIST_INIT(&(_list).head))
 
 /** Initialize an empty linked list head */
 #define __INIT_LLIST(_name) _name = __LLIST_INIT(_name)

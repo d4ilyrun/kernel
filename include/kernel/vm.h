@@ -36,7 +36,6 @@
 #include <utils/bits.h>
 
 struct vmm;
-typedef llist_t kmalloc_t;
 
 /* We should not be modifying another process's address_space */
 #define AS_ASSERT_OWNED(_as) \
@@ -49,9 +48,9 @@ struct address_space {
                          the address space should take that lock. */
     struct vmm *vmm;   /*!< Used to allocate virtual memory segments */
     paddr_t mmu;       /*!< Used to map virtual addresses to physical memory */
-    llist_t segments;  /*!< List of currently allocated segments */
-    kmalloc_t kmalloc; /*!< Opaque struct used by the memory allocator to
-                          allocate memory blocks inside the user area */
+    llist_t *segments; /*!< List of currently allocated segments */
+    llist_t *kmalloc;  /*!< Opaque struct used by the memory allocator to
+                           allocate memory blocks inside the user area */
     vaddr_t data_end;  /*!< End of the process's data segment */
     vaddr_t brk_end;   /*!< End of the process's brk segment */
 };
@@ -178,7 +177,11 @@ struct address_space *address_space_new(void);
  */
 error_t address_space_init(struct address_space *);
 
-/** Release all memory currently allocated inside an address space */
+/** Release all memory currently allocated inside an address space.
+ *
+ *  @warning: If you want to continue using the address space afterwards, you
+ *  absolutely need to call address_space_init() on it again.
+ */
 error_t address_space_clear(struct address_space *);
 
 /** Release the address space structure */
