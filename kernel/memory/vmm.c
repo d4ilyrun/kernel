@@ -671,15 +671,13 @@ void *map_file(struct file *file, int prot)
 {
     size_t length;
     void *memory;
-    error_t err;
 
     length = align_up(file_size(file), PAGE_SIZE);
     memory = vm_alloc(&kernel_address_space, length, prot);
     if (IS_ERR(memory))
         return MMAP_INVALID;
 
-    err = file_read(file, memory, file_size(file));
-    if (err) {
+    if (file_read(file, memory, file_size(file)) < 0) {
         vm_free(&kernel_address_space, memory);
         return MMAP_INVALID;
     }
