@@ -52,8 +52,6 @@ union {
 void kernel_test(void);
 void kernel_task_timer(void *data);
 void kernel_task_malloc(void *data);
-void kernel_task_rootfs(void *data);
-void kernel_task_elf(void *data);
 void kernel_task_worker(void *data);
 void kernel_task_mutex(void *data);
 void kernel_task_ping(void *data);
@@ -116,8 +114,60 @@ void initcall_do_level(enum init_step level)
     }
 }
 
+static error_t kernel_mount_initfs(void)
+{
+    struct multiboot_tag_module *initrd = NULL;
+    vaddr_t start;
+    vaddr_t end;
+
+    /*
+     * The initrd location is specfied by the bootloader through multiboot
+     * modules. For convenience we assume that there is only one module,
+     * which contains our initramfs.
+     */
+    FOREACH_MULTIBOOT_TAG (tag, mbt_info) {
+        if (tag->type != MULTIBOOT_TAG_TYPE_MODULE)
+            continue;
+        initrd = (void *)tag;
+        break;
+    }
+
+    if (initrd == NULL) {
+        log_err("initrd module not found");
+        return E_NOENT;
+    }
+
+    log_info("found initrd @ [" FMT32 ":" FMT32 "]", initrd->mod_start,
+             initrd->mod_end);
+
+    /*
+     * TODO: Should be replaced with a ram device or something.
+     */
+    start = initrd->mod_start;
+    end = initrd->mod_end + 1;
+
+    return vfs_mount_root("tarfs", start, end);
+}
+
+static error_t kernel_start_init_process(void)
+{
+    struct thread *init_thread;
+
+    init_thread = process_execute_in_userland("/init");
+    if (IS_ERR(init_thread))
+        return ERR_FROM_PTR(init_thread);
+
+    init_process = init_thread->process;
+    init_thread->tid = 1;
+    init_process->pid = 1;
+
+    return E_SUCCESS;
+}
+
 void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 {
+    error_t err;
+
     memcpy(mbt_tmp.raw, mbt, mbt->total_size);
 
     // FIXME: Find how to clear pending keyboard IRQs inherited from bootloader
@@ -213,14 +263,21 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
      * Testing !
      */
     kernel_test();
+
+    err = kernel_mount_initfs();
+    if (err)
+        PANIC("Failed to mount initfs: %s", err_to_str(err));
+
+    err = kernel_start_init_process();
+    if (err)
+        PANIC("failed to find a suitable init process: %s", err_to_str(err));
+
+    thread_kill(current);
 }
 
 void kernel_test(void)
 {
-    ASM("int $0");
-
     sched_new_thread_create(kernel_task_malloc, NULL, THREAD_KERNEL);
-    sched_new_thread_create(kernel_task_rootfs, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_worker, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_mutex, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_ping, NULL, THREAD_KERNEL);
@@ -235,109 +292,14 @@ void kernel_test(void)
     while (1) {
         timer_wait_ms(1000);
         log_info("Elapsed miliseconds: %lld", timer_get_ms());
-        if (BETWEEN(timer_get_ms(), 5000, 6000))
+        if (timer_get_ms() > 2000) {
             thread_kill(kernel_timer_test);
+            break;
+        }
     }
 }
 
 // TASKS USED FOR MANUALLY TESTING FEATURES
-
-#undef LOG_DOMAIN
-#define LOG_DOMAIN "krootfs"
-
-void kernel_task_rootfs(void *data)
-{
-    struct multiboot_tag_module *ramdev_module = NULL;
-    struct thread *thread;
-
-    UNUSED(data);
-
-    // Temporary: for convenience we assume there is only one module, which
-    // contains our initramfs
-    FOREACH_MULTIBOOT_TAG (tag, mbt_info) {
-        if (tag->type != MULTIBOOT_TAG_TYPE_MODULE)
-            continue;
-        ramdev_module = (void *)tag;
-        break;
-    }
-
-    if (ramdev_module == NULL)
-        log_err("No module found");
-
-    log_dbg("ramdev@%p", ramdev_module);
-    log_dbg("ramdev[" FMT32 ":" FMT32 "]", ramdev_module->mod_start,
-            ramdev_module->mod_end);
-
-    // TMP: Should be replaced with a device or sth
-    u32 start = ramdev_module->mod_start;
-    u32 end = ramdev_module->mod_end + 1;
-
-    error_t ret = vfs_mount_root("tarfs", start, end);
-    log_dbg("mount_root: %s", err_to_str(ret));
-    log_info("Searching for '/bin/busybox'");
-    vnode_t *vnode = vfs_find_by_path("/bin/busybox");
-    if (IS_ERR(vnode))
-        log_err("Could not find busybox: %s", err_to_str(ERR_FROM_PTR(vnode)));
-
-    ret = vfs_mount("/bin", "tarfs", start, end);
-    if (ret) {
-        log_err("Failed to mount into rootfs: %s", err_to_str(ret));
-    } else {
-        vnode = vfs_find_by_path("/bin/usr/bin");
-        if (IS_ERR(vnode))
-            log_err("Could not find requested path inside mounted fs: %s",
-                    err_to_str(ERR_FROM_PTR(vnode)));
-        vnode = vfs_find_by_path("/bin/busybox");
-        if (!IS_ERR(vnode)) {
-            log_err("Should not be able to find old busybox");
-            vfs_vnode_release(vnode);
-        }
-        if ((ret = vfs_unmount("/bin")))
-            log_err("Failed to unmount '/bin': %s", err_to_str(ret));
-        if ((ret = vfs_unmount("/bin") != E_INVAL))
-            log_err("Should not be able to unmount twice");
-        log_dbg("New vnode: %p", vfs_create("/usr/bin/gcc///", VNODE_FILE));
-    }
-
-    ret = vfs_mount("/dev", "devtmpfs", 0, 0);
-    log_info("mounting devtmpfs: %s", err_to_str(ret));
-    vnode = vfs_find_by_path("/dev/eth0");
-    log_info("/dev/eth0: %s", err_to_str(ERR_FROM_PTR(vnode)));
-
-    log_info("forking current thread");
-    thread = thread_fork(current, kernel_task_elf, NULL);
-    if (IS_ERR(thread)) {
-        log_err("Failed to fork current thread: %s",
-                err_to_str(ERR_FROM_PTR(thread)));
-        return;
-    }
-
-    sched_new_thread(thread);
-}
-
-#undef LOG_DOMAIN
-#define LOG_DOMAIN "kelf"
-void kernel_task_elf(MAYBE_UNUSED void *data)
-{
-    struct file *busybox;
-    error_t err;
-
-    err = elf32_init();
-    if (err) {
-        log_err("failed to register elf32 executable format: %s",
-                err_to_str(err));
-        return;
-    }
-
-    busybox = vfs_open("/bin/busybox");
-    if (IS_ERR(busybox)) {
-        log_err("failed to open binary");
-        return;
-    }
-
-    err = execfmt_execute(busybox);
-    log_info("busybox execution: %s", err_to_str(err));
-}
 
 #undef LOG_DOMAIN
 #define LOG_DOMAIN "kmalloc"

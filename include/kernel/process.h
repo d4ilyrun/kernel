@@ -242,6 +242,15 @@ static inline void *thread_get_user_stack(const struct thread *thread)
 extern struct process kernel_process;
 extern struct thread kernel_process_initial_thread;
 
+/** The init process is the very first executed userland process.
+ *
+ *  It is the parent of all other userland processes, and all zombie processes
+ *  are attached to it when their parent dies.
+ *
+ *  The init process uses the reserved PID 1.
+ */
+extern struct process *init_process;
+
 /** Initialize the kernel process's address space.
  *
  *  The kernel process's instance being defined satically, it is required to

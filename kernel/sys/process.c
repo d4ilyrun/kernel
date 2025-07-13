@@ -20,8 +20,11 @@
 /** Reserved PID for the kernel process */
 #define PROCESS_KERNEL_PID 0
 
-/** Minimum PID, should be given to the very first started thread */
-#define PROCESS_FIRST_PID 1
+/**
+ * Minimum PID, should be given to the very first started thread.
+ * PID number 1 is reserved for the init process.
+ */
+#define PROCESS_FIRST_PID 2
 
 struct thread kernel_process_initial_thread = {
     .process = &kernel_process,
@@ -36,6 +39,8 @@ struct process kernel_process = {
 };
 
 thread_t *current = &kernel_process_initial_thread;
+
+struct process *init_process = NULL;
 
 /** Arch specific, hardware level thread switching
  *

@@ -3,6 +3,7 @@
 #include <kernel/elf32.h>
 #include <kernel/error.h>
 #include <kernel/execfmt.h>
+#include <kernel/init.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/memory.h>
@@ -320,3 +321,5 @@ error_t elf32_init(void)
 {
     return execfmt_register(&elf32_execfmt);
 }
+
+DECLARE_INITCALL(INIT_LATE, elf32_init);
