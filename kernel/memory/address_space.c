@@ -207,9 +207,9 @@ error_t address_space_clear(struct address_space *as)
 
 error_t address_space_destroy(struct address_space *as)
 {
-    // We don't want to destroy the MMU while it is still being used.
-    if (as != current->process->as) {
+    if (as == kernel_process.as) {
         log_err("Trying to destroy kernel address space");
+        stack_trace();
         return E_INVAL;
     }
 
