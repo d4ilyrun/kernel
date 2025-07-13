@@ -122,7 +122,8 @@ error_t address_space_init(struct address_space *as)
     bool success;
 
     if (as == &kernel_address_space) {
-        success = vmm_init(as->vmm, KERNEL_MEMORY_START, KERNEL_MEMORY_END);
+        success = vmm_init(as->vmm, KERNEL_ADDRESS_SPACE_START,
+                           KERNEL_ADDRESS_SPACE_END);
         return success ? E_SUCCESS : E_INVAL;
     }
 

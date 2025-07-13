@@ -199,8 +199,7 @@ extern vmm_t kernel_vmm;
 /** Check whether a virtual address has been allocated using @ref kernel_vmm
  *  @ingroup vmm_internals
  */
-#define IS_KERNEL_ADDRESS(_addr) \
-    IN_RANGE((vaddr_t)(_addr), KERNEL_MEMORY_START, KERNEL_MEMORY_END)
+#define IS_KERNEL_ADDRESS(_addr) ((vaddr_t)(_addr) >= KERNEL_MEMORY_START)
 
 /* Allocate a new VMM structure */
 struct vmm *vmm_new(struct address_space *);

@@ -38,6 +38,6 @@
  * 32-bit address bus -> 4GiB of addressable memory
  */
 #define ADDRESS_SPACE_SIZE (0x100000000UL)
-#define ADDRESS_SPACE_END (ADDRESS_SPACE_SIZE - 1)
+#define ADDRESS_SPACE_END (0xFFFFFFFFUL)
 
 #endif /* KERNEL_ARCH_I686_MEMORY_H */
