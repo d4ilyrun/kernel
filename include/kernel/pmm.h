@@ -111,6 +111,12 @@ struct page *page_get(struct page *page);
 /** Decrease the page's refcount. If it reaches 0, the page is released. */
 void page_put(struct page *page);
 
+/** @return whether the page is part of a CoW mapping. */
+static inline bool page_is_cow(struct page *page)
+{
+    return page->flags & PAGE_COW;
+}
+
 /**
  * @brief Initialize the Physical Memory Mapper
  *

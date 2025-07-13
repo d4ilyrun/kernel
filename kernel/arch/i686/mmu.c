@@ -171,12 +171,10 @@ static bool paging_enabled = false;
  * For efficiency, the result of the translations are cached by the CPU. This
  * means that we need to invalidate the cache if we want new modifications made
  * to the PD to be taken into account.
- *
- * @param tlb_entry Virtual address whose translation we want to update
  */
-static inline void mmu_flush_tlb(u32 tlb_entry)
+static inline void mmu_flush_tlb(vaddr_t addr)
 {
-    ASM("invlpg (%0)" ::"r"(tlb_entry) : "memory");
+    ASM("invlpg (%0)" ::"r"(addr) : "memory");
 }
 
 void mmu_load(paddr_t page_directory)
@@ -352,24 +350,60 @@ bool mmu_map_range(vaddr_t virtual, paddr_t physical, size_t size, int prot)
     return true;
 }
 
+/** Duplicate the content of a CoW page */
+static paddr_t __duplicate_cow_page(void *orig)
+{
+    paddr_t phys_new;
+    void *new;
+
+    phys_new = pmm_allocate();
+    if (phys_new == PMM_INVALID_PAGEFRAME)
+        return PMM_INVALID_PAGEFRAME;
+
+    new = vm_alloc_at(&kernel_address_space, phys_new, PAGE_SIZE, VM_WRITE);
+    if (IS_ERR(new)) {
+        pmm_free(phys_new);
+        return PMM_INVALID_PAGEFRAME;
+    }
+
+    memcpy(new, orig, PAGE_SIZE);
+    vm_free(&kernel_address_space, new);
+
+    return phys_new;
+}
+
 paddr_t mmu_unmap(vaddr_t virtual)
 {
     mmu_decode_t address = {.raw = virtual};
+    page_table_t page_table;
+    paddr_t physical;
+    struct page *page;
+    mmu_pde_t *pde;
+    mmu_pte_t *pte;
 
-    if (!MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS[address.pde].present)
+    pde = &MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS[address.pde];
+    page_table = MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde);
+    pte = &page_table[address.pte];
+
+    if (!pde->present || !pte->present)
         return PMM_INVALID_PAGEFRAME;
 
-    page_table_t page_table = MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde);
-    if (!page_table[address.pte].present)
-        return PMM_INVALID_PAGEFRAME;
+    page = pfn_to_page(pde->page_table);
+    if (page_is_cow(page)) {
+        physical = __duplicate_cow_page(page_table);
+        page_put(page);
+        pde->page_table = TO_PFN(physical);
+        pde->writable = true;
+        mmu_flush_tlb((vaddr_t)pte);
+    }
 
     // Erase the content of the page table entry
-    paddr_t physical = FROM_PFN(page_table[address.pte].page_frame);
-    *((volatile u32 *)&page_table[address.pte]) = 0x0;
+    page = pfn_to_page(pte->page_frame);
+    *((volatile u32 *)pte) = 0x0;
 
     mmu_flush_tlb(virtual);
 
-    return physical;
+    return page_address(page);
 }
 
 void mmu_unmap_range(vaddr_t start, vaddr_t end)
@@ -402,28 +436,6 @@ paddr_t mmu_find_physical(vaddr_t virtual)
         return -E_INVAL;
 
     return FROM_PFN(page_table[address.pte].page_frame) + address.offset;
-}
-
-/** Duplicate the content of a CoW page */
-static paddr_t __duplicate_cow_page(void *orig)
-{
-    paddr_t phys_new;
-    void *new;
-
-    phys_new = pmm_allocate();
-    if (phys_new == PMM_INVALID_PAGEFRAME)
-        return PMM_INVALID_PAGEFRAME;
-
-    new = vm_alloc_at(&kernel_address_space, phys_new, PAGE_SIZE, VM_WRITE);
-    if (IS_ERR(new)) {
-        pmm_free(phys_new);
-        return PMM_INVALID_PAGEFRAME;
-    }
-
-    memcpy(new, orig, PAGE_SIZE);
-    vm_free(&kernel_address_space, new);
-
-    return phys_new;
 }
 
 error_t mmu_copy_on_write(vaddr_t addr)
