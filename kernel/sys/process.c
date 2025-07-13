@@ -58,9 +58,9 @@ extern void arch_thread_switch(thread_context_t *);
 extern error_t
 arch_thread_init(thread_t *, thread_entry_t, void *data, void *esp);
 
-extern void arch_process_free(struct process *);
+extern void arch_process_clear(struct process *);
 
-extern void arch_thread_free(thread_t *thread);
+extern void arch_thread_clear(thread_t *thread);
 
 NO_RETURN void
 arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data);
@@ -68,6 +68,7 @@ arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data);
 extern void arch_thread_set_mmu(struct thread *thread, paddr_t mmu);
 
 static void thread_free(thread_t *thread);
+static void thread_kill_locked(thread_t *thread);
 
 /**
  * @return the next available PID.
@@ -112,10 +113,6 @@ static void process_free(struct process *process)
         }
     }
 
-    arch_process_free(process);
-
-    address_space_clear(process->as);
-    address_space_load(&kernel_address_space);
     address_space_destroy(process->as);
 
     /*
@@ -206,15 +203,17 @@ void process_kill(struct process *process, int status)
         if (process->state == SCHED_KILLED)
             goto reschedule_current;
 
-    /*
-     * Avoid race condition where the current thread would be rescheduled after
-     * being marked killable, and before having marked the rest of the threads
-     */
-    no_preemption_scope () {
-        FOREACH_LLIST (node, &process->threads) {
-            struct thread *thread = container_of(node, struct thread,
-                                                 proc_this);
-            thread->state = SCHED_KILLED;
+        /*
+         * Avoid race condition where the current thread would be rescheduled
+         * after being marked killable, and before having marked the rest
+         * of the threads.
+         */
+        no_preemption_scope () {
+            FOREACH_LLIST_SAFE (node, tmp, &process->threads) {
+                struct thread *thread = container_of(node, struct thread,
+                                                     proc_this);
+                thread_kill_locked(thread);
+            }
         }
 
         process->exit_status = status;
@@ -345,8 +344,19 @@ thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
     if (flags & THREAD_KERNEL && process != &kernel_process)
         return PTR_ERR(E_INVAL);
 
+    spinlock_acquire(&process->lock);
+
+    /*
+     * Another thread could well have killed the process.
+     */
+    if (process->state == SCHED_KILLED) {
+        spinlock_release(&process->lock);
+        return PTR_ERR(E_NOENT);
+    }
+
     thread = kcalloc(1, sizeof(*thread), KMALLOC_KERNEL);
     if (thread == NULL) {
+        spinlock_release(&process->lock);
         log_err("Failed to allocate new thread");
         return PTR_ERR(E_NOMEM);
     }
@@ -379,12 +389,15 @@ thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
 
     llist_add(&process->threads, &thread->proc_this);
 
+    spinlock_release(&process->lock);
+
     return thread;
 
 kstack_free:
     vm_free(&kernel_address_space, kstack);
 thread_free:
     kfree(thread);
+    spinlock_release(&process->lock);
     return PTR_ERR(err);
 }
 
@@ -408,14 +421,7 @@ static void thread_free(thread_t *thread)
     no_preemption_scope () {
 
         llist_remove(&thread->proc_this);
-
-        arch_thread_free(thread);
-
-        /* Kernel user stack is shared across kthreads */
-        if (!thread_is_kernel(thread))
-            vm_free(process->as, thread_get_user_stack(thread));
         vm_free(&kernel_address_space, thread_get_kernel_stack(thread));
-
         kfree(thread);
 
         /*
@@ -438,11 +444,46 @@ bool thread_switch(thread_t *thread)
     return true;
 }
 
+static void thread_kill_locked(thread_t *thread)
+{
+    struct process *process = thread->process;
+
+    WARN_ON(!process->lock.locked);
+
+    arch_thread_clear(thread);
+
+    /*
+     * Kernel user stack is shared across kthreads
+     */
+    if (!thread_is_kernel(thread)) {
+        AS_ASSERT_OWNED(process->as);
+        vm_free(process->as, thread_get_user_stack(thread));
+    }
+
+    /*
+     * We just killed the process's last thread, we must clean the address
+     * space while it is still loaded.
+     */
+    llist_remove(&thread->proc_this);
+    if (llist_is_empty(&process->threads)) {
+        arch_process_clear(process);
+        address_space_clear(process->as);
+        process->state = SCHED_KILLED;
+    }
+
+    /*
+     * To make the implementation easier the actual 'killing' of the thread
+     * is delayed until it is rescheduled (cf. thread_switch()).
+     */
+    thread->state = SCHED_KILLED;
+}
+
 void thread_kill(thread_t *thread)
 {
-    /* To make the implementation easier the actual 'killing' of the thread
-     * is delayed until it is rescheduled (cf. thread_switch). */
-    thread->state = SCHED_KILLED;
+    locked_scope (&thread->process->lock) {
+        thread_kill_locked(thread);
+    }
+
     if (thread == current)
         schedule_preempt();
 }

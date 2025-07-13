@@ -130,12 +130,12 @@ error_t arch_thread_init(thread_t *thread, thread_entry_t entrypoint,
     return E_SUCCESS;
 }
 
-void arch_thread_free(thread_t *thread)
+void arch_thread_clear(thread_t *thread)
 {
     UNUSED(thread);
 }
 
-void arch_process_free(struct process *process)
+void arch_process_clear(struct process *process)
 {
     UNUSED(process);
 }
