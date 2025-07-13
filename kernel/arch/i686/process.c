@@ -87,11 +87,23 @@ arch_thread_entrypoint(thread_entry_t entrypoint, void *data, void *esp)
     if (esp)
         thread_set_stack_pointer(current, esp);
 
-    if (thread_is_kernel(current)) {
+    if (IS_KERNEL_ADDRESS(entrypoint)) {
         entrypoint(data);
     } else {
+        if (thread_is_kernel(current)) {
+            log_err("%d: kernel thread cannot execute userland function",
+                    current->tid);
+            goto error_exit;
+        }
         arch_thread_jump_to_userland(entrypoint, data);
     }
+
+    /*
+     * Userland processes should be killed using _exit() and never return
+     * until here.
+     */
+    if (!thread_is_kernel(current))
+        assert_not_reached();
 
 error_exit:
     thread_kill(current);
