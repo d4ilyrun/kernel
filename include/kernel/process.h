@@ -39,6 +39,8 @@
 #include <libalgo/linked_list.h>
 #include <utils/compiler.h>
 
+#include <string.h>
+
 #if ARCH == i686
 #include <kernel/arch/i686/process.h>
 #else
@@ -46,7 +48,7 @@
 #endif
 
 /** The max length of a process's name */
-#define PROCESS_NAME_MAX_LEN 32
+#define PROCESS_NAME_MAX_LEN 32U
 
 /** Maximum number of files that one process can have open at any one time. */
 #define PROCESS_FD_COUNT 32
@@ -267,6 +269,23 @@ static inline void process_file_put(struct process *process, struct file *file)
 {
     UNUSED(process);
     file_put(file);
+}
+
+/** Run an executable.
+ *
+ *  As the kernel should never run external executables, this function instead
+ *  creates a new userland process that will in turn be used to execute the
+ *  executable.
+ *
+ *  @param exec_path Absolute path to the executable file
+ */
+struct thread *process_execute_in_userland(const char *exec_path);
+
+/***/
+static inline void process_set_name(struct process *process, const char *name,
+                                    size_t size)
+{
+    strlcpy(process->name, name, MIN(size + 1, PROCESS_NAME_MAX_LEN));
 }
 
 /** The currently running thread */

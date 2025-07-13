@@ -55,12 +55,8 @@ static struct executable *executable_new(void)
     return executable;
 }
 
-NO_RETURN void execfmt_execute_executable(struct executable *executable)
+static NO_RETURN void execfmt_execute_executable(struct executable *executable)
 {
-    /*
-     * Running an executable from kernel space makes no sense. This should
-     * always be called in the context of a call to execve.
-     */
     thread_jump_to_userland(executable->entrypoint, NULL);
 }
 
@@ -70,6 +66,7 @@ error_t execfmt_execute(struct file *exec_file)
     struct executable *executable;
     error_t ret = E_SUCCESS;
     void *content;
+    void *ustack;
 
     /*
      * The kernel cannot be allowed to run external executables.
@@ -112,16 +109,14 @@ error_t execfmt_execute(struct file *exec_file)
     if (fmt->load) {
         ret = fmt->load(executable, content);
         if (ret) {
-            log_err("failed to load executable: %s\n", err_to_str(ret));
+            log_err("failed to load executable: %s", err_to_str(ret));
             goto release_executable;
         }
     }
 
-    /*
-     * TODO: Refactor this once to be a simple reti when implementing execve.
-     *       For now we simply jump to userland for testing purposes, in order
-     *       to be able to execute our first binary.
-     */
+    ustack = vm_alloc(current->process->as, USER_STACK_SIZE, VM_USER_RW);
+    thread_set_user_stack(current, ustack);
+
     if (executable->entrypoint) {
         execfmt_execute_executable(executable);
         assert_not_reached();

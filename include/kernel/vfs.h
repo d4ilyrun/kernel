@@ -232,6 +232,16 @@ vnode_t *vfs_vnode_release(vnode_t *);
 
 /** @} */
 
+/** @return Whether a path exists in the current VFS. */
+static inline bool vfs_exist(const char *path)
+{
+    struct vnode *vnode = vfs_find_by_path(path);
+    if (IS_ERR(vnode))
+        return false;
+    vfs_vnode_release(vnode);
+    return true;
+}
+
 /** @struct vfs_fs
  *  @brief Represents a file system format
  *

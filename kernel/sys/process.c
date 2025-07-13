@@ -1,6 +1,7 @@
 #define LOG_DOMAIN "process"
 
 #include <kernel/error.h>
+#include <kernel/execfmt.h>
 #include <kernel/file.h>
 #include <kernel/interrupts.h>
 #include <kernel/kmalloc.h>
@@ -11,11 +12,10 @@
 #include <kernel/sched.h>
 #include <kernel/spinlock.h>
 #include <kernel/syscalls.h>
+#include <kernel/vfs.h>
 
 #include <libalgo/linked_list.h>
 #include <utils/container_of.h>
-
-#include <string.h>
 
 /** Reserved PID for the kernel process */
 #define PROCESS_KERNEL_PID 0
@@ -488,6 +488,56 @@ void thread_kill(thread_t *thread)
         schedule_preempt();
 }
 
+static void __process_execute_in_userland(void *data)
+{
+    const char *exec_path = data;
+    struct file *exec_file;
+    error_t err;
+
+    exec_file = vfs_open(exec_path);
+    if (IS_ERR(exec_file)) {
+        log_err("%s: failed to open executable (%s)", current->process->name,
+                err_to_str(ERR_FROM_PTR(exec_file)));
+        return;
+    }
+
+    err = execfmt_execute(exec_file);
+    if (err) {
+        log_err("%s: failed to execute (%s)", current->process->name,
+                err_to_str(err));
+        return;
+    }
+
+    assert_not_reached();
+}
+
+struct thread *process_execute_in_userland(const char *exec_path)
+{
+    struct thread *thread;
+    path_segment_t segment;
+    path_t path;
+
+    if (!vfs_exist(exec_path))
+        return PTR_ERR(E_NOENT);
+
+    thread = thread_fork(current, __process_execute_in_userland,
+                         (void *)exec_path);
+    if (IS_ERR(thread))
+        return thread;
+
+    /*
+     * Rename the new userland process to match the name of the executable file.
+     */
+    path = NEW_DYNAMIC_PATH(exec_path);
+    path_walk_last(&path, &segment);
+    process_set_name(thread->process, segment.start,
+                     path_segment_length(&segment));
+
+    sched_new_thread(thread);
+
+    return thread;
+}
+
 struct thread *
 thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
 {
@@ -510,7 +560,8 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
      * The only kernel-mode process in the system is @ref kernel_process.
      */
     flags = thread->flags & ~THREAD_KERNEL;
-    if (IS_KERNEL_ADDRESS(entrypoint))
+    if (IS_KERNEL_ADDRESS(entrypoint) &&
+        entrypoint != __process_execute_in_userland)
         return PTR_ERR(E_PERM);
 
     new_process = process_new();
@@ -518,7 +569,7 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
         return (void *)new_process;
 
     /* Duplicate the current thread's process's state */
-    strncpy(new_process->name, current->process->name, PROCESS_NAME_MAX_LEN);
+    process_set_name(new_process, current->process->name, PROCESS_NAME_MAX_LEN);
 
     /*
      * Duplicate the current process' open files.
