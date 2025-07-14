@@ -40,7 +40,7 @@ error_t console_early_setup(struct early_console *, void *pdata);
 /** Set a device as the regular console's output */
 error_t console_open(struct device *device);
 /** Write a buffer to the console */
-error_t console_write(const char *buf, size_t size);
+ssize_t console_write(const char *buf, size_t size);
 
 #endif /* KERNEL_CONSOLE_H */
 

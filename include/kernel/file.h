@@ -16,6 +16,10 @@ struct vnode;
 struct sockaddr;
 struct msghdr;
 
+#define FD_STDIN 0
+#define FD_STDOUT 1
+#define FD_STDERR 2
+
 /** Opened file description.
  *
  * @note This struct is also used by pseudo-filesystems, such as the

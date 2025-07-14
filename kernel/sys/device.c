@@ -2,6 +2,7 @@
 #include <kernel/devices/timer.h>
 #include <kernel/error.h>
 #include <kernel/file.h>
+#include <kernel/init.h>
 #include <kernel/kmalloc.h>
 #include <kernel/vfs.h>
 
@@ -180,4 +181,10 @@ static vfs_t *devtmpfs_new(u32 start, u32 end)
     return vfs;
 }
 
+static error_t devtmpfs_mount(void)
+{
+    return vfs_mount("/dev", "devtmpfs", 0, 0);
+}
+
 DECLARE_FILESYSTEM(devtmpfs, devtmpfs_new);
+DECLARE_INITCALL(INIT_NORMAL, devtmpfs_mount);

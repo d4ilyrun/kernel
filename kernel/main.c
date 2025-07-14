@@ -256,6 +256,10 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     acpi_init(mbt_info);
     driver_load_drivers();
 
+    err = kernel_mount_initfs();
+    if (err)
+        PANIC("Failed to mount initfs: %s", err_to_str(err));
+
     initcall_do_level(INIT_STEP_NORMAL);
     initcall_do_level(INIT_STEP_LATE);
 
@@ -263,10 +267,6 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
      * Testing !
      */
     kernel_test();
-
-    err = kernel_mount_initfs();
-    if (err)
-        PANIC("Failed to mount initfs: %s", err_to_str(err));
 
     err = kernel_start_init_process();
     if (err)
