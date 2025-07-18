@@ -43,6 +43,7 @@ int sys_close(int fd);
 off_t sys_lseek(int fd, off_t off, int whence);
 int sys_stat(const char *path, struct stat *buf);
 int sys_lstat(const char *path, struct stat *buf);
+int sys_fstat(int fd, struct stat *buf);
 int sys_brk(void *);
 void *sys_sbrk(intptr_t);
 

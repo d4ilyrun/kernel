@@ -46,6 +46,7 @@ typedef enum syscall_nr {
     SYS_BRK = 45,    /*!< brk() */
     SYS_STAT = 106,  /*!< stat() */
     SYS_LSTAT = 107, /*!< lstat() */
+    SYS_FSTAT = 108, /*!< fstat() */
     SYS_SBRK = 463, /*!< lstat() */
     SYSCALL_COUNT
 } syscall_nr;

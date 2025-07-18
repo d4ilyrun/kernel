@@ -402,6 +402,8 @@ int sys_lstat(const char *path, struct stat *buf)
 
     *buf = vnode->stat;
 
+    vfs_vnode_release(vnode);
+
     return E_SUCCESS;
 }
 

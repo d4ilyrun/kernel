@@ -253,3 +253,18 @@ int sys_close(int fd)
 {
     return process_unregister_file(current->process, fd);
 }
+
+int sys_fstat(int fd, struct stat *buf)
+{
+    struct file *file;
+
+    file = process_file_get(current->process, fd);
+    if (!file)
+        return -E_BAD_FD;
+
+    *buf = file->vnode->stat;
+
+    process_file_put(current->process, file);
+
+    return 0;
+}
