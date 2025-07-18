@@ -127,7 +127,6 @@ void *_sbrk(intptr_t increment)
 /* Unimplemented syscalls */
 int execve(char *name, char **argv, char **env);
 int getpid();
-int isatty(int file);
 int kill(int pid, int sig);
 int link(char *old, char *new);
 clock_t times(struct tms *buf);
