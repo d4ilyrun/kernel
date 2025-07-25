@@ -32,7 +32,7 @@ struct PACKED pci_device_id {
  */
 struct pci_driver {
     struct device_driver driver;
-    struct pci_device_id compatible;
+    const struct pci_device_id *compatible; /** NULL terminated array */
 };
 
 /** A PCI bus */
