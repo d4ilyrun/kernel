@@ -401,8 +401,13 @@ probe_failed:
     return ret;
 }
 
-struct pci_driver rtl8139_driver = {
-    .compatible = PCI_DEVICE_ID(0x10EC, 0x8139),
+static const struct pci_device_id rtl8139_compatible[] = {
+    PCI_DEVICE_ID(0x10EC, 0x8139),
+    { /* sentinel */ },
+};
+
+static struct pci_driver rtl8139_driver = {
+    .compatible = rtl8139_compatible,
     .driver =
         {
             .name = "rtl8139",

@@ -27,7 +27,7 @@
  */
 struct pci_driver {
     struct device_driver driver;
-    pci_device_id_t compatible;
+    const pci_device_id_t *compatible; /** NULL terminated array */
 };
 
 /** A PCI bus */
