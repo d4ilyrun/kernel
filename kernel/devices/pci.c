@@ -51,9 +51,17 @@ static bool pci_driver_match(const driver_t *drv, const device_t *dev)
 {
     const struct pci_driver *pci_drv = to_pci_drv(drv);
     const struct pci_device *pci_dev = to_pci_dev(dev);
+    struct pci_device_id *compatible;
 
-    return (pci_drv->compatible.vendor == pci_dev->id.vendor) &&
-           (pci_drv->compatible.device == pci_dev->id.device);
+    for (int i = 0; compatible = &pci_drv->compatible[i],
+             compatible->vendor && compatible->device;
+         ++i) {
+        if ((compatible->vendor == pci_dev->id.vendor) &&
+            (compatible->device == pci_dev->id.device))
+            return true;
+    }
+
+    return false;
 }
 
 void pci_driver_register(struct pci_driver *driver)
