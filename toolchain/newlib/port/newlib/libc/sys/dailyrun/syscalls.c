@@ -74,6 +74,7 @@ DEFINE_SYSCALL_3(int, read, 3, int, char *, int);
 DEFINE_SYSCALL_3(int, write, 4, int, const char *, int);
 DEFINE_SYSCALL_1(int, close, 6, int);
 DEFINE_SYSCALL_3(int, lseek, 19, int, int, int);
+DEFINE_SYSCALL_0(pid_t, getpid, 20);
 DEFINE_SYSCALL_1(int, brk, 45, void *);
 DEFINE_SYSCALL_2(int, stat, 106, const char *, struct stat *);
 DEFINE_SYSCALL_2(int, lstat, 107, const char *, struct stat *);
@@ -126,7 +127,6 @@ void *_sbrk(intptr_t increment)
 
 /* Unimplemented syscalls */
 int execve(char *name, char **argv, char **env);
-int getpid();
 int kill(int pid, int sig);
 int link(char *old, char *new);
 clock_t times(struct tms *buf);

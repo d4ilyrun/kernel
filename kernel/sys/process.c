@@ -639,3 +639,8 @@ void sys_exit(int status)
 {
     process_kill(current->process, status);
 }
+
+pid_t sys_getpid(void)
+{
+    return current->process->pid;
+}

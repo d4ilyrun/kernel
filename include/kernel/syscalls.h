@@ -41,6 +41,7 @@ int sys_write(int fd, const char *, size_t len);
 int sys_open(const char *, int oflags);
 int sys_close(int fd);
 off_t sys_lseek(int fd, off_t off, int whence);
+pid_t sys_getpid(void);
 int sys_stat(const char *path, struct stat *buf);
 int sys_lstat(const char *path, struct stat *buf);
 int sys_fstat(int fd, struct stat *buf);

@@ -37,6 +37,7 @@ static const struct syscall syscalls[SYSCALL_COUNT] = {
     DECLARE_SYSCALL(OPEN, "open", sys_open, 2),
     DECLARE_SYSCALL(CLOSE, "close", sys_close, 1),
     DECLARE_SYSCALL(LSEEK, "lseek", sys_lseek, 3),
+    DECLARE_SYSCALL(GETPID, "getpid", sys_getpid, 0),
     DECLARE_SYSCALL(STAT, "stat", sys_stat, 2),
     DECLARE_SYSCALL(LSTAT, "lstat", sys_lstat, 2),
     DECLARE_SYSCALL(FSTAT, "fstat", sys_fstat, 2),
