@@ -147,9 +147,13 @@ vnode_t *vfs_create(const char *path, vnode_type type);
 error_t vfs_remove(const char *path);
 
 /** Open the file located at the given path
- *  @return The file's struct, or a pointed encoded error
+ *
+ *  @param path Absolute path to the file
+ *  @param oflags Same flags as those passed to the open() syscal (O_*)
+ *
+ *  @return The file's struct, or a pointer encoded error
  */
-struct file *vfs_open(const char *path);
+struct file *vfs_open(const char *path, int oflags);
 
 /** @} */
 

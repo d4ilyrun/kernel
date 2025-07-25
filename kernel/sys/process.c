@@ -499,7 +499,7 @@ static void __process_execute_in_userland(void *data)
     struct file *exec_file;
     error_t err;
 
-    exec_file = vfs_open(exec_path);
+    exec_file = vfs_open(exec_path, O_RDONLY);
     if (IS_ERR(exec_file)) {
         log_err("%s: failed to open executable (%s)", current->process->name,
                 err_to_str(ERR_FROM_PTR(exec_file)));

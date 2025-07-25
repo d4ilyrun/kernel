@@ -272,25 +272,35 @@ error_t vfs_remove(const char *raw_path)
     return ret;
 }
 
-static struct file *vfs_open_at(struct vnode *vnode)
+static struct file *vfs_open_at(struct vnode *vnode, int flags)
 {
+    struct file *file;
+
     if (!vnode->operations->open)
         return PTR_ERR(E_NOT_SUPPORTED);
 
     /*
      * TODO: Check against file permissions.
      */
-    return vnode->operations->open(vnode);
+    file = vnode->operations->open(vnode);
+    if (IS_ERR(file))
+        return file;
+
+    file->flags = flags;
+    if (flags & O_APPEND)
+        file_seek(file, 0, SEEK_END);
+
+    return file;
 }
 
-struct file *vfs_open(const char *raw_path)
+struct file *vfs_open(const char *raw_path, int oflags)
 {
     vnode_t *vnode = vfs_find_by_path(raw_path);
 
     if (IS_ERR(vnode))
         return (void *)vnode;
 
-    return vfs_open_at(vnode);
+    return vfs_open_at(vnode, oflags);
 }
 
 vnode_t *vfs_vnode_acquire(vnode_t *node, bool *new)
@@ -370,13 +380,9 @@ int sys_open(const char *path, int oflags)
     if (vnode->type != VNODE_DIRECTORY && oflags & O_DIRECTORY)
         return -E_NOT_DIRECTORY;
 
-    file = vfs_open_at(vnode);
+    file = vfs_open_at(vnode, oflags);
     if (IS_ERR(file))
         return -E_IO;
-
-    file->flags = oflags;
-    if (oflags & O_APPEND)
-        file_seek(file, 0, SEEK_END);
 
     fd = process_register_file(current->process, file);
     if (fd < 0)

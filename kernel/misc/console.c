@@ -79,7 +79,7 @@ static error_t console_device_init(void)
     if (err)
         return err;
 
-    console = vfs_open("/dev/console");
+    console = vfs_open("/dev/console", O_RDWR);
     if (IS_ERR(console))
         return ERR_FROM_PTR(console);
 
