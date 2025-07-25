@@ -19,7 +19,7 @@
 #define KERNEL_DEVICES_TIMER_H
 
 #include <kernel/types.h>
-#include <uapi/time.h>
+#include <kernel/time.h>
 
 /** The frequency used for the timer (in Hz) */
 #define HZ CLOCK_PER_SECOND

@@ -3,9 +3,9 @@
 #include <kernel/kmalloc.h>
 #include <kernel/process.h>
 #include <kernel/vfs.h>
-#include <uapi/fcntl.h>
 #include <uapi/kernel/net.h> /* struct msghdr */
-#include <uapi/unistd.h>
+
+#include <unistd.h>
 
 struct file *file_open(struct vnode *vnode, const struct file_operations *fops)
 {

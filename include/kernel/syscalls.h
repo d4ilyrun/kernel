@@ -23,9 +23,9 @@
 #endif
 
 #include <kernel/types.h>
-#include <uapi/sys/stat.h>
 
 #include <stddef.h>
+#include <sys/stat.h>
 
 typedef struct syscall_args {
     u32 nr;

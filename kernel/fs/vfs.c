@@ -3,12 +3,11 @@
 #include <kernel/logger.h>
 #include <kernel/process.h>
 #include <kernel/vfs.h>
-#include <uapi/fcntl.h>
-#include <uapi/unistd.h>
 
 #include <utils/container_of.h>
 
 #include <string.h>
+#include <unistd.h>
 
 DECLARE_LLIST(vfs_mountpoints);
 

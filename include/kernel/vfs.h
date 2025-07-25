@@ -39,12 +39,14 @@
 #include <kernel/error.h>
 #include <kernel/file.h>
 #include <kernel/types.h>
-#include <uapi/sys/stat.h>
+#include <uapi/fcntl.h>
 
 #include <lib/path.h>
 #include <libalgo/linked_list.h>
 #include <utils/compiler.h>
 #include <utils/stringify.h>
+
+#include <sys/stat.h>
 
 typedef struct vfs vfs_t;
 typedef struct vnode vnode_t;

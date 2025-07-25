@@ -1,22 +1,11 @@
 #ifndef KERNEL_TYPES_H
 #define KERNEL_TYPES_H
 
-/*
- * Our custom defined types may collide with the host toolchain's definition
- * when compiling host executables that require the <kernel/types.h> header.
- *
- * This is the case for example when compiling the testsuite for libalgo.
- */
-#ifdef KERNEL
-#include <uapi/sys/types.h>
-#else
-#include <sys/types.h>
-#endif
-
 #include <arch.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 #define boolean(_x) (!!(_x))
 

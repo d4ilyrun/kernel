@@ -75,15 +75,13 @@ void timer_start(u32 frequency)
 static DEFINE_INTERRUPT_HANDLER(irq_timer)
 {
     struct thread *next_wakeup;
+    clock_t old_ticks = timer_ticks_counter;
 
     UNUSED(data);
 
-    if (timer_ticks_counter == INT64_MAX) {
-        log_warn("The internal timer has reached its max capacity.");
-        log_warn("THIS WILL CAUSE AN OVERFLOW!");
-    }
-
     timer_ticks_counter += 1;
+    if (old_ticks > timer_ticks_counter)
+        log_warn("INTERNAL TICKS COUNTER OVERFLOW");
 
     pic_eoi(IRQ_TIMER);
 
