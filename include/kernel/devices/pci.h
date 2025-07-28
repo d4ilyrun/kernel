@@ -19,15 +19,41 @@
 
 #include <utils/container_of.h>
 
+struct PACKED pci_device_id {
+    uint16_t vendor;
+    uint16_t device;
+};
+
+struct PACKED pci_device_class {
+    uint8_t interface;
+    uint8_t subclass;
+    uint8_t class;
+};
+
 #define PCI_DEVICE_ID(_vendor, _device) \
-    ((pci_device_id_t){.vendor = _vendor, .device = _device})
+    ((struct pci_device_id){.vendor = _vendor, .device = _device})
+
+#define PCI_CLASS(_class, _subclass, _interface) \
+    ((struct pci_device_class){                       \
+        .class = _class, .subclass = _subclass, .interface = _interface})
+
+/* Value used by device classes that do not use the interface field. */
+#define PCI_CLASS_IFACE_EMPTY 0xff
+
+#define PCI_CLASS_NOIFACE(_class, _subclass) \
+    PCI_CLASS(_class, _subclass, PCI_CLASS_IFACE_EMPTY)
+
+struct pci_compatible {
+    struct pci_device_id id;
+    struct pci_device_class class;
+};
 
 /** Per-bus driver struct for PCI drivers
  *  @see device_driver
  */
 struct pci_driver {
     struct device_driver driver;
-    const struct pci_device_id *compatible; /** NULL terminated array */
+    const struct pci_compatible *compatible; /** NULL terminated array */
 };
 
 /** A PCI bus */
@@ -44,9 +70,10 @@ struct pci_device {
 
     struct device device;
 
-    u8 number;           ///< The device number on its bus
-    struct pci_bus *bus; ///< The bus to which the device is connected
-    pci_device_id_t id;  ///< The PCI device's vendor/device ID
+    u8 number;                     ///< The device number on its bus
+    struct pci_bus *bus;           ///< The bus to which the device is connected
+    struct pci_device_id id;       ///< The PCI device's vendor/device ID
+    struct pci_device_class class; /// The PCI device's class code
 
     u8 interrupt_line; ///< The PIC interrupt number used by the PCI device
     interrupt_handler interrupt_handler; ///< The interrupt handler routine
