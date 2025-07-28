@@ -78,4 +78,22 @@ static ALWAYS_INLINE void hlt(void)
 {
     ASM("hlt");
 }
+
+static ALWAYS_INLINE void insb(uint16_t port, uint8_t *buffer, size_t size)
+{
+    ASM("cld; rep insb" ::"D"(buffer), "d"(port), "c"(size) : "memory");
+}
+
+static ALWAYS_INLINE void insw(uint16_t port, uint16_t *buffer, size_t size)
+{
+    ASM("cld; rep insw" ::"D"(buffer), "d"(port),
+        "c"(size / sizeof(uint16_t)) : "memory");
+}
+
+static ALWAYS_INLINE void insl(uint16_t port, uint32_t *buffer, size_t size)
+{
+    ASM("cld; rep insl" ::"D"(buffer), "d"(port),
+        "c"(size / sizeof(uint32_t)) : "memory");
+}
+
 #endif /* KERNEL_I686_UTILS_CPU_OPS_H */

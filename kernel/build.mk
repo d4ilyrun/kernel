@@ -52,7 +52,9 @@ KERNEL_SRCS := 	\
 	devices/driver.c \
 	devices/acpi.c \
 	devices/pci.c \
+	devices/block.c \
 	devices/ethernet.c \
+	devices/ata.c \
 	devices/rtl8139.c
 
 KERNEL_OBJS += $(addsuffix .o, $(addprefix $(BUILD_DIR)/$(KERNEL_DIR)/,$(KERNEL_SRCS)))
@@ -81,6 +83,8 @@ iso: $(KERNEL_ISO)
 
 QEMU_TAP_IF ?= tap0
 QEMU_HAS_TAP := $(shell ip link show $(QEMU_TAP_IF) &> "/dev/null"; echo "$$?")
+
+QEMU_ARGS += -drive format=raw,file=$(BUILD_DIR)/loop.img,if=ide,index=0,media=disk
 
 ifeq ($(QEMU_HAS_TAP),0)
 # - RTL8139 NIC connected to a tap interface for easy dummping (also dumped into file)

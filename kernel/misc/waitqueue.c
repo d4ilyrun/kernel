@@ -27,10 +27,10 @@ void waitqueue_enqueue_locked(struct waitqueue *queue, struct thread *thread)
         queue_enqueue(&queue->queue, &thread->this);
         /* Release the lock held by the caller BEFORE rescheduling */
         spinlock_release(&queue->lock);
-    }
 
-    if (thread == current)
-        schedule_preempt();
+        if (thread == current)
+            schedule_preempt();
+    }
 }
 
 const struct thread *waitqueue_peek(struct waitqueue *queue)

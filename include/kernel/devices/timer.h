@@ -98,4 +98,10 @@ static inline void clock_get_time(struct timespec *time)
  */
 void timer_wait_ms(time_t);
 
+/*
+ * Wait for a certain amount of time.
+ * Can be used in an uninterruptible or non-preemptible context.
+ */
+void timer_delay_ms(time_t);
+
 #endif /* KERNEL_DEVICES_TIMER_H */

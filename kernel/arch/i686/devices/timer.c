@@ -131,6 +131,14 @@ void timer_wait_ms(time_t ms)
     sched_block_thread(current);
 }
 
+void timer_delay_ms(time_t us)
+{
+    const clock_t start = timer_ticks_counter;
+    const clock_t end = start + MS_TO_TICKS(us);
+
+    WAIT_FOR (timer_ticks_counter >= end);
+}
+
 clock_t timer_gettick(void)
 {
     return timer_ticks_counter;
