@@ -6,13 +6,15 @@
 
 #define PCI_HEADER_ID_OFFSET 0x0
 #define PCI_HEADER_ID_SIZE sizeof(uint32_t)
-#define PCI_HEADER_TYPE_OFFSET 0xE
-#define PCI_HEADER_TYPE_SIZE sizeof(uint8_t)
-#define PCI_HEADER_BAR_OFFSET(_bar) (0x10 + (_bar)*PCI_HEADER_BAR_SIZE)
-#define PCI_HEADER_BAR_SIZE sizeof(uint32_t)
-
 #define PCI_HEADER_COMMAND_OFFSET 0x4
 #define PCI_HEADER_COMMAND_SIZE sizeof(uint16_t)
+#define PCI_HEADER_CLASS_CODE_OFFSET 0x9
+#define PCI_HEADER_CLASS_CODE_SIZE (3 * sizeof(uint8_t))
+#define PCI_HEADER_TYPE_OFFSET 0xE
+#define PCI_HEADER_TYPE_SIZE sizeof(uint8_t)
+
+#define PCI_HEADER_BAR_OFFSET(_bar) (0x10 + (_bar)*PCI_HEADER_BAR_SIZE)
+#define PCI_HEADER_BAR_SIZE sizeof(uint32_t)
 
 #define PCI_HEADER_BRIDGE_OFFSET 0x18
 #define PCI_HEADER_BRIDGE_SIZE (3 * sizeof(uint8_t))
