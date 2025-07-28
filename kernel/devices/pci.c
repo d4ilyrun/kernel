@@ -51,14 +51,22 @@ static bool pci_driver_match(const driver_t *drv, const device_t *dev)
 {
     const struct pci_driver *pci_drv = to_pci_drv(drv);
     const struct pci_device *pci_dev = to_pci_dev(dev);
-    struct pci_device_id *compatible;
+    const struct pci_compatible *compatible;
+    int i = 0;
 
-    for (int i = 0; compatible = &pci_drv->compatible[i],
-             compatible->vendor && compatible->device;
-         ++i) {
-        if ((compatible->vendor == pci_dev->id.vendor) &&
-            (compatible->device == pci_dev->id.device))
-            return true;
+    while (true) {
+        compatible = &pci_drv->compatible[i++];
+        if (compatible->id.device && compatible->id.vendor) {
+            if ((compatible->id.vendor == pci_dev->id.vendor) &&
+                (compatible->id.device == pci_dev->id.device))
+                return true;
+        } else if (compatible->class.class && compatible->class.subclass) {
+            if (compatible->class.class == pci_dev->class.class &&
+                compatible->class.subclass == pci_dev->class.subclass)
+                return true;
+        } else {
+            break;
+        }
     }
 
     return false;
@@ -82,6 +90,14 @@ pci_read_header_id(uint8_t bus, uint8_t device)
     pci_device_id_t id;
     id.raw = pci_read_header(bus, device, ID);
     return id;
+}
+
+static inline pci_device_class_t
+pci_read_header_class(uint8_t bus, uint8_t device)
+{
+    pci_device_class_t class;
+    class.raw = pci_read_header(bus, device, CLASS_CODE);
+    return class;
 }
 
 void pci_device_enable_io(struct pci_device *pdev, bool enable)
@@ -277,6 +293,7 @@ static error_t pci_device_probe(struct pci_device *device, pci_header_type type)
     error_t ret = E_SUCCESS;
 
     device->id = pci_read_header_id(bus->number, device->number);
+    device->class = pci_read_header_class(bus->number, device->number);
 
     switch (type & PCI_HEADER_TYPE_MASK) {
     case PCI_HEADER_TYPE_PCI_BRIDGE:

@@ -22,12 +22,20 @@
 #define PCI_DEVICE_ID(_vendor, _device) \
     ((pci_device_id_t){.vendor = _vendor, .device = _device})
 
+#define PCI_CLASS_CODE(_class, _subclass) \
+    ((pci_device_class_t){.class = _class, .subclass = _subclass})
+
+struct pci_compatible {
+    pci_device_id_t id;
+    pci_device_class_t class;
+};
+
 /** Per-bus driver struct for PCI drivers
  *  @see device_driver
  */
 struct pci_driver {
     struct device_driver driver;
-    const pci_device_id_t *compatible; /** NULL terminated array */
+    const struct pci_compatible *compatible; /** NULL terminated array */
 };
 
 /** A PCI bus */
@@ -44,9 +52,10 @@ struct pci_device {
 
     struct device device;
 
-    u8 number;           ///< The device number on its bus
-    struct pci_bus *bus; ///< The bus to which the device is connected
-    pci_device_id_t id;  ///< The PCI device's vendor/device ID
+    u8 number;                ///< The device number on its bus
+    struct pci_bus *bus;      ///< The bus to which the device is connected
+    pci_device_id_t id;       ///< The PCI device's vendor/device ID
+    pci_device_class_t class; /// The PCI device's class code
 
     u8 interrupt_line; ///< The PIC interrupt number used by the PCI device
     interrupt_handler interrupt_handler; ///< The interrupt handler routine
