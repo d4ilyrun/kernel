@@ -43,6 +43,7 @@ static const struct syscall syscalls[SYSCALL_COUNT] = {
     DECLARE_SYSCALL(FSTAT, "fstat", sys_fstat, 2),
     DECLARE_SYSCALL(BRK, "brk", sys_brk, 1),
     DECLARE_SYSCALL(SBRK, "sbrk", sys_sbrk, 1),
+    DECLARE_SYSCALL(KILL, "kill", sys_kill, 2),
 };
 
 #define DO_SYSCALL_0(_syscall) (((u32(*)(void))_syscall)())

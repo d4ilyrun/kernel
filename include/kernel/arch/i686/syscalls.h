@@ -43,12 +43,13 @@ typedef enum syscall_nr {
     SYS_OPEN = 5,    /*!< open() */
     SYS_CLOSE = 6,   /*!< close() */
     SYS_LSEEK = 19,  /*!< lseek() */
-    SYS_GETPID = 20,  /*!< getpid() */
+    SYS_GETPID = 20, /*!< getpid() */
+    SYS_KILL = 37,   /*!< kill() */
     SYS_BRK = 45,    /*!< brk() */
     SYS_STAT = 106,  /*!< stat() */
     SYS_LSTAT = 107, /*!< lstat() */
     SYS_FSTAT = 108, /*!< fstat() */
-    SYS_SBRK = 463, /*!< lstat() */
+    SYS_SBRK = 463,  /*!< lstat() */
     SYSCALL_COUNT
 } syscall_nr;
 

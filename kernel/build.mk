@@ -23,6 +23,7 @@ KERNEL_SRCS := 	\
 	sys/syscalls.c \
 	sys/process.c \
 	sys/pci.c \
+	sys/signal.c \
 	misc/printk.c \
 	misc/logger.c \
 	misc/console.c \
