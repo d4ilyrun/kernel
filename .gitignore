@@ -1,6 +1,7 @@
 .cache
 build
 compile_commands.json
+.env
 
 *.tar
 *.tar.*
