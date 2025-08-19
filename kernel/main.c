@@ -491,7 +491,7 @@ void kernel_task_ping(void *data)
         log_info("request: seq=%d", ntoh(ping_request.sequence));
 
         err = file_send(fd, (void *)&ping_request, sizeof(ping_request), 0);
-        if (err) {
+        if (err < 0) {
             log_err("send: %s", err_to_str(err));
             continue;
         }
@@ -499,7 +499,7 @@ void kernel_task_ping(void *data)
         timer_wait_ms(1000);
 
         err = file_recv(fd, (void *)&ping_reply, sizeof(ping_reply), 0);
-        if (err) {
+        if (err < 0) {
             log_err("recv: %s", err_to_str(err));
             continue;
         }
