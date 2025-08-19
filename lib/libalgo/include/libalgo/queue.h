@@ -55,11 +55,20 @@ static inline const node_t *queue_peek(const queue_t *queue)
     return llist_first(queue);
 }
 
-/* Enqueue a list of elements */
+/** Insert all the elements of a list into a queue.
+ *
+ *  After this operation, @c elements is empty.
+ */
 static inline void queue_enqueue_all(queue_t *queue, llist_t *elements)
 {
-    llist_head(queue)->prev = llist_last(elements);
-    llist_last(elements)->next = llist_head(queue);
+    if (llist_is_empty(elements))
+        return;
+
     llist_first(elements)->prev = llist_last(queue);
     llist_last(queue)->next = llist_first(elements);
+
+    llist_last(elements)->next = llist_head(queue);
+    llist_head(queue)->prev = llist_last(elements);
+
+    INIT_LLIST(*elements);
 }

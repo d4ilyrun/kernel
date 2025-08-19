@@ -127,7 +127,6 @@ static void __ethernet_device_receive_packet(void *cookie)
     no_preemption_scope () {
         INIT_QUEUE(queue);
         queue_enqueue_all(&queue, &netdev->rx_queue);
-        INIT_QUEUE(netdev->rx_queue);
     }
 
     while (!queue_is_empty(&queue)) {
