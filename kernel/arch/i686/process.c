@@ -25,13 +25,29 @@ arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data)
 {
     segment_selector ds = {.index = GDT_ENTRY_USER_DATA, .rpl = 3};
     segment_selector cs = {.index = GDT_ENTRY_USER_CODE, .rpl = 3};
+    void *ustack_bottom = thread_get_user_stack(current);
+    void *stack_pointer;
 
     UNUSED(data);
 
-    /* Reset user stack */
-    memset(thread_get_user_stack(current), 0, KERNEL_STACK_SIZE);
-    __arch_thread_jump_to_userland(entrypoint, cs, ds,
-                                   (vaddr_t)thread_get_user_stack_top(current));
+    stack_pointer = thread_get_stack_pointer(current);
+
+    /*
+     * We are guaranteed that the thread's stack pointer has been set here
+     * because:
+     * 1. Only user threads can use this entrypoint
+     * 2. User threads can only be created through forking/cloning, which
+     *    copies the original thread's stack pointer on creation.
+     */
+
+    if (unlikely(!IN_RANGE(stack_pointer, ustack_bottom,
+                           ustack_bottom + USER_STACK_SIZE))) {
+        log_err("%d: starting stack pointer address is outside the user stack",
+                current->tid);
+        thread_kill(current);
+    }
+
+    __arch_thread_jump_to_userland(entrypoint, cs, ds, (vaddr_t)stack_pointer);
 
     assert_not_reached();
 }
