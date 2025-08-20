@@ -495,18 +495,17 @@ void thread_kill(thread_t *thread)
 
 static void __process_execute_in_userland(void *data)
 {
-    const char *exec_path = data;
-    struct file *exec_file;
+    struct exec_params params;
     error_t err;
 
-    exec_file = vfs_open(exec_path, O_RDONLY);
-    if (IS_ERR(exec_file)) {
-        log_err("%s: failed to open executable (%s)", current->process->name,
-                err_to_str(ERR_FROM_PTR(exec_file)));
-        return;
-    }
+    params.exec_path = data;
+    params.argv = data;
+    params.argv_size = strlen(data) + 1;
+    params.envp = NULL;
+    params.envp_size = 0;
+    params.argc = 1;
 
-    err = execfmt_execute(exec_file);
+    err = execfmt_execute(&params);
     if (err) {
         log_err("%s: failed to execute (%s)", current->process->name,
                 err_to_str(err));
@@ -519,8 +518,6 @@ static void __process_execute_in_userland(void *data)
 struct thread *process_execute_in_userland(const char *exec_path)
 {
     struct thread *thread;
-    path_segment_t segment;
-    path_t path;
 
     if (!vfs_exist(exec_path))
         return PTR_ERR(E_NOENT);
@@ -529,14 +526,6 @@ struct thread *process_execute_in_userland(const char *exec_path)
                          (void *)exec_path);
     if (IS_ERR(thread))
         return thread;
-
-    /*
-     * Rename the new userland process to match the name of the executable file.
-     */
-    path = NEW_DYNAMIC_PATH(exec_path);
-    path_walk_last(&path, &segment);
-    process_set_name(thread->process, segment.start,
-                     path_segment_length(&segment));
 
     sched_new_thread(thread);
 
