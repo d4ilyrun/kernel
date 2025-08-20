@@ -142,6 +142,7 @@ error_t execfmt_execute(const struct exec_params *params)
     error_t ret = E_SUCCESS;
     void *content;
     void *ustack;
+    bool can_return = true;
     path_segment_t segment;
     path_t path;
 
@@ -182,6 +183,8 @@ error_t execfmt_execute(const struct exec_params *params)
         log_err("failed to clear address space: %s", err_to_str(ret));
         goto release_executable;
     }
+
+    can_return = false;
 
     ret = address_space_init(current->process->as);
     if (ret) {
@@ -229,5 +232,11 @@ release_executable:
 
 release_executable_file:
     file_put(exec_file);
+
+    if (!can_return) {
+        thread_kill(current);
+        assert_not_reached();
+    }
+
     return ret;
 }
