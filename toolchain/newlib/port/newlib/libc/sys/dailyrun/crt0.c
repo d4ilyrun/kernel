@@ -1,11 +1,11 @@
 #include <unistd.h>
 
-extern int main(int argc, char **argv);
+extern int main(int argc, char **argv, char **envp);
 
 extern char _edata;
 extern char _end;
 
-void _start(void)
+void _start(int argc, char **argv, char **envp)
 {
     char *bss;
     int ret;
@@ -15,6 +15,6 @@ void _start(void)
     while (bss < &_end)
         *bss++ = 0;
 
-    ret = main(0, NULL);
+    ret = main(argc, argv, envp);
     _exit(ret);
 }
