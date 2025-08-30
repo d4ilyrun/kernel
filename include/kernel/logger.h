@@ -115,11 +115,13 @@ void log_set_level(enum log_level);
     } while (0)
 
 #define WARN_ON_MSG(_cond, _msg, ...) \
-    do {                              \
-        if (unlikely((_cond))) {      \
+    ({                                \
+        bool __cond = !!(_cond);      \
+        if (unlikely(__cond)) {       \
             WARN(_msg, __VA_ARGS__);  \
         }                             \
-    } while (0)
+        unlikely(__cond);             \
+    })
 
 #define WARN_ON(_cond) WARN_ON_MSG((_cond), stringify(_cond))
 
