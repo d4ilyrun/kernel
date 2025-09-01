@@ -25,6 +25,10 @@
 
 #include <libalgo/linked_list.h>
 
+#define EXECFMT_ARGS_BUFFER_SIZE (4 * PAGE_SIZE)
+#define EXECFMT_MAX_ARGS 8192 /* Max number of arguments */
+#define EXECFMT_MAX_ARG_SIZE (PAGE_SIZE) /* Max size of a single arg */
+
 struct executable;
 struct file;
 
@@ -58,11 +62,10 @@ struct executable {
  */
 struct exec_params {
     const char *exec_path;
-    int argc;
-    const char *argv; /*!< Contains the concatenated argument strings */
-    size_t argv_size; /*!< Total size of the @argv buffer */
-    const char *envp; /*!< Contains the concatenated environnement variables */
-    size_t envp_size; /*!< Total size of the @envp buffer */
+    char *const *argv; /*!< Contains the string array of arguments */
+    size_t argc;       /*!< Total size of the @argv buffer */
+    char *const *envp; /*!< Contains the environnement variables */
+    size_t envpc; /*!< Total size of the @envp buffer */
 };
 
 /** Register a new executable file format */
@@ -75,7 +78,7 @@ error_t execfmt_register(struct execfmt *);
  * loaded into memory. If any of these steps fail, this
  * function returns the failing step's error value.
  */
-error_t execfmt_execute(const struct exec_params *);
+error_t execfmt_execute(struct exec_params *);
 
 #endif /* KERNEL_EXECFMT_H */
 
