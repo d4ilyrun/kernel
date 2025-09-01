@@ -42,6 +42,7 @@ typedef enum syscall_nr {
     SYS_WRITE = 4,   /*!< write() */
     SYS_OPEN = 5,    /*!< open() */
     SYS_CLOSE = 6,   /*!< close() */
+    SYS_EXECVE = 11,  /*!< execve() */
     SYS_LSEEK = 19,  /*!< lseek() */
     SYS_GETPID = 20, /*!< getpid() */
     SYS_KILL = 37,   /*!< kill() */

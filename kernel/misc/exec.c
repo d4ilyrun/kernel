@@ -380,3 +380,34 @@ release_executable_file:
 
     return ret;
 }
+
+static size_t execfmt_count_args(char * const args[])
+{
+    for (size_t count = 0; count <= EXECFMT_MAX_ARGS; ++count) {
+        if (args[count] == NULL)
+            return count;
+    }
+
+    return EXECFMT_MAX_ARGS + 1;
+}
+
+int sys_execve(const char *path, char *const argv[], char *const envp[])
+{
+    struct exec_params params;
+    error_t ret;
+
+    params.exec_path = path;
+    params.argv = argv;
+    params.argc = execfmt_count_args(argv);
+    params.envp = envp;
+    params.envpc = execfmt_count_args(envp);
+
+    if (params.argc > EXECFMT_MAX_ARGS || params.envpc > EXECFMT_MAX_ARGS)
+        return -E_TOO_BIG;
+
+    ret = execfmt_execute(&params);
+    if (ret)
+        return -ret;
+
+    return 0;
+}
