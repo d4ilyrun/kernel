@@ -48,5 +48,6 @@ int sys_fstat(int fd, struct stat *buf);
 int sys_kill(pid_t, int signal);
 int sys_brk(void *);
 void *sys_sbrk(intptr_t);
+int sys_execve(const char *, char * const[], char * const[]);
 
 #endif /* KERNEL_SYSCALLS_H */

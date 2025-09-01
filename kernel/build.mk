@@ -30,7 +30,7 @@ KERNEL_SRCS := 	\
 	misc/console.c \
 	misc/symbols.c \
 	misc/error.c \
-	misc/execfmt.c \
+	misc/exec.c \
 	misc/elf32.c \
 	misc/waitqueue.c \
 	misc/worker.c \
