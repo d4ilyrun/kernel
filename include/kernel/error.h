@@ -30,6 +30,7 @@ typedef enum error {
     E_PERM = 1,                  ///< Operation not permitted
     E_NOENT = 2,                 ///< Entry not found
     E_IO = 5,                    ///< I/O error
+    E_TOO_BIG = 7,               ///< Arg list too long
     E_WOULD_BLOCK = 11,          ///< Resource temporarily unavailable
     E_NOMEM = 12,                ///< Out of memory
     E_BUSY = 16,                 ///< Device or resource busy

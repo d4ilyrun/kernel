@@ -8,6 +8,7 @@ static const char *const ERROR_DESCRIPTIONS[E_TOTAL_COUNT] = {
     [E_PERM] = "Operation not permitted",
     [E_NOENT] = "Entry not found",
     [E_IO] = "I/O error",
+    [E_TOO_BIG] = "Arg list too long",
     [E_WOULD_BLOCK] = "Resource temporarily unavailable",
     [E_BUSY] = "Device or resource already in use",
     [E_EXIST] = "File exists",

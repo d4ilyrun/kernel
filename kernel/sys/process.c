@@ -497,14 +497,15 @@ void thread_kill(thread_t *thread)
 static void __process_execute_in_userland(void *data)
 {
     struct exec_params params;
+    char * const argv[] = { data, NULL };
+    char * const envp[] = { NULL };
     error_t err;
 
     params.exec_path = data;
-    params.argv = data;
-    params.argv_size = strlen(data) + 1;
-    params.envp = NULL;
-    params.envp_size = 0;
+    params.argv = argv;
     params.argc = 1;
+    params.envp = envp;
+    params.envpc = 0;
 
     err = execfmt_execute(&params);
     if (err) {

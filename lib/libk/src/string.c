@@ -11,6 +11,16 @@ size_t strlen(const char *str)
     return len;
 }
 
+size_t strnlen(const char *str, size_t max_len)
+{
+    size_t len = 0;
+
+    while (max_len-- && *str++)
+        len += 1;
+
+    return len;
+}
+
 char *strncpy(char *dst, const char *src, size_t n)
 {
     for (size_t i = 0; i < n; ++i) {
