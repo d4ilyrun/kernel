@@ -1,3 +1,61 @@
+/*
+ * Process & threads implementation.
+ *
+ * ## Threads
+ *
+ * Threads can be created in 2 ways:
+ *
+ * - Forking creates the initial thread along with the new process. This thread
+ *   will always be a user one.
+ *
+ * - thread_spawn() is the lower level function, responsible for creating
+ *   inividual threads. It is called by thread_fork(), but can also be called
+ *   manually by the kernel to create kernel threads.
+ *
+ * User threads can only be killed manually by the kernel, or when killing the
+ * containing process. The kernel kills kernell threads through thread_kill().
+ *
+ * Each thread is allocated a personal kernel stack during creation, which will
+ * be used when running in kernel context. User threads inherit their user stack
+ * from the forked process (through the CoW mechanism). Kernel threads never
+ * run in userland and do not require a userland stack, so they share a common
+ * user-stack, allocated at startup and inherited by the init process (which
+ * is forked from the initial kernel process).
+ *
+ * ## Processes
+ *
+ * Processes can only be created by forking the current running process.
+ * This is also the case for the init process, which is forked from the initial
+ * kernel process (which is provided with a dummy user-stack for this purpose).
+ *
+ * Processes can only be killed in 2 ways:
+ *
+ *  - process_kill() is called when the process calls the exit() syscall.
+ *
+ *  - By the kernel when the process raises an exception or receives a signal
+ *    whose default action is to kill the process (TODO).
+ *
+ * ### Kernel process
+ *
+ * There exists a single kernel process (called ... kernel_process), declared
+ * as a global variable. This process is the parent to all kernel threads. It
+ * comes with its own address space, from which the mappings are shared with
+ * every other processes in the system to be used when jumping in kernel mode.
+ *
+ * ### Delay
+ *
+ * In both cases, the actual killing of the process is delayed until all its
+ * threads have been removed. The process_kill() function simply mark
+ * all of the process's threads as SCHED_KILLED, so that they are removed and
+ * freed the next time they are scheduled (see thread_switch()).
+ *
+ * All threads hold a reference to their process, and the process is killed
+ * when releasing the last one of them (see process_put()).
+ *
+ * - Process waiting: The process should not be killed immediatly and should
+ *                    instead be put in a zombie state.
+ */
+
 #define LOG_DOMAIN "process"
 
 #include <kernel/error.h>
