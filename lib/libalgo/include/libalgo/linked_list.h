@@ -71,6 +71,16 @@ typedef struct linked_list_head {
     for (node_t *_name = llist_first(_list); _name != llist_head(_list); \
          _name = llist_next(_name))
 
+/** Loop over each element inside a linked list
+ *
+ *  @param _name The name of the current node
+ *  @param _list The head of the linked list
+ */
+#define FOREACH_LLIST_ENTRY(_name, _list, _field)                        \
+    for (_name = llist_entry(llist_first(_list), typeof(*_name), _field); \
+         &_name->_field != llist_head(_list); \
+         _name = llist_entry(llist_next(&_name->_field), typeof(*_name), _field))
+
 /** Loop over each element inside a linked list in a safer way
  *
  *  The next element in the list is stored each time, letting us freely release
@@ -132,6 +142,11 @@ static inline node_t *llist_prev(const node_t *entry)
 {
     return entry->prev;
 }
+
+/**
+ * Return the struct containing this list node.
+ */
+#define llist_entry(ptr, type, member) container_of(ptr, type, member)
 
 /** @return Whether a list is empty */
 static PURE inline bool llist_is_empty(const llist_t *list)
