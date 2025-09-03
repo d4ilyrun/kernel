@@ -87,7 +87,10 @@ struct process {
 
     struct address_space *as; /*!< The process's address space */
 
-    llist_t threads; /*!< Linked list of the process' active threads */
+    llist_t threads;        /*!< Linked list of the process' active threads */
+    llist_t children;       /*!< Linked list of the process' active children */
+    node_t this;            /*< Node inside the parent's list of children */
+
     size_t refcount; /*!< Reference count to this process.
                          We only kill a process once all of its threads have
                          been released. */

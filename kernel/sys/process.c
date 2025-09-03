@@ -164,7 +164,14 @@ static pid_t process_next_pid(void)
  */
 static void process_free(struct process *process)
 {
+    struct process *child;
+
     log_info("freeing process: %s", process->name);
+
+    if (process == init_process)
+        PANIC("Trying to kill the init process.");
+
+    llist_remove(&process->this);
 
     /*
      * Release all open files.
@@ -186,13 +193,15 @@ static void process_free(struct process *process)
      *   be transformed into a zombie and its status kept until its parent
      *   calls wait.
      *
-     * - The parent process ID of all of the calling process' existing child
-     *   processes and zombie processes shall be set to the process ID
-     *   of an implementation-defined system process. That is, these processes
-     *   shall be inherited by a special system process.
-     *
      * - a SIGCHLD shall be sent to the parent process.
      */
+
+    /* Attach all orphans to the init process. */
+    FOREACH_LLIST_ENTRY(child, &process->children, this) {
+        locked_scope(&child->lock) {
+            llist_add(&init_process->children, &child->this);
+        }
+    }
 
     kfree(process);
 }
@@ -242,6 +251,7 @@ static struct process *process_new(void)
     INIT_SPINLOCK(process->files_lock);
     INIT_SPINLOCK(process->lock);
     INIT_LLIST(process->threads);
+    INIT_LLIST(process->children);
 
     return process;
 }
@@ -292,6 +302,7 @@ void process_init_kernel_process(void)
     error_t err;
 
     INIT_LLIST(kernel_process.threads);
+    INIT_LLIST(kernel_process.children);
     INIT_SPINLOCK(kernel_process.lock);
     INIT_SPINLOCK(kernel_process.files_lock);
 
@@ -643,6 +654,9 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
         err = E_NOMEM;
         goto process_destroy;
     }
+
+    locked_scope(&current->process->lock)
+        llist_add(&current->process->children, &new_process->this);
 
     /*
      * Duplicate the current thread's stack.
