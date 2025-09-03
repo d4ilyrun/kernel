@@ -267,6 +267,8 @@ static inline void llist_add_tail(llist_t *list, node_t *new)
 static inline node_t *llist_remove(node_t *node)
 {
     __list_remove(node->prev, node->next);
+    node->next = node;
+    node->prev = node;
     return node;
 }
 
