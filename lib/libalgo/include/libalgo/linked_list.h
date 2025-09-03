@@ -17,6 +17,7 @@
 
 #include <kernel/types.h>
 
+#include <utils/container_of.h>
 #include <utils/compiler.h>
 
 /**
@@ -106,6 +107,60 @@ typedef struct linked_list_head {
     for (node_t *_name = llist_last(_list), *_tmp = llist_prev(_name); \
          _name != llist_head(_list); _name = _tmp, _tmp = llist_prev(_tmp))
 
+/** Loop over each entry inside a linked list
+ *
+ *  @param _entry The variable used to store the entry
+ *  @param _list  The head of the linked list
+ *  @param _field The name of the node field inside the entry's structure
+ */
+#define FOREACH_LLIST_ENTRY(_entry, _list, _field)                          \
+    for (_entry = llist_entry(llist_first(_list), typeof(*_entry), _field); \
+         &_entry->_field != llist_head(_list);                              \
+         _entry = llist_entry(llist_next(&_entry->_field), typeof(*_entry), \
+                              _field))
+
+/** Loop over each entry inside a linked list in a safer manner
+ *
+ *  @param _entry The variable used to store the entry
+ *  @param _tmp   The variable used to store the temporary entry
+ *  @param _list  The head of the linked list
+ *  @param _field The name of the node field inside the entry's structure
+ */
+#define FOREACH_LLIST_ENTRY_SAFE(_entry, _tmp, _list, _field)                 \
+    for (_entry = llist_entry(llist_first(_list), typeof(*_entry), _field),   \
+        _tmp =                                                                \
+             llist_entry(llist_next(&_entry->_field), typeof(*_tmp), _field); \
+         &_entry->_field != llist_head(_list);                                \
+         _entry = _tmp, _tmp = llist_entry(llist_next(&_tmp->_field),         \
+                                           typeof(*_entry), _field))
+
+/** Loop over each entry inside a linked list in reverse order
+ *
+ *  @param _entry The variable used to store the entry
+ *  @param _list  The head of the linked list
+ *  @param _field The name of the node field inside the entry's structure
+ */
+#define FOREACH_LLIST_ENTRY_REVERSE(_entry, _list, _field)                  \
+    for (_entry = llist_entry(llist_last(_list), typeof(*_entry), _field);  \
+         &_entry->_field != llist_head(_list);                              \
+         _entry = llist_entry(llist_prev(&_entry->_field), typeof(*_entry), \
+                              _field))
+
+/** Loop over each entry inside a linked list in reverse order in a safer manner
+ *
+ *  @param _entry The variable used to store the entry
+ *  @param _tmp   The variable used to store the temporary entry
+ *  @param _list  The head of the linked list
+ *  @param _field The name of the node field inside the entry's structure
+ */
+#define FOREACH_LLIST_ENTRY_REVERSE_SAFE(_entry, _tmp, _list, _field)         \
+    for (_entry = llist_entry(llist_last(_list), typeof(*_entry), _field),    \
+        _tmp =                                                                \
+             llist_entry(llist_prev(&_entry->_field), typeof(*_tmp), _field); \
+         &_entry->_field != llist_head(_list);                                \
+         _entry = _tmp, _tmp = llist_entry(llist_prev(&_tmp->_field),         \
+                                           typeof(*_entry), _field))
+
 /** @return the given list's head */
 #define llist_head(_list) (&(_list)->head)
 
@@ -132,6 +187,11 @@ static inline node_t *llist_prev(const node_t *entry)
 {
     return entry->prev;
 }
+
+/**
+ * Return the struct containing this list node.
+ */
+#define llist_entry(ptr, type, member) container_of(ptr, type, member)
 
 /** @return Whether a list is empty */
 static PURE inline bool llist_is_empty(const llist_t *list)
