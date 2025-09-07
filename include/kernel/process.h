@@ -69,6 +69,7 @@ typedef void (*thread_entry_t)(void *data);
 typedef enum thread_state {
     SCHED_RUNNING, ///< Currently running (or ready to run)
     SCHED_WAITING, ///< Currently waiting for a resource (timer, lock ...)
+    SCHED_ZOMBIE,  ///< Thread waiting to be collected by its parent process.
     SCHED_KILLED,  ///< The thread has been killed waiting to be destroyed
 } thread_state_t;
 

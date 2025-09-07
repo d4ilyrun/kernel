@@ -60,7 +60,7 @@ static void schedule_locked(bool preempt, bool reschedule)
     thread_t *next = container_of(next_node, thread_t, this);
 
     if (reschedule) {
-        if (current->state != SCHED_WAITING)
+        if (current->state != SCHED_WAITING && current->state != SCHED_ZOMBIE)
             queue_enqueue(&scheduler.ready, &current->this);
     }
 

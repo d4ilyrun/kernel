@@ -49,11 +49,9 @@
  * all of the process's threads as SCHED_KILLED, so that they are removed and
  * freed the next time they are scheduled (see thread_switch()).
  *
- * All threads hold a reference to their process, and the process is killed
- * when releasing the last one of them (see process_put()).
- *
- * - Process waiting: The process should not be killed immediatly and should
- *                    instead be put in a zombie state.
+ * All threads hold a reference to their process. Once the reference count
+ * reaches 0 the process is released and made a zombie, waiting for its parent
+ * to collect it (by calling wait(), see process_collect_zombie()).
  */
 
 #define LOG_DOMAIN "process"
@@ -153,7 +151,25 @@ static pid_t process_next_pid(void)
     return pid;
 }
 
-/** Free all resources currently held by a process.
+/*
+ * Collect and free a zombie child process.
+ *
+ * @return true if no other waiting thread remains.
+ */
+static void process_collect_zombie(struct process *zombie)
+{
+    if (WARN_ON(READ_ONCE(zombie->state) != SCHED_ZOMBIE))
+        return;
+
+    WRITE_ONCE(zombie->state, SCHED_KILLED);
+    llist_remove(&zombie->this);
+
+    kfree(zombie);
+}
+
+/**
+ * Free all resources currently held by a process before it can be collected
+ * by its parent.
  *
  * This is the core of the process_kill() function. It is called once
  * all of the process' threads have been killed. This should never be called
@@ -162,7 +178,7 @@ static pid_t process_next_pid(void)
  *
  * @see process_get() process_put()
  */
-static void process_free(struct process *process)
+static void process_make_zombie(struct process *process)
 {
     struct process *child;
 
@@ -171,7 +187,9 @@ static void process_free(struct process *process)
     if (process == init_process)
         PANIC("Trying to kill the init process.");
 
-    llist_remove(&process->this);
+    spinlock_acquire(&process->lock);
+
+    WRITE_ONCE(process->state, SCHED_ZOMBIE);
 
     /*
      * Release all open files.
@@ -185,25 +203,19 @@ static void process_free(struct process *process)
 
     address_space_destroy(process->as);
 
-    /*
-     * TODO:
-     *
-     * - If the parent process is calling wait, it shall be notified
-     *   of the calling process' termination, else the calling process should
-     *   be transformed into a zombie and its status kept until its parent
-     *   calls wait.
-     *
-     * - a SIGCHLD shall be sent to the parent process.
-     */
-
     /* Attach all orphans to the init process. */
-    FOREACH_LLIST_ENTRY(child, &process->children, this) {
-        locked_scope(&child->lock) {
+    FOREACH_LLIST_ENTRY(child, &process->children, this)
+    {
+        locked_scope (&child->lock) {
             llist_add(&init_process->children, &child->this);
         }
     }
 
-    kfree(process);
+    spinlock_release(&process->lock);
+
+    /*
+     * TODO: a SIGCHLD shall be sent to the parent process.
+     */
 }
 
 static struct process *process_get(struct process *process)
@@ -223,7 +235,7 @@ static struct process *process_put(struct process *process)
     process->refcount -= 1;
 
     if (process->refcount == 0) {
-        process_free(process);
+        process_make_zombie(process);
         return NULL;
     }
 
@@ -491,8 +503,6 @@ static void thread_free(thread_t *thread)
         PANIC("thread %d tried to kill itself", thread->tid);
 
     no_preemption_scope () {
-
-        llist_remove(&thread->proc_this);
         vm_free(&kernel_address_space, thread_get_kernel_stack(thread));
 
         /* initial thread is statically allocated so we can't kfree() it. */
@@ -543,7 +553,6 @@ static void thread_kill_locked(thread_t *thread)
     if (llist_is_empty(&process->threads)) {
         arch_process_clear(process);
         address_space_clear(process->as);
-        process->state = SCHED_KILLED;
     }
 
     /*
