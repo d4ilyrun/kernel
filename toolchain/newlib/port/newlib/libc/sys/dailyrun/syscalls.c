@@ -73,6 +73,7 @@ DEFINE_SYSCALL_0(int, fork, 2);
 DEFINE_SYSCALL_3(int, read, 3, int, char *, int);
 DEFINE_SYSCALL_3(int, write, 4, int, const char *, int);
 DEFINE_SYSCALL_1(int, close, 6, int);
+DEFINE_SYSCALL_3(pid_t, waitpid, 7, pid_t, int *, int);
 DEFINE_SYSCALL_3(int, execve, 11, char *, char *const *, char *const *);
 DEFINE_SYSCALL_3(int, lseek, 19, int, int, int);
 DEFINE_SYSCALL_0(pid_t, getpid, 20);
@@ -127,9 +128,13 @@ void *_sbrk(intptr_t increment)
     return old_brk;
 };
 
+pid_t _wait(int *status)
+{
+    return _waitpid(-1, status, 0);
+}
+
 /* Unimplemented syscalls */
 int link(char *old, char *new);
 clock_t times(struct tms *buf);
 int unlink(char *name);
-int wait(int *status);
 int gettimeofday(struct timeval *p, void *z);

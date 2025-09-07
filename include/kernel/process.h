@@ -105,7 +105,7 @@ struct process {
     spinlock_t files_lock; /*!< Lock for @ref open_files */
 
     thread_state_t state;
-    int exit_status; /** Transmitted to the parent process during wait() */
+    uint8_t exit_status; /** Transmitted to the parent process during wait() */
 
     spinlock_t lock;
 };
