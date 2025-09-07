@@ -73,6 +73,9 @@
 #include <libalgo/linked_list.h>
 #include <utils/container_of.h>
 
+#include <limits.h>
+#include <sys/wait.h>
+
 /** Reserved PID for the kernel process */
 #define PROCESS_KERNEL_PID 0
 
@@ -714,4 +717,66 @@ void sys_exit(int status)
 pid_t sys_getpid(void)
 {
     return current->process->pid;
+}
+
+/*
+ * TODO: waitpid(): hande signals
+ */
+pid_t sys_waitpid(pid_t pid, int *stat_loc, int options)
+{
+    struct process *process = current->process;
+    struct process *child;
+    pid_t child_pid;
+    uint8_t signo = 0;
+    bool exists;
+    bool found;
+
+    /*
+     * TODO:
+     *
+     * pid == 0: any child whose group id s equal to that of the calling process
+     * pid < -1: any child whose group id s equal to the abs() of pid
+     */
+    if (pid < -1 || pid == 0) {
+        not_implemented("wait GID pid");
+        return -E_INVAL;
+    }
+
+    if (pid == INT_MIN)
+        return -E_SRCH;
+
+    while (true) {
+        spinlock_acquire(&process->lock);
+        found = false;
+        FOREACH_LLIST_ENTRY(child, &process->children, this) {
+            if (child->pid == pid)
+                exists = true;
+            if (READ_ONCE(child->state) != SCHED_ZOMBIE)
+                continue;
+            if (pid > 0 && child->pid != pid)
+                continue;
+            found = true;
+            break;
+        }
+        spinlock_release(&process->lock);
+
+        if (found)
+            break;
+
+        if (pid > 0 && !exists)
+            return -E_CHILD;
+
+        if (options & WNOHANG)
+            return -E_SRCH;
+
+        schedule();
+    }
+
+    if (stat_loc)
+        *stat_loc = (child->exit_status << 8) | signo;
+
+    child_pid = child->pid;
+    process_collect_zombie(child);
+
+    return child_pid;
 }
