@@ -303,6 +303,14 @@ error_t execfmt_execute(struct exec_params *params)
         goto release_executable;
     }
 
+    /*
+     * Rename the new process to match the name of the executable file.
+     */
+    path = NEW_DYNAMIC_PATH(params->exec_path);
+    path_walk_last(&path, &segment);
+    process_set_name(current->process, segment.start,
+                     path_segment_length(&segment));
+
     ret = address_space_clear(current->process->as);
     if (ret) {
         log_err("failed to clear address space: %pe", &ret);
@@ -324,14 +332,6 @@ error_t execfmt_execute(struct exec_params *params)
             goto release_executable;
         }
     }
-
-    /*
-     * Rename the new process to match the name of the executable file.
-     */
-    path = NEW_DYNAMIC_PATH(params->exec_path);
-    path_walk_last(&path, &segment);
-    process_set_name(current->process, segment.start,
-                     path_segment_length(&segment));
 
     ustack = vm_alloc(current->process->as, USER_STACK_SIZE,
                       VM_USER_RW | VM_CLEAR);
