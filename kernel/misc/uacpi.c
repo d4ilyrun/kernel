@@ -71,7 +71,7 @@ void *uacpi_kernel_map(uacpi_phys_addr physical, uacpi_size len)
 void uacpi_kernel_unmap(void *addr, uacpi_size len)
 {
     UNUSED(len);
-    vm_free(&kernel_address_space, addr);
+    vm_free(&kernel_address_space, PAGE_ALIGN_DOWN(addr));
 }
 
 uacpi_status uacpi_kernel_raw_memory_read(uacpi_phys_addr address,
