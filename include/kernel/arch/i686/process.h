@@ -37,7 +37,14 @@ typedef struct x86_thread {
      */
     u32 esp_user;
 
-    u32 esp; ///< The current stack pointer of the thread
+    /**
+     * The thread's current stack pointer.
+     *
+     * This value is updated whenever:
+     * - An interrupt occurs while the thread is running
+     * - The thread is rescheduled
+     */
+    u32 esp;
 
 } thread_context_t;
 

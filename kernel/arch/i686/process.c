@@ -20,17 +20,15 @@ NO_RETURN void __arch_thread_jump_to_userland(thread_entry_t entrypoint,
                                               segment_selector cs,
                                               segment_selector ds, u32 esp);
 
-NO_RETURN void
-arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data)
+NO_RETURN void arch_thread_jump_to_userland(void *stack_pointer,
+                                            thread_entry_t entrypoint,
+                                            void *data)
 {
     segment_selector ds = {.index = GDT_ENTRY_USER_DATA, .rpl = 3};
     segment_selector cs = {.index = GDT_ENTRY_USER_CODE, .rpl = 3};
     void *ustack_bottom = thread_get_user_stack(current);
-    void *stack_pointer;
 
     UNUSED(data);
-
-    stack_pointer = thread_get_stack_pointer(current);
 
     /*
      * We are guaranteed that the thread's stack pointer has been set here
@@ -42,8 +40,11 @@ arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data)
 
     if (unlikely(!IN_RANGE(stack_pointer, ustack_bottom,
                            ustack_bottom + USER_STACK_SIZE))) {
-        log_err("%d: starting stack pointer address is outside the user stack",
-                current->tid);
+        log_err("%d: starting stack pointer address is outside the user stack: "
+                "stack_ptr=%p ustack=[%p-%p]",
+                current->tid, stack_pointer, ustack_bottom,
+                ustack_bottom + USER_STACK_SIZE);
+        stack_trace();
         thread_kill(current);
     }
 
@@ -100,8 +101,8 @@ arch_thread_entrypoint(thread_entry_t entrypoint, void *data, void *esp)
      * When kicking-off a forked thread the original thread's stack pointer
      * should have been specified during the thread's creation.
      */
-    if (esp)
-        thread_set_stack_pointer(current, esp);
+    if (WARN_ON(!thread_is_kernel(current) && !esp))
+        goto error_exit;
 
     if (IS_KERNEL_ADDRESS(entrypoint)) {
         entrypoint(data);
@@ -111,7 +112,7 @@ arch_thread_entrypoint(thread_entry_t entrypoint, void *data, void *esp)
                     current->tid);
             goto error_exit;
         }
-        arch_thread_jump_to_userland(entrypoint, data);
+        arch_thread_jump_to_userland(esp, entrypoint, data);
     }
 
     /*

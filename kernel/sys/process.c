@@ -127,7 +127,8 @@ extern void arch_process_clear(struct process *);
 extern void arch_thread_clear(thread_t *thread);
 
 NO_RETURN void
-arch_thread_jump_to_userland(thread_entry_t entrypoint, void *data);
+arch_thread_jump_to_userland(void *stack_pointer,
+                             thread_entry_t entrypoint, void *data);
 
 extern void arch_thread_set_mmu(struct thread *thread, paddr_t mmu);
 
@@ -618,6 +619,7 @@ struct thread *
 thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
 {
     struct process *new_process;
+    void *esp;
     struct thread *new;
     int flags;
     error_t err;
@@ -630,6 +632,8 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
         WARN("Cannot fork a non-running thread.");
         return PTR_ERR(E_INVAL);
     }
+
+    esp = thread_get_stack_pointer(thread);
 
     /*
      * Forked processes can only be usermode processes.
@@ -660,8 +664,7 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
     /* Duplicate the current thread's address space */
     address_space_copy_current(new_process->as);
 
-    new = thread_spawn(new_process, entrypoint, arg,
-                       thread_get_stack_pointer(thread), flags);
+    new = thread_spawn(new_process, entrypoint, arg, esp, flags);
     if (new == NULL) {
         err = E_NOMEM;
         goto process_destroy;
@@ -694,14 +697,15 @@ pid_t sys_fork(void)
     if (IS_ERR(fork))
         return -ERR_FROM_PTR(fork);
 
+    log_dbg("forked new process: %s (%d)", fork->process->name, fork->tid);
     sched_new_thread(fork);
 
     return fork->tid;
 }
 
-NO_RETURN void thread_jump_to_userland(thread_entry_t entrypoint, void *data)
+NO_RETURN void thread_jump_to_userland(void *stack_pointer, thread_entry_t entrypoint, void *data)
 {
-    arch_thread_jump_to_userland(entrypoint, data);
+    arch_thread_jump_to_userland(stack_pointer, entrypoint, data);
 }
 
 void thread_set_mmu(struct thread *thread, paddr_t mmu)
