@@ -7,4 +7,21 @@
 #error Unknown CPU architecture.
 #endif
 
+/**
+ * Expands to the return address of the current function, i.e. the
+ * instruction pointer to which control will return after this function
+ * finishes.
+ */
+#define __RET_IP (vaddr_t) __builtin_return_address(0)
+
+/**
+ * Expands to the instruction pointer of the location where the macro is used.
+ */
+#define __THIS_IP            \
+    ({                       \
+        __label__ __here;    \
+    __here:                  \
+        (vaddr_t) && __here; \
+    })
+
 #endif /* KERNEL_CPU_H */

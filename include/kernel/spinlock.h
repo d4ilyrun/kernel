@@ -6,10 +6,21 @@
  * @{
  */
 
+#include <kernel/cpu.h>
+#include <kernel/types.h>
+
+#ifdef CONFIG_SPINLOCK_DEBUG
+#include <kernel/devices/timer.h>
+#include <kernel/logger.h>
+#endif
+
 #include <utils/compiler.h>
 #include <utils/macro.h>
 
 #include <stdbool.h>
+
+/* Default timeout: 30s */
+#define SPINLOCK_DEBUG_STALL_TIMEOUT MS(30)
 
 /**
  * @struct spinlock
@@ -17,6 +28,10 @@
  */
 typedef struct spinlock {
     bool locked;
+#ifdef SPINLOCK_DEBUG
+    /** Instruction pointer where this lock was last acquired. */
+    vaddr_t owner;
+#endif
 } spinlock_t;
 
 /** Default init value (unlocked) */
@@ -33,12 +48,43 @@ typedef struct spinlock {
 /** Declare a spinlock and initialize it */
 #define DECLARE_SPINLOCK(_lock) spinlock_t _lock = SPINLOCK_INIT
 
+#ifdef CONFIG_SPINLOCK_DEBUG
+
 /** @brief Try to acquire a spinlock, or wait until it is free */
-static ALWAYS_INLINE spinlock_t *spinlock_acquire(spinlock_t *lock)
+static ALWAYS_INLINE spinlock_t *
+__spinlock_acquire(spinlock_t *lock, vaddr_t owner)
 {
-    WAIT_FOR(!__atomic_test_and_set(&lock->locked, __ATOMIC_ACQUIRE));
+    time_t start = timer_get_ms();
+
+    while (__atomic_test_and_set(&lock->locked, __ATOMIC_ACQUIRE)) {
+        if (timer_get_ms() - start > SPINLOCK_DEBUG_STALL_TIMEOUT) {
+            WARN("stall detected on spinlock (owner: %ps)",
+                 (void *)lock->owner);
+            start = timer_get_ms();
+        }
+    }
+
+    lock->owner = owner;
+
     return lock;
 }
+
+#else
+
+/** @brief Try to acquire a spinlock, or wait until it is free */
+static ALWAYS_INLINE spinlock_t *
+__spinlock_acquire(spinlock_t *lock, vaddr_t owner)
+{
+    UNUSED(owner);
+
+    WAIT_FOR(!__atomic_test_and_set(&lock->locked, __ATOMIC_ACQUIRE));
+
+    return lock;
+}
+
+#endif
+
+#define spinlock_acquire(lock) __spinlock_acquire(lock, __THIS_IP)
 
 /** @brief Release a spinlock for others to take it */
 static ALWAYS_INLINE void spinlock_release(spinlock_t *lock)
@@ -54,7 +100,7 @@ typedef struct {
 static inline scope_lock_t scope_lock_constructor(spinlock_t *lock)
 {
     return (scope_lock_t){
-        .lock = spinlock_acquire(lock),
+        .lock = __spinlock_acquire(lock, __RET_IP),
         .done = false,
     };
 }
