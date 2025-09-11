@@ -1,6 +1,7 @@
 #include <kernel/console.h>
 #include <kernel/devices/uart.h>
 #include <kernel/printk.h>
+#include <kernel/symbols.h>
 #include <kernel/types.h>
 
 #include <utils/compiler.h>
@@ -30,6 +31,17 @@ static size_t printk_buffer_index = 0;
 #define TOK_POINTER 'p'
 #define TOK_BINARY 'b' // custom token
 #define TOK_ESCAPE TOK_DELIMITER
+
+/*
+ * This printk implementation comes custom pointer suffixes to print more
+ * complex types.
+ *
+ * Print the name of a kernel symbol:
+ * * %ps: kernel_symbol
+ * * %pS: kernel_symbol+0xoffset
+ */
+#define TOK_POINTER_SYMBOL 's'
+#define TOK_POINTER_SYMBOL_OFFSET 'S'
 
 #define TOK_LEN_ELL 'l'
 #define TOK_LEN_SHORT 'h'
@@ -123,7 +135,8 @@ printk_char(register char c, int *written)
 }
 
 // NOLINTNEXTLINE(misc-no-recursion)
-static void printk_puts(register char *str, printk_ctx_t *ctx, int *written)
+static void
+printk_puts(register const char *str, printk_ctx_t *ctx, int *written)
 {
     if (str == NULL) {
         printk_puts("(null)", NULL, written);
@@ -145,7 +158,6 @@ static void printk_utoa_base(register unsigned long long x,
     static const char *digits[2] = {
         "0123456789abcdef",
         "0123456789ABCDEF",
-
     };
 
     char buf[MAXBUF];
@@ -225,6 +237,22 @@ static void printk_itoa(register int x, const printk_ctx_t *ctx, int *written)
         if (ctx->flags.sign_character != SIGN_MINUS_ONLY)
             printk_char(ctx->flags.sign_character, written);
         printk_utoa_base(x, 10, ctx, written);
+    }
+}
+
+static void printk_kernel_symbol(vaddr_t addr, bool print_offset,
+                                 printk_ctx_t *ctx, int *written)
+{
+    const kernel_symbol_t *symbol = kernel_symbol_from_address(addr);
+    off_t offset = addr - symbol->address;
+
+    ctx->precision.present = false;
+    printk_puts(kernel_symbol_name(symbol), ctx, written);
+
+    if (print_offset) {
+        ctx->flags.alternate_form = true;
+        printk_char('+', written);
+        printk_utoa_base(offset, 16, ctx, written);
     }
 }
 
@@ -406,10 +434,32 @@ static void printk_unsigned(register int base, va_list *parameters,
         printk_utoa_base(va_arg(*parameters, unsigned int), base, ctx, written);
 }
 
-static int
-printk_step(char c, int *written, va_list *parameters, printk_ctx_t *ctx)
+static int printk_step_pointer(const char *c, int *written, va_list *parameters,
+                               printk_ctx_t *ctx)
 {
-    switch (c) {
+    int step_size = 1;
+
+    switch (*c) {
+    case TOK_POINTER_SYMBOL:
+    case TOK_POINTER_SYMBOL_OFFSET:
+        printk_kernel_symbol(va_arg(*parameters, vaddr_t),
+                             *c == TOK_POINTER_SYMBOL_OFFSET, ctx, written);
+        break;
+    default:
+        printk_utoa_base((unsigned int)va_arg(*parameters, void *), 16, ctx,
+                         written);
+        step_size = 0;
+    }
+
+    return step_size;
+}
+
+static int
+printk_step(const char *c, int *written, va_list *parameters, printk_ctx_t *ctx)
+{
+    int step_size = 1;
+
+    switch (*c) {
 
     // Here we assume that sizeof(int) == sizeof(long) anyway and skip
     // the case were we only have a single 'l' modifier (cf.
@@ -446,8 +496,7 @@ printk_step(char c, int *written, va_list *parameters, printk_ctx_t *ctx)
         break;
 
     case TOK_POINTER:
-        printk_utoa_base((unsigned int)va_arg(*parameters, void *), 16, ctx,
-                         written);
+        step_size += printk_step_pointer(&c[1], written, parameters, ctx);
         break;
 
     case TOK_STR:
@@ -466,7 +515,7 @@ printk_step(char c, int *written, va_list *parameters, printk_ctx_t *ctx)
         return -1;
     }
 
-    return 0;
+    return step_size;
 }
 
 /// MAIN FUNCTIONS
@@ -480,8 +529,8 @@ int vprintk(const char *format, va_list parameters)
 {
     int written = 0;
     int error = 0;
-
     int i = 0;
+
     while (format[i] != '\0') {
 
         char c = format[i++];
@@ -517,13 +566,15 @@ int vprintk(const char *format, va_list parameters)
             continue;
         }
 
-        if (printk_step(format[i], &written, &parameters, &ctx) == -1) {
+        int step_size = printk_step(&format[i], &written, &parameters, &ctx);
+        if (step_size < 0) {
             printk_char(format[i], &written);
+            step_size = 1;
             error = 1;
             continue;
         }
 
-        i += 1;
+        i += step_size;
     }
 
     return error ? -1 : written;

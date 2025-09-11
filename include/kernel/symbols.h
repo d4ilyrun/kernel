@@ -62,6 +62,6 @@ ALWAYS_INLINE const char *kernel_symbol_name(const kernel_symbol_t *sym)
  * The returned symbol is the one with the biggest address lower than the one
  * we're looking for.
  */
-const kernel_symbol_t *kernel_symbol_from_address(u32 address);
+const kernel_symbol_t *kernel_symbol_from_address(vaddr_t address);
 
 #endif /* KERNEL_SYMBOLS_H */
