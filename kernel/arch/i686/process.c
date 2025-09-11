@@ -18,9 +18,11 @@
 /* defined in process.S */
 NO_RETURN void __arch_thread_jump_to_userland(thread_entry_t entrypoint,
                                               segment_selector cs,
-                                              segment_selector ds, u32 esp);
+                                              segment_selector ds, u32 esp,
+                                              u32 ebp);
 
 NO_RETURN void arch_thread_jump_to_userland(void *stack_pointer,
+                                            void *base_pointer,
                                             thread_entry_t entrypoint,
                                             void *data)
 {
@@ -48,7 +50,8 @@ NO_RETURN void arch_thread_jump_to_userland(void *stack_pointer,
         thread_kill(current);
     }
 
-    __arch_thread_jump_to_userland(entrypoint, cs, ds, (vaddr_t)stack_pointer);
+    __arch_thread_jump_to_userland(entrypoint, cs, ds, (vaddr_t)stack_pointer,
+                                   (vaddr_t)base_pointer);
 
     assert_not_reached();
 }
@@ -63,7 +66,8 @@ NO_RETURN void arch_thread_jump_to_userland(void *stack_pointer,
  * artificial stack setup in @arch_thread_create.
  */
 static void
-arch_thread_entrypoint(thread_entry_t entrypoint, void *data, void *esp)
+arch_thread_entrypoint(thread_entry_t entrypoint, void *data, void *esp,
+                       void *ebp)
 {
     u32 *ustack = NULL;
 
@@ -112,7 +116,7 @@ arch_thread_entrypoint(thread_entry_t entrypoint, void *data, void *esp)
                     current->tid);
             goto error_exit;
         }
-        arch_thread_jump_to_userland(esp, entrypoint, data);
+        arch_thread_jump_to_userland(esp, ebp, entrypoint, data);
     }
 
     /*
@@ -127,7 +131,7 @@ error_exit:
 }
 
 error_t arch_thread_init(thread_t *thread, thread_entry_t entrypoint,
-                         void *data, void *esp)
+                         void *data, void *esp, void *ebp)
 {
     u32 *kstack = thread_get_kernel_stack_top(thread);
 
@@ -138,21 +142,22 @@ error_t arch_thread_init(thread_t *thread, thread_entry_t entrypoint,
 #define KSTACK(_i) kstack[-(_i) - 1]
 
     // Stack frame for arch_thread_entrypoint
-    KSTACK(0) = (u32)esp;        // arg3
-    KSTACK(1) = (u32)data;       // arg2
-    KSTACK(2) = (u32)entrypoint; // arg1
-    KSTACK(3) = 0;               // nuke ebp
+    KSTACK(0) = (u32)ebp;        // arg4
+    KSTACK(1) = (u32)esp;        // arg3
+    KSTACK(2) = (u32)data;       // arg2
+    KSTACK(3) = (u32)entrypoint; // arg1
+    KSTACK(4) = 0;               // nuke ebp
 
     // Stack frame for arch_thread_switch
-    KSTACK(4) = (u32)arch_thread_entrypoint;
-    KSTACK(5) = 0;               // edi
-    KSTACK(6) = 0;               // esi
-    KSTACK(7) = 0;               // ebx
-    KSTACK(8) = (u32)&KSTACK(4); // ebp
+    KSTACK(5) = (u32)arch_thread_entrypoint;
+    KSTACK(6) = 0;               // edi
+    KSTACK(7) = 0;               // esi
+    KSTACK(8) = 0;               // ebx
+    KSTACK(9) = (u32)&KSTACK(5); // ebp
 
     // Set new thread's stack pointer to the top of our manually created
     // context_switching stack
-    thread_set_stack_pointer(thread, &KSTACK(8));
+    thread_set_stack_pointer(thread, &KSTACK(9));
 
 #undef KSTACK
 
