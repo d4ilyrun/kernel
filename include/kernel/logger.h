@@ -107,17 +107,18 @@ void log_set_level(enum log_level);
         } while (0);                 \
     }
 
-#define WARN(_msg)                                           \
-    do {                                                     \
-        printk("%s:%d: " _msg "\n", __FUNCTION__, __LINE__); \
-        stack_trace();                                       \
+#define WARN(_msg, ...)                              \
+    do {                                             \
+        printk("%s:%d: " _msg "\n", __FUNCTION__,    \
+               __LINE__ __VA_OPT__(, ) __VA_ARGS__); \
+        stack_trace();                               \
     } while (0)
 
-#define WARN_ON_MSG(_cond, _msg) \
-    do {                         \
-        if (unlikely((_cond))) { \
-            WARN(_msg);          \
-        }                        \
+#define WARN_ON_MSG(_cond, _msg, ...) \
+    do {                              \
+        if (unlikely((_cond))) {      \
+            WARN(_msg, __VA_ARGS__);  \
+        }                             \
     } while (0)
 
 #define WARN_ON(_cond) WARN_ON_MSG((_cond), stringify(_cond))
