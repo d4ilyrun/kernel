@@ -65,6 +65,17 @@ static inline void *arch_thread_get_stack_pointer(thread_context_t *ctx)
 }
 
 static inline void
+arch_thread_set_base_pointer(thread_context_t *ctx, void *ptr)
+{
+    ctx->frame.stub.ebp = (vaddr_t)ptr;
+}
+
+static inline void *arch_thread_get_base_pointer(thread_context_t *ctx)
+{
+    return (void *)ctx->frame.stub.ebp;
+}
+
+static inline void
 arch_thread_set_interrupt_frame(thread_context_t *ctx,
                                 const struct interrupt_frame *frame)
 {

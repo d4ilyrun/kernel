@@ -57,9 +57,11 @@ static struct executable *executable_new(void)
 }
 
 static NO_RETURN void execfmt_execute_executable(struct executable *executable,
-                                                 void *stack_pointer)
+                                                 void *stack_pointer,
+                                                 void *base_pointer)
 {
-    thread_jump_to_userland(stack_pointer, executable->entrypoint, NULL);
+    thread_jump_to_userland(stack_pointer, base_pointer, executable->entrypoint,
+                            NULL);
 }
 
 #define stack_push(top, bottom, item)      \
@@ -355,7 +357,7 @@ error_t execfmt_execute(struct exec_params *params)
     args_buffer = NULL;
 
     if (executable->entrypoint) {
-        execfmt_execute_executable(executable, ustack);
+        execfmt_execute_executable(executable, ustack, ustack);
         assert_not_reached();
     }
 

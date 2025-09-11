@@ -116,18 +116,19 @@ extern void arch_thread_switch(thread_context_t *);
  * @param entrypoint The entrypoint used for starting this thread
  * @param data Data passed to the entry function (can be NULL)
  * @param esp The value to put inside the stack pointer before starting
+ * @param esp The value to put inside the base pointer register before starting
  *
  * @return Whether we succeded or not
  */
 extern error_t
-arch_thread_init(thread_t *, thread_entry_t, void *data, void *esp);
+arch_thread_init(thread_t *, thread_entry_t, void *data, void *esp, void *ebp);
 
 extern void arch_process_clear(struct process *);
 
 extern void arch_thread_clear(thread_t *thread);
 
 NO_RETURN void
-arch_thread_jump_to_userland(void *stack_pointer,
+arch_thread_jump_to_userland(void *stack_pointer, void *base_pointer,
                              thread_entry_t entrypoint, void *data);
 
 extern void arch_thread_set_mmu(struct thread *thread, paddr_t mmu);
@@ -422,7 +423,7 @@ struct file *process_file_get(struct process *process, int fd)
 }
 
 thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
-                       void *data, void *esp, u32 flags)
+                       void *data, void *esp, void *ebp, u32 flags)
 {
     thread_t *thread;
     void *kstack = NULL;
@@ -466,7 +467,7 @@ thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
     else
         thread->tid = process_next_pid();
 
-    err = arch_thread_init(thread, entrypoint, data, esp);
+    err = arch_thread_init(thread, entrypoint, data, esp, ebp);
     if (err) {
         log_err("Failed to initialize new thread: %pe", &err);
         goto kstack_free;
@@ -620,6 +621,7 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
 {
     struct process *new_process;
     void *esp;
+    void *ebp;
     struct thread *new;
     int flags;
     error_t err;
@@ -634,6 +636,7 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
     }
 
     esp = thread_get_stack_pointer(thread);
+    ebp = thread_get_base_pointer(thread);
 
     /*
      * Forked processes can only be usermode processes.
@@ -664,7 +667,7 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
     /* Duplicate the current thread's address space */
     address_space_copy_current(new_process->as);
 
-    new = thread_spawn(new_process, entrypoint, arg, esp, flags);
+    new = thread_spawn(new_process, entrypoint, arg, esp, ebp, flags);
     if (new == NULL) {
         err = E_NOMEM;
         goto process_destroy;
@@ -704,9 +707,10 @@ pid_t sys_fork(void)
     return fork->tid;
 }
 
-NO_RETURN void thread_jump_to_userland(void *stack_pointer, thread_entry_t entrypoint, void *data)
+NO_RETURN void thread_jump_to_userland(void *stack_pointer, void *base_pointer,
+                                       thread_entry_t entrypoint, void *data)
 {
-    arch_thread_jump_to_userland(stack_pointer, entrypoint, data);
+    arch_thread_jump_to_userland(stack_pointer, base_pointer, entrypoint, data);
 }
 
 void thread_set_mmu(struct thread *thread, paddr_t mmu)

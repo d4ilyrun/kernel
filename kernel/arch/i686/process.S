@@ -51,7 +51,10 @@ arch_thread_switch:
     ret
 
 
-/* void __arch_thread_jump_to_userland(u32 entrypoint, u32 cs, u32 ds, u32 esp) */
+/*
+ * void __arch_thread_jump_to_userland(u32 entrypoint, u32 cs, u32 ds, u32 esp,
+ *                                     u32 ebp)
+ */
 .type __arch_thread_jump_to_userland, @function
 __arch_thread_jump_to_userland:
 
@@ -62,6 +65,8 @@ __arch_thread_jump_to_userland:
     popl %ebx  // ebx = cs
     popl %ecx  // ecx = ds
     popl %edx  // edx = esp
+
+    popl %ebp
 
     // setup data segments for userland
     movl %ecx, %ds

@@ -95,7 +95,7 @@ static ALWAYS_INLINE void
 sched_new_thread_create(thread_entry_t entrypoint, void *data, u32 flags)
 {
     struct thread *thread = thread_spawn(current->process, entrypoint, data,
-                                         NULL, flags);
+                                         NULL, NULL, flags);
     if (!IS_ERR(thread))
         sched_new_thread(thread);
 }

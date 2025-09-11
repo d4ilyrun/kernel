@@ -202,7 +202,7 @@ static error_t scheduler_init(void)
     atomic_write(&scheduler.sync.preemption_level, 0);
     INIT_QUEUE(scheduler.ready);
 
-    idle_thread = thread_spawn(&kernel_process, idle_task, NULL, NULL,
+    idle_thread = thread_spawn(&kernel_process, idle_task, NULL, NULL, NULL,
                                THREAD_KERNEL);
     sched_new_thread(idle_thread);
     scheduler_initialized = true;

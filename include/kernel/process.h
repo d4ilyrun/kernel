@@ -186,6 +186,18 @@ static inline void *thread_get_stack_pointer(struct thread *thread)
     return arch_thread_get_stack_pointer(&thread->context);
 }
 
+/** Set the thread's current base pointer */
+static inline void thread_set_base_pointer(struct thread *thread, void *ptr)
+{
+    arch_thread_set_base_pointer(&thread->context, ptr);
+}
+
+/** Get the thread's current base pointer */
+static inline void *thread_get_base_pointer(struct thread *thread)
+{
+    return arch_thread_get_base_pointer(&thread->context);
+}
+
 /** Set a thread's curent interrupt frame. */
 static inline void
 thread_set_interrupt_frame(thread_t *thread,
@@ -334,9 +346,12 @@ bool thread_switch(thread_t *);
  * @param esp The value to place inside the stack pointer register before
  *            first kicking off the thread. This is mainly useful when forking
  *            an existing thread. Ignored if NULL.
+ * @param ebp The value placed inside the stack base pointer register before
+ *            first kicking off the thread. Ignored if NULL.
  * @param flags Feature flags: a combination of \ref thread_flags enum values
  */
-thread_t *thread_spawn(struct process *, thread_entry_t, void *, void *, u32);
+thread_t *thread_spawn(struct process *, thread_entry_t, void *data,
+                       void *esp, void *ebp, u32 flags);
 
 /** Start executing code in userland
  *
@@ -348,11 +363,12 @@ thread_t *thread_spawn(struct process *, thread_entry_t, void *, void *, u32);
  *       purposes.
  *
  * @param stack_pointer The stack pointer used when jumping to userland
+ * @param base_pointer  The base pointer used when jumping to userland
  * @param entrypoint The entrypoint address to jump onto
  * @param data       The data passed as an argument to the 'entrypoint' function
  *                   (ignored)
  */
-NO_RETURN void thread_jump_to_userland(void *stack_pointer,
+NO_RETURN void thread_jump_to_userland(void *stack_pointer, void *base_pointer,
                                        thread_entry_t, void *);
 
 /** Set the MMU address saved inside the thread's structure.
