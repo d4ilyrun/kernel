@@ -56,9 +56,10 @@ static struct executable *executable_new(void)
     return executable;
 }
 
-static NO_RETURN void execfmt_execute_executable(struct executable *executable)
+static NO_RETURN void execfmt_execute_executable(struct executable *executable,
+                                                 void *stack_pointer)
 {
-    thread_jump_to_userland(executable->entrypoint, NULL);
+    thread_jump_to_userland(stack_pointer, executable->entrypoint, NULL);
 }
 
 #define stack_push(top, bottom, item)      \
@@ -350,12 +351,11 @@ error_t execfmt_execute(struct exec_params *params)
         goto release_executable;
     }
 
-    thread_set_stack_pointer(current, ustack);
     vm_free(&kernel_address_space, args_buffer);
     args_buffer = NULL;
 
     if (executable->entrypoint) {
-        execfmt_execute_executable(executable);
+        execfmt_execute_executable(executable, ustack);
         assert_not_reached();
     }
 

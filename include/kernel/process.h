@@ -334,11 +334,13 @@ thread_t *thread_spawn(struct process *, thread_entry_t, void *, void *, u32);
  * @info This serves as a temporary equivalent to the execve syscall for testing
  *       purposes.
  *
+ * @param stack_pointer The stack pointer used when jumping to userland
  * @param entrypoint The entrypoint address to jump onto
  * @param data       The data passed as an argument to the 'entrypoint' function
  *                   (ignored)
  */
-NO_RETURN void thread_jump_to_userland(thread_entry_t, void *);
+NO_RETURN void thread_jump_to_userland(void *stack_pointer,
+                                       thread_entry_t, void *);
 
 /** Set the MMU address saved inside the thread's structure.
  *  @note This function does not change the MMU currently in use,
