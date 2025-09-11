@@ -80,9 +80,9 @@ kernel: $(KERNEL_BIN)
 iso: $(KERNEL_ISO)
 
 QEMU_TAP_IF ?= tap0
-QEMU_HAS_TAP := $(shell ip link show $(QEMU_TAP_IF) &> "/dev/null"; echo "$$?")
+QEMU_HAS_TAP := $(shell test -d /sys/class/net/$(QEMU_TAP_IF) && echo y)
 
-ifeq ($(QEMU_HAS_TAP),0)
+ifeq ($(QEMU_HAS_TAP),y)
 # - RTL8139 NIC connected to a tap interface for easy dummping (also dumped into file)
 QEMU_ARGS += -device rtl8139,netdev=net0 \
 			 -netdev tap,id=net0,ifname=$(QEMU_TAP_IF),script=no,downscript=no \
