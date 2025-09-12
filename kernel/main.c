@@ -32,6 +32,7 @@
 #include <utils/math.h>
 
 #include <multiboot.h>
+#include <stdio.h>
 #include <string.h>
 
 static struct multiboot_info *mbt_info;
@@ -272,6 +273,57 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     if (err)
         PANIC("failed to find a suitable init process: %s", err_to_str(err));
 
+    struct device *ata = device_find("hd0");
+    if (!ata) {
+        log_err("failed to find ATA device");
+        goto kernel_main_exit;
+    }
+
+    struct file *file = device_open(ata);
+    if (IS_ERR(file)) {
+        log_err("failed to open ATA device");
+        goto kernel_main_exit;
+    }
+
+    uint8_t *buffer = vm_alloc(&kernel_address_space, PAGE_SIZE, VM_KERNEL_RW);
+    if (!buffer) {
+        log_err("failed to allocate: ENOMEM");
+        goto kernel_main_exit;
+    }
+
+#define ATA_OFFSET 0x1000
+
+    log_info("read");
+    file_seek(file, ATA_OFFSET, SEEK_SET);
+    file_read(file, (void *)buffer, 0x200);
+    for (int i = 0; i < 0x200; i++) {
+        if ((i % 0x10) == 0)
+            printk("%s%08x", i ? "\n" : "", i);
+        if ((i % 0x8) == 0)
+            printk(" ");
+        printk(" %02x", buffer[i]);
+    }
+    printk("\n");
+
+    log_info("write");
+    memset(buffer, 0xFF, PAGE_SIZE);
+    file_seek(file, ATA_OFFSET, SEEK_SET);
+    file_write(file, (void *)buffer, 0x200);
+
+    log_info("re-read");
+    memset(buffer, 0xaa, PAGE_SIZE);
+    file_seek(file, ATA_OFFSET, SEEK_SET);
+    file_read(file, (void *)buffer, 0x200);
+    for (int i = 0; i < 0x200; i++) {
+        if ((i % 0x10) == 0)
+            printk("%s%08x", i ? "\n" : "", i);
+        if ((i % 0x8) == 0)
+            printk(" ");
+        printk(" %02x", buffer[i]);
+    }
+    printk("\n");
+
+kernel_main_exit:
     thread_kill(current);
 }
 
