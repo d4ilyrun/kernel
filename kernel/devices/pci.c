@@ -270,8 +270,6 @@ static error_t pci_device_probe(struct pci_device *device, pci_header_type type)
 
     device->id = pci_read_header_id(bus->number, device->number);
 
-    pci_device_setup_bars(device);
-
     switch (type & PCI_HEADER_TYPE_MASK) {
     case PCI_HEADER_TYPE_PCI_BRIDGE:
         ret = ERR_FROM_PTR(pci_bridge_register(device));
@@ -281,8 +279,10 @@ static error_t pci_device_probe(struct pci_device *device, pci_header_type type)
 
     case PCI_HEADER_TYPE_GENERAL:
         driver = driver_find_match(&device->device);
-        if (driver != NULL)
+        if (driver != NULL) {
+            pci_device_setup_bars(device);
             driver_probe(driver, &device->device);
+        }
         break;
 
     case PCI_HEADER_TYPE_CARDBUS_BRIDGE:
