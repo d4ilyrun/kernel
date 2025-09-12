@@ -78,7 +78,7 @@ struct pci_device {
 
 void pci_driver_register(struct pci_driver *);
 
-#define PCI_DECLARE_DRIVER(_name, _driver) \
+#define DECLARE_PCI_DRIVER(_name, _driver) \
     DECLARE_DRIVER(_name, _driver, pci_driver_register)
 
 /** Register a PCI device */

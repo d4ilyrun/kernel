@@ -410,4 +410,4 @@ struct pci_driver rtl8139_driver = {
         },
 };
 
-PCI_DECLARE_DRIVER(rtl8139, &rtl8139_driver);
+DECLARE_PCI_DRIVER(rtl8139, &rtl8139_driver);
