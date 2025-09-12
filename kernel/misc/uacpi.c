@@ -420,7 +420,8 @@ uacpi_status uacpi_kernel_pci_read(uacpi_pci_address *address,
                                    uacpi_size offset, uacpi_u8 byte_width,
                                    uacpi_u64 *value)
 {
-    *value = pci_read_config(address->bus, address->device, offset, byte_width);
+    *value = pci_read_config(address->bus, address->device, address->function,
+                             offset, byte_width);
     return UACPI_STATUS_OK;
 }
 
@@ -428,7 +429,8 @@ uacpi_status uacpi_kernel_pci_write(uacpi_pci_address *address,
                                     uacpi_size offset, uacpi_u8 byte_width,
                                     uacpi_u64 value)
 {
-    pci_write_config(address->bus, address->device, offset, byte_width, value);
+    pci_write_config(address->bus, address->device, address->function, offset,
+                     byte_width, value);
     return UACPI_STATUS_OK;
 }
 

@@ -46,17 +46,19 @@ typedef union {
 
 
 /** Read data from the PCI configuration space */
-uint32_t
-pci_read_config(uint8_t bus, uint8_t device, uint8_t offset, size_t size);
+uint32_t pci_read_config(uint8_t bus, uint8_t device, uint8_t function,
+                         uint8_t offset, size_t size);
 
 /** Write data into the PCI configuration space */
-void pci_write_config(uint8_t bus, uint8_t device, uint8_t offset, size_t size,
-                      uint32_t data);
+void pci_write_config(uint8_t bus, uint8_t device, uint8_t function,
+                      uint8_t offset, size_t size, uint32_t data);
 
-#define pci_read_header(_bus, _device, _header)                            \
-    pci_read_config(_bus, _device, CONCAT3(PCI_HEADER_, _header, _OFFSET), \
+#define pci_read_header(_bus, _device, _function, _header)  \
+    pci_read_config(_bus, _device, _function,               \
+                    CONCAT3(PCI_HEADER_, _header, _OFFSET), \
                     CONCAT3(PCI_HEADER_, _header, _SIZE))
 
-#define pci_write_header(_bus, _device, _header, _val)                      \
-    pci_write_config(_bus, _device, CONCAT3(PCI_HEADER_, _header, _OFFSET), \
+#define pci_write_header(_bus, _device, _function, _header, _val) \
+    pci_write_config(_bus, _device, _function,                    \
+                     CONCAT3(PCI_HEADER_, _header, _OFFSET),      \
                      CONCAT3(PCI_HEADER_, _header, _SIZE), _val)

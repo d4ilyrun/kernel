@@ -53,6 +53,7 @@ struct pci_device {
     struct device device;
 
     u8 number;                ///< The device number on its bus
+    u8 function;              ///< The device's function number
     struct pci_bus *bus;      ///< The bus to which the device is connected
     pci_device_id_t id;       ///< The PCI device's vendor/device ID
     pci_device_class_t class; /// The PCI device's class code
@@ -105,17 +106,19 @@ void pci_device_enable_memory(struct pci_device *, bool);
 /** Enable/Disable a device's ability to perform bus-master operations */
 void pci_device_enable_bus_master(struct pci_device *, bool);
 
-static inline void pci_device_write_config(struct pci_device *pdev,
+static inline void pci_device_write_config(struct pci_device *dev,
                                            uint8_t offset, size_t size,
                                            uint32_t value)
 {
-    pci_write_config(pdev->bus->number, pdev->number, offset, size, value);
+    pci_write_config(dev->bus->number, dev->number, dev->function, offset, size,
+                     value);
 }
 
 static inline uint32_t
 pci_device_read_config(struct pci_device *dev, uint8_t offset, size_t size)
 {
-    return pci_read_config(dev->bus->number, dev->number, offset, size);
+    return pci_read_config(dev->bus->number, dev->number, dev->function, offset,
+                           size);
 }
 
 #endif /* KERNEL_DEVICES_PCI_H */

@@ -13,7 +13,8 @@
 #define PCI_CFG_ADDRESS_OFFSET(_off) ((uint32_t)(_off))
 
 uint32_t
-pci_read_config(uint8_t bus, uint8_t device, uint8_t offset, size_t size)
+pci_read_config(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset,
+                size_t size)
 {
     uint32_t size_mask = BIT64(size * 8) - 1;
     unsigned int reg_offset = offset % sizeof(uint32_t);
@@ -22,6 +23,7 @@ pci_read_config(uint8_t bus, uint8_t device, uint8_t offset, size_t size)
 
     cfg_address = PCI_CFG_ADDRESS_ENABLE | PCI_CFG_ADDRESS_BUS(bus) |
                   PCI_CFG_ADDRESS_DEVICE(device) |
+                  PCI_CFG_ADDRESS_FUNCTION(function) |
                   PCI_CFG_ADDRESS_OFFSET(align_down(offset, sizeof(uint32_t)));
 
     outl(PCI_CFG_ADDRESS, cfg_address);
@@ -33,8 +35,8 @@ pci_read_config(uint8_t bus, uint8_t device, uint8_t offset, size_t size)
     return cfg_data & size_mask;
 }
 
-void pci_write_config(uint8_t bus, uint8_t device, uint8_t offset, size_t size,
-                      uint32_t value)
+void pci_write_config(uint8_t bus, uint8_t device, uint8_t function,
+                      uint8_t offset, size_t size, uint32_t value)
 {
     uint32_t size_mask = BIT64(size * 8) - 1;
     unsigned int reg_offset = offset % sizeof(uint32_t);
@@ -43,6 +45,7 @@ void pci_write_config(uint8_t bus, uint8_t device, uint8_t offset, size_t size,
 
     cfg_address = PCI_CFG_ADDRESS_ENABLE | PCI_CFG_ADDRESS_BUS(bus) |
                   PCI_CFG_ADDRESS_DEVICE(device) |
+                  PCI_CFG_ADDRESS_FUNCTION(function) |
                   PCI_CFG_ADDRESS_OFFSET(align_down(offset, sizeof(uint32_t)));
 
     outl(PCI_CFG_ADDRESS, cfg_address);

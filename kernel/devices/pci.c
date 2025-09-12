@@ -16,6 +16,7 @@
 
 #define PCI_MAX_BUS 256
 #define PCI_MAX_DEVICE 32
+#define PCI_MAX_FUNCTION 8
 
 /* 6.2.5.1 */
 #define PCI_BAR_MEMORY_SPACE_MASK 0x1
@@ -78,25 +79,27 @@ void pci_driver_register(struct pci_driver *driver)
     return driver_register(&driver->driver);
 }
 
-#define pci_device_read_header(_device, _header) \
-    pci_read_header(_device->bus->number, _device->number, _header)
+#define pci_device_read_header(_device, _header)                              \
+    pci_read_header(_device->bus->number, _device->number, _device->function, \
+                    _header)
 
-#define pci_device_write_header(_device, _header, _val) \
-    pci_write_header(_device->bus->number, _device->number, _header, _val)
+#define pci_device_write_header(_device, _header, _val)                        \
+    pci_write_header(_device->bus->number, _device->number, _device->function, \
+                     _header, _val)
 
 static inline pci_device_id_t
-pci_read_header_id(uint8_t bus, uint8_t device)
+pci_read_header_id(uint8_t bus, uint8_t device, uint8_t function)
 {
     pci_device_id_t id;
-    id.raw = pci_read_header(bus, device, ID);
+    id.raw = pci_read_header(bus, device, function, ID);
     return id;
 }
 
 static inline pci_device_class_t
-pci_read_header_class(uint8_t bus, uint8_t device)
+pci_read_header_class(uint8_t bus, uint8_t device, uint8_t function)
 {
     pci_device_class_t class;
-    class.raw = pci_read_header(bus, device, CLASS_CODE);
+    class.raw = pci_read_header(bus, device, function, CLASS_CODE);
     return class;
 }
 
@@ -292,8 +295,10 @@ static error_t pci_device_probe(struct pci_device *device, pci_header_type type)
     struct pci_bus *bus = device->bus;
     error_t ret = E_SUCCESS;
 
-    device->id = pci_read_header_id(bus->number, device->number);
-    device->class = pci_read_header_class(bus->number, device->number);
+    device->id = pci_read_header_id(bus->number, device->number,
+                                    device->function);
+    device->class = pci_read_header_class(bus->number, device->number,
+                                          device->function);
 
     switch (type & PCI_HEADER_TYPE_MASK) {
     case PCI_HEADER_TYPE_PCI_BRIDGE:
@@ -311,7 +316,6 @@ static error_t pci_device_probe(struct pci_device *device, pci_header_type type)
         break;
 
     case PCI_HEADER_TYPE_CARDBUS_BRIDGE:
-    case PCI_HEADER_TYPE_MULTI_FUNCTION:
         return E_NOT_SUPPORTED;
     }
 
@@ -333,28 +337,32 @@ static error_t pci_bus_probe(struct pci_bus *bus)
     error_t ret = E_SUCCESS;
 
     for (int i = 0; i < PCI_MAX_DEVICE; ++i) {
-        pci_id = pci_read_header_id(bus->number, i);
-        if (pci_id.vendor == 0xFFFF)
-            continue;
+        for (int function = 0; function < PCI_MAX_FUNCTION; ++function) {
+            pci_id = pci_read_header_id(bus->number, i, 0);
+            if (pci_id.vendor == 0xFFFF)
+                continue;
 
-        header_type = pci_read_header(bus->number, i, TYPE);
-        if (header_type & PCI_HEADER_TYPE_MULTI_FUNCTION)
-            log_warn("Not implemented: multi function host controller");
+            header_type = pci_read_header(bus->number, i, function, TYPE);
 
-        device = kcalloc(1, sizeof(*device), KMALLOC_KERNEL);
-        if (device == NULL)
-            return E_NOMEM;
+            device = kcalloc(1, sizeof(*device), KMALLOC_KERNEL);
+            if (device == NULL)
+                return E_NOMEM;
 
-        device->number = i;
-        device->bus = bus;
+            device->number = i;
+            device->function = function;
+            device->bus = bus;
 
-        ret = pci_device_probe(device, header_type);
-        if (ret)
-            return ret;
+            ret = pci_device_probe(device, header_type);
+            if (ret)
+                return ret;
 
-        ret = pci_device_register(device);
-        if (ret)
-            return ret;
+            ret = pci_device_register(device);
+            if (ret)
+                return ret;
+
+            if (!(header_type & PCI_HEADER_TYPE_MULTI_FUNCTION))
+                break;
+        }
     }
 
     return E_SUCCESS;
