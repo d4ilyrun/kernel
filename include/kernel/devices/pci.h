@@ -30,6 +30,14 @@ struct pci_compatible {
     pci_device_class_t class;
 };
 
+enum pci_class_code {
+    PCI_CLASS_MASS_STORAGE = 0x1,
+};
+
+enum pci_subclass_mass_storage {
+    PCI_SUBCLASS_MASS_STORAGE_IDE = 0x1,
+};
+
 /** Per-bus driver struct for PCI drivers
  *  @see device_driver
  */

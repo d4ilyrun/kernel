@@ -458,6 +458,12 @@ static error_t ata_bus_probe(uint16_t io, uint16_t control, int irq)
     return E_SUCCESS;
 }
 
+static error_t ata_pci_probe(struct device *dev)
+{
+	log_dbg("PCI DEVICE DETECTED: %p !!!", dev);
+	return E_NOT_IMPLEMENTED;
+}
+
 static error_t ata_init(void)
 {
     ata_bus_probe(0x1F0, 0x3F6, 14); /* Primary bus */
@@ -465,5 +471,27 @@ static error_t ata_init(void)
 
     return E_SUCCESS;
 }
+
+static const struct pci_compatible ata_pci_compatible[] = {
+    {
+        .class = PCI_CLASS_CODE(PCI_CLASS_MASS_STORAGE,
+                                PCI_SUBCLASS_MASS_STORAGE_IDE),
+    },
+    {/* sentinel */},
+};
+
+static struct pci_driver ata_pci_driver = {
+    .compatible = ata_pci_compatible,
+    .driver =
+        {
+            .name = "ata",
+            .operations =
+                {
+                    .probe = ata_pci_probe,
+                },
+        },
+};
+
+DECLARE_PCI_DRIVER(ata, &ata_pci_driver);
 
 DECLARE_INITCALL(INIT_NORMAL, ata_init);
