@@ -18,8 +18,8 @@
 #ifndef KERNEL_DEVICES_TIMER_H
 #define KERNEL_DEVICES_TIMER_H
 
-#include <kernel/types.h>
 #include <kernel/time.h>
+#include <kernel/types.h>
 
 /** The frequency used for the timer (in Hz) */
 #define HZ CLOCK_PER_SECOND
@@ -97,5 +97,15 @@ static inline void clock_get_time(struct timespec *time)
  *  @warning Calls to this function are blocking
  */
 void timer_wait_ms(time_t);
+
+/*
+ * Wait for a certain amount of time.
+ * Can be used in a non-preemptible context.
+ *
+ * TODO: Make it safe to call in an un-interruptible
+ *       context by computing the timing of a for loop
+ *       and using this instead.
+ */
+void timer_delay_ms(time_t);
 
 #endif /* KERNEL_DEVICES_TIMER_H */
