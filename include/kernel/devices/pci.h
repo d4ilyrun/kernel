@@ -19,20 +19,15 @@
 
 #include <utils/container_of.h>
 
-struct PACKED pci_device_id {
-    uint16_t vendor;
-    uint16_t device;
-};
-
 #define PCI_DEVICE_ID(_vendor, _device) \
-    ((struct pci_device_id){_vendor, _device})
+    ((pci_device_id_t){.vendor = _vendor, .device = _device})
 
 /** Per-bus driver struct for PCI drivers
  *  @see device_driver
  */
 struct pci_driver {
     struct device_driver driver;
-    struct pci_device_id compatible;
+    pci_device_id_t compatible;
 };
 
 /** A PCI bus */
@@ -49,9 +44,9 @@ struct pci_device {
 
     struct device device;
 
-    u8 number;               ///< The device number on its bus
-    struct pci_bus *bus;     ///< The bus to which the device is connected
-    struct pci_device_id id; ///< The PCI device's vendor/device ID
+    u8 number;           ///< The device number on its bus
+    struct pci_bus *bus; ///< The bus to which the device is connected
+    pci_device_id_t id;  ///< The PCI device's vendor/device ID
 
     u8 interrupt_line; ///< The PIC interrupt number used by the PCI device
     interrupt_handler interrupt_handler; ///< The interrupt handler routine

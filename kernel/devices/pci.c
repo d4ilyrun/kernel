@@ -68,11 +68,12 @@ void pci_driver_register(struct pci_driver *driver)
 #define pci_device_write_header(_device, _header, _val) \
     pci_write_header(_device->bus->number, _device->number, _header, _val)
 
-static inline struct pci_device_id
+static inline pci_device_id_t
 pci_read_header_id(uint8_t bus, uint8_t device)
 {
-    uint32_t id = pci_read_header(bus, device, ID);
-    return *(struct pci_device_id *)&id;
+    pci_device_id_t id;
+    id.raw = pci_read_header(bus, device, ID);
+    return id;
 }
 
 void pci_device_enable_io(struct pci_device *pdev, bool enable)
@@ -302,8 +303,8 @@ static error_t pci_device_probe(struct pci_device *device, pci_header_type type)
 static error_t pci_bus_probe(struct pci_bus *bus)
 {
     pci_header_type header_type;
-    struct pci_device_id pci_id;
     struct pci_device *device;
+    pci_device_id_t pci_id;
     error_t ret = E_SUCCESS;
 
     for (int i = 0; i < PCI_MAX_DEVICE; ++i) {

@@ -23,6 +23,15 @@
 #define PCI_HEADER_INTERRUPT_LINE_OFFSET 0x3C
 #define PCI_HEADER_INTERRUPT_LINE_SIZE sizeof(uint8_t)
 
+/** ID header format. */
+typedef union {
+    u32 raw;
+    struct {
+        uint16_t vendor;
+        uint16_t device;
+    };
+} pci_device_id_t;
+
 /** Read data from the PCI configuration space */
 uint32_t
 pci_read_config(uint8_t bus, uint8_t device, uint8_t offset, size_t size);
