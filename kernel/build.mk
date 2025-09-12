@@ -84,6 +84,8 @@ iso: $(KERNEL_ISO)
 QEMU_TAP_IF ?= tap0
 QEMU_HAS_TAP := $(shell test -d /sys/class/net/$(QEMU_TAP_IF) && echo y)
 
+QEMU_ARGS += -cdrom $(KERNEL_ISO) -hdd $(BUILD_DIR)/disk.img
+
 ifeq ($(QEMU_HAS_TAP),y)
 # - RTL8139 NIC connected to a tap interface for easy dummping (also dumped into file)
 QEMU_ARGS += -device rtl8139,netdev=net0 \
@@ -97,12 +99,12 @@ endif
 qemu: $(KERNEL_ISO)
 	$(call LOG,QEMU,$^)
 	$(call ASSERT_EXE_EXISTS,$(QEMU))
-	$(SILENT)$(QEMU) -cdrom $(KERNEL_ISO) -nographic $(QEMU_ARGS)
+	$(SILENT)$(QEMU) -nographic $(QEMU_ARGS)
 
 qemu-server: $(KERNEL_ISO)
 	$(call LOG,QEMU,$^)
 	$(call ASSERT_EXE_EXISTS,$(QEMU))
-	$(SILENT)$(QEMU) -cdrom $(KERNEL_ISO) -daemonize -s -S $(QEMU_ARGS)
+	$(SILENT)$(QEMU) -daemonize -s -S $(QEMU_ARGS)
 
 TO_CLEAN += $(BUILD_DIR)/$(KERNEL_DIR) $(KERNEL_BIN) $(KERNEL_ISO) $(BUILD_DIR)/kernel.map $(BUILD_DIR)/kernel.sym
 
