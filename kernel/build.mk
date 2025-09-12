@@ -52,6 +52,7 @@ KERNEL_SRCS := 	\
 	devices/driver.c \
 	devices/acpi.c \
 	devices/pci.c \
+	devices/block.c \
 	devices/ethernet.c \
 	devices/rtl8139.c
 
