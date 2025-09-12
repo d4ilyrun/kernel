@@ -78,4 +78,35 @@ static ALWAYS_INLINE void hlt(void)
 {
     ASM("hlt");
 }
+
+static ALWAYS_INLINE void insb(uint16_t port, uint8_t *buffer, size_t size)
+{
+    size_t count = size / sizeof(*buffer);
+
+    asm volatile("cld; rep insb"
+                 : "+D"(buffer), "+c"(count)
+                 : "d"(port)
+                 : "memory");
+}
+
+static ALWAYS_INLINE void insw(uint16_t port, uint16_t *buffer, size_t size)
+{
+    size_t count = size / sizeof(*buffer);
+
+    asm volatile("cld; rep insw"
+                 : "+D"(buffer), "+c"(count)
+                 : "d"(port)
+                 : "memory");
+}
+
+static ALWAYS_INLINE void insl(uint16_t port, uint32_t *buffer, size_t size)
+{
+    size_t count = size / sizeof(*buffer);
+
+    asm volatile("cld; rep insl"
+                 : "+D"(buffer), "+c"(count)
+                 : "d"(port)
+                 : "memory");
+}
+
 #endif /* KERNEL_I686_UTILS_CPU_OPS_H */
