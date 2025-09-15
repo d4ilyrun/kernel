@@ -45,10 +45,10 @@ struct vm_segment_driver_match {
     vm_flags_t flags;
 };
 
-extern const struct vm_segment_driver vm_normal;
+extern const struct vm_segment_driver vm_vnode;
 
 static struct vm_segment_driver_match vm_segment_drivers[] = {
-    {.driver = &vm_normal, .flags = 0},
+    {.driver = &vm_vnode, .flags = 0},
 };
 
 static inline struct vm_segment *to_segment(const node_t *this)
@@ -84,8 +84,8 @@ static const struct vm_segment_driver *vm_find_driver(vm_flags_t flags)
             return match->driver;
     }
 
-    /* If no match has been found, vm_normal is always the default choice. */
-    return &vm_normal;
+    /* If no match has been found, vm_vnode is always the default choice. */
+    return &vm_vnode;
 }
 
 struct address_space *address_space_new(void)
@@ -137,7 +137,7 @@ error_t address_space_init(struct address_space *as)
      * all next/prev pointers accordingly.
      */
 
-    segment = vm_normal.vm_alloc(as, 0, sizeof(*list_head), VM_READ | VM_WRITE);
+    segment = vm_vnode.vm_alloc(as, 0, sizeof(*list_head), VM_READ | VM_WRITE);
     if (IS_ERR(segment))
         return ERR_FROM_PTR(segment);
 
@@ -376,8 +376,7 @@ static int vm_segment_contains(const void *this, const void *addr)
 
 struct vm_segment *vm_find(const struct address_space *as, void *addr)
 {
-    node_t *segment = llist_find_first(as->segments, addr,
-                                       vm_segment_contains);
+    node_t *segment = llist_find_first(as->segments, addr, vm_segment_contains);
 
     return segment ? to_segment(segment) : NULL;
 }
@@ -393,7 +392,7 @@ error_t vm_resize_segment(struct address_space *as, struct vm_segment *segment,
     if (new_size == segment->size)
         return E_SUCCESS;
 
-    locked_scope(&as->lock) {
+    locked_scope (&as->lock) {
         if (new_size == 0) {
             segment->driver->vm_free(as, segment);
             return E_SUCCESS;

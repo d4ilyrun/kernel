@@ -7,14 +7,14 @@
 
 #include <string.h>
 
-struct vm_segment *vm_normal_alloc(struct address_space *as, vaddr_t addr,
-                                   size_t size, vm_flags_t flags)
+struct vm_segment *vm_vnode_alloc(struct address_space *as, vaddr_t addr,
+                                  size_t size, vm_flags_t flags)
 {
     return vmm_allocate(as->vmm, addr, size, flags);
 }
 
-struct vm_segment *vm_normal_alloc_at(struct address_space *as, paddr_t phys,
-                                      size_t size, vm_flags_t flags)
+struct vm_segment *vm_vnode_alloc_at(struct address_space *as, paddr_t phys,
+                                     size_t size, vm_flags_t flags)
 {
     struct vm_segment *segment;
     error_t err;
@@ -43,7 +43,7 @@ vm_allocate_release:
     return PTR_ERR(err);
 }
 
-static void vm_normal_free(struct address_space *as, struct vm_segment *segment)
+static void vm_vnode_free(struct address_space *as, struct vm_segment *segment)
 {
     size_t size = segment->size;
     paddr_t phys;
@@ -61,7 +61,7 @@ static void vm_normal_free(struct address_space *as, struct vm_segment *segment)
 }
 
 static error_t
-vm_normal_fault(struct address_space *as, struct vm_segment *segment)
+vm_vnode_fault(struct address_space *as, struct vm_segment *segment)
 {
     paddr_t phys;
     size_t off;
@@ -104,13 +104,13 @@ err_release_allocated:
     }
 
     log_err("failed to map segment @ " FMT32 ": %pe", segment->start, &err);
-    vm_normal_free(as, segment);
+    vm_vnode_free(as, segment);
 
     return err;
 }
 
-static error_t vm_normal_resize(struct address_space *as,
-                                struct vm_segment *segment, size_t new_size)
+static error_t vm_vnode_resize(struct address_space *as,
+                               struct vm_segment *segment, size_t new_size)
 {
     vaddr_t old_end = segment_end(segment);
     paddr_t phys;
@@ -137,10 +137,10 @@ static error_t vm_normal_resize(struct address_space *as,
     return E_SUCCESS;
 }
 
-const struct vm_segment_driver vm_normal = {
-    .vm_alloc = vm_normal_alloc,
-    .vm_alloc_at = vm_normal_alloc_at,
-    .vm_free = vm_normal_free,
-    .vm_fault = vm_normal_fault,
-    .vm_resize = vm_normal_resize,
+const struct vm_segment_driver vm_vnode = {
+    .vm_alloc = vm_vnode_alloc,
+    .vm_alloc_at = vm_vnode_alloc_at,
+    .vm_free = vm_vnode_free,
+    .vm_fault = vm_vnode_fault,
+    .vm_resize = vm_vnode_resize,
 };
