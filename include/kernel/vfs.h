@@ -197,6 +197,16 @@ typedef struct vnode_operations {
      */
     void (*release)(vnode_t *node);
 
+    /**
+     * Map @c size byte of memory from @c offset in @c vnode into the virtual
+     * memory @address.
+     *
+     * This function is called by the vm_vnode virtual memory segment driver
+     * to lazily map a virtual address to the backing store's physical page
+     * during a page fault.
+     */
+    error_t (*mmap)(vnode_t *node, void *address, off_t offset, size_t size);
+
 } vnode_ops_t;
 
 /** @struct vnode

@@ -68,7 +68,7 @@ $ make docs # Requires you to also pull the git submodules
 ## Things I'd like to learn
 
 - Memory management
-    - [X] Paging
+    - [X] File mapped pages
     - [X] Copy-on-Write
     - [X] Page cache
     - [ ] Shared pages

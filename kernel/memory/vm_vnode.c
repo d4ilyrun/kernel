@@ -2,10 +2,31 @@
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
 #include <kernel/process.h>
+#include <kernel/vfs.h>
 #include <kernel/vm.h>
 #include <kernel/vmm.h>
 
 #include <string.h>
+
+/* Anonymous mappings don't require a vnode. */
+#define ANON_VNODE NULL
+
+/** @return whether a vm_vnode segment maps anonymous memory. */
+static inline bool vm_vnode_is_anon(struct vm_segment *seg)
+{
+    return seg->data == ANON_VNODE;
+}
+
+static inline error_t vm_vnode_set_data(struct vm_segment *seg, void *data)
+{
+    struct vm_vnode_mapping *mapping = seg->data;
+
+    if (mapping)
+        vfs_vnode_release(mapping->vnode);
+    seg->data = data;
+
+    return E_SUCCESS;
+}
 
 struct vm_segment *vm_vnode_alloc(struct address_space *as, vaddr_t addr,
                                   size_t size, vm_flags_t flags)
@@ -13,8 +34,9 @@ struct vm_segment *vm_vnode_alloc(struct address_space *as, vaddr_t addr,
     return vmm_allocate(as->vmm, addr, size, flags);
 }
 
-struct vm_segment *vm_vnode_alloc_at(struct address_space *as, paddr_t phys,
-                                     size_t size, vm_flags_t flags)
+static struct vm_segment *vm_vnode_alloc_at(struct address_space *as,
+                                            paddr_t phys, size_t size,
+                                            vm_flags_t flags)
 {
     struct vm_segment *segment;
     error_t err;
@@ -24,6 +46,8 @@ struct vm_segment *vm_vnode_alloc_at(struct address_space *as, paddr_t phys,
     segment = vmm_allocate(as->vmm, 0, size, flags);
     if (IS_ERR(segment))
         return segment;
+
+    segment->driver->vm_set_data(segment, ANON_VNODE);
 
     /* In case the caller did not get this physical address through the page
      * allocator, we should mark these pages as currently in use. */
@@ -57,12 +81,16 @@ static void vm_vnode_free(struct address_space *as, struct vm_segment *segment)
             pmm_free(phys);
     }
 
+    segment->driver->vm_set_data(segment, ANON_VNODE);
+
     vmm_free(as->vmm, segment->start, size);
 }
 
 static error_t
 vm_vnode_fault(struct address_space *as, struct vm_segment *segment)
 {
+    struct vm_vnode_mapping *mapping = segment->data;
+    struct vnode *vnode;
     paddr_t phys;
     size_t off;
     error_t err;
@@ -70,7 +98,21 @@ vm_vnode_fault(struct address_space *as, struct vm_segment *segment)
     AS_ASSERT_OWNED(as);
 
     /*
-     * Perform lazy allocation of physical pages.
+     * File backed memory, map virtual address to physical backing store.
+     * TODO: Make CoW by default.
+     */
+    if (!vm_vnode_is_anon(segment)) {
+        vnode = mapping->vnode;
+        err = vnode->operations->mmap(vnode, (void *)segment->start,
+                                      mapping->offset, segment->size);
+        if (err)
+            goto err_release_allocated;
+
+        return E_SUCCESS;
+    }
+
+    /*
+     * Perform lazy allocation of physical pages for anonymous memory.
      */
     err = E_NOMEM;
     for (off = 0; off < segment->size; off += PAGE_SIZE) {
@@ -80,6 +122,11 @@ vm_vnode_fault(struct address_space *as, struct vm_segment *segment)
          */
         if (mmu_is_mapped(segment->start + off))
             continue;
+
+        /*
+         * Allocate new empty physical page for anonymous memory, or mapped
+         * the vnode's content into for regular file mapped memory.
+         */
         phys = pmm_allocate();
         if (phys == PMM_INVALID_PAGEFRAME)
             goto err_release_allocated;

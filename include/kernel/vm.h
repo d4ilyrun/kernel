@@ -135,6 +135,9 @@ struct vm_segment_driver {
      *                 located.
      */
     error_t (*vm_fault)(struct address_space *, struct vm_segment *);
+
+    /** Set the private data field of a virtual memory segment. */
+    error_t (*vm_set_data)(struct vm_segment *, void *);
 };
 
 /** Kernel-only address-space.
@@ -158,6 +161,7 @@ struct vm_segment {
     u32 flags;     /*!< A combination of @ref vm_flags */
     const struct vm_segment_driver *driver; /*!< Driver used to manipulate this
                                                  segment */
+    void *data; /*! Private data used by the driver (vnode, ...). */
 };
 
 /** @return The end address of a contiguous virtual memory segment */
@@ -225,5 +229,19 @@ void vm_free(struct address_space *, void *);
 
 /** Find the address space's segment that contains the given address */
 struct vm_segment *vm_find(const struct address_space *, void *);
+
+/**
+ * Private data format used by vm_vnode mappings.
+ */
+struct vm_vnode_mapping {
+    /** Vnode of the file is mapped by this memory segment.
+     *
+     *  The vnode must have been acquired using vfs_vnode_acquire(). It will be
+     *  released by the vm_vnode driver when freeing the segment or if an error
+     *  occurs.
+     */
+    struct vnode *vnode;
+    off_t offset; /*!< Offset into @c vnode at which the segment starts. */
+};
 
 #endif /* KERNEL_VM_H */
