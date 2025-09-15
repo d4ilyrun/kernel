@@ -41,8 +41,8 @@ static vfs_t *vfs_root_fs()
     return container_of(llist_first(&vfs_mountpoints), vfs_t, this);
 }
 
-static error_t
-vfs_mount_at(vnode_t *mountpoint, const char *fs_type, u32 start, u32 end)
+static error_t vfs_mount_at(vnode_t *mountpoint, const char *fs_type,
+                            struct block_device *blkdev)
 {
     const vfs_fs_t *fs;
     vfs_t *new;
@@ -55,7 +55,7 @@ vfs_mount_at(vnode_t *mountpoint, const char *fs_type, u32 start, u32 end)
     if (fs == NULL)
         return E_INVAL;
 
-    new = fs->new(start, end);
+    new = fs->new(blkdev);
     if (IS_ERR(new))
         return ERR_FROM_PTR(new);
 
@@ -67,17 +67,17 @@ vfs_mount_at(vnode_t *mountpoint, const char *fs_type, u32 start, u32 end)
     return E_SUCCESS;
 }
 
-error_t vfs_mount_root(const char *fs_type, u32 start, u32 end)
+error_t vfs_mount_root(const char *fs_type, struct block_device *blkdev)
 {
     // Mounting a new root is not supported for the time being
     if (!llist_is_empty(&vfs_mountpoints))
         return E_INVAL;
 
-    return vfs_mount_at(NULL, fs_type, start, end);
+    return vfs_mount_at(NULL, fs_type, blkdev);
 }
 
-error_t
-vfs_mount(const char *mount_path, const char *fs_type, u32 start, u32 end)
+error_t vfs_mount(const char *mount_path, const char *fs_type,
+                  struct block_device *blkdev)
 {
     vnode_t *mountpoint;
     error_t err;
@@ -86,7 +86,7 @@ vfs_mount(const char *mount_path, const char *fs_type, u32 start, u32 end)
     if (IS_ERR(mountpoint))
         return ERR_FROM_PTR(mountpoint);
 
-    err = vfs_mount_at(mountpoint, fs_type, start, end);
+    err = vfs_mount_at(mountpoint, fs_type, blkdev);
     if (err != E_SUCCESS) {
         vfs_vnode_release(mountpoint);
         return err;
