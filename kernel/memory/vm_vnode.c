@@ -7,15 +7,14 @@
 
 #include <string.h>
 
-static struct vm_segment *vm_normal_alloc(struct address_space *as,
-                                          vaddr_t addr, size_t size,
-                                          vm_flags_t flags)
+static struct vm_segment *vm_vnode_alloc(struct address_space *as, vaddr_t addr,
+                                         size_t size, vm_flags_t flags)
 {
     return vmm_allocate(as->vmm, addr, size, flags);
 }
 
-static error_t vm_normal_map(struct address_space *as,
-                             struct vm_segment *segment, vm_flags_t flags)
+static error_t vm_vnode_map(struct address_space *as,
+                            struct vm_segment *segment, vm_flags_t flags)
 {
     size_t size = segment->size;
     paddr_t phys;
@@ -45,8 +44,8 @@ exit_error:
     return err;
 }
 
-struct vm_segment *vm_normal_alloc_at(struct address_space *as, paddr_t phys,
-                                      size_t size, vm_flags_t flags)
+struct vm_segment *vm_vnode_alloc_at(struct address_space *as, paddr_t phys,
+                                     size_t size, vm_flags_t flags)
 {
     struct vm_segment *segment;
     error_t err;
@@ -75,7 +74,7 @@ vm_allocate_release:
     return PTR_ERR(err);
 }
 
-static void vm_normal_free(struct address_space *as, struct vm_segment *segment)
+static void vm_vnode_free(struct address_space *as, struct vm_segment *segment)
 {
     size_t size = segment->size;
     paddr_t phys;
@@ -93,7 +92,7 @@ static void vm_normal_free(struct address_space *as, struct vm_segment *segment)
 }
 
 static error_t
-vm_normal_fault(struct address_space *as, struct vm_segment *segment)
+vm_vnode_fault(struct address_space *as, struct vm_segment *segment)
 {
     paddr_t phys;
     size_t off;
@@ -136,13 +135,13 @@ err_release_allocated:
     }
 
     log_err("failed to map segment @ " FMT32 ": %pe", segment->start, &err);
-    vm_normal_free(as, segment);
+    vm_vnode_free(as, segment);
 
     return err;
 }
 
-static error_t vm_normal_resize(struct address_space *as,
-                                struct vm_segment *segment, size_t new_size)
+static error_t vm_vnode_resize(struct address_space *as,
+                               struct vm_segment *segment, size_t new_size)
 {
     vaddr_t old_end = segment_end(segment);
     paddr_t phys;
@@ -172,9 +171,9 @@ static error_t vm_normal_resize(struct address_space *as,
 /*
  *
  */
-static error_t vm_normal_set_policy(struct address_space *as,
-                                    struct vm_segment *segment,
-                                    vm_flags_t policy)
+static error_t vm_vnode_set_policy(struct address_space *as,
+                                   struct vm_segment *segment,
+                                   vm_flags_t policy)
 {
     AS_ASSERT_OWNED(as);
     return mmu_set_policy_range(segment->start, segment->size, (int)policy);
@@ -183,7 +182,7 @@ static error_t vm_normal_set_policy(struct address_space *as,
 /*
  *
  */
-static error_t vm_normal_set_protection(struct address_space *as,
+static error_t vm_vnode_set_protection(struct address_space *as,
                                         struct vm_segment *segment,
                                         vm_flags_t prot)
 {
@@ -191,13 +190,13 @@ static error_t vm_normal_set_protection(struct address_space *as,
     return mmu_set_protection_range(segment->start, segment->size, (int)prot);
 }
 
-const struct vm_segment_driver vm_normal = {
-    .vm_alloc = vm_normal_alloc,
-    .vm_alloc_at = vm_normal_alloc_at,
-    .vm_free = vm_normal_free,
-    .vm_fault = vm_normal_fault,
-    .vm_resize = vm_normal_resize,
-    .vm_map = vm_normal_map,
-    .vm_set_policy = vm_normal_set_policy,
-    .vm_set_protection = vm_normal_set_protection,
+const struct vm_segment_driver vm_vnode = {
+    .vm_alloc = vm_vnode_alloc,
+    .vm_alloc_at = vm_vnode_alloc_at,
+    .vm_free = vm_vnode_free,
+    .vm_fault = vm_vnode_fault,
+    .vm_resize = vm_vnode_resize,
+    .vm_map = vm_vnode_map,
+    .vm_set_policy = vm_vnode_set_policy,
+    .vm_set_protection = vm_vnode_set_protection,
 };
