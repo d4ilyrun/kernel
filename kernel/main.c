@@ -3,7 +3,9 @@
 #include <kernel/cpu.h>
 #include <kernel/device.h>
 #include <kernel/devices/acpi.h>
+#include <kernel/devices/block.h>
 #include <kernel/devices/driver.h>
+#include <kernel/devices/ramdisk.h>
 #include <kernel/devices/timer.h>
 #include <kernel/devices/uart.h>
 #include <kernel/elf32.h>
@@ -56,29 +58,6 @@ void kernel_task_worker(void *data);
 void kernel_task_mutex(void *data);
 void kernel_task_ping(void *data);
 
-void kernel_relocate_module(struct multiboot_tag_module *module)
-{
-    u32 mod_size;
-    void *reloc;
-
-    mod_size = module->mod_end - module->mod_start;
-    mmu_identity_map(module->mod_start, module->mod_end,
-                     PROT_READ | PROT_KERNEL);
-
-    reloc = vm_alloc(&kernel_address_space, align_up(mod_size, PAGE_SIZE),
-                     VM_READ | VM_WRITE);
-    if (IS_ERR(reloc)) {
-        log_err("failed to relocate module@" FMT32 ": E_NOMEM",
-                module->mod_start);
-        return;
-    }
-
-    memcpy(reloc, (void *)module->mod_start, mod_size);
-    mmu_unmap_range(module->mod_start, module->mod_end);
-    module->mod_end = (u32)reloc + mod_size - 1;
-    module->mod_start = (u32)reloc;
-}
-
 void initcall_do_level(enum init_step level)
 {
 
@@ -114,39 +93,18 @@ void initcall_do_level(enum init_step level)
     }
 }
 
-static error_t kernel_mount_initfs(void)
+static error_t kernel_mount_initfs(struct multiboot_tag_module *module)
 {
-    struct multiboot_tag_module *initrd = NULL;
-    vaddr_t start;
-    vaddr_t end;
+    struct device *ramdisk;
+    u32 mod_size;
 
-    /*
-     * The initrd location is specfied by the bootloader through multiboot
-     * modules. For convenience we assume that there is only one module,
-     * which contains our initramfs.
-     */
-    FOREACH_MULTIBOOT_TAG (tag, mbt_info) {
-        if (tag->type != MULTIBOOT_TAG_TYPE_MODULE)
-            continue;
-        initrd = (void *)tag;
-        break;
-    }
+    log_info("found initrd @ [" FMT32 ":" FMT32 "]", module->mod_start,
+             module->mod_end);
 
-    if (initrd == NULL) {
-        log_err("initrd module not found");
-        return E_NOENT;
-    }
+    mod_size = module->mod_end - module->mod_start;
+    ramdisk = ramdisk_create("initrd", module->mod_start, mod_size);
 
-    log_info("found initrd @ [" FMT32 ":" FMT32 "]", initrd->mod_start,
-             initrd->mod_end);
-
-    /*
-     * TODO: Should be replaced with a ram device or something.
-     */
-    start = initrd->mod_start;
-    end = initrd->mod_end + 1;
-
-    return vfs_mount_root("tarfs", start, end);
+    return vfs_mount_root("tarfs", to_blkdev(ramdisk));
 }
 
 static error_t kernel_start_init_process(void)
@@ -243,22 +201,21 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     memcpy(mbt_info, mbt_tmp.raw, mbt_tmp.mbt.total_size);
 
     /*
-     * We need to relocate the content of the multiboot modules inside the
-     * kernel address space if we want them to be accessible from every
-     * processes
+     * The initrd location is specfied by the bootloader through multiboot
+     * modules. For convenience we assume that there is only one module,
+     * which contains our initramfs.
      */
     FOREACH_MULTIBOOT_TAG (tag, mbt_info) {
         if (tag->type == MULTIBOOT_TAG_TYPE_MODULE) {
-            kernel_relocate_module((struct multiboot_tag_module *)tag);
+            err = kernel_mount_initfs((struct multiboot_tag_module *)tag);
+            if (err)
+                PANIC("Failed to mount initfs: %s", err_to_str(err));
+            break;
         }
     }
 
     acpi_init(mbt_info);
     driver_load_drivers();
-
-    err = kernel_mount_initfs();
-    if (err)
-        PANIC("Failed to mount initfs: %s", err_to_str(err));
 
     initcall_do_level(INIT_STEP_NORMAL);
     initcall_do_level(INIT_STEP_LATE);
