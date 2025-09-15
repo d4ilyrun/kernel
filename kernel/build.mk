@@ -55,7 +55,8 @@ KERNEL_SRCS := 	\
 	devices/block.c \
 	devices/ethernet.c \
 	devices/ata.c \
-	devices/rtl8139.c
+	devices/rtl8139.c \
+	devices/ramdisk.c
 
 KERNEL_OBJS += $(addsuffix .o, $(addprefix $(BUILD_DIR)/$(KERNEL_DIR)/,$(KERNEL_SRCS)))
 KERNEL_OBJS += $(addsuffix .o, $(addprefix $(BUILD_DIR)/$(KERNEL_ARCH_DIR)/,$(KERNEL_ARCH_SRCS)))
