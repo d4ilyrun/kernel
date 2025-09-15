@@ -2,10 +2,34 @@
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
 #include <kernel/process.h>
+#include <kernel/vfs.h>
 #include <kernel/vm.h>
 #include <kernel/vmm.h>
 
 #include <string.h>
+
+/* Anonymous mappings don't require a vnode. */
+#define ANON_VNODE NULL
+
+/** @return whether a vm_vnode segment maps anonymous memory. */
+static inline bool vm_vnode_is_anon(struct vm_segment *segment)
+{
+    return segment->data == ANON_VNODE;
+}
+
+static inline error_t vm_vnode_set_data(struct vm_segment *seg, void *data)
+{
+    struct vm_vnode_mapping *mapping = seg->data;
+
+    if (mapping) {
+        vfs_vnode_release(mapping->vnode);
+        kfree(data);
+    }
+
+    seg->data = data;
+
+    return E_SUCCESS;
+}
 
 static struct vm_segment *vm_vnode_alloc(struct address_space *as, vaddr_t addr,
                                          size_t size, vm_flags_t flags)
@@ -44,8 +68,9 @@ exit_error:
     return err;
 }
 
-struct vm_segment *vm_vnode_alloc_at(struct address_space *as, paddr_t phys,
-                                     size_t size, vm_flags_t flags)
+static struct vm_segment *vm_vnode_alloc_at(struct address_space *as,
+                                            paddr_t phys, size_t size,
+                                            vm_flags_t flags)
 {
     struct vm_segment *segment;
     error_t err;
@@ -55,6 +80,8 @@ struct vm_segment *vm_vnode_alloc_at(struct address_space *as, paddr_t phys,
     segment = vmm_allocate(as->vmm, 0, size, flags);
     if (IS_ERR(segment))
         return segment;
+
+    segment->driver->vm_set_data(segment, ANON_VNODE);
 
     /* In case the caller did not get this physical address through the page
      * allocator, we should mark these pages as currently in use. */
@@ -88,20 +115,25 @@ static void vm_vnode_free(struct address_space *as, struct vm_segment *segment)
             pmm_free(phys);
     }
 
+    segment->driver->vm_set_data(segment, ANON_VNODE);
+
     vmm_free(as->vmm, segment->start, size);
 }
 
 static error_t
 vm_vnode_fault(struct address_space *as, struct vm_segment *segment)
 {
-    paddr_t phys;
+    struct vm_vnode_mapping *mapping = segment->data;
+    paddr_t phys = PMM_INVALID_PAGEFRAME;
+    struct vnode *vnode;
+    struct page *page;
     size_t off;
     error_t err;
 
     AS_ASSERT_OWNED(as);
 
     /*
-     * Perform lazy allocation of physical pages.
+     * Perform lazy allocation of physical pages for anonymous memory.
      */
     err = E_NOMEM;
     for (off = 0; off < segment->size; off += PAGE_SIZE) {
@@ -111,13 +143,35 @@ vm_vnode_fault(struct address_space *as, struct vm_segment *segment)
          */
         if (mmu_is_mapped(segment->start + off))
             continue;
-        phys = pmm_allocate();
-        if (phys == PMM_INVALID_PAGEFRAME)
-            goto err_release_allocated;
-        if (!mmu_map(segment->start + off, phys, segment->flags)) {
+
+        if (!vm_vnode_is_anon(segment)) {
+            page = vfs_vnode_get_page(mapping->vnode, mapping->offset);
+            if (IS_ERR(page)) {
+                log_err("thread %d failed to get page mapping @ " FMT32 ": %pE",
+                        current->tid, segment->start + off, page);
+                goto err_release_allocated;
+            }
+            phys = page_address(page);
+        } else {
+            /*
+             * Allocate new empty physical page for anonymous memory, or mapped
+             * the vnode's content into for regular file mapped memory.
+             *
+             * The mapping is first made writable to be able to copy the vnode's
+             * content of file backed segments.
+             */
+            phys = pmm_allocate();
+            if (phys == PMM_INVALID_PAGEFRAME)
+                goto err_release_allocated;
+        }
+
+        if (!mmu_map(segment->start + off, phys, segment->flags | PROT_WRITE)) {
             pmm_free(phys);
             goto err_release_allocated;
         }
+
+        if (!boolean(segment->flags & VM_WRITE))
+            mmu_set_prot(segment->flags + off, segment->flags);
     }
 
     if (segment->flags & VM_CLEAR)
@@ -187,4 +241,5 @@ const struct vm_segment_driver vm_vnode = {
     .vm_resize = vm_vnode_resize,
     .vm_map = vm_vnode_map,
     .vm_set_policy = vm_vnode_set_policy,
+    .vm_set_data = vm_vnode_set_data,
 };

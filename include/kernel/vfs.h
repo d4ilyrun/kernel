@@ -198,6 +198,19 @@ typedef struct vnode_operations {
      */
     void (*release)(vnode_t *node);
 
+    /**
+     * Map @c size byte of memory from @c offset in @c vnode into the virtual
+     * memory @address.
+     *
+     * This function is called by the vm_vnode virtual memory segment driver
+     * to lazily map a virtual address to the backing store's physical page
+     * during a page fault.
+     */
+    error_t (*mmap)(vnode_t *node, void *address, off_t offset, size_t size);
+
+    struct page *(*get_page)(vnode_t *vnode, off_t offset);
+    bool (*put_page)(vnode_t *vnode, struct page *page);
+
 } vnode_ops_t;
 
 /** @struct vnode
@@ -247,6 +260,12 @@ vnode_t *vfs_vnode_release(vnode_t *);
  */
 bool vfs_vnode_check_creds(const struct vnode *, const struct user_creds *,
                            int oflags);
+
+/***/
+struct page *vfs_vnode_get_page(struct vnode *vnode, off_t offset);
+
+/***/
+bool vfs_vnode_put_page(struct vnode *vnode, struct page *page);
 
 /** @} */
 

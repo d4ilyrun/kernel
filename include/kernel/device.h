@@ -115,7 +115,7 @@ static inline void device_set_name(struct device *dev, const char *name)
 }
 
 /** @return The name of the device */
-static inline const char *device_name(struct device *dev)
+static inline const char *device_name(const struct device *dev)
 {
     return dev->name;
 }

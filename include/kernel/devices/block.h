@@ -103,9 +103,17 @@ struct block_device_ops {
 
 error_t block_device_register(struct block_device *);
 
-static inline size_t block_device_size(struct block_device *blkdev)
+static inline size_t block_device_size(const struct block_device *blkdev)
 {
     return blkdev->block_count * blkdev->block_size;
+}
+
+static inline const char *block_device_name(const struct block_device *blkdev)
+{
+    if (!blkdev)
+        return NULL;
+
+    return device_name(&blkdev->dev);
 }
 
 /** Initialize a block device's page cache. */

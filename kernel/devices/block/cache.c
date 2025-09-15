@@ -93,6 +93,7 @@ block_device_cache_create(struct block_device *blkdev, blkcnt_t block)
     struct page_cache *cache = &blkdev->cache;
     struct page_cache_entry *entry = NULL;
     paddr_t paddr = PMM_INVALID_PAGEFRAME;
+    struct page *page;
     void *buffer;
     error_t err;
 
@@ -138,6 +139,9 @@ block_device_cache_create(struct block_device *blkdev, blkcnt_t block)
     {
         llist_add_tail(&global_cached_pages, &entry->this_global);
     }
+
+    page = address_to_page(paddr);
+    page->flags |= PAGE_VNODE;
 
     return entry;
 

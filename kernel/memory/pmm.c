@@ -1,10 +1,12 @@
 #define PFX_DOMAIN "pmm"
 
 #include <kernel/cpu.h>
+#include <kernel/devices/block.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/pmm.h>
 #include <kernel/types.h>
+#include <kernel/vfs.h>
 
 #include <utils/bits.h>
 #include <utils/compiler.h>
@@ -219,8 +221,23 @@ void page_put(struct page *page)
 
     page->refcount -= 1;
 
-    if (page->refcount == 0)
-        pmm_allocator_free_at(&g_pmm_allocator, page_address(page));
+    if (page->flags & PAGE_VNODE) {
+        WARN_ON_MSG(page->refcount == 0,
+                    "file mapped page refcount is 0: vnode(dev=%s)",
+                    block_device_name(page->vnode->fs->blkdev));
+        /*
+         * The page cache itself holds the last reference to the page, which
+         * will be released by vnode_put_page() -> page_cache_put(). We do not
+         * want to release the cached entry during this last release, so we
+         * clear the VNODE flag early.
+         */
+        if (page->refcount == 1)
+            page->flags &= ~PAGE_VNODE;
+        vfs_vnode_put_page(page->vnode, page);
+    } else {
+        if (page->refcount == 0)
+            pmm_allocator_free_at(&g_pmm_allocator, page_address(page));
+    }
 }
 
 bool pmm_init(struct multiboot_info *mbt)

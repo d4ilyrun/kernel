@@ -5,6 +5,7 @@
 #include <kernel/memory/slab.h>
 #include <kernel/process.h>
 #include <kernel/vfs.h>
+#include <kernel/pmm.h>
 
 #include <utils/container_of.h>
 
@@ -484,6 +485,30 @@ vnode_t *vfs_vnode_release(vnode_t *node)
 
     node->refcount -= 1;
     return node;
+}
+
+struct page *vfs_vnode_get_page(struct vnode *vnode, off_t offset)
+{
+    struct page *page;
+
+    if (!vnode->operations->get_page)
+        return PTR_ERR(E_NODEV);
+
+    page = vnode->operations->get_page(vnode, offset);
+    if (IS_ERR(page))
+        return page;
+
+    page->vnode = vnode;
+
+    return page;
+}
+
+bool vfs_vnode_put_page(struct vnode *vnode, struct page *page)
+{
+    if (IS_ERR(page))
+        return false;
+
+    return vnode->operations->put_page(vnode, page);
 }
 
 /*
