@@ -48,6 +48,8 @@
 
 #include <sys/stat.h>
 
+struct block_device;
+
 typedef struct vfs vfs_t;
 typedef struct vnode vnode_t;
 
@@ -75,9 +77,10 @@ typedef struct vfs_operations {
  */
 typedef struct vfs {
     node_t this;
-    vfs_ops_t *operations; ///< @ref vfs_operations
-    vnode_t *node;         ///< vnode on which this FS is mounted
-    void *pdata;           ///< Private FS dependent data
+    vfs_ops_t *operations;       ///< @ref vfs_operations
+    vnode_t *node;               ///< vnode on which this FS is mounted
+    void *pdata;                 ///< Private FS dependent data
+    struct block_device *blkdev; ///< Block device the filesystem resides on.
 } vfs_t;
 
 /** Mount a filesystem of the given type at a given path.
@@ -85,10 +88,7 @@ typedef struct vfs {
  * @param path Where the fs should be mounted (must be an existing
  *                   directory)
  * @param fs_type The name of the filesystem to mount
- *
- * TODO: TEMPORARY: Should be replaced with a device
- * @param start Start of the filesystem's address range
- * @param end End of the filesystem's address range
+ * @param block_device The block device the filesystem resides on
  *
  * @return
  *          * E_INVAL - the filesystem does not exist
@@ -96,21 +96,18 @@ typedef struct vfs {
  *          * E_INVAL - another filesystem is mounted at the requested path
  *          * E_NOENT - the path is invalid
  */
-error_t vfs_mount(const char *path, const char *fs_type, u32 start, u32 end);
+error_t vfs_mount(const char *path, const char *fs_type, struct block_device *);
 
 /** Mount a filesystem at the root of the VFS.
  *
  * @param fs_type The type of the filesystem
- *
- * TODO: TEMPORARY: Should be replaced with a device
- * @param start Start of the filesystem's address range
- * @param end End of the filesystem's address range
+ * @param block_device The block device the filesystem resides on
  *
  * @return
  *          * E_INVAL - there already is a root for the VFS
  *          * E_INVAL - the filesystem does not exist
  */
-error_t vfs_mount_root(const char *fs_type, u32 start, u32 end);
+error_t vfs_mount_root(const char *fs_type, struct block_device *);
 
 /** Unmount the filesystem present at the given path.
  *
@@ -253,10 +250,10 @@ static inline bool vfs_exist(const char *path)
  *
  *  This structure is used by the VFS driver to mount the filesystem.
  */
-typedef ALIGNED(ARCH_WORD_SIZE) struct vfs_fs {
-    const char *const name;  ///< Name of the filesystem
-    vfs_t *(*new)(u32, u32); ///< Create a new instance of this filesystem
-                             ///< using the given device
+typedef struct vfs_fs {
+    const char *const name;               ///< Name of the filesystem
+    vfs_t *(*new)(struct block_device *); ///< Create a new instance of this
+                                          ///< filesystem using the given device
 } vfs_fs_t;
 
 /** Declare a new available filesystem.

@@ -671,15 +671,24 @@ void *map_file(struct file *file, int prot)
 {
     size_t length;
     void *memory;
+    off_t offset;
+    ssize_t read;
+    size_t to_read;
 
     length = align_up(file_size(file), PAGE_SIZE);
     memory = vm_alloc(&kernel_address_space, length, prot);
     if (IS_ERR(memory))
         return MMAP_INVALID;
 
-    if (file_read(file, memory, file_size(file)) < 0) {
-        vm_free(&kernel_address_space, memory);
-        return MMAP_INVALID;
+    offset = 0;
+    to_read = file_size(file);
+    while (to_read && (read = file_read(file, memory + offset, to_read))) {
+        if (read < 0) {
+            vm_free(&kernel_address_space, memory);
+            return MMAP_INVALID;
+        }
+        offset += read;
+        to_read -= read;
     }
 
     return memory;

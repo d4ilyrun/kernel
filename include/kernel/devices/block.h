@@ -39,4 +39,22 @@ struct block_device_ops {
 
 error_t block_device_register(struct block_device *);
 
+static inline size_t block_device_size(struct block_device *blkdev)
+{
+    return blkdev->block_count * blkdev->block_size;
+}
+
+/** Read a single block from a block device.
+ *
+ * The block must be released using @ref block_free().
+ *
+ * @param block_index Index of the block (not its offset !)
+ *
+ * @return A memory buffer containing the content of the block.
+ */
+void *block_read(struct block_device *, blkcnt_t block_index);
+
+/** Release a block allocated using @ref block_read(). */
+void block_free(struct block_device *blkdev, void *block);
+
 #endif /* KERNEL_DEVICES_BLOCK_H */

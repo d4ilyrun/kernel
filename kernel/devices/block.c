@@ -112,3 +112,33 @@ error_t block_device_register(struct block_device *blkdev)
 
     return device_register(&blkdev->dev);
 }
+
+void *block_read(struct block_device *blkdev, blkcnt_t index)
+{
+    void *buffer;
+    ssize_t size;
+
+    buffer = kmalloc(blkdev->block_size, KMALLOC_KERNEL);
+    if (!buffer)
+        return buffer;
+
+    /**
+     * TODO: Use page cache mechanism.
+     */
+    size = block_device_request(blkdev, buffer, 1, index * blkdev->block_size,
+                               BLOCK_IO_REQUEST_READ);
+    if (size < 0) {
+        log_err("%s: failed to read block %ld: %s", blkdev->dev.name, index,
+                err_to_str(-size));
+        kfree(buffer);
+        return PTR_ERR(-size);
+    }
+
+    return buffer;
+}
+
+void block_free(struct block_device *blkdev, void *block)
+{
+    UNUSED(blkdev);
+    kfree(block);
+}
