@@ -18,10 +18,12 @@
 
 #define LOG_DOMAIN "tarfs"
 
+#include <kernel/devices/block.h>
 #include <kernel/error.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/vfs.h>
+#include <uapi/limits.h>
 
 #include <lib/path.h>
 #include <libalgo/tree.h>
@@ -72,13 +74,9 @@ typedef struct tar_header {
         TAR_TYPE_FIFO = '6',
     } type; ///< The type of this file
 
-} hdr_t ALIGNED(TAR_HEADER_SIZE);
+} ALIGNED(TAR_HEADER_SIZE) hdr_t;
 
-/** Compute the start of a file's content */
-static inline void *tar_file(const struct tar_header *tar)
-{
-    return (void *)tar + TAR_HEADER_SIZE;
-}
+static_assert(sizeof(struct tar_header) == TAR_HEADER_SIZE);
 
 /** @struct tar_filesystem
  *  @brief Filesystem dependant data for a TAR archive
@@ -87,6 +85,7 @@ static inline void *tar_file(const struct tar_header *tar)
  * \ref vfs_fs struct.
  */
 typedef struct tar_filesystem {
+    struct vfs *vfs;
     tree_t root; ///< Root of this TAR archive's file tree.
                  ///  This tree contains nodes of type \ref tar_node
 } tar_t;
@@ -95,11 +94,12 @@ typedef struct tar_filesystem {
  *  @brief Represents a file (or dir, etc ...) inside a TAR archive's file tree
  */
 typedef struct tar_node {
-    tree_node_t this; ///< This file's intrusive node used by the tree
-    const char *name; ///< The name of this file
-    hdr_t *header;    ///< The TAR header corresponding to this file
-    vnode_t *vnode;   ///< The vnode corresponding to this file (if referenced)
-    size_t size;      ///< The file's size
+    struct tar_header header; ///< The TAR header corresponding to this file
+    char name[NAME_MAX];      ///< The name of this file
+    tree_node_t this;         ///< This file's intrusive node used by the tree
+    vnode_t *vnode; ///< The vnode corresponding to this file (if referenced)
+    size_t size;    ///< The file's size
+    off_t offset;   ///< File offset into the block device (including header)
 } tar_node_t;
 
 static vnode_t *tar_get_vnode(tar_node_t *node, vfs_t *fs);
@@ -135,45 +135,111 @@ static struct tar_header tar_virtual_dir_hdr = {
     .type = TAR_TYPE_DIRECTORY,
 };
 
-static tar_node_t *tar_create_node(const path_segment_t *segment, hdr_t *header)
+/*
+ * Read the content of the underlying block device at @c offset into @c buffer.
+ *
+ * This function can only read from one block at a time. It returns E_INVAL
+ * if the requested read spans over multiple blocks.
+ */
+static ssize_t
+tar_read(struct tar_filesystem *fs, void *buffer, off_t offset, size_t size)
 {
-    tar_node_t *new = kmalloc(sizeof(tar_node_t), KMALLOC_KERNEL);
+    struct block_device *blkdev = fs->vfs->blkdev;
+    blkcnt_t index;
+    void *block;
+
+    index = offset / blkdev->block_size;
+    offset %= blkdev->block_size;
+
+    if (offset + size > (size_t)blkdev->block_size)
+        return -E_INVAL;
+
+    block = block_read(blkdev, index);
+    if (IS_ERR(block))
+        return -ERR_FROM_PTR(block);
+
+    memcpy(buffer, block + offset, size);
+    block_free(blkdev, block);
+
+    return size;
+}
+
+static void
+tar_node_set_name(struct tar_node *node, const char *name, size_t size)
+{
+    strlcpy(node->name, name, MIN(size + 1, sizeof(node->name)));
+}
+
+static struct tar_node *tar_node_alloc(struct tar_filesystem *fs)
+{
+    struct block_device *blkdev = fs->vfs->blkdev;
+    struct tar_node *new;
+
+    new = kcalloc(1, sizeof(*new), KMALLOC_KERNEL);
     if (new == NULL) {
-        log_err("Failed to allocate memory for a new node (%s)",
-                segment->start);
+        log_err("%s: failed to allocate memory for a new node",
+                blkdev->dev.name);
         return PTR_ERR(E_NOMEM);
     }
 
     INIT_TREE_NODE(new->this);
 
-    size_t name_len = path_segment_length(segment);
-    char *name = kmalloc(name_len + 1, KMALLOC_KERNEL);
-    if (name == NULL) {
-        kfree(new);
-        log_err("Failed to allocate memory for a new node (%s)",
-                segment->start);
-        return PTR_ERR(E_NOMEM);
+    return new;
+}
+
+static void tar_node_free(tree_node_t *node)
+{
+    tar_node_t *tar_node = container_of(node, tar_node_t, this);
+    /* Do not free vnode, let it be free'd by vnode_release(). */
+    if (tar_node->vnode)
+        tar_node->vnode->pdata = NULL;
+    kfree(node);
+}
+
+/*
+ * Allocate and initialize a node from a header present on disk.
+ */
+static struct tar_node *
+tar_node_from_header(struct tar_filesystem *fs, off_t hdr_offset)
+{
+    struct tar_node *new;
+
+    new = tar_node_alloc(fs);
+    if (IS_ERR(new))
+        return new;
+
+    tar_read(fs, &new->header, hdr_offset, TAR_HEADER_SIZE);
+    if (new->header.filename[0] == '\0') {
+        tar_node_free(&new->this);
+        return NULL;
     }
 
-    strncpy(name, segment->start, name_len);
-    name[name_len] = '\0';
-    new->name = name;
-
-    // The parent directory are not necessarily added to the tar archive
-    // e.g. tar cvf initramfs.tar initramfs/bin/init initramfs/init
-    //   => initramfs is not present in the archive
-    new->header = path_segment_is_last(segment) ? header : &tar_virtual_dir_hdr;
+    new->offset = hdr_offset;
+    new->size = tar_read_number(new->header.size);
 
     return new;
 }
 
-static void tar_free_node(tree_node_t *node)
+/*
+ * Allocate and initialize a virtual directory node.
+ * See the loop in @ref tar_init_tree() for more details.
+ */
+static struct tar_node *
+tar_virtual_dir_node(struct tar_filesystem *fs, path_segment_t *segment)
 {
-    tar_node_t *tar_node = container_of(node, tar_node_t, this);
-    /* Do not free vnode, let it be free's by vnode_release */
-    if (tar_node->vnode)
-        tar_node->vnode->pdata = NULL;
-    kfree(node);
+    struct tar_node *new;
+
+    new = tar_node_alloc(fs);
+    if (IS_ERR(new))
+        return new;
+
+    memcpy(&new->header, &tar_virtual_dir_hdr, TAR_HEADER_SIZE);
+
+    new->size = 0;
+    new->offset = 0xdeadbeef;
+    tar_node_set_name(new, segment->start, path_segment_length(segment));
+
+    return new;
 }
 
 /* Check whether a tar node's name corresponds to a path segment */
@@ -186,51 +252,62 @@ static int tar_node_is(const void *this, const void *segment)
 }
 
 /* Initialize the file tree of the TAR archive contained inside the device */
-static tree_t tar_init_tree(u32 start, u32 end)
+static tree_t tar_init_tree(struct tar_filesystem *fs)
 {
-    UNUSED(end);
+    struct tar_node *tar_root;
+    struct tar_node *tar_node;
+    tree_t root;
+    off_t offset;
 
-    tar_node_t *tar_root = kcalloc(1, sizeof(tar_node_t), KMALLOC_KERNEL);
+    tar_root = tar_node_alloc(fs);
     if (IS_ERR(tar_root))
         return (tree_t)tar_root;
 
-    INIT_TREE_NODE(tar_root->this);
+    root = &tar_root->this;
+    tar_root->header.type = TAR_TYPE_DIRECTORY;
 
-    tar_root->header = kcalloc(1, sizeof(hdr_t), KMALLOC_KERNEL);
-    if (tar_root->header == NULL) {
-        kfree(tar_root);
-        return PTR_ERR(E_NOMEM);
-    }
-
-    tar_root->header->type = TAR_TYPE_DIRECTORY;
-
-    // TODO: Read header from device
-    tree_t root = &tar_root->this;
-    for (hdr_t *header = (void *)start; header->filename[0] != '\0';) {
-
+    offset = 0;
+    while ((tar_node = tar_node_from_header(fs, offset)) != NULL) {
+        struct tar_header *header = &tar_node->header;
         path_t path = NEW_DYNAMIC_PATH(header->filename);
         tree_node_t *current = root;
 
         if (path.len >= TAR_FILENAME_SIZE)
             continue;
 
+        /*
+         * A tar archive does not necessarily need to include a directory
+         * if it already contains the full path to a file inside it. For
+         * example, '/usr/bin' is not guaranteed to be present if
+         * '/usr/bin/init' is.
+         *
+         * This loop adds the required directory entries to construct the path
+         * specified in the node's header (if not already present).
+         */
         DO_FOREACH_SEGMENT(segment, &path, {
-            tree_node_t *node = tree_find_child(current, tar_node_is, &segment);
-            if (!node) {
-                tar_node_t *new = tar_create_node(&segment, header);
-                if (IS_ERR(new)) {
-                    tree_free(&tar_root->this, tar_free_node);
-                    return (tree_t) new;
+            tar_node_t *new = NULL;
+            if (!path_segment_is_last(&segment)) {
+                tree_node_t *node = tree_find_child(current, tar_node_is,
+                                                    &segment);
+                if (!node) {
+                    new = tar_virtual_dir_node(fs, &segment);
+                    if (IS_ERR(new)) {
+                        tree_free(&tar_root->this, tar_node_free);
+                        return (tree_t) new;
+                    }
                 }
-                tree_add_child(current, &new->this);
-                node = &new->this;
+            } else {
+                /* tar_node_from_header() does not set the tar_node's name. */
+                tar_node_set_name(tar_node, segment.start,
+                                  path_segment_length(&segment));
+                new = tar_node;
             }
-            current = node;
+            if (new)
+                tree_add_child(current, &new->this);
+            current = &new->this;
         });
 
-        size_t size = tar_read_number_len(header->size, 11);
-        header = ((void *)header) + TAR_HEADER_SIZE + size;
-        header = (void *)align_up((uint32_t)header, TAR_HEADER_SIZE);
+        offset += align_up(tar_node->size + TAR_HEADER_SIZE, TAR_HEADER_SIZE);
     }
 
     return root;
@@ -273,12 +350,12 @@ static vnode_t *tar_vfs_root(vfs_t *fs)
 static void tar_vfs_delete(vfs_t *vfs)
 {
     tar_t *tar = vfs->pdata;
-    tree_free(tar->root, tar_free_node);
+    tree_free(tar->root, tar_node_free);
 }
 
 static vnode_t *tar_get_vnode(tar_node_t *node, vfs_t *fs)
 {
-    struct tar_header *header = node->header;
+    struct tar_header *header = &node->header;
     struct stat *stat;
     bool new;
 
@@ -386,15 +463,29 @@ static size_t tar_file_size(struct file *file)
 static ssize_t tar_file_read(struct file *file, char *buffer, size_t len)
 {
     vnode_t *vnode = file->vnode;
-    tar_node_t *tar_node = vnode->pdata;
-    void *file_start = tar_file(tar_node->header);
+    struct tar_node *tar_node = vnode->pdata;
+    struct block_device *blkdev = vnode->fs->blkdev;
+    off_t block_offset;
+    off_t offset;
+    ssize_t read;
 
-    if (len > tar_node->size)
+    offset = tar_node->offset + TAR_HEADER_SIZE + file->pos;
+    block_offset = offset % blkdev->block_size;
+
+    if (file->pos + len < (size_t)file->pos || file->pos + len > tar_node->size)
         return -E_INVAL;
 
-    memcpy(buffer, file_start, len);
+    /* Reduce read length to fit inside a single block. */
+    if (block_offset + len > (size_t)blkdev->block_size)
+        len = blkdev->block_size - block_offset;
 
-    return len;
+    read = tar_read(vnode->fs->pdata, buffer, offset, len);
+    if (read < 0)
+        return read;
+
+    file->pos += read;
+
+    return read;
 }
 
 static struct file_operations tar_file_ops = {
@@ -403,33 +494,43 @@ static struct file_operations tar_file_ops = {
     .seek = default_file_seek,
 };
 
-vfs_t *tar_new(u32 start, u32 end)
+vfs_t *tar_new(struct block_device *blkdev)
 {
-    log_info("mounting from [" FMT32 ":" FMT32 "]", start, end);
+    struct tar_filesystem *tar_fs = NULL;
+    struct vfs *vfs = NULL;
+    tree_t tree;
+    error_t err;
 
-    vfs_t *vfs = kcalloc(1, sizeof(vfs_t), KMALLOC_KERNEL);
+    vfs = kcalloc(1, sizeof(vfs_t), KMALLOC_KERNEL);
     if (vfs == NULL)
         return PTR_ERR(E_NOMEM);
 
-    vfs->operations = &tar_vfs_ops;
+    tar_fs = kmalloc(sizeof(*tar_fs), KMALLOC_KERNEL);
+    if (tar_fs == NULL) {
+        err = E_NOMEM;
+        goto tar_new_fail;
+    }
 
-    tree_t tree = tar_init_tree(start, end);
+    tar_fs->vfs = vfs;
+
+    vfs->operations = &tar_vfs_ops;
+    vfs->blkdev = blkdev;
+    vfs->pdata = tar_fs;
+
+    tree = tar_init_tree(tar_fs);
     if (IS_ERR(tree)) {
         kfree(vfs);
         return (vfs_t *)tree;
     }
 
-    tar_t *tar_fs = kmalloc(sizeof(*tar_fs), KMALLOC_KERNEL);
-    if (tar_fs == NULL) {
-        kfree(vfs);
-        kfree(tree);
-        return PTR_ERR(E_NOMEM);
-    }
-
     tar_fs->root = tree;
-    vfs->pdata = tar_fs;
 
     return vfs;
+
+tar_new_fail:
+    kfree(vfs);
+    kfree(tar_fs);
+    return PTR_ERR(err);
 }
 
 DECLARE_FILESYSTEM(tarfs, tar_new);
