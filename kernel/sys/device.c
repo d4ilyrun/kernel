@@ -152,13 +152,10 @@ static vfs_ops_t devtmpfs_vfs_ops = {
     .delete = devtmpfs_delete,
 };
 
-static vfs_t *devtmpfs_new(u32 start, u32 end)
+static vfs_t *devtmpfs_new(struct block_device *blkdev)
 {
     struct devtmpfs *devtmpfs;
     struct vfs *vfs;
-
-    UNUSED(start);
-    UNUSED(end);
 
     vfs = kcalloc(1, sizeof(vfs_t), KMALLOC_KERNEL);
     if (vfs == NULL)
@@ -172,6 +169,7 @@ static vfs_t *devtmpfs_new(u32 start, u32 end)
 
     vfs->operations = &devtmpfs_vfs_ops;
     vfs->pdata = devtmpfs;
+    vfs->blkdev = blkdev;
 
     devtmpfs->root.fs = vfs;
     devtmpfs->root.type = VNODE_DIRECTORY;
@@ -183,7 +181,7 @@ static vfs_t *devtmpfs_new(u32 start, u32 end)
 
 static error_t devtmpfs_mount(void)
 {
-    return vfs_mount("/dev", "devtmpfs", 0, 0);
+    return vfs_mount("/dev", "devtmpfs", NULL);
 }
 
 DECLARE_FILESYSTEM(devtmpfs, devtmpfs_new);
