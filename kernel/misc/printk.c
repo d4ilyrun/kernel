@@ -39,9 +39,13 @@ static size_t printk_buffer_index = 0;
  * Print the name of a kernel symbol:
  * * %ps: kernel_symbol
  * * %pS: kernel_symbol+0xoffset
+ * * %pe: err_to_str(*(error_t *)ptr)
+ * * %pE: err_to_str(ERR_FROM_PTR(ptr))
  */
 #define TOK_POINTER_SYMBOL 's'
 #define TOK_POINTER_SYMBOL_OFFSET 'S'
+#define TOK_POINTER_ERROR 'e'
+#define TOK_POINTER_ERROR_POINTER 'E'
 
 #define TOK_LEN_ELL 'l'
 #define TOK_LEN_SHORT 'h'
@@ -256,6 +260,17 @@ static void printk_kernel_symbol(vaddr_t addr, bool print_offset,
     }
 }
 
+static void
+printk_err_to_str(void *ptr, bool raw_error, printk_ctx_t *ctx, int *written)
+{
+    error_t err;
+
+    err = (raw_error) ? *(error_t *)ptr : ERR_FROM_PTR(ptr);
+
+    ctx->precision.present = false;
+    printk_puts(err_to_str(err), ctx, written);
+}
+
 /// PARSERS
 ///
 /// These functions are used to parse the printing context from the
@@ -444,6 +459,11 @@ static int printk_step_pointer(const char *c, int *written, va_list *parameters,
     case TOK_POINTER_SYMBOL_OFFSET:
         printk_kernel_symbol(va_arg(*parameters, vaddr_t),
                              *c == TOK_POINTER_SYMBOL_OFFSET, ctx, written);
+        break;
+    case TOK_POINTER_ERROR_POINTER:
+    case TOK_POINTER_ERROR:
+        printk_err_to_str(va_arg(*parameters, void *), *c == TOK_POINTER_ERROR,
+                          ctx, written);
         break;
     default:
         printk_utoa_base((unsigned int)va_arg(*parameters, void *), 16, ctx,
