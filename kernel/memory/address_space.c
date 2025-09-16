@@ -273,7 +273,7 @@ error_t address_space_fault(struct address_space *as, void *addr, bool is_cow)
     if (is_cow) {
         err = mmu_copy_on_write((vaddr_t)addr);
         if (err)
-            log_warn("cow @ %p failed: %s", addr, err_to_str(err));
+            log_warn("cow @ %p failed: %pe", addr, &err);
         return E_SUCCESS;
     }
 

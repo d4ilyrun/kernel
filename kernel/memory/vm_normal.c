@@ -103,8 +103,7 @@ err_release_allocated:
         pmm_free(phys);
     }
 
-    log_err("failed to map segment @ " FMT32 ": %s", segment->start,
-            err_to_str(err));
+    log_err("failed to map segment @ " FMT32 ": %pe", segment->start, &err);
     vm_normal_free(as, segment);
 
     return err;

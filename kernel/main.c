@@ -88,8 +88,8 @@ void initcall_do_level(enum init_step level)
         log(LOG_LEVEL_DEBUG, "initcall", "%s", initcall->name);
         err = initcall->call();
         if (err)
-            log(LOG_LEVEL_WARN, "initcall", "%s failed with %s", initcall->name,
-                err_to_str(err));
+            log(LOG_LEVEL_WARN, "initcall", "%s failed with %pe",
+                initcall->name, &err);
     }
 }
 
@@ -209,7 +209,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
         if (tag->type == MULTIBOOT_TAG_TYPE_MODULE) {
             err = kernel_mount_initfs((struct multiboot_tag_module *)tag);
             if (err)
-                PANIC("Failed to mount initfs: %s", err_to_str(err));
+                PANIC("Failed to mount initfs: %pe", &err);
             break;
         }
     }
@@ -227,7 +227,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
     err = kernel_start_init_process();
     if (err)
-        PANIC("failed to find a suitable init process: %s", err_to_str(err));
+        PANIC("failed to find a suitable init process: %pe", &err);
 
     thread_kill(current);
 }
@@ -332,7 +332,7 @@ void kernel_task_worker(void *data)
 
     ret = worker_init(&worker);
     if (ret) {
-        log_info("worker_init() failed: %s", err_to_str(ret));
+        log_info("worker_init() failed: %pe", &ret);
         return;
     }
 
@@ -418,7 +418,7 @@ void kernel_task_ping(void *data)
 
     err = socket_init(socket, AF_INET, SOCK_DGRAM, IPPROTO_ICMP);
     if (err) {
-        log_err("failed to init socket: %s", err_to_str(err));
+        log_err("failed to init socket: %pe", &err);
         return;
     }
 
@@ -427,7 +427,7 @@ void kernel_task_ping(void *data)
     addr.sin_addr = IPV4(10, 1, 1, 2);
     err = file_bind(fd, (struct sockaddr *)&addr, sizeof(addr));
     if (err) {
-        log_err("failed to bind: %s", err_to_str(err));
+        log_err("failed to bind: %pe", &err);
         return;
     }
 
@@ -435,7 +435,7 @@ void kernel_task_ping(void *data)
     do {
         err = file_connect(fd, (struct sockaddr *)&addr, sizeof(addr));
         if (err) {
-            log_warn("failed to connect: %s", err_to_str(err));
+            log_warn("failed to connect: %pe", &err);
             timer_wait_ms(1000);
         }
     } while (err);
@@ -449,7 +449,7 @@ void kernel_task_ping(void *data)
 
         err = file_send(fd, (void *)&ping_request, sizeof(ping_request), 0);
         if (err < 0) {
-            log_err("send: %s", err_to_str(err));
+            log_err("send: %pe", &err);
             continue;
         }
 
@@ -457,7 +457,7 @@ void kernel_task_ping(void *data)
 
         err = file_recv(fd, (void *)&ping_reply, sizeof(ping_reply), 0);
         if (err < 0) {
-            log_err("recv: %s", err_to_str(err));
+            log_err("recv: %pe", &err);
             continue;
         }
 

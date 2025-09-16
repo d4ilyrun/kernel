@@ -154,8 +154,7 @@ struct packet *ipv4_build_packet(const struct net_route *route, u8 proto,
     packet = packet_new(size + sizeof(struct ipv4_header) +
                         sizeof(struct ethernet_header));
     if (IS_ERR(packet)) {
-        log_err("failed to allocate packet: %s",
-                err_to_str(ERR_FROM_PTR(packet)));
+        log_err("failed to allocate packet: %pE", packet);
         return packet;
     }
 
@@ -425,7 +424,7 @@ struct socket_domain af_inet = {
 error_t ipv4_init(void)
 {
     error_t err = socket_domain_register(&af_inet);
-    log_info("Registering AF_INET domain: %s", err_to_str(err));
+    log_info("Registering AF_INET domain: %pe", &err);
     return err;
 }
 

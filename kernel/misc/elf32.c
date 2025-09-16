@@ -220,9 +220,8 @@ static error_t elf32_load_symbol_section(const struct elf32_ehdr *elf,
     for (size_t i = 1; i < symbol_count; ++i) {
         err = elf32_load_symbol(elf, &symbol_table[i]);
         if (err)
-            log_warn("failed to load symbol '%s': %s",
-                     elf32_symbol_name(elf, section, &symbol_table[i]),
-                     err_to_str(err));
+            log_warn("failed to load symbol '%s': %pe",
+                     elf32_symbol_name(elf, section, &symbol_table[i]), &err);
     }
 
     return E_SUCCESS;
@@ -283,7 +282,7 @@ static error_t elf32_load(struct executable *executable, void *data)
     for (size_t i = 0; i < elf->e_phnum; ++i) {
         err = elf32_load_segment(elf, &phdr[i]);
         if (err) {
-            log_dbg("failed to load segment %ld: %s", i, err_to_str(err));
+            log_dbg("failed to load segment %ld: %pe", i, &err);
             return err;
         }
     }
@@ -296,8 +295,8 @@ static error_t elf32_load(struct executable *executable, void *data)
     for (size_t i = 0; i < elf->e_shnum; ++i) {
         err = elf32_load_section(elf, &shdr_table[i]);
         if (err) {
-            log_dbg("failed to load section '%s': %s",
-                    elf32_section_name(elf, &shdr_table[i]), err_to_str(err));
+            log_dbg("failed to load section '%s': %pe",
+                    elf32_section_name(elf, &shdr_table[i]), &err);
             return err;
         }
     }

@@ -180,7 +180,7 @@ error_t execfmt_execute(const struct exec_params *params)
 
     ret = address_space_clear(current->process->as);
     if (ret) {
-        log_err("failed to clear address space: %s", err_to_str(ret));
+        log_err("failed to clear address space: %pe", &ret);
         goto release_executable;
     }
 
@@ -188,14 +188,14 @@ error_t execfmt_execute(const struct exec_params *params)
 
     ret = address_space_init(current->process->as);
     if (ret) {
-        log_err("failed to re-init the address space: %s", err_to_str(ret));
+        log_err("failed to re-init the address space: %pe", &ret);
         goto release_executable;
     }
 
     if (fmt->load) {
         ret = fmt->load(executable, content);
         if (ret) {
-            log_err("failed to load executable: %s", err_to_str(ret));
+            log_err("failed to load executable: %pe", &ret);
             goto release_executable;
         }
     }

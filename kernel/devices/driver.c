@@ -53,7 +53,7 @@ error_t driver_probe(driver_t *driver, device_t *device)
     error_t status = driver->operations.probe(device);
     if (status) {
         log_variable_str(driver->name);
-        log_warn("Failed to probe '%s': %s", driver->name, err_to_str(status));
+        log_warn("Failed to probe '%s': %pe", driver->name, &status);
     }
 
     return status;

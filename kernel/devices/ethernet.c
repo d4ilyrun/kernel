@@ -51,15 +51,15 @@ error_t ethernet_device_register(struct ethernet_device *device)
 
     ret = worker_init(worker);
     if (ret) {
-        log_err("%s: failed to initialize worker thread: %s",
-                ethernet_device_name(device), err_to_str(ret));
+        log_err("%s: failed to initialize worker thread: %pe",
+                ethernet_device_name(device), &ret);
         goto register_failed_free_worker;
     }
 
     interface = net_interface_new(device, ethernet_device_name(device));
     if (IS_ERR(interface)) {
         ret = ERR_FROM_PTR(interface);
-        log_warn("Failed to allocate interface: %s", err_to_str(ret));
+        log_warn("Failed to allocate interface: %pe", &ret);
         goto register_failed_free_worker;
     }
 
@@ -134,7 +134,7 @@ static void __ethernet_device_receive_packet(void *cookie)
         packet = container_of(node, struct packet, rx_this);
         err = ethernet_receive_packet(packet);
         if (err)
-            log_err("failed to handle received packet: %s", err_to_str(err));
+            log_err("failed to handle received packet: %pe", &err);
     }
 }
 

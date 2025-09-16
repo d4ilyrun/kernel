@@ -173,8 +173,7 @@ static struct process *process_new(void)
 
     process->as = address_space_new();
     if (IS_ERR(process->as)) {
-        log_err("failed to create process: %s",
-                err_to_str(ERR_FROM_PTR(process->as)));
+        log_err("failed to create process: %pE", process->as);
         kfree(process);
         return (void *)process->as;
     }
@@ -254,8 +253,8 @@ void process_init_kernel_process(void)
 
     kernel_process.as = address_space_new();
     if (IS_ERR(kernel_process.as))
-        PANIC("Failed to create kernel user address space: %s",
-              err_to_str(ERR_FROM_PTR(kernel_process.as)));
+        PANIC("Failed to create kernel user address space: %pE",
+              kernel_process.as);
 
     /*
      * We need the new kernel mmu to be loaded before initializing the
@@ -267,8 +266,7 @@ void process_init_kernel_process(void)
 
     err = address_space_init(kernel_process.as);
     if (err != E_SUCCESS)
-        PANIC("Failed to initialize kernel user address space: %s",
-              err_to_str(err));
+        PANIC("Failed to initialize kernel user address space: %pe", &err);
 
     ustack = vm_alloc(kernel_process.as, USER_STACK_SIZE,
                       VM_READ | VM_WRITE | VM_CLEAR);
@@ -385,7 +383,7 @@ thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
 
     err = arch_thread_init(thread, entrypoint, data, esp);
     if (err) {
-        log_err("Failed to initialize new thread: %s", err_to_str(err));
+        log_err("Failed to initialize new thread: %pe", &err);
         goto kstack_free;
     }
 
@@ -507,8 +505,7 @@ static void __process_execute_in_userland(void *data)
 
     err = execfmt_execute(&params);
     if (err) {
-        log_err("%s: failed to execute (%s)", current->process->name,
-                err_to_str(err));
+        log_err("%s: failed to execute: %pe", current->process->name, &err);
         return;
     }
 

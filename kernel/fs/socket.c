@@ -59,8 +59,7 @@ struct socket *socket_alloc(void)
 
     file = file_open(vnode, &socket_fops);
     if (IS_ERR(file)) {
-        log_err("Failed to open socket file: %s",
-                err_to_str(ERR_FROM_PTR(file)));
+        log_err("Failed to open socket file: %pE", file);
         vfs_vnode_release(vnode);
         return (void *)file;
     }

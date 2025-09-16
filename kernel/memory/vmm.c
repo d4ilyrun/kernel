@@ -463,8 +463,7 @@ vmm_allocate_locked(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
         &vmm->vmas.by_address, &allocated->avl.by_address, vma_compare_address);
 
     if (IS_ERR(inserted)) {
-        log_err("failed to insert new VMA inside the AVL: %s",
-                err_to_str(ERR_FROM_PTR(inserted)));
+        log_err("failed to insert new VMA inside the AVL: %pE", inserted);
         vmm_unlock(vmm);
         return (void *)inserted;
     }
