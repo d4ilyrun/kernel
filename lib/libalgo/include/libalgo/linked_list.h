@@ -322,3 +322,29 @@ llist_find_first(const llist_t *list, const void *data, compare_t compare)
 
     return NULL;
 }
+
+/** Retreive the first matching element inside the sorted list (or NULL)
+ *
+ *  @param list The sorted list's head
+ *  @param data The data to be matched against
+ *  @param compare The function used to compare the nodes and the data
+ *                 (@c data is passed as its second argument)
+ *
+ *  @return The first matching node, or NULL
+ */
+static inline node_t *llist_find_first_sorted(const llist_t *list,
+                                              const void *data,
+                                              compare_t compare)
+{
+    int ret;
+
+    FOREACH_LLIST (node, list) {
+        ret = compare(node, data);
+        if (ret == 0)
+            return node;
+        if (ret < 0)
+            break;
+    }
+
+    return NULL;
+}
