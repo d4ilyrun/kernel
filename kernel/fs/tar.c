@@ -289,12 +289,14 @@ static tree_t tar_init_tree(struct tar_filesystem *fs)
             if (!path_segment_is_last(&segment)) {
                 tree_node_t *node = tree_find_child(current, tar_node_is,
                                                     &segment);
-                if (!node) {
-                    new = tar_virtual_dir_node(fs, &segment);
-                    if (IS_ERR(new)) {
-                        tree_free(&tar_root->this, tar_node_free);
-                        return (tree_t) new;
-                    }
+                if (node) {
+                    current = node;
+                    continue;
+                }
+                new = tar_virtual_dir_node(fs, &segment);
+                if (IS_ERR(new)) {
+                    tree_free(&tar_root->this, tar_node_free);
+                    return (tree_t) new;
                 }
             } else {
                 /* tar_node_from_header() does not set the tar_node's name. */
@@ -302,8 +304,7 @@ static tree_t tar_init_tree(struct tar_filesystem *fs)
                                   path_segment_length(&segment));
                 new = tar_node;
             }
-            if (new)
-                tree_add_child(current, &new->this);
+            tree_add_child(current, &new->this);
             current = &new->this;
         });
 
