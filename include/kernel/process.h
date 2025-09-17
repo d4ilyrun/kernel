@@ -405,6 +405,13 @@ bool thread_switch(thread_t *);
 thread_t *thread_spawn(struct process *, thread_entry_t, void *data,
                        void *esp, void *ebp, u32 flags);
 
+/** Create and initialize a new kernel thread.
+ *  @see thread_spawn()
+ */
+#define kthread_spawn(__function, __data, ...)              \
+    thread_spawn(&kernel_process, __function, __data, NULL, NULL, \
+                 THREAD_KERNEL __VA_OPT__(|) __VA_ARGS__)
+
 /** Start executing code in userland
  *
  * This function resets the user execution context (eip, stack content).
