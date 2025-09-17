@@ -319,7 +319,15 @@ bool thread_switch(thread_t *);
  *            an existing thread. Ignored if NULL.
  * @param flags Feature flags: a combination of \ref thread_flags enum values
  */
-thread_t *thread_spawn(struct process *, thread_entry_t, void *, void *, u32);
+thread_t *thread_spawn(struct process *, thread_entry_t, void *data, void *esp,
+                       u32 flags);
+
+/** Create and initialize a new kernel thread.
+ *  @see thread_spawn()
+ */
+#define kthread_spawn(__function, __data, ...)              \
+    thread_spawn(&kernel_process, __function, __data, NULL, \
+                 THREAD_KERNEL __VA_OPT__(|) __VA_ARGS__)
 
 /** Start executing code in userland
  *
