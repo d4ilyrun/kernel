@@ -616,3 +616,20 @@ static DEFINE_INTERRUPT_HANDLER(page_fault)
           error.present ? "protected" : "non-present",
           error.user ? "while in user-mode" : "");
 }
+
+bool mmu_is_dirty(vaddr_t vaddr)
+{
+    mmu_decode_t addr = {.raw = vaddr};
+    mmu_pte_t *pte = &MMU_RECURSIVE_PAGE_TABLE_ADDRESS(addr.pde)[addr.pte];
+
+    return boolean(pte->dirty);
+}
+
+void mmu_clear_dirty(vaddr_t vaddr)
+{
+    mmu_decode_t addr = {.raw = vaddr};
+    mmu_pte_t *pte = &MMU_RECURSIVE_PAGE_TABLE_ADDRESS(addr.pde)[addr.pte];
+
+    pte->dirty = false;
+    mmu_flush_tlb(vaddr);
+}

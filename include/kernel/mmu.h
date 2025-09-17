@@ -151,4 +151,13 @@ static inline bool mmu_is_mapped(vaddr_t addr)
     return !IS_ERR(mmu_find_physical(addr));
 }
 
+/** @return the state of the address' dirty bit inside the page table.
+ *
+ *  TODO: This should be inlined inside an arch specific header.
+ */
+bool mmu_is_dirty(vaddr_t);
+
+/** @return the state of the address' dirty bit inside the page table. */
+void mmu_clear_dirty(vaddr_t);
+
 #endif /* KERNEL_MMU_H */
