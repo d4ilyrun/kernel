@@ -70,9 +70,9 @@ $ make docs # Requires you to also pull the git submodules
 - Memory management
     - [X] Paging
     - [X] Copy-on-Write
-    - [ ] Guard pages
+    - [X] Page cache
     - [ ] Shared pages
-    - [ ] Page cache
+    - [ ] Guard pages
 - Drivers
     - [X] Timer
     - [ ] Mouse

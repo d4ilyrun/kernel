@@ -60,6 +60,12 @@
 #define align_up_ptr(_ptr, _power) ((void *)align_up((vaddr_t)_ptr, _power))
 #define is_aligned_ptr(_ptr, _alignment) is_aligned((vaddr_t)_ptr, _alignment)
 
+/** @return whether a value is a power of two */
+static inline __always_inline bool is_power_of_two(unsigned long n)
+{
+    return (n != 0 && ((n & (n - 1)) == 0));
+}
+
 /** @brief Round @c value to the next multiple of @c alignment
  *
  *  When rounding to a power of two, prefere using @ref align_up instead.

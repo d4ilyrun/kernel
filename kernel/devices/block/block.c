@@ -4,6 +4,7 @@
 #include <kernel/file.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
+#include <kernel/memory.h>
 #include <kernel/vfs.h>
 
 #include <utils/constants.h>
@@ -100,10 +101,16 @@ static const struct file_operations block_device_fops = {
 
 error_t block_device_register(struct block_device *blkdev)
 {
+    error_t err;
+
     blkdev->dev.fops = &block_device_fops;
 
     if (!blkdev->ops->request)
         return E_INVAL;
+
+    err = block_device_cache_init(blkdev);
+    if (err)
+        return err;
 
     log_info("%s: new block device (size: %ldMB, block_size: %ldB)",
              device_name(&blkdev->dev),
@@ -111,6 +118,47 @@ error_t block_device_register(struct block_device *blkdev)
              blkdev->block_size);
 
     return device_register(&blkdev->dev);
+}
+
+error_t
+block_read_direct(struct block_device *blkdev, void *buffer, blkcnt_t block)
+{
+    ssize_t size;
+    error_t err;
+
+    size = block_device_request(blkdev, buffer, 1, block * blkdev->block_size,
+                                BLOCK_IO_REQUEST_READ);
+    if (size < 0) {
+        err = -size;
+        log_err("%s: failed to read block %ld: %pe", blkdev->dev.name, block,
+                &err);
+        return err;
+    }
+
+    WARN_ON(size != blkdev->block_size);
+
+    return E_SUCCESS;
+}
+
+error_t block_write_direct(struct block_device *blkdev, const void *buffer,
+                           blkcnt_t block)
+{
+    ssize_t size;
+    error_t err;
+
+    size = block_device_request(blkdev, (void *)buffer, 1,
+                                block * blkdev->block_size,
+                                BLOCK_IO_REQUEST_WRITE);
+    if (size < 0) {
+        err = -size;
+        log_err("%s: failed to write block %ld: %pe", blkdev->dev.name, block,
+                &err);
+        return err;
+    }
+
+    WARN_ON(size != blkdev->block_size);
+
+    return E_SUCCESS;
 }
 
 void *block_read(struct block_device *blkdev, blkcnt_t index)

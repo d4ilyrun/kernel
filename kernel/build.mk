@@ -52,11 +52,12 @@ KERNEL_SRCS := 	\
 	devices/driver.c \
 	devices/acpi.c \
 	devices/pci.c \
-	devices/block.c \
 	devices/ethernet.c \
 	devices/ata.c \
 	devices/rtl8139.c \
-	devices/ramdisk.c
+	devices/ramdisk.c \
+	devices/block/block.c \
+	devices/block/cache.c \
 
 KERNEL_OBJS += $(addsuffix .o, $(addprefix $(BUILD_DIR)/$(KERNEL_DIR)/,$(KERNEL_SRCS)))
 KERNEL_OBJS += $(addsuffix .o, $(addprefix $(BUILD_DIR)/$(KERNEL_ARCH_DIR)/,$(KERNEL_ARCH_SRCS)))
