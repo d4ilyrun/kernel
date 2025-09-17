@@ -181,4 +181,13 @@ error_t mmu_set_policy(vaddr_t, mmu_policy_t policy);
 error_t mmu_set_policy_range(vaddr_t range_start, size_t range_size,
                              mmu_policy_t policy);
 
+/** @return the state of the address' dirty bit inside the page table.
+ *
+ *  TODO: This should be inlined inside an arch specific header.
+ */
+bool mmu_is_dirty(vaddr_t);
+
+/** @return the state of the address' dirty bit inside the page table. */
+void mmu_clear_dirty(vaddr_t);
+
 #endif /* KERNEL_MMU_H */
