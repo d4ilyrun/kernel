@@ -161,32 +161,21 @@ error_t block_write_direct(struct block_device *blkdev, const void *buffer,
     return E_SUCCESS;
 }
 
-void *block_read(struct block_device *blkdev, blkcnt_t index)
+void *const *block_get(struct block_device *blkdev, blkcnt_t block)
 {
-    void *buffer;
-    ssize_t size;
+    const struct page_cache_entry *entry;
 
-    buffer = kmalloc(blkdev->block_size, KMALLOC_KERNEL);
-    if (!buffer)
-        return buffer;
+    entry = block_device_cache_get(blkdev, block);
+    if (IS_ERR(entry))
+        return (void *)entry;
 
-    /**
-     * TODO: Use page cache mechanism.
-     */
-    size = block_device_request(blkdev, buffer, 1, index * blkdev->block_size,
-                               BLOCK_IO_REQUEST_READ);
-    if (size < 0) {
-        log_err("%s: failed to read block %ld: %s", blkdev->dev.name, index,
-                err_to_str(-size));
-        kfree(buffer);
-        return PTR_ERR(-size);
-    }
-
-    return buffer;
+    return &entry->buffer;
 }
 
-void block_free(struct block_device *blkdev, void *block)
+void block_release(struct block_device *blkdev, void *const *pbuffer)
 {
-    UNUSED(blkdev);
-    kfree(block);
+    struct page_cache_entry *entry;
+
+    entry = container_of(pbuffer, struct page_cache_entry, buffer);
+    block_device_cache_put(blkdev, entry);
 }

@@ -147,6 +147,7 @@ tar_read(struct tar_filesystem *fs, void *buffer, off_t offset, size_t size)
 {
     struct block_device *blkdev = fs->vfs->blkdev;
     blkcnt_t index;
+    void *const *pblock;
     void *block;
 
     index = offset / blkdev->block_size;
@@ -155,12 +156,13 @@ tar_read(struct tar_filesystem *fs, void *buffer, off_t offset, size_t size)
     if (offset + size > (size_t)blkdev->block_size)
         return -E_INVAL;
 
-    block = block_read(blkdev, index);
-    if (IS_ERR(block))
-        return -ERR_FROM_PTR(block);
+    pblock = block_get(blkdev, index);
+    if (IS_ERR(pblock))
+        return -ERR_FROM_PTR(pblock);
 
+    block = *pblock;
     memcpy(buffer, block + offset, size);
-    block_free(blkdev, block);
+    block_release(blkdev, pblock);
 
     return size;
 }
