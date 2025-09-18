@@ -207,6 +207,9 @@ typedef struct vnode_operations {
      */
     error_t (*mmap)(vnode_t *node, void *address, off_t offset, size_t size);
 
+    struct page *(*get_page)(vnode_t *vnode, off_t offset);
+    bool (*put_page)(vnode_t *vnode, struct page *page);
+
 } vnode_ops_t;
 
 /** @struct vnode
@@ -242,6 +245,12 @@ vnode_t *vfs_vnode_acquire(vnode_t *, bool *);
  * @return The original vnode, NULL if the new refcount is 0
  */
 vnode_t *vfs_vnode_release(vnode_t *);
+
+/***/
+struct page *vfs_vnode_get_page(struct vnode *vnode, off_t offset);
+
+/***/
+bool vfs_vnode_put_page(struct vnode *vnode, struct page *page);
 
 /** @} */
 

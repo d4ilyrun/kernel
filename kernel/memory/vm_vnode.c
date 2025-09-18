@@ -12,17 +12,20 @@
 #define ANON_VNODE NULL
 
 /** @return whether a vm_vnode segment maps anonymous memory. */
-static inline bool vm_vnode_is_anon(struct vm_segment *seg)
+static inline bool vm_vnode_is_anon(struct vm_segment *segment)
 {
-    return seg->data == ANON_VNODE;
+    return segment->data == ANON_VNODE;
 }
 
 static inline error_t vm_vnode_set_data(struct vm_segment *seg, void *data)
 {
     struct vm_vnode_mapping *mapping = seg->data;
 
-    if (mapping)
+    if (mapping) {
         vfs_vnode_release(mapping->vnode);
+        kfree(data);
+    }
+
     seg->data = data;
 
     return E_SUCCESS;
@@ -90,26 +93,13 @@ static error_t
 vm_vnode_fault(struct address_space *as, struct vm_segment *segment)
 {
     struct vm_vnode_mapping *mapping = segment->data;
+    paddr_t phys = PMM_INVALID_PAGEFRAME;
     struct vnode *vnode;
-    paddr_t phys;
+    struct page *page;
     size_t off;
     error_t err;
 
     AS_ASSERT_OWNED(as);
-
-    /*
-     * File backed memory, map virtual address to physical backing store.
-     * TODO: Make CoW by default.
-     */
-    if (!vm_vnode_is_anon(segment)) {
-        vnode = mapping->vnode;
-        err = vnode->operations->mmap(vnode, (void *)segment->start,
-                                      mapping->offset, segment->size);
-        if (err)
-            goto err_release_allocated;
-
-        return E_SUCCESS;
-    }
 
     /*
      * Perform lazy allocation of physical pages for anonymous memory.
@@ -123,17 +113,37 @@ vm_vnode_fault(struct address_space *as, struct vm_segment *segment)
         if (mmu_is_mapped(segment->start + off))
             continue;
 
-        /*
-         * Allocate new empty physical page for anonymous memory, or mapped
-         * the vnode's content into for regular file mapped memory.
-         */
-        phys = pmm_allocate();
-        if (phys == PMM_INVALID_PAGEFRAME)
-            goto err_release_allocated;
-        if (!mmu_map(segment->start + off, phys, segment->flags)) {
+        if (!vm_vnode_is_anon(segment)) {
+            /*
+             *
+             */
+            page = vfs_vnode_get_page(mapping->vnode, mapping->offset);
+            if (IS_ERR(page)) {
+                log_err("thread %d failed to get page mapping @ " FMT32,
+                        current->tid, segment->start + off);
+                goto err_release_allocated;
+            }
+            phys = page_address(page);
+        } else {
+            /*
+             * Allocate new empty physical page for anonymous memory, or mapped
+             * the vnode's content into for regular file mapped memory.
+             *
+             * The mapping is first made writable to be able to copy the vnode's
+             * content of file backed segments.
+             */
+            phys = pmm_allocate();
+            if (phys == PMM_INVALID_PAGEFRAME)
+                goto err_release_allocated;
+        }
+
+        if (!mmu_map(segment->start + off, phys, segment->flags | PROT_WRITE)) {
             pmm_free(phys);
             goto err_release_allocated;
         }
+
+        if (!boolean(segment->flags & VM_WRITE))
+            mmu_set_prot(segment->flags + off, segment->flags);
     }
 
     if (segment->flags & VM_CLEAR)
@@ -190,4 +200,5 @@ const struct vm_segment_driver vm_vnode = {
     .vm_free = vm_vnode_free,
     .vm_fault = vm_vnode_fault,
     .vm_resize = vm_vnode_resize,
+    .vm_set_data = vm_vnode_set_data,
 };

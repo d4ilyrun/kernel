@@ -63,6 +63,7 @@
 enum page_flags {
     PAGE_AVAILABLE = BIT(0), ///< This page has not been allocated
     PAGE_COW = BIT(1),       ///< Currently used in a CoW mapping
+    PAGE_VNODE = BIT(2),     ///< Page is mapped to a vnode
 };
 
 /** Represents a physical pageframe
@@ -71,6 +72,11 @@ enum page_flags {
 struct page {
     uint8_t flags;    ///< Combination of @ref page_flags
     uint8_t refcount; ///< How many processes reference that page
+
+    union {
+        /** Used by vnode backed pages. */
+        struct vnode *vnode;
+    };
 };
 
 /**
