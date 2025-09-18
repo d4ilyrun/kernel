@@ -151,6 +151,12 @@ static inline bool mmu_is_mapped(vaddr_t addr)
     return !IS_ERR(mmu_find_physical(addr));
 }
 
+/** @brief Set the protection flags
+ *
+ *  @note This function uses the currently loaded page directory.
+ */
+void mmu_set_prot(vaddr_t, int prot);
+
 /** @return the state of the address' dirty bit inside the page table.
  *
  *  TODO: This should be inlined inside an arch specific header.

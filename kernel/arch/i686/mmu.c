@@ -438,6 +438,18 @@ paddr_t mmu_find_physical(vaddr_t virtual)
     return FROM_PFN(page_table[address.pte].page_frame) + address.offset;
 }
 
+void mmu_set_prot(vaddr_t addr, int prot)
+{
+    mmu_decode_t decode = {.raw = addr};
+    mmu_pte_t *pte;
+
+    pte = &MMU_RECURSIVE_PAGE_TABLE_ADDRESS(decode.pde)[decode.pte];
+    pte->writable = boolean(prot & PROT_WRITE);
+    pte->user = !boolean(prot & PROT_KERNEL);
+
+    mmu_flush_tlb(addr);
+}
+
 error_t mmu_copy_on_write(vaddr_t addr)
 {
     mmu_decode_t address = {.raw = addr};
