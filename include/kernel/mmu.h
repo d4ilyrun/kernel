@@ -181,6 +181,12 @@ error_t mmu_set_policy(vaddr_t, mmu_policy_t policy);
 error_t mmu_set_policy_range(vaddr_t range_start, size_t range_size,
                              mmu_policy_t policy);
 
+/** @brief Set the protection flags
+ *
+ *  @note This function uses the currently loaded page directory.
+ */
+void mmu_set_prot(vaddr_t, int prot);
+
 /** @return the state of the address' dirty bit inside the page table.
  *
  *  TODO: This should be inlined inside an arch specific header.
