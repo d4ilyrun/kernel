@@ -34,6 +34,7 @@
 #include <kernel/memory.h>
 #include <kernel/types.h>
 
+#include <libalgo/linked_list.h>
 #include <utils/bits.h>
 
 #include <multiboot.h>
@@ -75,7 +76,10 @@ struct page {
 
     union {
         /** Used by vnode backed pages. */
-        struct vnode *vnode;
+        struct {
+            struct vnode *vnode;
+            struct page_cache_entry *cache_entry;
+        } vnode;
     };
 };
 
@@ -164,6 +168,11 @@ void pmm_free_pages(paddr_t pageframe, size_t size);
 #define pmm_allocate() pmm_allocate_pages(PAGE_SIZE)
 
 #define pmm_free(pageframe) pmm_free_pages(pageframe, PAGE_SIZE)
+
+/** Find a shared physical page that maps the given vnode/offset tuple.
+ *  @return NULL if no share
+ */
+struct page *page_find_shared_mapping(const struct page_mapping *);
 
 #endif /* KERNEL_PMM_H */
 

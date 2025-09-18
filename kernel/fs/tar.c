@@ -16,6 +16,7 @@
  * @{
  */
 
+#include "kernel/pmm.h"
 #define LOG_DOMAIN "tarfs"
 
 #include <kernel/devices/block.h>
@@ -442,12 +443,38 @@ static struct file *tar_vnode_open(vnode_t *vnode)
     return file_open(vnode, &tar_file_ops);
 }
 
+static struct page *tar_vnode_get_page(struct vnode *vnode, off_t offset)
+{
+    struct block_device *blkdev = vnode->fs->blkdev;
+    struct tar_node *node = vnode->pdata;
+    const struct page_cache_entry *cache_entry;
+    blkcnt_t block;
+
+    if (offset >= vnode->stat.st_size)
+        return PTR_ERR(E_INVAL);
+
+    block = (node->offset + offset) / blkdev->block_size;
+    cache_entry = block_device_cache_get(blkdev, block);
+
+    return page_get(cache_entry->page);
+}
+
+static bool tar_vnode_put_page(struct vnode *vnode, struct page *page)
+{
+    struct block_device *blkdev = vnode->fs->blkdev;
+    struct
+
+        block_device_cache_put(blkdev, cache_entry);
+}
+
 static vnode_ops_t tar_vnode_ops = {
     .lookup = tar_vnode_lookup,
     .release = tar_vnode_release,
     .create = tar_vnode_create,
     .open = tar_vnode_open,
     .remove = tar_vnode_remove,
+    .get_page = tar_vnode_get_page,
+    .put_page = tar_vnode_put_page,
 };
 
 static vfs_ops_t tar_vfs_ops = {
