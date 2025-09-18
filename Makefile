@@ -1,3 +1,5 @@
+-include .config
+
 CC   := $(CROSS_COMPILE)gcc
 CPP  := $(CROSS_COMPILE)cpp
 LD   := $(CROSS_COMPILE)ld
@@ -11,9 +13,9 @@ else
 endif
 
 ifneq ($(CROSS_COMPILE),)
-  $(info Cross compiling for target: $(CROSS_COMPILE))
+  $(info Cross compiling for target: $(CROSS_COMPILE) ($(CC)))
 else
-  $(info Compiling using host toolchain)
+  $(info Compiling using host toolchain ($(CC)))
 endif
 
 # If no -j option has been specified, use the maximum amount of cores available.
@@ -115,19 +117,40 @@ include $(LIB_DIR)/build.mk
 include $(KERNEL_DIR)/build.mk
 include $(DOCS_DIR)/build.mk
 
-$(BUILD_DIR)/%.c.o: %.c
+GENERATED_CONFIG_HEADER := $(BUILD_DIR)/config.h
+
+config: $(GENERATED_CONFIG_HEADER)
+$(GENERATED_CONFIG_HEADER): .config
+	@echo "/* Automatically generated, do not edit */" > $@
+	@$(foreach v,$(filter CONFIG_%,$(.VARIABLES)), \
+		if [ -n "$($(v))" ]; then \
+			if [ "$($(v))" = "y" ]; then \
+				echo "#define $(v) 1" >> $@; \
+			else \
+				echo "#define $(v) $($(v))" >> $@; \
+			fi; \
+		else \
+			echo "/* $(v) is not set */" >> $@; \
+		fi; \
+	)
+
+CPPFLAGS += -include $(GENERATED_CONFIG_HEADER)
+
+.PHONY: config
+
+$(BUILD_DIR)/%.c.o: %.c $(GENERATED_CONFIG_HEADER)
 	$(call COMPILE,CC,$@)
 	$(SILENT)$(CC) $(CPPFLAGS) $(ASFLAGS) $(CFLAGS) -c "$<" -o "$@"
 
-$(BUILD_DIR)/%.S.o: %.S
+$(BUILD_DIR)/%.S.o: %.S $(GENERATED_CONFIG_HEADER)
 	$(call COMPILE,AS,$@)
 	$(SILENT)$(CC) $(CPPFLAGS) $(ASFLAGS) $(CFLAGS) -c "$<" -o "$@"
 
 $(BUILD_DIR)/%.asm.o: %.asm
 	$(call COMPILE,NASM,$@)
-	$(SILENT)$(NASM) $(CPPFLAGS) $(NASMFLAGS) -o "$@" "$<"
+	$(SILENT)$(NASM) $(NASMFLAGS) -o "$@" "$<"
 
-$(BUILD_DIR)/%.ld: %.ld
+$(BUILD_DIR)/%.ld: %.ld $(GENERATED_CONFIG_HEADER)
 	$(call COMPILE,CPP,$@)
 	$(SILENT)$(CPP) $(CPPFLAGS) "$<" -o "$@"
 
