@@ -693,7 +693,8 @@ pid_t sys_fork(void)
 {
     struct thread *fork;
 
-    fork = thread_fork(current, (void *)current->frame.state.eip, NULL);
+    fork = thread_fork(current, thread_get_interrupt_return_address(current),
+                       NULL);
     if (IS_ERR(fork))
         return -ERR_FROM_PTR(fork);
 

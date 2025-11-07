@@ -235,6 +235,15 @@ static inline void *thread_get_user_stack(const struct thread *thread)
     return top - USER_STACK_SIZE;
 }
 
+/**
+ * Read the thread's return address when exiting the current interrupt context.
+ */
+static inline void *
+thread_get_interrupt_return_address(const struct thread *thread)
+{
+    return (void *)thread->frame.state.eip;
+}
+
 /** Process used when starting up the kernel.
  *
  * It is necesary to define it statically, since memory management functions are
