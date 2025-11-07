@@ -38,7 +38,7 @@ struct socket *socket_alloc(void)
     struct file *file;
     struct stat *stat;
 
-    node = kcalloc(1, sizeof(*node), KMALLOC_DEFAULT);
+    node = kcalloc(1, sizeof(*node), KMALLOC_KERNEL);
     if (node == NULL)
         return PTR_ERR(E_NOMEM);
 
