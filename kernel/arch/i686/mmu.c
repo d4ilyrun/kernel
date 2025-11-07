@@ -80,7 +80,7 @@
 #include <stddef.h>
 #include <string.h>
 
-static DEFINE_INTERRUPT_HANDLER(page_fault);
+static INTERRUPT_HANDLER_FUNCTION(page_fault);
 
 /** Number of entries inside the page directory */
 #define MMU_PDE_COUNT (1024)
@@ -595,7 +595,7 @@ typedef struct PACKED {
     u16 _unused2 : 15;
 } page_fault_error;
 
-static DEFINE_INTERRUPT_HANDLER(page_fault)
+static INTERRUPT_HANDLER_FUNCTION(page_fault)
 {
     // The CR2 register holds the virtual address which caused the Page Fault
     void *faulty_address = (void *)read_cr2();

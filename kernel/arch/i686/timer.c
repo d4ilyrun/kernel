@@ -27,7 +27,7 @@
 volatile clock_t timer_ticks_counter = 0;
 volatile u32 timer_kernel_frequency = 0;
 
-static DEFINE_INTERRUPT_HANDLER(irq_timer);
+static INTERRUPT_HANDLER_FUNCTION(irq_timer);
 
 error_t arch_timer_start(u32 frequency)
 {
@@ -46,7 +46,7 @@ error_t arch_timer_start(u32 frequency)
     return E_SUCCESS;
 }
 
-static DEFINE_INTERRUPT_HANDLER(irq_timer)
+static INTERRUPT_HANDLER_FUNCTION(irq_timer)
 {
     UNUSED(data);
 

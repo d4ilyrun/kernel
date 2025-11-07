@@ -29,7 +29,7 @@
 
 /** INTERRUPT HANDLERS */
 
-static DEFINE_INTERRUPT_HANDLER(irq_keyboard);
+static INTERRUPT_HANDLER_FUNCTION(irq_keyboard);
 
 void pic_reset()
 {
@@ -86,7 +86,7 @@ void pic_disable_irq(pic_irq irq)
     outb(PIC_DATA(pic), BIT_SET(mask, irq % PIC_SIZE));
 }
 
-static DEFINE_INTERRUPT_HANDLER(irq_keyboard)
+static INTERRUPT_HANDLER_FUNCTION(irq_keyboard)
 {
     UNUSED(data);
 

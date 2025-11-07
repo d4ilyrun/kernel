@@ -89,7 +89,7 @@ const char *interrupts_to_str(u8 nr);
  * @brief Define an interrupt handler function for a given interrupt
  * You must always use this function when defining an interrupt handler.
  */
-#define DEFINE_INTERRUPT_HANDLER(_interrupt) \
+#define INTERRUPT_HANDLER_FUNCTION(_interrupt) \
     u32 INTERRUPT_HANDLER(_interrupt)(void *data)
 
 /** @} */
