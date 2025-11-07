@@ -164,7 +164,7 @@ vnode_t *vfs_find_by_path(const char *raw_path)
 static vnode_t *vfs_find_parent(path_t *path)
 {
     vnode_t *parent;
-    char *raw_parent = kmalloc(path->len * sizeof(char), KMALLOC_DEFAULT);
+    char *raw_parent = kmalloc(path->len * sizeof(char), KMALLOC_KERNEL);
     ssize_t len = path_load_parent(raw_parent, path, path->len);
 
     if (len == -1) {
