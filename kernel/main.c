@@ -53,7 +53,6 @@ union {
 // Tasks used for manually testing
 void kernel_test(void);
 void kernel_task_timer(void *data);
-void kernel_task_malloc(void *data);
 void kernel_task_worker(void *data);
 void kernel_task_mutex(void *data);
 void kernel_task_ping(void *data);
@@ -234,7 +233,6 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
 void kernel_test(void)
 {
-    sched_new_thread_create(kernel_task_malloc, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_worker, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_mutex, NULL, THREAD_KERNEL);
     sched_new_thread_create(kernel_task_ping, NULL, THREAD_KERNEL);
@@ -257,44 +255,6 @@ void kernel_test(void)
 }
 
 // TASKS USED FOR MANUALLY TESTING FEATURES
-
-#undef LOG_DOMAIN
-#define LOG_DOMAIN "kmalloc"
-void kernel_task_malloc(void *data)
-{
-    uint32_t *invalid_free = kcalloc(4, sizeof(uint32_t), KMALLOC_DEFAULT);
-    uint32_t *kmalloc_addresses = kcalloc(4, sizeof(uint32_t), KMALLOC_DEFAULT);
-
-    UNUSED(kmalloc_addresses);
-    UNUSED(data);
-
-    for (int i = 0; i < 4; ++i)
-        kfree(invalid_free); // test anti corruption free magic
-
-    for (int i = 0; i < 4; ++i)
-        kmalloc_addresses[i] = (uint32_t)&kmalloc_addresses[i];
-
-    log_array(kmalloc_addresses, 4);
-
-    kfree(kmalloc_addresses);
-
-    kfree(kmalloc(4 * PAGE_SIZE, KMALLOC_DEFAULT));
-
-    uint8_t *tata = kmalloc(KERNEL_STACK_SIZE, KMALLOC_KERNEL);
-    tata[KERNEL_STACK_SIZE - 100] = 1;
-    kfree(tata);
-
-    uint32_t **blocks = kcalloc(8, sizeof(uint32_t *), KMALLOC_DEFAULT);
-    for (int i = 0; i < 8; ++i) {
-        blocks[i] = kmalloc(64 * sizeof(uint32_t), KMALLOC_DEFAULT);
-        for (int j = 0; j < 64; ++j)
-            blocks[i][j] = i * j;
-    }
-
-    for (int i = 0; i < 8; ++i)
-        kfree(blocks[i]);
-    kfree(blocks);
-}
 
 #undef LOG_DOMAIN
 #define LOG_DOMAIN "ktask"
