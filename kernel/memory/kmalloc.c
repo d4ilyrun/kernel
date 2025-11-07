@@ -102,7 +102,7 @@ static struct bucket_meta *bucket_create(struct address_space *as,
                                          const u16 flags)
 {
     size_t bucket_size = bucket_compute_size(block_size);
-    bucket_t *bucket = vm_alloc(as, bucket_size, VM_READ | VM_WRITE);
+    bucket_t *bucket = vm_alloc(as, bucket_size, VM_KERNEL_RW | flags);
 
     if (IS_ERR(bucket))
         return NULL;
@@ -246,8 +246,7 @@ void *kmalloc_dma(size_t size)
     if (physical == PMM_INVALID_PAGEFRAME)
         return NULL;
 
-    ptr = vm_alloc_at(&kernel_address_space, physical, size,
-                      VM_READ | VM_WRITE);
+    ptr = vm_alloc_at(&kernel_address_space, physical, size, VM_KERNEL_RW);
 
     if (IS_ERR(ptr))
         return NULL;
