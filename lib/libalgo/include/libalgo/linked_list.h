@@ -90,11 +90,11 @@ typedef struct linked_list_head {
  *  @param _name The name of the current node
  *  @param _list The tail of the linked list
  */
-#define FOREACH_REVERSE_LLIST(_name, _list)                             \
+#define FOREACH_LLIST_REVERSE(_name, _list)                             \
     for (node_t *_name = llist_last(_list); _name != llist_head(_list); \
          _name = llist_prev(_name))
 
-/** Loop over each element inside a linked list in reverse order in asafer way
+/** Loop over each element inside a linked list in reverse order in a safer way
  *
  *  The prev element in the list is stored each time, letting us freely release
  *  the current one without having to dereference it in the next iteration.
@@ -103,7 +103,7 @@ typedef struct linked_list_head {
  *  @param _tmp The name of the node used to store the prev pointer
  *  @param _list The tail of the linked list
  */
-#define FOREACH_REVERSE_LLIST_SAFE(_name, _tmp, _list)                 \
+#define FOREACH_LLIST_SAFE_REVERSE(_name, _tmp, _list)                 \
     for (node_t *_name = llist_last(_list), *_tmp = llist_prev(_name); \
          _name != llist_head(_list); _name = _tmp, _tmp = llist_prev(_tmp))
 
