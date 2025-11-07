@@ -12,10 +12,10 @@
 
 #define LOG_DOMAIN "socket"
 
-#include <kernel/devices/timer.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/socket.h>
+#include <kernel/timer.h>
 #include <kernel/vfs.h>
 #include <uapi/limits.h>
 

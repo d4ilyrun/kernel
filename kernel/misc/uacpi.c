@@ -11,7 +11,6 @@
 #define LOG_DOMAIN "uacpi"
 
 #include <kernel/cpu.h>
-#include <kernel/devices/timer.h>
 #include <kernel/interrupts.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
@@ -20,6 +19,7 @@
 #include <kernel/process.h>
 #include <kernel/sched.h>
 #include <kernel/spinlock.h>
+#include <kernel/timer.h>
 #include <kernel/types.h>
 #include <kernel/vmm.h>
 

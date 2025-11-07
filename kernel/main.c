@@ -6,7 +6,6 @@
 #include <kernel/devices/block.h>
 #include <kernel/devices/driver.h>
 #include <kernel/devices/ramdisk.h>
-#include <kernel/devices/timer.h>
 #include <kernel/devices/uart.h>
 #include <kernel/elf32.h>
 #include <kernel/execfmt.h>
@@ -25,6 +24,7 @@
 #include <kernel/symbols.h>
 #include <kernel/syscalls.h>
 #include <kernel/terminal.h>
+#include <kernel/timer.h>
 #include <kernel/vfs.h>
 #include <kernel/vmm.h>
 #include <kernel/worker.h>

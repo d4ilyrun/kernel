@@ -1,7 +1,7 @@
-#include <kernel/devices/timer.h>
 #include <kernel/file.h>
 #include <kernel/kmalloc.h>
 #include <kernel/process.h>
+#include <kernel/timer.h>
 #include <kernel/vfs.h>
 #include <uapi/kernel/net.h> /* struct msghdr */
 

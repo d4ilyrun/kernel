@@ -10,8 +10,8 @@
 #include <kernel/types.h>
 
 #ifdef CONFIG_SPINLOCK_DEBUG
-#include <kernel/devices/timer.h>
 #include <kernel/logger.h>
+#include <kernel/timer.h>
 #endif
 
 #include <utils/compiler.h>

@@ -1,16 +1,15 @@
 /**
- * @file kerneldevices/timer.h
+ * @file kernel/timer.h
  *
- * @defgroup timer Timer
- * @ingroup kernel
+ * @defgroup time Time keeping
+ * @ingroup kernel_time
  *
- * # Timer
+ * # Time
+ *
+ * ## Timer
  *
  * Any interaction done with the timer should be done through
  * the functions defined inside this header.
- *
- * The underlying implementation is architecture dependent and, as such,
- * can be found inside the corresponding `arch` subfolder.
  *
  * @{
  */
@@ -23,20 +22,6 @@
 
 /** The frequency used for the timer (in Hz) */
 #define HZ CLOCK_PER_SECOND
-
-/** @brief Used for conversions from seconds to another time unit @{ */
-#define SEC(_x) (_x)
-#define MS(_s) (1000 * SEC(_s))
-#define US(_s) (1000 * MS((_s)))
-#define NS(_s) (1000 * US((_s)))
-/** @} */
-
-/** @brief Used for conversions to seconds from another time unit @{ */
-#define SEC_TO_SEC(_s) SEC(_s)
-#define MS_TO_SEC(_s) (SEC(_s) / 1000)
-#define US_TO_SEC(_s) (MS((_s)) / 1000)
-#define NS_TO_SEC(_s) (US((_s)) / 1000)
-/** @} */
 
 /** @brief Compute the number of ticks in a given time frame @{ */
 #define SEC_TO_TICKS(_time) SEC((_time) * HZ)
@@ -53,13 +38,40 @@
 /** @} */
 
 /**
- * @brief Start the timer
+ * This is where we keep track of the number of intervals reported by the timer.
+ *
+ * This MUST be incremented EACH time we recieve an interrupt from the global
+ * timer.
+ */
+extern volatile clock_t timer_ticks_counter;
+
+/**
+ * Frequency of the global timekeeping timer.
+ */
+extern volatile u32 timer_kernel_frequency;
+
+/**
+ * @brief Start the global timekeeping timer
  * @param frequency The timer's frequency (Hz)
  */
 void timer_start(u32 frequency);
 
 /** @return the number of timer intervals elapsed since startup */
-clock_t timer_gettick(void);
+static inline clock_t timer_gettick(void)
+{
+    return timer_ticks_counter;
+}
+
+/**
+ * Increment the timekeeping timer's tick count.
+ * @return \c true if an overflow occured.
+ */
+static inline bool timer_tick(void)
+{
+    clock_t old_ticks = timer_ticks_counter;
+    timer_ticks_counter += 1;
+    return old_ticks > timer_ticks_counter;
+}
 
 /** @return the number of miliseconds elapsed since startup. */
 static inline time_t timer_get_ms(void)

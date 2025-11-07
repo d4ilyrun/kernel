@@ -1,10 +1,10 @@
 #include <kernel/device.h>
-#include <kernel/devices/timer.h>
 #include <kernel/error.h>
 #include <kernel/file.h>
 #include <kernel/init.h>
 #include <kernel/kmalloc.h>
 #include <kernel/vfs.h>
+#include <kernel/timer.h>
 
 #include <libalgo/linked_list.h>
 #include <utils/container_of.h>

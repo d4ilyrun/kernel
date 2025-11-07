@@ -114,6 +114,12 @@ void sched_block_thread(struct thread *);
  */
 void sched_unblock_thread(thread_t *);
 
+/** Block thread and wait until a given deadline. */
+void sched_block_waiting_until(struct thread *, clock_t until);
+
+/** Unblock all waiting threads whose deadline is inferior to \c deadline. */
+void sched_unblock_waiting_before(clock_t deadline);
+
 typedef struct {
     const bool old_if;
     bool done;

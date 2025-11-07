@@ -15,8 +15,8 @@ KERNEL_ARCH_SRCS := \
     mmu.c \
     setup.c \
     terminal.c \
+    timer.c \
     panic.c \
     devices/pic.c \
     devices/pit.c \
-    devices/timer.c \
     devices/uart.c

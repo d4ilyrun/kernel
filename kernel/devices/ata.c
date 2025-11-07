@@ -14,12 +14,12 @@
 #include <kernel/cpu.h>
 #include <kernel/devices/block.h>
 #include <kernel/devices/pci.h>
-#include <kernel/devices/timer.h>
 #include <kernel/init.h>
 #include <kernel/interrupts.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/spinlock.h>
+#include <kernel/timer.h>
 #include <kernel/waitqueue.h>
 #include <kernel/worker.h>
 

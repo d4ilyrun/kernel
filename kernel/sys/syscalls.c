@@ -1,12 +1,12 @@
 #define LOG_DOMAIN "syscalls"
 
-#include <kernel/devices/timer.h>
 #include <kernel/devices/uart.h>
 #include <kernel/error.h>
 #include <kernel/init.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/syscalls.h>
+#include <kernel/timer.h>
 
 struct syscall {
     /// The name of the syscall

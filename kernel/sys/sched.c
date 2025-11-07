@@ -1,16 +1,18 @@
 #include <kernel/atomic.h>
 #include <kernel/cpu.h>
-#include <kernel/devices/timer.h>
 #include <kernel/init.h>
 #include <kernel/interrupts.h>
 #include <kernel/sched.h>
 #include <kernel/spinlock.h>
+#include <kernel/timer.h>
 
 #include <libalgo/queue.h>
 #include <utils/constants.h>
 #include <utils/container_of.h>
 
 bool scheduler_initialized = false;
+
+static DECLARE_LLIST(sleeping_tasks);
 
 /** The maximum timeslice given to a thread by the scheduler */
 #define SCHED_TIMESLICE MS_TO_TICKS(2ULL) // 2MS
@@ -162,6 +164,39 @@ void sched_unblock_thread(thread_t *thread)
         schedule_locked(true, true);
 
     scheduler_preempt_enable(old_if);
+}
+
+static int process_cmp_wakeup(const void *current_node, const void *cmp_node)
+{
+    const thread_t *current = container_of(current_node, thread_t, this);
+    const thread_t *cmp = container_of(cmp_node, thread_t, this);
+
+    RETURN_CMP(current->sleep.wakeup, cmp->sleep.wakeup);
+}
+
+void sched_block_waiting_until(struct thread *thread, clock_t until)
+{
+    thread->sleep.wakeup = until;
+    llist_insert_sorted(&sleeping_tasks, &current->this, process_cmp_wakeup);
+    sched_block_thread(current);
+}
+
+void sched_unblock_waiting_before(clock_t deadline)
+{
+    struct thread *next_wakeup;
+
+    if (!scheduler_initialized)
+        return;
+
+    while (!llist_is_empty(&sleeping_tasks)) {
+        next_wakeup = container_of(llist_first(&sleeping_tasks), struct thread,
+                                   this);
+        if (next_wakeup->sleep.wakeup > deadline)
+            break;
+
+        llist_pop(&sleeping_tasks);
+        sched_unblock_thread(next_wakeup);
+    }
 }
 
 static error_t scheduler_init(void)
