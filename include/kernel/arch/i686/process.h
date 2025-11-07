@@ -12,6 +12,8 @@
  */
 
 #include <kernel/types.h>
+#include <kernel/interrupts.h>
+
 
 /**
  * Contains all the system-level information about a task
@@ -46,6 +48,9 @@ typedef struct x86_thread {
      */
     u32 esp;
 
+    /** Frame pushed during the last userland -> kernel context switch. */
+    struct interrupt_frame frame;
+
 } thread_context_t;
 
 static inline void
@@ -57,6 +62,13 @@ arch_thread_set_stack_pointer(thread_context_t *ctx, void *stack)
 static inline void *arch_thread_get_stack_pointer(thread_context_t *ctx)
 {
     return (void *)ctx->esp;
+}
+
+static inline void
+arch_thread_set_interrupt_frame(thread_context_t *ctx,
+                                const struct interrupt_frame *frame)
+{
+    ctx->frame = *frame;;
 }
 
 static inline void
@@ -80,6 +92,12 @@ arch_thread_set_user_stack_top(thread_context_t *ctx, void *top)
 static inline void *arch_thread_get_user_stack_top(const thread_context_t *ctx)
 {
     return (void *)ctx->esp_user;
+}
+
+static inline void *
+arch_thread_get_interrupt_return_address(const thread_context_t *ctx)
+{
+    return (void *)ctx->frame.state.eip;
 }
 
 #endif /* KERNEL_ARCH_I686_PROCESS_H */

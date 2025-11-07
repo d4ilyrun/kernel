@@ -32,7 +32,6 @@
  */
 
 #include <kernel/file.h>
-#include <kernel/interrupts.h>
 #include <kernel/types.h>
 #include <kernel/vmm.h>
 
@@ -136,9 +135,6 @@ typedef struct thread {
     struct process *process; /*!< Containing process */
     node_t proc_this; /*!< Linked list used by the process to list threads */
 
-    /** Frame pushed during the last userland -> kernel context switch. */
-    struct interrupt_frame frame;
-
     pid_t tid; /*!< Thread ID */
     u32 flags; /*!< Combination of \ref thread_flags values */
 
@@ -188,6 +184,14 @@ static inline void thread_set_stack_pointer(struct thread *thread, void *stack)
 static inline void *thread_get_stack_pointer(struct thread *thread)
 {
     return arch_thread_get_stack_pointer(&thread->context);
+}
+
+/** Set a thread's curent interrupt frame. */
+static inline void
+thread_set_interrupt_frame(thread_t *thread,
+                           const struct interrupt_frame *frame)
+{
+    arch_thread_set_interrupt_frame(&thread->context, frame);
 }
 
 /** Set the thread's kernel stack bottom address */
@@ -241,7 +245,7 @@ static inline void *thread_get_user_stack(const struct thread *thread)
 static inline void *
 thread_get_interrupt_return_address(const struct thread *thread)
 {
-    return (void *)thread->frame.state.eip;
+    return arch_thread_get_interrupt_return_address(&thread->context);
 }
 
 /** Process used when starting up the kernel.

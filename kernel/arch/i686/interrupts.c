@@ -191,7 +191,7 @@ void default_interrupt_handler(interrupt_frame frame)
         return;
     }
 
-    current->frame = frame;
+    thread_set_interrupt_frame(current, &frame);
     thread_set_stack_pointer(current, (void *)frame.state.esp);
 
     // Pass the frame as argument if no data was given
