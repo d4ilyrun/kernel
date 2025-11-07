@@ -26,6 +26,8 @@
  * @{
  */
 
+static DECLARE_LLIST(kernel_buckets);
+
 /** All returned addresses are aligned on a 32B boundary */
 #define KMALLOC_ALIGNMENT (32)
 
@@ -156,21 +158,18 @@ static ALWAYS_INLINE bucket_t *bucket_from_block(void *block)
 void *kmalloc(size_t size, int flags)
 {
     struct address_space *as;
-    llist_t *buckets;
 
     if (size == 0)
         return NULL;
 
-    as = (flags & KMALLOC_KERNEL) ? &kernel_address_space
-                                  : current->process->as;
-    buckets = as->kmalloc;
+    as = &kernel_address_space;
 
     size = align_up(size, KMALLOC_ALIGNMENT);
     size = bit_next_pow32(size);
 
-    bucket_t *bucket = bucket_find(buckets, size, flags);
+    bucket_t *bucket = bucket_find(&kernel_buckets, size, flags);
     if (bucket == NULL)
-        bucket = bucket_create(as, buckets, size, flags);
+        bucket = bucket_create(as, &kernel_buckets, size, flags);
 
     if (bucket == NULL)
         return NULL;
@@ -197,7 +196,7 @@ void kfree(void *ptr)
     if (ptr == NULL)
         return;
 
-    as = IS_KERNEL_ADDRESS(ptr) ? &kernel_address_space : current->process->as;
+    as = &kernel_address_space;
     bucket_free_block(as, bucket_from_block(ptr), ptr);
 }
 

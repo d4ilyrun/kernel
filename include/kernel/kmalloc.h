@@ -56,8 +56,7 @@
  * @brief Feature flags passed to the kmalloc function family
  */
 typedef enum kmalloc_flags {
-    KMALLOC_DEFAULT = 0x0, ///< Default
-    KMALLOC_KERNEL = 0x8,  ///< Use kernel pages only (@ref VMA_KERNEL)
+    KMALLOC_KERNEL = 0, /* Default allocation flags. */
 } kmalloc_flags;
 
 /**
