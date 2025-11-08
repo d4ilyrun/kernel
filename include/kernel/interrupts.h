@@ -107,6 +107,35 @@ static inline void interrupts_restore(bool enabled)
         interrupts_enable();
 }
 
+typedef struct {
+    bool enabled;
+    bool done;
+} scope_irq_off_t;
+
+static inline scope_irq_off_t scope_irq_off_constructor(void)
+{
+    return (scope_irq_off_t){
+        .enabled = interrupts_test_and_disable(),
+        .done = false,
+    };
+}
+
+static inline void scope_irq_off_destructor(scope_irq_off_t *guard)
+{
+    interrupts_restore(guard->enabled);
+}
+
+/** Define a scope inside which irqs are disabled on the current CPU.
+ *
+ *  WARNING: As this macro uses a for loop to function, any 'break' directive
+ *  placed inside it will break out of the guarded scope instead of that of its
+ *  containing loop.
+ */
+#define interrupts_disabled_scope()                                \
+    for (scope_irq_off_t guard CLEANUP(scope_irq_off_destructor) = \
+             scope_irq_off_constructor();                          \
+         !guard.done; guard.done = true)
+
 /** @} */
 
 #endif /* KERNEL_INTERRUPTS_H */
