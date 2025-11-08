@@ -52,4 +52,11 @@
 
 #define ALL_ONES (-1)
 
+#define SWAP(_x, _y)            \
+    do {                        \
+        typeof((_x)) _tmp = _x; \
+        _x = _y;                \
+        _y = _tmp;              \
+    } while (0)
+
 #endif /* UTILS_MACRO_H */
