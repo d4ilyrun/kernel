@@ -112,9 +112,7 @@ void scheduler_preempt_enable(bool old_if_flag)
     if (atomic_read(&scheduler.sync.preemption_level))
         atomic_dec(&scheduler.sync.preemption_level);
 
-    // Re-enable interrupts **only** if they were enabled prior to locking
-    if (old_if_flag)
-        interrupts_enable();
+    interrupts_restore(old_if_flag);
 }
 
 static void idle_task(void *data __attribute__((unused)))

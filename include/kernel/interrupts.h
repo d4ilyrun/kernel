@@ -97,6 +97,16 @@ static inline bool interrupts_test_and_disable(void)
     return arch_interrupts_test_and_disable();
 }
 
+/** Restore the previous interrupt state.
+ *
+ *  @param enabled The previous interrupt state (on/off).
+ */
+static inline void interrupts_restore(bool enabled)
+{
+    if (enabled)
+        interrupts_enable();
+}
+
 /** @} */
 
 #endif /* KERNEL_INTERRUPTS_H */
