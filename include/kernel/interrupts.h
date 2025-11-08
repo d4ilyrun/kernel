@@ -27,21 +27,6 @@
 
 #include <kernel/types.h>
 
-#ifndef INLINED_INTERRUPTS_DISABLE_ENABLE
-
-/** @brief Disable CPU interrupts */
-void interrupts_disable(void);
-
-/* @brief Disable CPU interrupts
- * @return Whether the interrupts where previously enabled
- */
-bool interrupts_test_and_disable(void);
-
-/**@brief Enable CPU interrupts */
-void interrupts_enable(void);
-
-#endif
-
 /**
  *  @brief Frame passed onto the interrupt handlers when triggering an interrupt
  *  @note This is a only a forward declaration. The actual definition
@@ -91,6 +76,26 @@ const char *interrupts_to_str(u8 nr);
  */
 #define INTERRUPT_HANDLER_FUNCTION(_interrupt) \
     u32 INTERRUPT_HANDLER(_interrupt)(void *data)
+
+/** @brief Disable interrupts on the current CPU. */
+static inline void interrupts_disable(void)
+{
+    arch_interrupts_disable();
+}
+
+/** @brief Enable interrupts on the current CPU. */
+static inline void interrupts_enable(void)
+{
+    arch_interrupts_enable();
+}
+
+/* @brief Disable CPU interrupts on the current CPU.
+ * @return \c true if the interrupts where enabled previously.
+ */
+static inline bool interrupts_test_and_disable(void)
+{
+    return arch_interrupts_test_and_disable();
+}
 
 /** @} */
 
