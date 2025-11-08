@@ -25,14 +25,12 @@ static_assert((int)VM_READ == (int)PROT_READ);
 static_assert((int)VM_WRITE == (int)PROT_WRITE);
 static_assert((int)VM_KERNEL == (int)PROT_KERNEL);
 
-static DECLARE_LLIST(kernel_kmalloc);
 static DECLARE_LLIST(kernel_segments);
 
 struct address_space kernel_address_space = {
     .mmu = 0, // Initialized when enabling paging
     .vmm = &kernel_vmm,
     .segments = &kernel_segments,
-    .kmalloc = &kernel_kmalloc,
     .lock = SPINLOCK_INIT,
 };
 
@@ -146,7 +144,6 @@ error_t address_space_init(struct address_space *as)
      * the segment list, we use segment we just allocated as its sentinel.
      */
     as->segments = (llist_t *)&segment->this;
-    as->kmalloc = (void *)segment->start;
 
     /*
      * We cannot lazily allocate the kmalloc list segment since the pagefault
@@ -160,7 +157,6 @@ error_t address_space_init(struct address_space *as)
         return E_EXIST;
 
     INIT_LLIST(*as->segments);
-    INIT_LLIST(*as->kmalloc);
 
     return success ? E_SUCCESS : E_INVAL;
 }
@@ -198,7 +194,6 @@ error_t address_space_clear(struct address_space *as)
         as->data_end = 0;
         as->brk_end = as->data_end;
         as->segments = NULL;
-        as->kmalloc = NULL;
 
         vmm_clear(as->vmm);
     }
@@ -251,7 +246,6 @@ error_t address_space_copy_current(struct address_space *dst)
         }
 
         dst->segments = src->segments;
-        dst->kmalloc = src->kmalloc;
         dst->data_end = src->data_end;
         dst->brk_end = src->brk_end;
     }

@@ -49,8 +49,6 @@ struct address_space {
     struct vmm *vmm;   /*!< Used to allocate virtual memory segments */
     paddr_t mmu;       /*!< Used to map virtual addresses to physical memory */
     llist_t *segments; /*!< List of currently allocated segments */
-    llist_t *kmalloc;  /*!< Opaque struct used by the memory allocator to
-                           allocate memory blocks inside the user area */
     vaddr_t data_end;  /*!< End of the process's data segment */
     vaddr_t brk_end;   /*!< End of the process's brk segment */
 };
