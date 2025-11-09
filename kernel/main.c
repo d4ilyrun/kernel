@@ -13,10 +13,9 @@
 #include <kernel/interrupts.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
-#include <kernel/mmu.h>
+#include <kernel/memory.h>
 #include <kernel/net/icmp.h>
 #include <kernel/net/ipv4.h>
-#include <kernel/pmm.h>
 #include <kernel/process.h>
 #include <kernel/sched.h>
 #include <kernel/semaphore.h>
@@ -170,16 +169,11 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     /*
      * Now that we have a minimal working setup, we can enable paging
      * and initialize the virtual memory allocation API.
-     * After this step, we are able to allocate & free kernel memory as usual.
+     *
+     * After this step, we are able to allocate & free kernel memory.
      */
-    if (!pmm_init(mbt))
-        PANIC("Could not initialize the physical memory manager");
+    memory_init(mbt);
 
-    log_info("Initializing MMU");
-    if (!mmu_init())
-        PANIC("Failed to initialize virtual address space");
-
-    address_space_init(&kernel_address_space);
     process_init_kernel_process();
 
     /*
