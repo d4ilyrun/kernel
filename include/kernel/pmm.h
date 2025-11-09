@@ -63,6 +63,7 @@
 enum page_flags {
     PAGE_AVAILABLE = BIT(0), ///< This page has not been allocated
     PAGE_COW = BIT(1),       ///< Currently used in a CoW mapping
+    PAGE_SLAB = BIT(2),      ///< Page allocated by the slab allocator
 };
 
 /** Represents a physical pageframe
@@ -71,6 +72,15 @@ enum page_flags {
 struct page {
     uint8_t flags;    ///< Combination of @ref page_flags
     uint8_t refcount; ///< How many processes reference that page
+
+    union {
+        /*
+         * Data for pages allocated by the slab allocator (flags & PAGE_SLAB).
+         */
+        struct {
+            struct kmem_cache *cache;
+        } slab;
+    };
 };
 
 /**

@@ -38,6 +38,9 @@
         _tmp < 0 ? -_tmp : _tmp;    \
     })
 
+/** @return whether a value is a power of two */
+#define is_power_of_2(_x) (_x != 0 && ((_x & (_x - 1)) == 0))
+
 #define __align_mask(_value, _power) ((__typeof__(_value))((_power)-1))
 
 /** @brief Align @c _value to the next multiple of @c _power

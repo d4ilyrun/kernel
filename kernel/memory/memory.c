@@ -2,6 +2,7 @@
 
 #include <kernel/init.h>
 #include <kernel/logger.h>
+#include <kernel/memory/slab.h>
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
 #include <kernel/vm.h>
@@ -19,4 +20,6 @@ void memory_init(struct multiboot_info *mbt)
         PANIC("Failed to initialize virtual address space");
 
     address_space_init(&kernel_address_space);
+
+    kmem_cache_api_init();
 }
