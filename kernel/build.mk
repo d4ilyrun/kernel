@@ -41,6 +41,7 @@ KERNEL_SRCS := 	\
 	memory/vmm.c \
 	memory/address_space.c \
 	memory/vm_normal.c \
+	memory/slab.c \
 	net/net.c \
 	net/packet.c \
 	net/socket.c \

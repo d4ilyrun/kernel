@@ -92,6 +92,12 @@ static ALWAYS_INLINE void spinlock_release(spinlock_t *lock)
     __atomic_clear(&lock->locked, __ATOMIC_RELEASE);
 }
 
+/** Check whether a lock is currently held by someone. */
+static ALWAYS_INLINE bool spinlock_is_held(const spinlock_t *lock)
+{
+    return __atomic_load_n(&lock->locked, __ATOMIC_ACQUIRE);
+}
+
 typedef struct {
     spinlock_t *lock;
     bool done;
