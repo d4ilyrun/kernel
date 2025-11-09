@@ -170,4 +170,20 @@ extern u32 _kernel_code_end;
 #define PAGE_ALIGN_UP(_ptr) align_up_ptr(_ptr, PAGE_SIZE)
 #define PAGE_ALIGNED(_ptr) is_aligned_ptr(_ptr, PAGE_SIZE)
 
+#ifndef __ASSEMBLER__
+
+struct multiboot_info;
+
+/**
+ * Initialize the memory subsystem.
+ *
+ * After this function returns it is safe to call the different memory
+ * allocation APIs (vm_*, kmalloc).
+ *
+ * @param mbt System information structure passed by the bootloader.
+ */
+void memory_init(struct multiboot_info *);
+
+#endif /* !__ASSEMBLER__ */
+
 #endif /* KERNEL_MEMORY_H */

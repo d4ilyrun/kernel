@@ -225,8 +225,6 @@ void page_put(struct page *page)
 
 bool pmm_init(struct multiboot_info *mbt)
 {
-    log_info("Initializing pageframe allocator");
-
     if (!pmm_initialize_pages(mbt)) {
         return false;
     }
