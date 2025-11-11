@@ -67,8 +67,7 @@ static ALWAYS_INLINE bool bitmap_read(const bitmap_t bitmap, uint32_t index)
  */
 static ALWAYS_INLINE void bitmap_set(bitmap_t bitmap, uint32_t index)
 {
-    bitmap[BITMAP_OFFSET(index)] = BIT_SET(bitmap[BITMAP_OFFSET(index)],
-                                           index % BITMAP_BLOCK_SIZE);
+    BIT_SET(bitmap[BITMAP_OFFSET(index)], index % BITMAP_BLOCK_SIZE);
 }
 
 /**
@@ -78,8 +77,7 @@ static ALWAYS_INLINE void bitmap_set(bitmap_t bitmap, uint32_t index)
  */
 static ALWAYS_INLINE void bitmap_clear(bitmap_t bitmap, uint32_t index)
 {
-    bitmap[BITMAP_OFFSET(index)] = BIT_CLEAR(bitmap[BITMAP_OFFSET(index)],
-                                             index % BITMAP_BLOCK_SIZE);
+    BIT_CLEAR(bitmap[BITMAP_OFFSET(index)], index % BITMAP_BLOCK_SIZE);
 }
 
 /**

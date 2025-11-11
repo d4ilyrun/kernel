@@ -73,17 +73,19 @@ void pic_eoi(pic_irq irq)
 void pic_enable_irq(pic_irq irq)
 {
     const u16 pic = (irq >= PIC_SIZE) ? PIC_SLAVE : PIC_MASTER;
-    const u8 mask = inb(PIC_DATA(pic));
+    u8 mask = inb(PIC_DATA(pic));
 
-    outb(PIC_DATA(pic), BIT_CLEAR(mask, irq % PIC_SIZE));
+    BIT_CLEAR(mask, irq % PIC_SIZE);
+    outb(PIC_DATA(pic), mask);
 }
 
 void pic_disable_irq(pic_irq irq)
 {
     const u16 pic = (irq >= PIC_SIZE) ? PIC_SLAVE : PIC_MASTER;
-    const u8 mask = inb(PIC_DATA(pic));
+    u8 mask = inb(PIC_DATA(pic));
 
-    outb(PIC_DATA(pic), BIT_SET(mask, irq % PIC_SIZE));
+    BIT_SET(mask, irq % PIC_SIZE);
+    outb(PIC_DATA(pic), mask);
 }
 
 static INTERRUPT_HANDLER_FUNCTION(irq_keyboard)

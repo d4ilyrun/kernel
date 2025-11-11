@@ -21,13 +21,13 @@
 #define BIT64(_n) (1ULL << (_n))
 
 /** Clear the nth bit */
-#define BIT_CLEAR(_x, _n) ((_x) & ~BIT((_n)))
+#define BIT_CLEAR(_var, _n) (_var &= ~BIT((_n)))
 
 /** Set the nth bit */
-#define BIT_SET(_x, _n) ((_x) | BIT((_n)))
+#define BIT_SET(_var, _n) (_var |= BIT((_n)))
 
 /** Read the nth bit */
-#define BIT_READ(_x, _n) ((_x)&BIT((_n)))
+#define BIT_READ(_x, _n) ((_x) & BIT((_n)))
 
 static inline uint64_t BIT_ENABLE(uint64_t bit, unsigned int off, int enable)
 {

@@ -76,7 +76,7 @@ static error_t uart_reset(void)
 
     /* Set baudrate */
     const uint16_t div_latch = uart_div_latch_value(UART_BAUDRATE);
-    outb(UART_REG(LCR), BIT_SET(0x00, 7)); // temporary div_latch access
+    outb(UART_REG(LCR), BIT(7)); // temporary div_latch access
     outb(UART_REG(DLH), MSB(div_latch));
     outb(UART_REG(DLL), LSB(div_latch));
 
