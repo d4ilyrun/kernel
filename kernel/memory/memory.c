@@ -1,6 +1,7 @@
 #define LOG_DOMAIN "memory"
 
 #include <kernel/init.h>
+#include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/memory/slab.h>
 #include <kernel/mmu.h>
@@ -22,4 +23,5 @@ void memory_init(struct multiboot_info *mbt)
     address_space_init(&kernel_address_space);
 
     kmem_cache_api_init();
+    kmalloc_api_init();
 }
