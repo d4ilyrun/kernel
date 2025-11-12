@@ -51,6 +51,8 @@
 
 #include <kernel/types.h>
 
+#include <utils/compiler.h>
+
 /**
  * @enum kmalloc_flags
  * @brief Feature flags passed to the kmalloc function family
@@ -59,17 +61,56 @@ typedef enum kmalloc_flags {
     KMALLOC_KERNEL = 0, /* Default allocation flags. */
 } kmalloc_flags;
 
-/**
- * Allocate @c size bytes and return a pointer to the allocated memory.
+#define KMALLOC_CACHE_MIN_SIZE 16
+#define KMALLOC_CACHE_MAX_SIZE 16384
+#define KMALLOC_CACHE_COUNT 11
+
+/*
+ * @return The index of the smallest cache that can contain a @size bytes object
  *
- * An area allocated using this function MUST be freed manually.
- *
- * @param size The number of bytes to allocate
- * @param flags Feature flags, must be a combination of @ref kmalloc_flags
- *
- * @return The starting address of the newly allocated area
+ * This function is inlined and marked 'const' so that it is optimized out by
+ * the compiler when passing a value known at compile time.
  */
-void *kmalloc(size_t size, int flags);
+static ALWAYS_INLINE __attribute__((const)) int kmalloc_cache_index(size_t size)
+{
+    if (size <= 16) return 0;
+    if (size <= 32) return 1;
+    if (size <= 64) return 2;
+    if (size <= 128) return 3;
+    if (size <= 256) return 4;
+    if (size <= 512) return 5;
+    if (size <= 1024) return 6;
+    if (size <= 2048) return 7;
+    if (size <= 4096) return 8;
+    if (size <= 8192) return 9;
+    if (size <= 16384) return 10;
+
+    return -1;
+}
+
+/** Allocate kernel memory from one of the global memory caches.
+ *
+ * @see kmalloc_cache_index() to know which cache_index to use.
+ *
+ * @param cache_index Index of the cache to allocate an object from.
+ * @param flags Allocation flags to use.
+ */
+void *kmalloc_from_cache(int cache_index, int flags);
+
+/*
+ *
+ */
+static ALWAYS_INLINE void *kmalloc(size_t size, int flags)
+{
+    int cache_index;
+
+    cache_index = kmalloc_cache_index(size);
+    if (cache_index < 0)
+        return NULL;
+
+    return kmalloc_from_cache(cache_index, flags);
+}
+
 
 /**
  * Allocate @c nmemb members of @c size bytes and initialize its content to 0.
@@ -126,5 +167,7 @@ void *kmalloc_dma(size_t size);
 
 /** Free a buffer allocated through @ref kmalloc_dma */
 void kfree_dma(void *dma_ptr);
+
+void kmalloc_api_init(void);
 
 /** @} */
