@@ -609,10 +609,16 @@ static INTERRUPT_HANDLER_FUNCTION(page_fault)
     if (!error.present || is_cow) {
         as = IS_KERNEL_ADDRESS(faulty_address) ? &kernel_address_space
                                                : current->process->as;
+        if (unlikely(!as)) {
+            log_err("page_fault: address space is NULL");
+            goto page_fault_panic;
+        }
+
         if (!address_space_fault(as, faulty_address, is_cow))
             return E_SUCCESS;
     }
 
+page_fault_panic:
     PANIC("PAGE FAULT at " FMT32 ": %s access on a %s page %s", faulty_address,
           error.write ? "write" : "read",
           error.present ? "protected" : "non-present",
