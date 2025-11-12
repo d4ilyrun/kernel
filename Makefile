@@ -120,7 +120,7 @@ include $(DOCS_DIR)/build.mk
 GENERATED_CONFIG_HEADER := $(BUILD_DIR)/config.h
 
 config: $(GENERATED_CONFIG_HEADER)
-$(GENERATED_CONFIG_HEADER): .config
+$(GENERATED_CONFIG_HEADER):
 	@echo "/* Automatically generated, do not edit */" > $@
 	@$(foreach v,$(filter CONFIG_%,$(.VARIABLES)), \
 		if [ -n "$($(v))" ]; then \
