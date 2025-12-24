@@ -17,8 +17,8 @@
 
 #include <kernel/types.h>
 
-#include <utils/container_of.h>
 #include <utils/compiler.h>
+#include <utils/container_of.h>
 
 /**
  *  Intrusive doubly-linked list node.
@@ -192,6 +192,12 @@ static inline node_t *llist_prev(const node_t *entry)
  * Return the struct containing this list node.
  */
 #define llist_entry(ptr, type, member) container_of(ptr, type, member)
+
+#define llist_last_entry(list, type, member) \
+    llist_entry(llist_last(list), type, member)
+
+#define llist_first_entry(list, type, member) \
+    llist_entry(llist_first(list), type, member)
 
 /** @return Whether a list is empty */
 static PURE inline bool llist_is_empty(const llist_t *list)
