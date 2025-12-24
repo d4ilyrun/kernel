@@ -259,6 +259,8 @@ error_t pci_device_register_interrupt_handler(struct pci_device *pdev,
     pdev->interrupt_line = pci_device_read_header(pdev, INTERRUPT_LINE);
     interrupt = PIC_MASTER_VECTOR + pdev->interrupt_line;
 
+    log_info("interrupt line: %d", pdev->interrupt_line);
+
     if (!pdev->interrupt_line)
         return E_SUCCESS;
 
