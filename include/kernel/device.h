@@ -120,7 +120,7 @@ static inline const char *device_name(struct device *dev)
     return dev->name;
 }
 
-/** Generate generic functions used to read/write a device's regsiters
+/** Generate generic read/write functions for a device's registers
  *
  * The functions are named: prefix_[read,write][b,w,l]
  *
@@ -131,15 +131,13 @@ static inline const char *device_name(struct device *dev)
  *
  * @info \c _off_type must be indirectly castable into an integer
  */
-#define generate_device_rw_functions(_pfx, _dev_type, _reg_field, _off_type)   \
-    __device_read(u8, b, _pfx, _dev_type, _reg_field, _off_type)               \
-        __device_write(u8, b, _pfx, _dev_type, _reg_field, _off_type)          \
-            __device_read(u16, w, _pfx, _dev_type, _reg_field, _off_type)      \
-                __device_write(u16, w, _pfx, _dev_type, _reg_field, _off_type) \
-                    __device_read(u32, l, _pfx, _dev_type, _reg_field,         \
-                                  _off_type)                                   \
-                        __device_write(u32, l, _pfx, _dev_type, _reg_field,    \
-                                       _off_type)
+#define generate_device_rw_functions(_pfx, _dev_type, _reg_field, _off_type) \
+    __device_read(u8, b, _pfx, _dev_type, _reg_field, _off_type);            \
+    __device_write(u8, b, _pfx, _dev_type, _reg_field, _off_type);           \
+    __device_read(u16, w, _pfx, _dev_type, _reg_field, _off_type);           \
+    __device_write(u16, w, _pfx, _dev_type, _reg_field, _off_type);          \
+    __device_read(u32, l, _pfx, _dev_type, _reg_field, _off_type);           \
+    __device_write(u32, l, _pfx, _dev_type, _reg_field, _off_type);
 
 #define __device_read(_type, _type_pfx, _pfx, _device_type, _device_reg_field, \
                       _offset_type)                                            \
@@ -155,6 +153,42 @@ static inline const char *device_name(struct device *dev)
         _device_type *device, _offset_type offset, _type val) \
     {                                                         \
         *(_type *)(device->_device_reg_field + offset) = val; \
+    }
+
+/** Generate generic read/write functions a device's I/O ports.
+ *
+ * The functions are named: prefix_[in,out][b,w,l]
+ *
+ * @param _pfx The device's functions' prefix
+ * @param _dev_type The device's type
+ * @param _reg_field The name of the fields pointing to the device's registers
+ * @param _off_type The type used for the offset variable
+ *
+ * @info \c _off_type must be indirectly castable into an integer
+ */
+#define generate_device_io_rw_functions(_pfx, _dev_type, _reg_field,   \
+                                        _off_type)                     \
+    __device_io_read(u8, b, _pfx, _dev_type, _reg_field, _off_type);   \
+    __device_io_write(u8, b, _pfx, _dev_type, _reg_field, _off_type);  \
+    __device_io_read(u16, w, _pfx, _dev_type, _reg_field, _off_type);  \
+    __device_io_write(u16, w, _pfx, _dev_type, _reg_field, _off_type); \
+    __device_io_read(u32, l, _pfx, _dev_type, _reg_field, _off_type);  \
+    __device_io_write(u32, l, _pfx, _dev_type, _reg_field, _off_type);
+
+#define __device_io_read(_type, _type_pfx, _pfx, _device_type,    \
+                         _device_reg_field, _off_type)            \
+    static MAYBE_UNUSED inline _type _pfx##_in##_type_pfx(        \
+        _device_type *device, _off_type offset)                   \
+    {                                                             \
+        return in##_type_pfx(device->_device_reg_field + offset); \
+    }
+
+#define __device_io_write(_type, _type_pfx, _pfx, _device_type,  \
+                          _device_reg_field, _off_type)          \
+    static MAYBE_UNUSED inline void _pfx##_out##_type_pfx(       \
+        _device_type *device, _off_type offset, _type val)       \
+    {                                                            \
+        out##_type_pfx(device->_device_reg_field + offset, val); \
     }
 
 /** @} */
