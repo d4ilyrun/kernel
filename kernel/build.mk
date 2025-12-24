@@ -58,6 +58,8 @@ KERNEL_SRCS := 	\
 	devices/block.c \
 	devices/ethernet.c \
 	devices/ata.c \
+	devices/usb.c \
+	devices/uhci.c \
 	devices/rtl8139.c \
 	devices/ramdisk.c
 
@@ -97,6 +99,8 @@ $(info Network TAP interface: $(QEMU_TAP_IF))
 else
 $(info Network TAP interface: $(QEMU_TAP_IF) (disabled))
 endif
+
+QEMU_ARGS += -device piix3-usb-uhci -device usb-mouse
 
 qemu: $(KERNEL_ISO)
 	$(call LOG,QEMU,$^)
