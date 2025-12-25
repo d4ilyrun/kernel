@@ -367,14 +367,14 @@ error_t vm_map(struct address_space *as, void *addr)
         return E_SUCCESS;
 
     if ((vaddr_t)addr % PAGE_SIZE) {
-        log_warn("freeing unaligned virtual address: %p (skipping)", addr);
+        log_warn("mapping unaligned virtual address: %p (skipping)", addr);
         return E_INVAL;
     }
 
     locked_scope (&as->lock) {
         segment = vm_find(as, addr);
         if (!segment) {
-            log_dbg("free: no backing segment for %p", addr);
+            log_dbg("map: no backing segment for %p", addr);
             return E_NOENT;
         }
 
