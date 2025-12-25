@@ -49,7 +49,7 @@ EOF
     grub-mkrescue -o "$KERNEL_ISO" "$iso_dir"
 }
 
-if ! "$SCRIPT_DIR"/extract_kernel_symbols.py "$KERNEL_BIN"; then
+if ! "$SCRIPT_DIR"/extract_kernel_symbols.py "$KERNEL_BIN" 32768; then
     echo "Failed to process kernel binary files. Stopping"
     exit 1
 fi

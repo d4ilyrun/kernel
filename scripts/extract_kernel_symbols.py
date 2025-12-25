@@ -2,6 +2,7 @@
 
 import argparse
 import subprocess as sp
+import os
 import sys
 
 from pathlib import Path
@@ -13,6 +14,7 @@ def parse_arguments() -> argparse.Namespace:
                  formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser.add_argument('kernel', help='kernel binary location', type=Path)
+    parser.add_argument('section_size', help='size of the code section reserved for the kernel symbol table', type=int)
 
     return parser.parse_args()
 
@@ -88,6 +90,11 @@ def main():
         sys.exit(1)
 
     symbol_table = extract_symbol_table(args.kernel)
+    size = os.stat(symbol_table).st_size
+    if size > args.section_size:
+        print(f"ERROR: Symbol table is too big ({size}B > {args.section_size}B)", file=sys.stderr)
+        sys.exit(1)
+
     generate_binary_files(args.kernel, symbol_table)
 
 if __name__ == "__main__":
