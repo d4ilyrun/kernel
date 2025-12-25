@@ -1,14 +1,36 @@
-#include "kernel/devices/uhci.h"
 #define LOG_DOMAIN "usb"
 
 #include <kernel/devices/pci.h>
 #include <kernel/devices/usb.h>
+#include <kernel/devices/uhci.h>
 #include <kernel/logger.h>
 
 #define USB_UHCI_PCI_INTERFACE 0x00
 #define USB_OHCI_PCI_INTERFACE 0x10
 #define USB_EHCI_PCI_INTERFACE 0x20
 #define USB_XHCI_PCI_INTERFACE 0x30
+
+/*
+ *
+ */
+error_t usb_send_urb(struct usb_device *usbdev, struct urb *urb)
+{
+    UNUSED(usbdev);
+
+    switch (urb->xfer_type) {
+    case USB_XFER_INTERRUPT:
+    case USB_XFER_CONTROL:
+    case USB_XFER_BULK:
+        return E_NOT_IMPLEMENTED;
+
+    /* Isochronous transfers require additional setup and processing. */
+    case USB_XFER_ISOCHRONOUS:
+        not_implemented("isochronous USB transfers");
+        return E_NOT_IMPLEMENTED;
+    }
+
+    return E_NOT_IMPLEMENTED;
+}
 
 /*
  *
@@ -60,7 +82,7 @@ static error_t usb_probe(device_t *device)
 
 static const struct pci_compatible usb_compatible[] = {
     {.class = PCI_CLASS(0x0C, 0x03, USB_UHCI_PCI_INTERFACE)},
-    { /* sentinel */ },
+    {/* sentinel */},
 };
 
 struct pci_driver usb_driver = {

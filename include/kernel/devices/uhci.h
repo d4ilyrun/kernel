@@ -37,19 +37,26 @@ struct usb_controller *uhci_init_controller(struct pci_device *);
  */
 
 /**
- *
  * Used by:
  * - Frame list pointer (3.1)
  * - Transfer descriptor link pointer (3.2.1)
  * - Queue head link pointer pointer (3.3.1)
  * - Queue head element link pointer (3.3.2)
- *
  */
+#define UHCI_POINTER_TERMINATE
 struct uhci_pointer {
-    u32 terminate : 1;
-    u32 qh_td_sel : 1;
-    u32 reserved : 2;
-    u32 pointer : 32;
-};
+    u32 terminate : 1; /* Item contains no valid entry (frame, queue). */
+    u32 qh_td_sel : 1; /* Next item (pointer) is a QH if 1, TD if 0. */
+    u32 depth_sel : 1; /* Set to 1 to use depth first seach (TD only). */
+    u32 reserved : 1;
+    u32 pointer : 28;
+} PACKED;
+
+/** Transfer Descriptor (3.2). */
+struct uhci_td {
+    struct uhci_pointer link_pointer;
+    u32 status;
+    u32 token;
+} PACKED;
 
 #endif /* KERNEL_DEVICES_UHCI_H */

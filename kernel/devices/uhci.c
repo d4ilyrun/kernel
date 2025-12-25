@@ -18,10 +18,6 @@ struct uhci_controller {
     struct uhci_pointer *frame_list;
     size_t frame_list_size;
     size_t frame_list_index;
-
-    unsigned int pending_iso;
-    unsigned int pending_bulk;
-    unsigned int pending_control;
 };
 
 static inline struct uhci_controller *to_uhci(struct usb_controller *usb)
@@ -31,41 +27,7 @@ static inline struct uhci_controller *to_uhci(struct usb_controller *usb)
 
 generate_device_io_rw_functions(uhci, struct uhci_controller, io_reg, u16);
 
-/* Number of times transfers should be retried when they do not complete. */
-#define UHCI_TRANSFER_RETRY_COUNT 4
-
-#define UHCI_FRAME_LIST_POINTER_COUNT 1024
-
-/*
- *
- */
-static error_t uhci_frame_push(struct uhci_controller *uhci)
-{
-    spinlock_acquire(&uhci->lock);
-    spinlock_release(&uhci->lock);
-
-}
-
-/*
- *
- */
-static error_t uhci_frame_collect(struct uhci_controller *uhci)
-{
-    spinlock_acquire(&uhci->lock);
-    spinlock_release(&uhci->lock);
-}
-
-/*
- *
- */
-static error_t uhci_control_transfer(struct usb_controller *ctrl)
-{
-    UNUSED(ctrl);
-    return E_SUCCESS;
-}
-
 static struct usb_controller_ops uhci_controller_ops = {
-    .control_transfer = uhci_control_transfer,
 };
 
 /*
@@ -74,7 +36,8 @@ static struct usb_controller_ops uhci_controller_ops = {
  * When disabled the controller first completes the current transaction before
  * halting.
  */
-static inline int uhci_enable_transfer(struct uhci_controller *uhci, bool enable)
+static inline int
+uhci_enable_transfer(struct uhci_controller *uhci, bool enable)
 {
     u16 val;
 
@@ -122,8 +85,10 @@ static error_t uhci_init_framelist(struct uhci_controller *uhci)
 {
     paddr_t paddr;
 
-    uhci->frame_list = kcalloc(UHCI_FRAME_LIST_POINTER_COUNT,
-                               sizeof(*uhci->frame_list), KMALLOC_KERNEL);
+    uhci->frame_list_index = 0;
+    uhci->frame_list_size = 1024;
+    uhci->frame_list = kcalloc(uhci->frame_list_size, sizeof(*uhci->frame_list),
+                               KMALLOC_KERNEL);
     if (!uhci->frame_list)
         return E_NOMEM;
 
@@ -132,7 +97,7 @@ static error_t uhci_init_framelist(struct uhci_controller *uhci)
     uhci_outl(uhci, UHCI_FLBASEADD, paddr);
 
     /* Mark all entries as empty. */
-    for (int i = 0; i < UHCI_FRAME_LIST_POINTER_COUNT; ++i)
+    for (size_t i = 0; i < uhci->frame_list_size; ++i)
         uhci->frame_list[i].terminate = 1;
 
     return E_SUCCESS;
@@ -152,6 +117,7 @@ static void uhci_reset(struct uhci_controller *uhci)
 
     timer_delay_ms(10);
 
+    val = uhci_inw(uhci, UHCI_USBCMD);
     val &= ~UHCI_USBCMD_GLOBAL_RESET;
     uhci_outw(uhci, UHCI_USBCMD, val);
 }
