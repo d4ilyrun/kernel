@@ -3,8 +3,13 @@
 
 #include <kernel/types.h>
 
+#include <utils/bits.h>
 #include <utils/compiler.h>
 #include <utils/map.h>
+
+/*
+ * Register read/write wrappers.
+ */
 
 // Read from a 32-bits register
 #define READ_REGISTER_OPS(_reg)                  \
@@ -31,6 +36,18 @@ MAP(WRITE_REGISTER_OPS, CPU_32BIT_REGISTERS)
 #undef CPU_32BIT_REGISTERS
 #undef WRITE_REGISTER_OPS
 #undef READ_REGISTER_OPS
+
+/*
+ * CPU control registers.
+ */
+
+#define CR0_PG BIT(31) /* Paging enable */
+
+#define CR4_PAE BIT(5) /* PAE paging enable */
+
+/*
+ * ASM instruction wrappers.
+ */
 
 /* Write a single byte at a given I/O port address. */
 static ALWAYS_INLINE void outb(uint16_t port, uint8_t val)
