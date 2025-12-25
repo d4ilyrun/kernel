@@ -98,8 +98,7 @@ SECTIONS
     .kernel_symbols ALIGN(4K) : AT (ADDR (.kernel_symbols) - _kernel_higher_half_offset)
     {
         *(.kernel_symbols)
-        /* Reserve 32K of space to place our kernel symbols */
-        . += 32K;
+        . += 128K; /* Reserve enough space to place our kernel symbols */
     }
 
     . = ALIGN(4K);
