@@ -193,7 +193,7 @@ static void tar_node_free(tree_node_t *node)
     /* Do not free vnode, let it be free'd by vnode_release(). */
     if (tar_node->vnode)
         tar_node->vnode->pdata = NULL;
-    kfree(node);
+    kfree(tar_node);
 }
 
 /*
