@@ -358,6 +358,32 @@ void vm_free(struct address_space *as, void *addr)
     }
 }
 
+error_t vm_map(struct address_space *as, void *addr)
+{
+    struct vm_segment *segment;
+    error_t ret;
+
+    if (addr == NULL)
+        return E_SUCCESS;
+
+    if ((vaddr_t)addr % PAGE_SIZE) {
+        log_warn("freeing unaligned virtual address: %p (skipping)", addr);
+        return E_INVAL;
+    }
+
+    locked_scope (&as->lock) {
+        segment = vm_find(as, addr);
+        if (!segment) {
+            log_dbg("free: no backing segment for %p", addr);
+            return E_NOENT;
+        }
+
+        ret = segment->driver->vm_map(as, segment, segment->flags);
+    }
+
+    return ret;
+}
+
 static int vm_segment_contains(const void *this, const void *addr)
 {
     const struct vm_segment *segment = to_segment(this);

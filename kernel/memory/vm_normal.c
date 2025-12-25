@@ -13,6 +13,37 @@ struct vm_segment *vm_normal_alloc(struct address_space *as, vaddr_t addr,
     return vmm_allocate(as->vmm, addr, size, flags);
 }
 
+static error_t vm_normal_map(struct address_space *as,
+                             struct vm_segment *segment, vm_flags_t flags)
+{
+    size_t size = segment->size;
+    paddr_t phys;
+    error_t err;
+
+    AS_ASSERT_OWNED(as);
+
+    for (size_t off = 0; off < size; off += PAGE_SIZE) {
+
+        /* If the address already contained a mapping keep it. */
+        if (mmu_is_mapped(segment->start + off))
+            continue;
+
+        phys = pmm_allocate();
+        if (phys == PMM_INVALID_PAGEFRAME) {
+            err = E_NOMEM;
+            goto exit_error;
+        }
+
+        mmu_map(segment->start + off, phys, flags);
+    }
+
+    return E_SUCCESS;
+
+exit_error:
+    /* Don't free pages, they should be released by vm_free(). */
+    return err;
+}
+
 struct vm_segment *vm_normal_alloc_at(struct address_space *as, paddr_t phys,
                                       size_t size, vm_flags_t flags)
 {
@@ -143,4 +174,5 @@ const struct vm_segment_driver vm_normal = {
     .vm_free = vm_normal_free,
     .vm_fault = vm_normal_fault,
     .vm_resize = vm_normal_resize,
+    .vm_map = vm_normal_map,
 };

@@ -133,6 +133,9 @@ struct vm_segment_driver {
      *                 located.
      */
     error_t (*vm_fault)(struct address_space *, struct vm_segment *);
+
+    /** Map this segment onto a physical address. */
+    error_t (*vm_map)(struct address_space *, struct vm_segment *, vm_flags_t);
 };
 
 /** Kernel-only address-space.
@@ -223,5 +226,11 @@ void vm_free(struct address_space *, void *);
 
 /** Find the address space's segment that contains the given address */
 struct vm_segment *vm_find(const struct address_space *, void *);
+
+/** Map a virtual address segment onto a physical page.
+ *
+ *  @return E_EXIST if the virtual address contained a previous mapping.
+ */
+error_t vm_map(struct address_space *, void *);
 
 #endif /* KERNEL_VM_H */
