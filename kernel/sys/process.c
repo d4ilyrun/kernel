@@ -425,7 +425,10 @@ static void thread_free(thread_t *thread)
 
         llist_remove(&thread->proc_this);
         vm_free(&kernel_address_space, thread_get_kernel_stack(thread));
-        kfree(thread);
+
+        /* initial thread is statically allocated so we can't kfree() it. */
+        if (thread != &kernel_process_initial_thread)
+            kfree(thread);
 
         /*
          * Release reference this threads holds onto the process.
