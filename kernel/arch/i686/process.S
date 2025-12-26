@@ -82,5 +82,13 @@ __arch_thread_jump_to_userland:
     pushl %ebx      // cs
     pushl %eax      // eip
 
+    // Write 0 into %eax before jumping to userland. This value is used as the
+    // return value for a call to sys_fork(), which is supposed to be 0 for the
+    // forked child.
+    //
+    // NOTE: We are guaranteed to be the child here.
+
+    xor %eax, %eax
+
     // jump to userland !
     iret
