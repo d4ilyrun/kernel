@@ -5,6 +5,7 @@ QEMU := qemu-system-i386
 
 KERNEL_ARCH_SRCS := \
 	crt0.S \
+    cpu.c \
     gdt.S \
     gdt.c \
     interrupts.c \
