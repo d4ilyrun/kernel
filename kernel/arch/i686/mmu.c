@@ -508,23 +508,11 @@ release_lock:
     return ret;
 }
 
-bool mmu_init(void)
+/*
+ * Initialize the content of the page directory.
+ */
+static void mmu_init_page_directory(paddr_t page_directory)
 {
-    paddr_t page_directory;
-    paddr_t page_table;
-
-    if (paging_enabled) {
-        log_warn("Trying to re-enable paging. Skipping.");
-        return false;
-    }
-
-    interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault), NULL);
-
-    page_directory = KERNEL_HIGHER_HALF_PHYSICAL(kernel_startup_page_directory);
-
-    // Initialize the kernel's page directory
-    kernel_address_space.mmu = page_directory;
-
     // Mark all PDEs as "absent" (present = 0), and writable
     for (size_t entry = 0; entry < MMU_PDE_COUNT; entry++) {
         kernel_startup_page_directory[entry] = (mmu_pde_t){
@@ -550,25 +538,49 @@ bool mmu_init(void)
     //        (soon hopefully)
     mmu_offset_map(0, KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_END),
                    KERNEL_HIGHER_HALF_OFFSET, PROT_EXEC | PROT_READ);
+}
+
+bool mmu_init(void)
+{
+    paddr_t page_directory;
+    paddr_t page_table;
+    u32 val;
+
+    if (paging_enabled) {
+        log_warn("Trying to re-enable paging. Skipping.");
+        return false;
+    }
+
+    interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault), NULL);
+
+    page_directory = KERNEL_HIGHER_HALF_PHYSICAL(kernel_startup_page_directory);
+    kernel_address_space.mmu = page_directory;
+
+    mmu_init_page_directory(page_directory);
+
+    /*
+     * Enable 32b mode paging.
+     */
 
     mmu_load(page_directory);
 
-    // According to 4.3, to activate 32-bit mode paging we must:
-    // 1. set CR4.PAE to 0 (de-activate PAE)
-    u32 cr4 = read_cr4();
-    cr4 &= ~CR4_PAE;
-    write_cr4(cr4);
+    val = read_cr4();
+    val &= ~CR4_PAE;
+    write_cr4(val);
 
-    // 2. set CR0.PG to 1  (activate paging)
-    u32 cr0 = read_cr0();
-    cr0 |= CR0_PG;
-    write_cr0(cr0);
+    val = read_cr0();
+    val |= CR0_PG;
+    write_cr0(val);
 
     paging_enabled = true;
 
-    // Pre-allocate all shared kernel page table entries
-    // We NEED to allocate them now for them to be present inside the IDLE
-    // task's page table.
+    /*
+     * Pre-allocate all shared kernel page table entries.
+     *
+     * We MUST allocate them now for them to be present inside the IDLE
+     * task's page table.
+     */
+
     for (size_t i = MMU_PDE_KERNEL_FIRST; i < MMU_PDE_COUNT - 1; i++) {
         if (kernel_startup_page_directory[i].present)
             continue;
