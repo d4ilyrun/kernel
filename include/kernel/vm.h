@@ -78,6 +78,12 @@ typedef enum vm_flags {
 #define VM_USER_WO (VM_WRITE)
 #define VM_USER_RW (VM_READ | VM_WRITE)
 
+/*
+ * Memory-mapped I/O should be mapped as uncacheable since writes/read can
+ * have side-effects and should not be combined or delayed.
+ */
+#define VM_IOMEM (VM_KERNEL_RW | VM_CACHE_UC)
+
 #define VM_CACHE_MASK (VM_CACHE_UC | VM_CACHE_WT | VM_CACHE_WB | VM_CACHE_WC)
 
 /** Segment driver
