@@ -159,7 +159,7 @@ extern u32 _kernel_code_end;
  */
 #define VMM_RESERVED_END 0x100000UL
 #define VMM_RESERVED_START NULL_PAGE_END
-#define VMM_RESERVED_SIZE (VMM_RESERVED_END + VMM_RESERVED_START)
+#define VMM_RESERVED_SIZE (VMM_RESERVED_END - VMM_RESERVED_START)
 
 /** @brief A single page of memory reserved to detect NULL references. */
 #define NULL_PAGE_SIZE PAGE_SIZE
