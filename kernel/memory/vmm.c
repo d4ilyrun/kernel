@@ -556,6 +556,9 @@ static error_t vmm_merge_vmas(vmm_t *vmm, vma_t *first, vma_t *second)
     if (vma_flags(first) != vma_flags(second))
         return E_INVAL;
 
+    if (vma_end(first) != vma_start(second))
+        return E_INVAL;
+
     first->segment.size += second->segment.size;
     vma_reserved_free(vmm, second);
 
