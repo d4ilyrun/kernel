@@ -190,7 +190,7 @@ void mmu_load(paddr_t page_directory)
  *     [0x0000; 0x00FF] to the virtual range [0xFF00; 0xFFFF]
  */
 static void
-mmu_offset_map(paddr_t start, paddr_t end, int64_t offset, int prot);
+mmu_offset_map(paddr_t start, paddr_t end, int64_t offset, int flags);
 
 /** @brief Inititialize a new page directory
  *  @return The physical address of the new page_directory, 0 if error.
@@ -226,9 +226,110 @@ void mmu_destroy(paddr_t mmu)
     pmm_free(mmu);
 }
 
-// TODO: We do not have a way to quickly map and access an arbitrary physical address.
-//       This prevents us from cloning an arbitrary MMU instance. This is the reason why
-//       this function currently only takes in the destination MMU as a parameter.
+/*
+ *
+ */
+static inline mmu_pde_t *mmu_get_active_page_directory(void)
+{
+    if (unlikely(!paging_enabled))
+        return kernel_startup_page_directory;
+
+    return MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS;
+}
+
+/*
+ * Configure the caching policy on a page level. The caller must invalidate
+ * the address' TLB entry after calling this function.
+ */
+static error_t
+__mmu_set_policy(mmu_pde_t *page_directory, vaddr_t vaddr, int policy)
+{
+    mmu_decode_t address = {.raw = vaddr};
+    mmu_pte_t *pte;
+    bool pat = false;
+    bool pwt = false;
+    bool pcd = false;
+
+    /* Sanitize input in case we were called from mmu_map(). */
+    policy &= POLICY_UC | POLICY_WT | POLICY_WB | POLICY_WC;
+    if (!policy)
+        policy = POLICY_WB; /* Enable caching by default. */
+
+    if (!page_directory[address.pde].present)
+        return E_NOENT;
+
+    pte = &MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde)[address.pte];
+    switch (policy) {
+    case POLICY_WB:
+        break;
+    case POLICY_WT:
+        pwt = true;
+        break;
+    case POLICY_UC:
+        pcd = true;
+        break;
+    case POLICY_WC:
+        pat = true;
+        break;
+
+    default:
+        WARN("invalid caching policy: %02x\n", policy);
+        return E_INVAL;
+    }
+
+    if (pat && !cpu_has_feature(PAT)) {
+        log_warn("unsupported policy: %02x (requires PAT support)", policy);
+        return E_NOT_SUPPORTED;
+    }
+
+    pte->pat = pat;
+    pte->pcd = pcd;
+    pte->pwt = pwt;
+
+    return E_SUCCESS;
+}
+
+/*
+ *
+ */
+error_t mmu_set_policy(vaddr_t vaddr, mmu_policy_t policy)
+{
+    mmu_pde_t *page_directory;
+    error_t err;
+
+    page_directory = mmu_get_active_page_directory();
+    err = __mmu_set_policy(page_directory, vaddr, policy);
+    if (err)
+        return err;
+
+    mmu_flush_tlb(vaddr);
+    return E_SUCCESS;
+}
+
+/*
+ *
+ */
+error_t mmu_set_policy_range(vaddr_t range_start, size_t range_size,
+                             mmu_policy_t policy)
+{
+    error_t ret = E_SUCCESS;
+
+    range_size = align_down(range_size, PAGE_SIZE);
+    for (size_t off = 0; off < range_size; off += PAGE_SIZE) {
+        /* Keep going when an error happens but return the first error code. */
+        error_t err = mmu_set_policy(range_start + off, policy);
+        if (err && !ret)
+            ret = err;
+    }
+
+    return ret;
+}
+
+// TODO: We do not have a way to quickly map and access an arbitrary physical
+// address.
+//       This prevents us from cloning an arbitrary MMU instance. This is the
+//       reason why this function currently only takes in the destination MMU as
+//       a parameter.
 void mmu_clone(paddr_t destination)
 {
     page_directory_t src_page_directory;
@@ -269,24 +370,15 @@ void mmu_clone(paddr_t destination)
     vm_free(&kernel_address_space, dst_page_directory);
 }
 
-bool mmu_map(vaddr_t virtual, paddr_t pageframe, int prot)
+bool mmu_map(vaddr_t virtual, paddr_t pageframe, int flags)
 {
     mmu_decode_t address = {.raw = virtual};
-
-    if (virtual % PAGE_SIZE)
-        return false;
-
-    // TODO: We hardcode the pde/pte to be un-accessible when in user mode.
-    // This will also cause an issue when reaching userspace later.
-
-    page_directory_t page_directory;
+    page_directory_t page_directory = mmu_get_active_page_directory();
     page_table_t page_table;
     bool new_page_table = false;
 
-    if (paging_enabled)
-        page_directory = MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS;
-    else
-        page_directory = kernel_startup_page_directory;
+    if (virtual % PAGE_SIZE)
+        return false;
 
     if (!page_directory[address.pde].present) {
         u32 page_table = pmm_allocate();
@@ -321,14 +413,17 @@ bool mmu_map(vaddr_t virtual, paddr_t pageframe, int prot)
     page_table[address.pte] = (mmu_pte_t){
         .present = 1,
         .page_frame = TO_PFN(pageframe),
-        .writable = boolean(prot & PROT_WRITE),
-        .user = !(prot & PROT_KERNEL),
+        .writable = boolean(flags & PROT_WRITE),
+        .user = !(flags & PROT_KERNEL),
     };
+
+    /* No need to flush since the entry has not been cached yet. */
+    __mmu_set_policy(page_directory, virtual, flags);
 
     return true;
 }
 
-bool mmu_map_range(vaddr_t virtual, paddr_t physical, size_t size, int prot)
+bool mmu_map_range(vaddr_t virtual, paddr_t physical, size_t size, int flags)
 {
     size_t range;
 
@@ -338,7 +433,7 @@ bool mmu_map_range(vaddr_t virtual, paddr_t physical, size_t size, int prot)
     }
 
     for (range = 0; range < size; range += PAGE_SIZE) {
-        if (!mmu_map(virtual + range, physical + range, prot))
+        if (!mmu_map(virtual + range, physical + range, flags))
             break;
     }
 
@@ -412,16 +507,17 @@ void mmu_unmap_range(vaddr_t start, vaddr_t end)
         mmu_unmap(start);
 }
 
-static void mmu_offset_map(paddr_t start, paddr_t end, int64_t offset, int prot)
+static void
+mmu_offset_map(paddr_t start, paddr_t end, int64_t offset, int flags)
 {
     for (; start < end; start += PAGE_SIZE) {
-        mmu_map(start + offset, start, prot);
+        mmu_map(start + offset, start, flags);
     }
 }
 
-void mmu_identity_map(paddr_t start, paddr_t end, int prot)
+void mmu_identity_map(paddr_t start, paddr_t end, int flags)
 {
-    mmu_offset_map(start, end, 0, prot);
+    mmu_offset_map(start, end, 0, flags);
 }
 
 paddr_t mmu_find_physical(vaddr_t virtual)
@@ -508,6 +604,55 @@ release_lock:
     return ret;
 }
 
+/* Memory types used to configure the MTRR and PAT tables. */
+enum memory_type {
+    MEM_UC = 0x00,
+    MEM_WC = 0x01,
+    MEM_WT = 0x04,
+    MEM_WP = 0x05,
+    MEM_WB = 0x06,
+    MEM_UC_MINUS = 0x07, /* Valid only for the PAT table. */
+};
+
+/*
+ * Fill the page attribute table.
+ */
+static void mmu_init_pat(void)
+{
+    u64 pat = 0;
+
+    if (!cpu_has_feature(PAT)) {
+        log_info("PAT not present on this platform");
+        return;
+    }
+
+#define PAT(n, val) (((u64)val & 0xff) << (n * 8))
+
+    /* Configure a PAT entry for each caching related bit inside a PTE. */
+    pat |= PAT(0, MEM_WB);
+    pat |= PAT(1, MEM_WT);
+    pat |= PAT(2, MEM_UC);
+    pat |= PAT(4, MEM_WC);
+
+    wrmsr(MSR_PAT, pat);
+
+#undef PATn
+}
+
+/*
+ *
+ */
+static void mmu_init_mtrr(void)
+{
+    if (!cpu_has_feature(MTRR)) {
+        log_info("MTRR not present this platform");
+        return;
+    }
+
+    /* TODO add support for MTRRs. */
+    not_implemented("MTRR");
+}
+
 /*
  * Initialize the content of the page directory.
  */
@@ -552,6 +697,10 @@ bool mmu_init(void)
     }
 
     interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault), NULL);
+
+    /* Initialize caching structures. */
+    mmu_init_pat();
+    mmu_init_mtrr();
 
     page_directory = KERNEL_HIGHER_HALF_PHYSICAL(kernel_startup_page_directory);
     kernel_address_space.mmu = page_directory;

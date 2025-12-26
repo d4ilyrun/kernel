@@ -53,6 +53,8 @@ MAP(WRITE_REGISTER_OPS, CPU_32BIT_REGISTERS)
  */
 
 #define CR0_PG BIT(31) /* Paging enable */
+#define CR0_CD BIT(30) /* Cache disable */
+#define CR0_NW BIT(29) /* Not write-through */
 
 #define CR4_PAE BIT(5) /* PAE paging enable */
 
@@ -264,6 +266,10 @@ static inline bool cpu_test_feature(enum x86_cpu_feature feature)
 }
 
 #define cpu_has_feature(_feature) cpu_test_feature(X86_FEATURE_NAME(_feature))
+
+enum x86_msr {
+    MSR_PAT = 0x277,
+};
 
 /* Read from specific register */
 static inline uint64_t rdmsr(uint32_t msr)

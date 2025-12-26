@@ -8,6 +8,25 @@
 
 struct x86_cpuinfo cpuinfo;
 
+/*
+ *
+ */
+static void cpu_init_caches(void)
+{
+    u32 val;
+
+    /*
+     * Enable caching globally.
+     *
+     * Caching policies can still be selectively configured using page table
+     * entries or MTRR registers.
+     */
+    val = read_cr0();
+    val &= ~CR0_CD;
+    val &= ~CR0_NW;
+    write_cr0(val);
+}
+
 struct x86_cpu_vendor {
     const char *vendor;
     u32 ebx;
@@ -102,6 +121,7 @@ static void cpu_init_info(struct x86_cpuinfo *cpu)
 error_t cpu_init(void)
 {
     cpu_init_info(&cpuinfo);
+    cpu_init_caches();
 
     return E_SUCCESS;
 }
