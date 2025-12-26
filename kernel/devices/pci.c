@@ -190,7 +190,7 @@ static void pci_device_setup_bars(struct pci_device *device)
             device->bars[i].phys = bar & PCI_BAR_MEMORY_ADDRESS_MASK;
             device->bars[i].data = vm_alloc_at(
                 &kernel_address_space, device->bars[i].phys,
-                align_up(size, PAGE_SIZE), VM_READ | VM_WRITE);
+                align_up(size, PAGE_SIZE), VM_IOMEM);
             if (IS_ERR(device->bars[i].data))
                 log_warn("failed to allocate bar[%d]: %d", i,
                          ERR_FROM_PTR(device->bars[i].data));
