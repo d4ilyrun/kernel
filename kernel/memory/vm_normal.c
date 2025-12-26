@@ -7,8 +7,9 @@
 
 #include <string.h>
 
-struct vm_segment *vm_normal_alloc(struct address_space *as, vaddr_t addr,
-                                   size_t size, vm_flags_t flags)
+static struct vm_segment *vm_normal_alloc(struct address_space *as,
+                                          vaddr_t addr, size_t size,
+                                          vm_flags_t flags)
 {
     return vmm_allocate(as->vmm, addr, size, flags);
 }
@@ -168,6 +169,17 @@ static error_t vm_normal_resize(struct address_space *as,
     return E_SUCCESS;
 }
 
+/*
+ *
+ */
+static error_t vm_normal_set_policy(struct address_space *as,
+                                    struct vm_segment *segment,
+                                    vm_flags_t policy)
+{
+    AS_ASSERT_OWNED(as);
+    return mmu_set_policy_range(segment->start, segment->size, (int)policy);
+}
+
 const struct vm_segment_driver vm_normal = {
     .vm_alloc = vm_normal_alloc,
     .vm_alloc_at = vm_normal_alloc_at,
@@ -175,4 +187,5 @@ const struct vm_segment_driver vm_normal = {
     .vm_fault = vm_normal_fault,
     .vm_resize = vm_normal_resize,
     .vm_map = vm_normal_map,
+    .vm_set_policy = vm_normal_set_policy,
 };
