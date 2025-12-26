@@ -347,22 +347,25 @@ void mmu_clone(paddr_t destination)
         if (!dst_page_directory[i].present)
             continue;
 
-        page = page_get(pfn_to_page(dst_page_directory[i].page_table));
+        page_table = MMU_RECURSIVE_PAGE_TABLE_ADDRESS(i);
 
         // Setup PT for copy-on-write
+        page = page_get(pfn_to_page(dst_page_directory[i].page_table));
         if (dst_page_directory[i].writable) {
             page->flags |= PAGE_COW;
             dst_page_directory[i].writable = false;
             src_page_directory[i].writable = false;
+            mmu_flush_tlb((vaddr_t)page_table);
         }
 
         // Setup PTEs for copy-on-write
-        page_table = MMU_RECURSIVE_PAGE_TABLE_ADDRESS(i);
         for (size_t j = 0; j < MMU_PTE_COUNT; ++j) {
+            mmu_decode_t addr = { .pde = i, .pte = j, .offset = 0 };
             page = page_get(pfn_to_page(page_table[j].page_frame));
             if (page_table[j].writable) {
                 page->flags |= PAGE_COW;
                 page_table->writable = false;
+                mmu_flush_tlb(addr.raw);
             }
         }
     }
@@ -569,6 +572,8 @@ error_t mmu_copy_on_write(vaddr_t addr)
 
         pde->writable = true;
         page->flags &= ~PAGE_COW;
+
+        mmu_flush_tlb((vaddr_t)MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde));
     }
 
     pte = &MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde)[address.pte];
