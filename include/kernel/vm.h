@@ -62,6 +62,12 @@ typedef enum vm_flags {
     VM_KERNEL = BIT(3), /*!< Pages should only be accessible from kernel */
     VM_CLEAR = BIT(4),  /*!< Page content should be reset when allocating */
     VM_FIXED = BIT(5),  /*!< Start address in vm_alloc_at() is not a hint */
+
+    /* Caching policies. */
+    VM_CACHE_UC = BIT(6), /*!< Uncacheable. */
+    VM_CACHE_WC = BIT(7), /*!< Write-combining. */
+    VM_CACHE_WT = BIT(8), /*!< Write-through. */
+    VM_CACHE_WB = BIT(9), /*!< Write-back (default). */
 } vm_flags_t;
 
 #define VM_KERNEL_RO (VM_KERNEL | VM_READ)
@@ -71,6 +77,8 @@ typedef enum vm_flags {
 #define VM_USER_RO (VM_READ)
 #define VM_USER_WO (VM_WRITE)
 #define VM_USER_RW (VM_READ | VM_WRITE)
+
+#define VM_CACHE_MASK (VM_CACHE_UC | VM_CACHE_WT | VM_CACHE_WB | VM_CACHE_WC)
 
 /** Segment driver
  *
@@ -136,6 +144,10 @@ struct vm_segment_driver {
 
     /** Map this segment onto a physical address. */
     error_t (*vm_map)(struct address_space *, struct vm_segment *, vm_flags_t);
+
+    /** Configure the effective caching policy for a segment. */
+    error_t (*vm_set_policy)(struct address_space *, struct vm_segment *,
+                             vm_flags_t policy);
 };
 
 /** Kernel-only address-space.
@@ -232,5 +244,8 @@ struct vm_segment *vm_find(const struct address_space *, void *);
  *  @return E_EXIST if the virtual address contained a previous mapping.
  */
 error_t vm_map(struct address_space *, void *);
+
+/** Change the effective caching policy for address inside a segment. */
+error_t vm_set_policy(struct address_space *, void *, vm_flags_t policy);
 
 #endif /* KERNEL_VM_H */

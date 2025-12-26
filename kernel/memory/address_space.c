@@ -24,6 +24,10 @@ static_assert((int)VM_EXEC == (int)PROT_EXEC);
 static_assert((int)VM_READ == (int)PROT_READ);
 static_assert((int)VM_WRITE == (int)PROT_WRITE);
 static_assert((int)VM_KERNEL == (int)PROT_KERNEL);
+static_assert((int)VM_CACHE_UC == (int)POLICY_UC);
+static_assert((int)VM_CACHE_WB == (int)POLICY_WB);
+static_assert((int)VM_CACHE_WT == (int)POLICY_WT);
+static_assert((int)VM_CACHE_WC == (int)POLICY_WC);
 
 static DECLARE_LLIST(kernel_segments);
 
@@ -274,6 +278,33 @@ error_t address_space_fault(struct address_space *as, void *addr, bool is_cow)
     return segment->driver->vm_fault(as, segment);
 }
 
+/*
+ * Check whether the provided flags combination is correct.
+ */
+static inline bool
+vm_flags_validate(struct address_space *as, vm_flags_t *flags)
+{
+    UNUSED(as);
+
+    switch (*flags & VM_CACHE_MASK) {
+    case 0:
+        /* Default caching policy: write-back. */
+        *flags |= VM_CACHE_WB;
+        break;
+
+    case VM_CACHE_UC:
+    case VM_CACHE_WC:
+    case VM_CACHE_WT:
+    case VM_CACHE_WB:
+        break;
+
+    default:
+        return false;
+    }
+
+    return true;
+}
+
 void *vm_alloc_start(struct address_space *as, void *addr, size_t size,
                      vm_flags_t flags)
 {
@@ -281,6 +312,9 @@ void *vm_alloc_start(struct address_space *as, void *addr, size_t size,
     struct vm_segment *segment;
 
     if (size % PAGE_SIZE)
+        return NULL;
+
+    if (!vm_flags_validate(as, &flags))
         return NULL;
 
     driver = vm_find_driver(flags);
@@ -315,6 +349,9 @@ void *vm_alloc_at(struct address_space *as, paddr_t phys, size_t size,
         return NULL;
 
     if (phys % PAGE_SIZE)
+        return NULL;
+
+    if (!vm_flags_validate(as, &flags))
         return NULL;
 
     driver = vm_find_driver(flags);
@@ -353,6 +390,11 @@ void vm_free(struct address_space *as, void *addr)
             return;
         }
 
+        /* NOTE: We should not be freeing the whole segment at once. We may want
+         *       to free only part of a segment. This means treating each memory
+         *       segment as a single big 'object', and could also cause issues
+         *       when implementing VMA merging later.
+         */
         vm_segment_remove(as, segment);
         segment->driver->vm_free(as, segment);
     }
@@ -485,4 +527,40 @@ void *sys_sbrk(intptr_t increment)
 {
     return vm_brk(current->process->as,
                   current->process->as->brk_end + increment);
+}
+
+/*
+ *
+ */
+error_t vm_set_policy(struct address_space *as, void *addr, vm_flags_t policy)
+{
+    struct vm_segment *segment;
+    error_t ret;
+
+    AS_ASSERT_OWNED(as);
+
+    policy &= VM_CACHE_MASK;
+    if (!vm_flags_validate(as, &policy))
+        return E_INVAL;
+
+    locked_scope (&as->lock) {
+        segment = vm_find(as, addr);
+        if (!segment)
+            return E_NOENT;
+
+        /* NOTE: We should be adding a size parameter if we ever want to change
+         *       the policy for part of a segment only.
+         */
+        ret = segment->driver->vm_set_policy(as, segment, policy);
+        if (ret) {
+            log_warn("failed to set caching policy for [%p-%p]: %pe",
+                     (void *)segment->start, (void *)segment_end(segment),
+                     &ret);
+        }
+
+        segment->flags &= ~VM_CACHE_MASK;
+        segment->flags |= policy;
+    }
+
+    return E_SUCCESS;
 }
