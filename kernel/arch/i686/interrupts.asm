@@ -7,7 +7,6 @@ __common_handler:
     call default_interrupt_handler
     popad
     add esp, 8
-    stia
     iret
 
 %macro interrupt 2
@@ -15,7 +14,7 @@ __common_handler:
     align 4
 __%2_stub_handler:
     cli         ; disable interrupts
-    push $0     ; push empty error code and interrupt number onto stack
+    push 0x0     ; push empty error code and interrupt number onto stack
     push %1
     jmp __common_handler
 %endmacro
@@ -113,7 +112,7 @@ interrupt_handler_stubs:
   stub stack_segment_fault
   stub general_protection
   stub page_fault
-  dd $0 ; Intel reserved: do not use
+  dd 0x0 ; Intel reserved: do not use
   stub fpu_error
   stub alignment_check
   stub machine_check
@@ -122,7 +121,7 @@ interrupt_handler_stubs:
   stub control_protection
   ; 22-31: Intel reserved: do not use
 %rep 10
-  dd $0
+  dd 0x0
 %endrep
   ; IRQs
   stub irq_timer
