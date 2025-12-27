@@ -36,6 +36,7 @@ KERNEL_SRCS := 	\
 	misc/worker.c \
 	misc/semaphore.c \
 	misc/uacpi.c \
+	misc/user.c \
 	memory/memory.c \
 	memory/pmm.c \
 	memory/vmm.c \

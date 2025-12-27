@@ -33,6 +33,7 @@
 
 #include <kernel/file.h>
 #include <kernel/types.h>
+#include <kernel/user.h>
 #include <kernel/vmm.h>
 
 #include <libalgo/linked_list.h>
@@ -105,6 +106,8 @@ struct process {
 
     thread_state_t state;
     uint8_t exit_status; /** Transmitted to the parent process during wait() */
+
+    struct user_creds creds; /** Process credentials. */
 
     spinlock_t lock;
 };

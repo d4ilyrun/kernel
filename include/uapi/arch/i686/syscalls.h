@@ -18,11 +18,23 @@
     F(execve	, 11	, 3	, default	, int		, char *, char *const *, char *const *) \
     F(lseek		, 19	, 3	, default	, int		, int, int, int) \
     F(getpid	, 20	, 0	, default	, int		, void) \
+    F(setuid	, 23	, 1	, default	, int		, uid_t) \
+    F(getuid	, 24	, 0	, default	, uid_t		, void) \
     F(kill		, 37	, 2	, default	, int		, pid_t, int) \
     F(brk		, 45	, 1	, default	, int		, void *) \
+    F(setgid	, 46	, 1	, default	, int		, gid_t) \
+    F(getgid	, 47	, 0	, default	, gid_t		, void) \
+    F(geteuid	, 49	, 0	, default	, uid_t		, void) \
+    F(getegid	, 50	, 0	, default	, gid_t		, void) \
+    F(setreuid	, 70	, 2	, default	, int		, uid_t, uid_t) \
+    F(setregid	, 71	, 2	, default	, int		, gid_t, gid_t) \
     F(stat		, 106	, 2	, default	, int		, const char *, struct stat *) \
     F(lstat		, 107	, 2	, default	, int		, const char *, struct stat *) \
     F(fstat		, 108	, 2	, default	, int		, int, struct stat *) \
+    F(setresuid	, 164	, 3	, default	, int		, uid_t, uid_t, uid_t) \
+    F(setresgid	, 170	, 3	, default	, int		, gid_t, gid_t, gid_t) \
     F(sbrk		, 463	, 1	, default	, void *	, intptr_t) \
+    F(seteuid	, 464	, 1	, default	, int	    , uid_t) \
+    F(setegid	, 465	, 1	, default	, int	    , gid_t) \
 
 #endif /* UAPI_ARCH_I686_SYSCALLS_H */
