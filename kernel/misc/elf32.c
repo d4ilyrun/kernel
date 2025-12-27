@@ -135,16 +135,16 @@ static error_t elf32_load_segment(const struct elf32_ehdr *elf,
     if (segment->p_align > 1) {
         if ((segment->p_vaddr % segment->p_align) !=
             (segment->p_offset % segment->p_align)) {
-            log_dbg("p_vaddr and p_offset should be congruent modulo p_align "
-                    "(%x === %x %% %x)",
-                    segment->p_vaddr, segment->p_offset, segment->p_align);
+            log_info("p_vaddr and p_offset should be congruent modulo p_align "
+                     "(%x === %x %% %x)",
+                     segment->p_vaddr, segment->p_offset, segment->p_align);
             return E_INVAL;
         }
     }
 
     if (segment->p_memsz < segment->p_filesz) {
-        log_dbg("size in memory inferior to size in file (%d < %d)",
-                segment->p_memsz, segment->p_filesz);
+        log_info("size in memory inferior to size in file (%d < %d)",
+                 segment->p_memsz, segment->p_filesz);
         return E_INVAL;
     }
 
@@ -166,10 +166,6 @@ static error_t elf32_load_segment(const struct elf32_ehdr *elf,
     in_memory = (void *)align_down(segment->p_vaddr, PAGE_SIZE);
     size = segment->p_memsz + (segment->p_vaddr % PAGE_SIZE);
     size = align_up(size, PAGE_SIZE);
-
-    log_dbg("allocating segment @ %p (size=%#04x, start=%p, alloc_size=%#04lx, "
-            "flags=%x)",
-            (void *)segment->p_vaddr, segment->p_memsz, in_memory, size, prot);
 
     allocated = vm_alloc_start(current->process->as, in_memory, size,
                                prot | VM_FIXED);
@@ -235,8 +231,6 @@ static error_t elf32_load_section(const struct elf32_ehdr *elf,
     if (section->sh_type == SHT_NULL)
         return E_SUCCESS;
 
-    log_dbg("loading section %s @ %p", elf32_section_name(elf, section), start);
-
     if (section->sh_type == SHT_SYMTAB)
         return elf32_load_symbol_section(elf, section);
 
@@ -246,8 +240,8 @@ static error_t elf32_load_section(const struct elf32_ehdr *elf,
     /* Values 0 and 1 mean the section has no alignment constraints */
     if (section->sh_addralign > 1) {
         if (!is_aligned(section->sh_addr, section->sh_addralign)) {
-            log_dbg("invalid alignment (%d %% %d)", section->sh_addr,
-                    section->sh_addralign);
+            log_info("invalid alignment (%d %% %d)", section->sh_addr,
+                     section->sh_addralign);
             return E_INVAL;
         }
     }
@@ -282,7 +276,7 @@ static error_t elf32_load(struct executable *executable, void *data)
     for (size_t i = 0; i < elf->e_phnum; ++i) {
         err = elf32_load_segment(elf, &phdr[i]);
         if (err) {
-            log_dbg("failed to load segment %ld: %pe", i, &err);
+            log_info("failed to load segment %ld: %pe", i, &err);
             return err;
         }
     }
@@ -295,8 +289,8 @@ static error_t elf32_load(struct executable *executable, void *data)
     for (size_t i = 0; i < elf->e_shnum; ++i) {
         err = elf32_load_section(elf, &shdr_table[i]);
         if (err) {
-            log_dbg("failed to load section '%s': %pe",
-                    elf32_section_name(elf, &shdr_table[i]), &err);
+            log_info("failed to load section '%s': %pe",
+                     elf32_section_name(elf, &shdr_table[i]), &err);
             return err;
         }
     }
