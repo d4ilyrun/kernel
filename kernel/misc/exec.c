@@ -261,7 +261,7 @@ error_t execfmt_execute(struct exec_params *params)
         return E_PERM;
     }
 
-    exec_file = vfs_open(params->exec_path, O_RDONLY);
+    exec_file = vfs_open(params->exec_path, O_EXEC);
     if (IS_ERR(exec_file))
         return ERR_FROM_PTR(exec_file);
 

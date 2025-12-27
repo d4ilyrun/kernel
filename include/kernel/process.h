@@ -39,6 +39,7 @@
 #include <utils/compiler.h>
 
 #include <string.h>
+#include "kernel/user.h"
 
 #if ARCH == i686
 #include <kernel/arch/i686/process.h>
@@ -105,6 +106,8 @@ struct process {
 
     thread_state_t state;
     uint8_t exit_status; /** Transmitted to the parent process during wait() */
+
+    struct user_creds creds; /** Process credentials. */
 
     spinlock_t lock;
 };

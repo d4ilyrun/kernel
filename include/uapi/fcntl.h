@@ -3,8 +3,18 @@
 
 #include <fcntl.h>
 
+#ifndef O_EXEC
+#define O_EXEC 0
+#endif
+
+#ifndef O_SEARCH
+#define O_SEARCH O_EXEC
+#endif
+
 #define O_READABLE(_flags) ((_flags & O_ACCMODE) != O_WRONLY)
 #define O_WRITABLE(_flags) ((_flags & O_ACCMODE) != O_RDONLY)
+#define O_EXECONLY(_flags) ((_flags & O_ACCMODE) == O_EXEC)
+#define O_SRCHONLY(_flags) ((_flags & O_ACCMODE) == O_SEARCH)
 
 #define S_IRWU (S_IRUSR | S_IWUSR)
 #define S_IRWG (S_IRGRP | S_IWGRP)

@@ -95,6 +95,11 @@ struct process kernel_process = {
     .name = "kstartup",
     .refcount = 1, /* static initial thread */
     .pid = PROCESS_KERNEL_PID,
+    .creds = {
+        .ruid = UID_ROOT,
+        .euid = UID_ROOT,
+        .suid = UID_ROOT,
+    },
 };
 
 thread_t *current = &kernel_process_initial_thread;
@@ -651,21 +656,18 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
     if (IS_ERR(new_process))
         return (void *)new_process;
 
-    /* Duplicate the current thread's process's state */
+    /* Duplicate the current process' state. */
     process_set_name(new_process, current->process->name, PROCESS_NAME_MAX_LEN);
+    address_space_copy_current(new_process->as);
+    creds_copy(&new_process->creds, &current->process->creds);
 
-    /*
-     * Duplicate the current process' open files.
-     */
+    /* Duplicate the current process' open files. */
     locked_scope (&current->process->files_lock) {
         for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
             if (current->process->files[i])
                 new_process->files[i] = file_get(current->process->files[i]);
         }
     }
-
-    /* Duplicate the current thread's address space */
-    address_space_copy_current(new_process->as);
 
     new = thread_spawn(new_process, entrypoint, arg, esp, ebp, flags);
     if (new == NULL) {
