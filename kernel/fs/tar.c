@@ -239,6 +239,8 @@ tar_virtual_dir_node(struct tar_filesystem *fs, path_segment_t *segment)
     new->offset = 0xdeadbeef;
     tar_node_set_name(new, segment->start, path_segment_length(segment));
 
+    strlcpy(new->header.mode, "755", sizeof(new->header.mode));
+
     return new;
 }
 
@@ -265,6 +267,7 @@ static tree_t tar_init_tree(struct tar_filesystem *fs)
 
     root = &tar_root->this;
     tar_root->header.type = TAR_TYPE_DIRECTORY;
+    strlcpy(tar_root->header.mode, "755", sizeof(tar_root->header.mode));
 
     offset = 0;
     while ((tar_node = tar_node_from_header(fs, offset)) != NULL) {

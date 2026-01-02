@@ -43,13 +43,13 @@ static inline struct vnode *device_acquire_vnode(struct device *dev)
 
     /*
      * TODO: Set vnode rdev.
+     * TODO: Set vnode type (chardev, blockdev).
      * TODO: Set vnode uid/gid.
-     * TODO: Determine device's permission.
      */
     stat = &dev->vnode->stat;
     clock_get_time(&stat->st_mtim);
     stat->st_ctim = stat->st_mtim;
-    stat->st_mode = S_IRWU | S_IRWG | S_IRWO;
+    stat->st_mode = S_IRWU | S_IRWG;
     stat->st_nlink = 1;
 
     return dev->vnode;
@@ -175,6 +175,10 @@ static vfs_t *devtmpfs_new(struct block_device *blkdev)
     devtmpfs->root.type = VNODE_DIRECTORY;
     devtmpfs->root.operations = &devtmpfs_vnode_ops;
     devtmpfs->root.refcount = 1; // Do not release it
+
+    devtmpfs->root.stat.st_mode = S_IRWXU;
+    devtmpfs->root.stat.st_mode |= S_IRGRP | S_IXGRP;
+    devtmpfs->root.stat.st_mode |= S_IROTH | S_IXOTH;
 
     return vfs;
 }
