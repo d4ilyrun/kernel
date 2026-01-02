@@ -39,6 +39,7 @@
 #include <kernel/error.h>
 #include <kernel/file.h>
 #include <kernel/types.h>
+#include <kernel/user.h>
 #include <uapi/fcntl.h>
 
 #include <lib/path.h>
@@ -232,6 +233,20 @@ vnode_t *vfs_vnode_acquire(vnode_t *, bool *);
  * @return The original vnode, NULL if the new refcount is 0
  */
 vnode_t *vfs_vnode_release(vnode_t *);
+
+/** Check if a process has the right to access a vnode based on its credentials.
+ *
+ *  This function should be called while holding both the vnode's and the
+ *  process' locks.
+ *
+ *  @param vnode  The vnode to access
+ *  @param creds  The user credentials used by the accessor
+ *  @param oflags The flag combination used when opening the vnode
+ *
+ *  @return \c true if the vnode can be accessed.
+ */
+bool vfs_vnode_check_creds(const struct vnode *, const struct user_creds *,
+                           int oflags);
 
 /** @} */
 

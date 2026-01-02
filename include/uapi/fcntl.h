@@ -3,6 +3,10 @@
 
 #include <fcntl.h>
 
+#ifndef O_EXEC
+#define O_EXEC 0
+#endif
+
 #define O_READABLE(_flags) ((_flags & O_ACCMODE) != O_WRONLY)
 #define O_WRITABLE(_flags) ((_flags & O_ACCMODE) != O_RDONLY)
 

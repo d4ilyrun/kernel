@@ -3,6 +3,7 @@
 #include <kernel/logger.h>
 #include <kernel/process.h>
 #include <kernel/vfs.h>
+#include <uapi/fcntl.h>
 
 #include <utils/container_of.h>
 
@@ -190,16 +191,13 @@ vfs_create_at(struct vnode *parent, const char *name, vnode_type type)
     if (IS_ERR(vnode))
         return vnode;
 
-    /*
-     * The GID of the file shall be set to the GID of the file's parent
-     * directory or to the effective group ID of the process.
-     *
-     * TODO: Provide a way to set the GID of the file to that of the process.
-     * TODO: Set file UID.
-     * TODO: Set file permissions mode.
-     */
-    vnode->stat.st_gid = parent->stat.st_gid;
     vnode->stat.st_nlink = 1;
+
+    /* TODO: set file access mode (see opengroup's description of O_CREAT). */
+    locked_scope (&current->process->lock) {
+        vnode->stat.st_gid = current->process->creds.egid;
+        vnode->stat.st_uid = current->process->creds.euid;
+    }
 
     return vnode;
 }
@@ -276,15 +274,19 @@ static struct file *vfs_open_at(struct vnode *vnode, int flags)
 {
     struct file *file;
 
-    if (!vnode->operations->open)
-        return PTR_ERR(E_NOT_SUPPORTED);
+    locked_scope (&vnode->lock) {
+        if (!vnode->operations->open)
+            return PTR_ERR(E_NOT_SUPPORTED);
 
-    /*
-     * TODO: Check against file permissions.
-     */
-    file = vnode->operations->open(vnode);
-    if (IS_ERR(file))
-        return file;
+        locked_scope (&current->process->lock) {
+            if (!vfs_vnode_check_creds(vnode, &current->process->creds, flags))
+                return PTR_ERR(E_PERM);
+        }
+
+        file = vnode->operations->open(vnode);
+        if (IS_ERR(file))
+            return file;
+    }
 
     file->flags = flags;
     if (flags & O_APPEND)
@@ -333,6 +335,47 @@ vnode_t *vfs_vnode_release(vnode_t *node)
 
     node->refcount -= 1;
     return node;
+}
+
+/*
+ *
+ */
+bool vfs_vnode_check_creds(const struct vnode *vnode,
+                           const struct user_creds *creds, int oflags)
+{
+    const struct stat *stat;
+
+    /* Should always be locked to protect against timing attacks. */
+    if (WARN_ON(!spinlock_is_held(&vnode->lock)))
+        return false;
+
+    stat = &vnode->stat;
+
+#define check_creds_type(_stat, _mode_pfx)                                            \
+    do {                                                                       \
+        if ((_stat->st_mode & _mode_pfx##USR) && _stat->st_uid == creds->euid) \
+            break;                                                             \
+        if ((_stat->st_mode & _mode_pfx##GRP) && _stat->st_gid == creds->egid) \
+            break;                                                             \
+        if (_stat->st_mode & _mode_pfx##OTH)                                   \
+            break;                                                             \
+        return false;                                                          \
+    } while (0)
+
+    if (!creds_is_root(creds)) {
+        if (O_READABLE(oflags))
+            check_creds_type(stat, S_IR);
+        if (O_WRITABLE(oflags))
+            check_creds_type(stat, S_IW);
+    }
+
+    /* Root still requires rights over the vnode when executing. */
+    if (oflags & O_EXEC)
+        check_creds_type(stat, S_IX);
+
+#undef check_creds_type
+
+    return true;
 }
 
 /*

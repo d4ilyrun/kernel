@@ -16,6 +16,7 @@ static const char *const ERROR_DESCRIPTIONS[E_TOTAL_COUNT] = {
     [E_EXIST] = "File exists",
     [E_NODEV] = "No such device",
     [E_NOMEM] = "Out of memory",
+    [E_ACCESS] = "Permission denied",
     [E_NOT_DIRECTORY] = "Is not a directory",
     [E_IS_DIRECTORY] = "Is a directory",
     [E_INVAL] = "Invalid argument",

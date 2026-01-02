@@ -35,6 +35,7 @@ typedef enum error {
     E_CHILD = 10,                ///< No children
     E_WOULD_BLOCK = 11,          ///< Resource temporarily unavailable
     E_NOMEM = 12,                ///< Out of memory
+    E_ACCESS = 13,               ///< Permisison denied of memory
     E_BUSY = 16,                 ///< Device or resource busy
     E_EXIST = 17,                ///< File exists
     E_NODEV = 19,                ///< No such device
