@@ -317,6 +317,14 @@ static struct file *vfs_open_at(struct vnode *vnode, int flags)
     struct file *file;
 
     locked_scope (&vnode->lock) {
+
+        if (vnode->type != VNODE_DIRECTORY) {
+            if (flags & O_DIRECTORY)
+                return PTR_ERR(E_NOT_DIRECTORY);
+            if (flags & O_SEARCH && O_SEARCH != O_EXEC)
+                return PTR_ERR(E_NOT_DIRECTORY);
+        }
+
         if (!vnode->operations->open)
             return PTR_ERR(E_NOT_SUPPORTED);
 
@@ -429,7 +437,6 @@ int sys_open(const char *path, int oflags)
     struct file *file;
     int fd;
 
-    // TODO: open(): ENOTDIR
     // TODO: open(): EROFS
 
     if (oflags & (O_TRUNC | O_NOCTTY | O_CLOEXEC | O_NONBLOCK))
@@ -463,9 +470,6 @@ int sys_open(const char *path, int oflags)
     if (vnode->type == VNODE_DIRECTORY && O_WRITABLE(oflags))
         return -E_IS_DIRECTORY;
 
-    if (vnode->type != VNODE_DIRECTORY && oflags & O_DIRECTORY)
-        return -E_NOT_DIRECTORY;
-
     file = vfs_open_at(vnode, oflags);
     if (IS_ERR(file))
         return -E_IO;
@@ -483,8 +487,6 @@ int sys_open(const char *path, int oflags)
 int sys_lstat(const char *path, struct stat *buf)
 {
     vnode_t *vnode;
-
-    // TODO: open(): ENOTDIR
 
     vnode = vfs_find_by_path(path);
     if (IS_ERR(vnode))
