@@ -312,6 +312,12 @@ error_t vfs_remove(const char *raw_path)
     return ret;
 }
 
+/*
+ * Open a file description refering to a vnode.
+ *
+ * NOTE: This function does not release the vnode when an error occurs, so the
+ *       caller must check the returned value.
+ */
 static struct file *vfs_open_at(struct vnode *vnode, int flags)
 {
     struct file *file;
@@ -348,11 +354,16 @@ static struct file *vfs_open_at(struct vnode *vnode, int flags)
 struct file *vfs_open(const char *raw_path, int oflags)
 {
     vnode_t *vnode = vfs_find_by_path(raw_path);
+    struct file *file;
 
     if (IS_ERR(vnode))
         return (void *)vnode;
 
-    return vfs_open_at(vnode, oflags);
+    file = vfs_open_at(vnode, oflags);
+    if (IS_ERR(file))
+        vfs_vnode_release(vnode);
+
+    return file;
 }
 
 vnode_t *vfs_vnode_acquire(vnode_t *node, bool *new)
@@ -471,8 +482,10 @@ int sys_open(const char *path, int oflags)
         return -E_IS_DIRECTORY;
 
     file = vfs_open_at(vnode, oflags);
-    if (IS_ERR(file))
+    if (IS_ERR(file)) {
+        vfs_vnode_release(vnode);
         return -E_IO;
+    }
 
     fd = process_register_file(current->process, file);
     if (fd < 0)
