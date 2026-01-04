@@ -7,6 +7,10 @@
 #define O_EXEC 0
 #endif
 
+#ifndef O_SEARCH
+#define O_SEARCH O_EXEC
+#endif
+
 #define O_READABLE(_flags) ((_flags & O_ACCMODE) != O_WRONLY)
 #define O_WRITABLE(_flags) ((_flags & O_ACCMODE) != O_RDONLY)
 

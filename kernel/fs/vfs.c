@@ -126,40 +126,82 @@ error_t vfs_unmount(const char *path)
     return E_SUCCESS;
 }
 
+/*
+ *
+ */
+static inline struct vnode *
+vfs_find_child_at(struct vnode **parent, const path_segment_t *segment)
+{
+    vnode_t *node = *parent;
+    vnode_t *child;
+    vfs_t *fs;
+
+    spinlock_acquire(&node->lock);
+
+    /*
+     * If a filesystem is mounted on the node continue the search inside
+     * the mounted filesystem.
+     */
+    if (node->mounted_here) {
+        fs = node->mounted_here;
+        spinlock_release(&node->lock);
+        node = fs->operations->root(fs);
+        if (IS_ERR(node))
+            return node;
+
+        /* free the original parent vnode, replace it with the mounted root. */
+        spinlock_acquire(&node->lock);
+        vfs_vnode_release(*parent);
+        *parent = node;
+    }
+
+    child = PTR_ERR(E_NOT_DIRECTORY);
+    if (node->type != VNODE_DIRECTORY)
+        goto out;
+
+    /* Make sure that the user can search for files inside this directory. */
+    locked_scope (&current->process->lock) {
+        child = PTR_ERR(E_ACCESS);
+        if (!vfs_vnode_check_creds(node, &current->process->creds, O_SEARCH))
+            goto out;
+    }
+
+    child = node->operations->lookup(node, segment);
+
+out:
+    spinlock_release(&node->lock);
+    return child;
+}
+
+/*
+ *
+ */
 vnode_t *vfs_find_by_path(const char *raw_path)
 {
     path_t path = NEW_DYNAMIC_PATH(raw_path);
+    vnode_t *node;
+    vfs_t *fs;
 
-    vfs_t *fs = vfs_root_fs();
+    fs = vfs_root_fs();
     if (fs == NULL)
         return PTR_ERR(E_NOENT);
 
-    vnode_t *current = fs->operations->root(fs);
+    node = fs->operations->root(fs);
     DO_FOREACH_SEGMENT(segment, &path, {
-        vnode_t *old;
+        vnode_t *parent = node;
+        node = vfs_find_child_at(&parent, &segment);
 
-        // If a filesystem is mounted on the current node, continue the search
-        // inside the mounted filesystem.
-        if (current->mounted_here) {
-            old = current;
-            fs = current->mounted_here;
-            current = fs->operations->root(fs);
-            vfs_vnode_release(old);
-        }
-
-        old = current;
-        current = current->operations->lookup(current, &segment);
-        // NOTE: vfs_vnode_acquire is called inside the `lookup` function in
-        //       order to return the new vnoden this is why we must release
-        //       this vnode. This looks a bit weird, or 'hidden', and should
+        // NOTE: vfs_vnode_acquire() is called inside the `lookup` and `root`
+        //       operations, this is why we must release the vnode.
+        //       This looks a bit weird, or 'hidden', and should
         //       maybe be refactored.
-        vfs_vnode_release(old);
+        vfs_vnode_release(parent);
 
-        if (IS_ERR(current))
+        if (IS_ERR(node))
             break;
     });
 
-    return current;
+    return node;
 }
 
 static vnode_t *vfs_find_parent(path_t *path)
@@ -370,7 +412,7 @@ bool vfs_vnode_check_creds(const struct vnode *vnode,
     }
 
     /* Root still requires rights over the vnode when executing. */
-    if (oflags & O_EXEC)
+    if (oflags & (O_EXEC | O_SEARCH))
         check_creds_type(stat, S_IX);
 
 #undef check_creds_type
@@ -389,12 +431,13 @@ int sys_open(const char *path, int oflags)
 
     // TODO: open(): ENOTDIR
     // TODO: open(): EROFS
-    // TODO: open(): EACCESS
 
     if (oflags & (O_TRUNC | O_NOCTTY | O_CLOEXEC | O_NONBLOCK))
         return -E_INVAL;
 
     vnode = vfs_find_by_path(path);
+    if (IS_ERR(vnode))
+        return -ERR_FROM_PTR(vnode);
 
     if (oflags & O_CREAT) {
         /*
@@ -442,7 +485,6 @@ int sys_lstat(const char *path, struct stat *buf)
     vnode_t *vnode;
 
     // TODO: open(): ENOTDIR
-    // TODO: open(): EACCESS
 
     vnode = vfs_find_by_path(path);
     if (IS_ERR(vnode))
