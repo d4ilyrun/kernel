@@ -657,9 +657,12 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
         return (void *)new_process;
 
     /* Duplicate the current process' state. */
-    process_set_name(new_process, current->process->name, PROCESS_NAME_MAX_LEN);
-    address_space_copy_current(new_process->as);
-    creds_copy(&new_process->creds, &current->process->creds);
+    locked_scope (&current->process->lock) {
+        process_set_name(new_process, current->process->name,
+                         PROCESS_NAME_MAX_LEN);
+        address_space_copy_current(new_process->as);
+        creds_copy(&new_process->creds, &current->process->creds);
+    }
 
     /* Duplicate the current process' open files. */
     locked_scope (&current->process->files_lock) {
@@ -675,7 +678,7 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
         goto process_destroy;
     }
 
-    locked_scope(&current->process->lock)
+    locked_scope (&current->process->lock)
         llist_add(&current->process->children, &new_process->this);
 
     /*
