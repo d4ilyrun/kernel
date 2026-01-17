@@ -478,8 +478,6 @@ int sys_open(const char *path, int oflags)
         return -E_INVAL;
 
     vnode = vfs_find_by_path(path);
-    if (IS_ERR(vnode))
-        return -ERR_FROM_PTR(vnode);
 
     if (oflags & O_CREAT) {
         /*
@@ -490,16 +488,15 @@ int sys_open(const char *path, int oflags)
             goto error_release_node;
 
         /*
-         * TODO: Create file if it does not exist.
+         * Create file if it does not exist.
          */
         if (IS_ERR(vnode) && ERR_FROM_PTR(vnode) == E_NOENT) {
             vnode = vfs_create(path, VNODE_FILE);
         }
     }
 
-    if (IS_ERR(vnode)) {
+    if (IS_ERR(vnode))
         return -ERR_FROM_PTR(vnode);
-    }
 
     /*
      * Cannot write into a directory node.
