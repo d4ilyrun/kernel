@@ -25,27 +25,12 @@ void arch_syscall_get_args(interrupt_frame *frame, syscall_args_t *args);
 /** Set the value to be returned by the syscall */
 void arch_syscall_set_return_value(interrupt_frame *frame, u32 value);
 
-#define DECLARE_SYSCALL(_sc, _name, _handler, _arg_count) \
-    [SYS_##_sc] = {_name, (void *)_handler, _arg_count}
+#define DECLARE_SYSCALL(name, vector, argc, ...) \
+    [SYS_##name] = {#name, (void *)sys_##name, argc},
 
 /** The list of all the available syscalls and their respective handler */
 static const struct syscall syscalls[SYSCALL_COUNT] = {
-    DECLARE_SYSCALL(EXIT, "exit", sys_exit, 1),
-    DECLARE_SYSCALL(FORK, "fork", sys_fork, 0),
-    DECLARE_SYSCALL(READ, "read", sys_read, 3),
-    DECLARE_SYSCALL(WRITE, "write", sys_write, 3),
-    DECLARE_SYSCALL(OPEN, "open", sys_open, 2),
-    DECLARE_SYSCALL(CLOSE, "close", sys_close, 1),
-    DECLARE_SYSCALL(WAITPID, "waitpid", sys_waitpid, 3),
-    DECLARE_SYSCALL(EXECVE, "execve", sys_execve, 3),
-    DECLARE_SYSCALL(LSEEK, "lseek", sys_lseek, 3),
-    DECLARE_SYSCALL(GETPID, "getpid", sys_getpid, 0),
-    DECLARE_SYSCALL(STAT, "stat", sys_stat, 2),
-    DECLARE_SYSCALL(LSTAT, "lstat", sys_lstat, 2),
-    DECLARE_SYSCALL(FSTAT, "fstat", sys_fstat, 2),
-    DECLARE_SYSCALL(BRK, "brk", sys_brk, 1),
-    DECLARE_SYSCALL(SBRK, "sbrk", sys_sbrk, 1),
-    DECLARE_SYSCALL(KILL, "kill", sys_kill, 2),
+    DEFINE_SYSCALLS(DECLARE_SYSCALL)
 };
 
 #define DO_SYSCALL_0(_syscall) (((u32(*)(void))_syscall)())

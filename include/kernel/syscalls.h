@@ -15,6 +15,7 @@
  *
  * @{
  */
+
 #ifndef KERNEL_SYSCALLS_H
 #define KERNEL_SYSCALLS_H
 
@@ -24,6 +25,8 @@
 
 #include <kernel/types.h>
 
+#include <utils/macro.h>
+
 #include <stddef.h>
 #include <sys/stat.h>
 
@@ -32,23 +35,26 @@ typedef struct syscall_args {
     u32 arg1, arg2, arg3, arg4, arg5, arg6;
 } syscall_args_t;
 
+#define SYSCALL_NUMBER(name, vector, ...) CONCAT(SYS_, name) = vector,
+#define SYSCALL_FUNCTION(name, vector, argc, type, ret_type, ...) \
+    ret_type CONCAT(sys_, name)(__VA_ARGS__);
+
+/** The list of available syscall vectors.
+ *
+ *  To make porting already existing programs easier, our syscall
+ *  numbers are copied 1:1 from Linux.
+ *
+ *  @note Syscall numbers may differ depending on the architecture.
+ *
+ *  @enum syscall_nr
+ */
+enum syscal_nr {
+    DEFINE_SYSCALLS(SYSCALL_NUMBER)
+    SYSCALL_COUNT
+};
+
 /* SYSCALLS HANDLER */
 
-void sys_exit(int status);
-pid_t sys_fork(void);
-int sys_read(int fd, char *, size_t len);
-int sys_write(int fd, const char *, size_t len);
-int sys_open(const char *, int oflags);
-int sys_close(int fd);
-off_t sys_lseek(int fd, off_t off, int whence);
-pid_t sys_getpid(void);
-int sys_stat(const char *path, struct stat *buf);
-int sys_lstat(const char *path, struct stat *buf);
-int sys_fstat(int fd, struct stat *buf);
-int sys_kill(pid_t, int signal);
-int sys_brk(void *);
-void *sys_sbrk(intptr_t);
-int sys_execve(const char *, char * const[], char * const[]);
-pid_t sys_waitpid(pid_t, int *, int);
+DEFINE_SYSCALLS(SYSCALL_FUNCTION)
 
 #endif /* KERNEL_SYSCALLS_H */
