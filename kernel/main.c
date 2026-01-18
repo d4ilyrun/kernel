@@ -101,6 +101,8 @@ static error_t kernel_mount_initfs(struct multiboot_tag_module *module)
 
     mod_size = module->mod_end - module->mod_start;
     ramdisk = ramdisk_create("initrd", module->mod_start, mod_size);
+    if (IS_ERR(ramdisk))
+        return ERR_FROM_PTR(ramdisk);
 
     return vfs_mount_root("tarfs", to_blkdev(ramdisk));
 }
