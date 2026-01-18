@@ -1,5 +1,6 @@
+#include <uapi/arch/i686/syscalls.h>
+
 #include <stdint.h>
-#include <stdio.h>
 #include <sys/errno.h>
 #include <sys/fcntl.h>
 #include <sys/stat.h>
@@ -10,11 +11,15 @@
 char **environ; /* pointer to array of char * strings that define the current
                    environment variables */
 
-#define DEFINE_SYSCALL_0(_ret_type, _syscall, _nr)                       \
+/*
+ * Regular syscalls
+ */
+
+#define DEFINE_SYSCALL_0_default(_ret_type, _syscall, _nr, ...)          \
     _ret_type _##_syscall(void)                                          \
     {                                                                    \
-        _ret_type ret = (_ret_type)_nr;                                  \
-        __asm__ volatile("int $0x80" : "=a"(ret) : "a"(ret) : "memory"); \
+        _ret_type ret;                                                   \
+        __asm__ volatile("int $0x80" : "=a"(ret) : "a"(_nr) : "memory"); \
         if (ret < 0) {                                                   \
             errno = (int)ret;                                            \
             ret = (_ret_type) - 1;                                       \
@@ -22,43 +27,46 @@ char **environ; /* pointer to array of char * strings that define the current
         return ret;                                                      \
     }
 
-#define DEFINE_SYSCALL_1(_ret_type, _syscall, _nr, _type1) \
-    _ret_type _##_syscall(_type1 arg1)                     \
-    {                                                      \
-        _ret_type ret = (_ret_type)_nr;                    \
-        __asm__ volatile("int $0x80"                       \
-                         : "=a"(ret)                       \
-                         : "a"(ret), "b"(arg1)             \
-                         : "memory");                      \
-        if (ret < 0) {                                     \
-            errno = (int)ret;                              \
-            ret = (_ret_type) - 1;                         \
-        }                                                  \
-        return ret;                                        \
+#define DEFINE_SYSCALL_1_default(_ret_type, _syscall, _nr, _type1, ...) \
+    _ret_type _##_syscall(_type1 arg1 __VA_OPT__(, ) __VA_ARGS__)       \
+    {                                                                   \
+        _ret_type ret;                                                  \
+        __asm__ volatile("int $0x80"                                    \
+                         : "=a"(ret)                                    \
+                         : "a"(_nr), "b"(arg1)                          \
+                         : "memory");                                   \
+        if (ret < 0) {                                                  \
+            errno = (int)ret;                                           \
+            ret = (_ret_type) - 1;                                      \
+        }                                                               \
+        return ret;                                                     \
     }
 
-#define DEFINE_SYSCALL_2(_ret_type, _syscall, _nr, _type1, _type2) \
-    _ret_type _##_syscall(_type1 arg1, _type2 arg2)                \
-    {                                                              \
-        _ret_type ret = (_ret_type)_nr;                            \
-        __asm__ volatile("int $0x80"                               \
-                         : "=a"(ret)                               \
-                         : "a"(ret), "b"(arg1), "c"(arg2)          \
-                         : "memory");                              \
-        if (ret < 0) {                                             \
-            errno = (int)ret;                                      \
-            ret = (_ret_type) - 1;                                 \
-        }                                                          \
-        return ret;                                                \
+#define DEFINE_SYSCALL_2_default(_ret_type, _syscall, _nr, _type1, _type2,     \
+                                 ...)                                          \
+    _ret_type _##_syscall(_type1 arg1, _type2 arg2 __VA_OPT__(, ) __VA_ARGS__) \
+    {                                                                          \
+        _ret_type ret;                                                         \
+        __asm__ volatile("int $0x80"                                           \
+                         : "=a"(ret)                                           \
+                         : "a"(_nr), "b"(arg1), "c"(arg2)                      \
+                         : "memory");                                          \
+        if (ret < 0) {                                                         \
+            errno = (int)ret;                                                  \
+            ret = (_ret_type) - 1;                                             \
+        }                                                                      \
+        return ret;                                                            \
     }
 
-#define DEFINE_SYSCALL_3(_ret_type, _syscall, _nr, _type1, _type2, _type3) \
-    _ret_type _##_syscall(_type1 arg1, _type2 arg2, _type3 arg3)           \
+#define DEFINE_SYSCALL_3_default(_ret_type, _syscall, _nr, _type1, _type2, \
+                                 _type3, ...)                              \
+    _ret_type _##_syscall(_type1 arg1, _type2 arg2,                        \
+                          _type3 arg3 __VA_OPT__(, ) __VA_ARGS__)          \
     {                                                                      \
-        _ret_type ret = (_ret_type)_nr;                                    \
+        _ret_type ret;                                                     \
         __asm__ volatile("int $0x80"                                       \
                          : "=a"(ret)                                       \
-                         : "a"(ret), "b"(arg1), "c"(arg2), "d"(arg3)       \
+                         : "a"(_nr), "b"(arg1), "c"(arg2), "d"(arg3)       \
                          : "memory");                                      \
         if (ret < 0) {                                                     \
             errno = (int)ret;                                              \
@@ -67,73 +75,38 @@ char **environ; /* pointer to array of char * strings that define the current
         return ret;                                                        \
     }
 
-/* TODO: Expose syscall numbers through uapi headers */
+/*
+ * Noreturn syscalls (exit)
+ */
 
-DEFINE_SYSCALL_0(int, fork, 2);
-DEFINE_SYSCALL_3(int, read, 3, int, char *, int);
-DEFINE_SYSCALL_3(int, write, 4, int, const char *, int);
-DEFINE_SYSCALL_1(int, close, 6, int);
-DEFINE_SYSCALL_3(pid_t, waitpid, 7, pid_t, int *, int);
-DEFINE_SYSCALL_3(int, execve, 11, char *, char *const *, char *const *);
-DEFINE_SYSCALL_3(int, lseek, 19, int, int, int);
-DEFINE_SYSCALL_0(pid_t, getpid, 20);
-DEFINE_SYSCALL_2(int, kill, 37, pid_t, int);
-DEFINE_SYSCALL_1(int, brk, 45, void *);
-DEFINE_SYSCALL_2(int, stat, 106, const char *, struct stat *);
-DEFINE_SYSCALL_2(int, lstat, 107, const char *, struct stat *);
-DEFINE_SYSCALL_2(int, fstat, 108, int, struct stat *);
-
-void _exit(int status)
-{
-    int eax = 1;
-
-    __asm__ volatile("int $0x80" ::"a"(eax), "b"(status) : "memory");
-};
+#define DEFINE_SYSCALL_1_noreturn(_ret_type, _syscall, _nr, ...) \
+    _ret_type _##_syscall(void)                                  \
+    {                                                            \
+        __asm__ volatile("int $0x80" :: "a"(_nr) : "memory");    \
+    }
 
 /*
- * Open cannot be declared using the regular macros because it takes in
- * a variadic parameter.
+ * Userland syscall wrappers
  */
-int _open(const char *path, int oflags, ...)
-{
-    int eax = 5;
 
-    __asm__ volatile("int $0x80"
-                     : "=a"(eax)
-                     : "a"(eax), "b"(path), "c"(oflags)
-                     : "memory");
+#define DEFINE_SYSCALL(name, nr, argc, syscall_type, ret_type, ...) \
+    DEFINE_SYSCALL_##argc##_##syscall_type(ret_type, name, nr, __VA_ARGS__)
 
-    if (eax < 0) {
-        errno = eax;
-        eax = -1;
-    }
+DEFINE_SYSCALLS(DEFINE_SYSCALL)
 
-    return eax;
-}
-
-void *_sbrk(intptr_t increment)
-{
-    int eax = 463;
-    void *old_brk;
-
-    __asm__ volatile("int $0x80"
-                     : "=a"(old_brk)
-                     : "a"(eax), "b"(increment)
-                     : "memory");
-    if (old_brk < 0) {
-        errno = (int)old_brk;
-        return (void *)-1;
-    }
-
-    return old_brk;
-};
+/*
+ * Syscalls that are wrapper around other syscalls.
+ */
 
 pid_t _wait(int *status)
 {
     return _waitpid(-1, status, 0);
 }
 
-/* Unimplemented syscalls */
+/*
+ * Unimplemented syscalls
+ */
+
 int link(char *old, char *new);
 clock_t times(struct tms *buf);
 int unlink(char *name);
