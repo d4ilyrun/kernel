@@ -5,7 +5,7 @@ BINUTILS_TAR_URL   := https://ftp.gnu.org/gnu/binutils/binutils-$(BINUTILS_VERSI
 BINUTILS_TAR       := $(TOOLCHAIN_BINUTILS_DIR)/binutils-$(BINUTILS_VERSION).tar.gz
 BINUTILS_DIR       := $(TOOLCHAIN_BINUTILS_DIR)/binutils-$(BINUTILS_VERSION)
 BINUTILS_BUILD_DIR := $(BUILD_DIR)/binutils-$(BINUTILS_VERSION)/$(TARGET)
-BINUTILS_LD        := $(TOOLCHAIN_LOCATION)/bin/$(TARGET)-ld
+BINUTILS_LD        := $(PREFIX)/bin/$(TARGET)-ld
 
 $(BINUTILS_TAR):
 	$(call COMPILE,WGET,$@)
@@ -25,7 +25,7 @@ $(BINUTILS_BUILD_DIR)/config.status: $(BINUTILS_DIR)
 		cd $(dir $@) && \
 		$(PWD)/$(BINUTILS_DIR)/configure \
 			--disable-nls --disable-werror \
-			--with-sysroot=$(PWD)/$(TOOLCHAIN_SYSROOT) \
+			--with-sysroot=$(SYSROOT) \
 			--host="$(HOST)" \
 			--target="$(TARGET)" \
 			--prefix="$(PREFIX)" \

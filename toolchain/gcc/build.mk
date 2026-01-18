@@ -5,7 +5,7 @@ GCC_TAR_URL   := https://ftp.gnu.org/gnu/gcc/gcc-$(GCC_VERSION)/gcc-$(GCC_VERSIO
 GCC_TAR       := $(TOOLCHAIN_GCC_DIR)/gcc-$(GCC_VERSION).tar.gz
 GCC_DIR       := $(TOOLCHAIN_GCC_DIR)/gcc-$(GCC_VERSION)
 GCC_BUILD_DIR := $(BUILD_DIR)/gcc-$(GCC_VERSION)/$(TARGET)
-GCC_GCC       := $(TOOLCHAIN_LOCATION)/bin/$(TARGET)-gcc
+GCC_GCC       := $(PREFIX)/bin/$(TARGET)-gcc
 
 $(GCC_TAR):
 	$(call COMPILE,WGET,$@)
@@ -25,7 +25,7 @@ $(GCC_BUILD_DIR)/config.status: binutils $(GCC_DIR)
 		cd $(dir $@) && \
 		$(PWD)/$(GCC_DIR)/configure \
 			--disable-nls --enable-languages=c \
-			--with-sysroot=$(PWD)/$(TOOLCHAIN_SYSROOT) \
+			--with-sysroot=$(SYSROOT) \
 			--host="$(HOST)" \
 			--target="$(TARGET)" \
 			--prefix="$(PREFIX)" \
