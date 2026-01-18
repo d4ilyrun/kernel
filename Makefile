@@ -72,6 +72,11 @@ define COMPILE
 	$(SILENT)mkdir -p $(dir $(2))
 endef
 
+define INSTALL
+	$(call LOG,INSTALL,$(1) $(2))
+	$(SILENT)rsync $(3) --mkpath -mrl $(1) $(2);
+endef
+
 # Easily assert that an executable exists
 define ASSERT_EXE_EXISTS
 	@$(foreach exe,$(1), \
