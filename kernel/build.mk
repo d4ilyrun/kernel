@@ -1,6 +1,8 @@
 KERNEL_BIN := $(BUILD_DIR)/$(KERNEL_DIR)/kernel.bin
 KERNEL_ISO := $(BUILD_DIR)/$(KERNEL_DIR)/kernel.iso
 
+INITRAMFS ?= initramfs.tar
+
 CPPFLAGS += -DARCH=$(ARCH)
 
 ifneq ($(ARCH),)
@@ -80,11 +82,11 @@ $(KERNEL_BIN): $(KERNEL_OBJS)
 $(KERNEL_ISO): $(KERNEL_BIN)
 	$(call COMPILE,ISO,$@)
 	$(call ASSERT_EXE_EXISTS,grub-mkrescue mformat)
-	$(SILENT)$(SCRIPTS_DIR)/generate_iso.sh $< $@
+	$(SILENT)$(SCRIPTS_DIR)/generate_iso.sh $@ $< $(INITRAMFS)
 
 .PHONY: kernel iso
 kernel: $(KERNEL_BIN)
-iso: $(KERNEL_ISO)
+iso: $(KERNEL_ISO) $(INITRAMFS)
 
 QEMU_TAP_IF ?= tap0
 QEMU_HAS_TAP := $(shell test -d /sys/class/net/$(QEMU_TAP_IF) && echo y)

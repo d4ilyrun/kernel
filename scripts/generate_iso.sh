@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 
-if [ $# -lt 2 ]; then
-    echo "Usage: ./generate_iso.sh <kernel> <isofile>" >&2
+if [ $# -lt 3 ]; then
+    echo "Usage: ./generate_iso.sh <isofile> <kernel> <initramfs>" >&2
     exit 1
 fi
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-KERNEL_BIN="$1"
-KERNEL_ISO="$2"
+KERNEL_ISO="$1"
+KERNEL_BIN="$2"
+INITRAMFS="$3"
 
 # Assert that the given kernel binary is multiboot compliant.
 # args:
@@ -33,9 +34,11 @@ function generate_iso()
     mkdir -p "$iso_dir/boot/grub"
     cp "$KERNEL_BIN" "$iso_dir/boot/$(basename "$KERNEL_BIN")"
     touch "$iso_dir/boot/initramfs.tar" # In case it is not present, at least have an empty initramfs
-    if [ -f "$SCRIPT_DIR/../initramfs.tar" ]; then
-        cp "$SCRIPT_DIR/../initramfs.tar"  "$iso_dir/boot/initramfs.tar"
-    fi
+
+    # Align the size of the initramfs onto that of a page (required by initrd).
+    echo cp "${INITRAMFS}"  "$iso_dir/boot/initramfs.tar"
+    cp "$INITRAMFS"  "$iso_dir/boot/initramfs.tar"
+    truncate -s %4096 "$iso_dir/boot/initramfs.tar"
 
     # Add a custom multiboot entry for grub to be able to boot our kernel
     cat <<EOF > "$iso_dir/boot/grub/grub.cfg"
