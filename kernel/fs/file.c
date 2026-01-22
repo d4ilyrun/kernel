@@ -178,7 +178,7 @@ ssize_t sys_read(int fd, char *buf, size_t nbyte)
     /*
      * File was not opened for reading.
      */
-    if (!O_READABLE(file->flags)) {
+    if (!(file->flags & FD_READ)) {
         count = -E_BAD_FD;
         goto out;
     }
@@ -218,7 +218,7 @@ ssize_t sys_write(int fd, const char *buf, size_t nbyte)
     /*
      * File was not opened for writing.
      */
-    if (!O_WRITABLE(file->flags)) {
+    if (!(file->flags & FD_WRITE)) {
         count = -E_BAD_FD;
         goto out;
     }
@@ -232,7 +232,7 @@ ssize_t sys_write(int fd, const char *buf, size_t nbyte)
          * prior to each write and no intervening file modification operation
          * shall occur between changing the file offset and the write operation.
          */
-        if (file->flags & O_APPEND)
+        if (file->flags & FD_APPEND)
             file->pos = file_size(file);
 
         locked_scope (&file->vnode->lock) {

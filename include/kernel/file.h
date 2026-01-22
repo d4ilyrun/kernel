@@ -12,6 +12,8 @@
 #include <kernel/error.h>
 #include <kernel/spinlock.h>
 
+#include <sys/fcntl.h>
+
 struct vnode;
 struct sockaddr;
 struct msghdr;
@@ -19,6 +21,19 @@ struct msghdr;
 #define FD_STDIN 0
 #define FD_STDOUT 1
 #define FD_STDERR 2
+
+/*
+ * File description flag.
+ *
+ * These are set when opening a file description (open, socket, ...) or by
+ * using other syscalls (e.g. fcntl).
+ */
+enum file_flags {
+    FD_READ = _FREAD,
+    FD_WRITE = _FWRITE,
+    FD_RW = FD_READ | FD_WRITE,
+    FD_APPEND = _FAPPEND,
+};
 
 /** Opened file description.
  *

@@ -336,21 +336,49 @@ error_t vfs_remove(const char *raw_path)
 }
 
 /*
+ *
+ */
+static inline error_t file_compute_flags(int oflags, int *flags)
+{
+    *flags = 0;
+
+    if (oflags & (O_TRUNC | O_SYNC | O_NONBLOCK | O_NOCTTY) ||
+        oflags & (O_CLOEXEC | O_NOFOLLOW))
+        return -E_INVAL;
+
+    if (O_READABLE(oflags))
+        *flags |= FD_READ;
+    if (O_READABLE(oflags))
+        *flags |= FD_WRITE;
+
+    if (oflags & O_APPEND)
+        *flags |= FD_APPEND;
+
+    return E_SUCCESS;
+}
+
+/*
  * Open a file description refering to a vnode.
  *
  * NOTE: This function does not release the vnode when an error occurs, so the
  *       caller must check the returned value.
  */
-static struct file *vfs_open_at(struct vnode *vnode, int flags)
+static struct file *vfs_open_at(struct vnode *vnode, int oflags)
 {
     struct file *file;
+    error_t err;
+    int flags;
+
+    err = file_compute_flags(oflags, &flags);
+    if (err)
+        return PTR_ERR(err);
 
     locked_scope (&vnode->lock) {
 
         if (vnode->type != VNODE_DIRECTORY) {
-            if (flags & O_DIRECTORY)
+            if (oflags & O_DIRECTORY)
                 return PTR_ERR(E_NOT_DIRECTORY);
-            if (flags & O_SEARCH && O_SEARCH != O_EXEC)
+            if (oflags & O_SEARCH && O_SEARCH != O_EXEC)
                 return PTR_ERR(E_NOT_DIRECTORY);
         }
 
@@ -368,7 +396,7 @@ static struct file *vfs_open_at(struct vnode *vnode, int flags)
     }
 
     file->flags = flags;
-    if (flags & O_APPEND)
+    if (flags & FD_APPEND)
         file_seek(file, 0, SEEK_END);
 
     return file;
@@ -499,22 +527,15 @@ int sys_open(const char *path, int oflags)
 
     // TODO: open(): EROFS
 
-    if (oflags & (O_TRUNC | O_NOCTTY | O_CLOEXEC | O_NONBLOCK))
-        return -E_INVAL;
-
     vnode = vfs_find_by_path(path);
 
     if (oflags & O_CREAT) {
-        /*
-         * If O_CREAT and O_EXCL are set, fail if the file exists.
-         */
+        /* If O_CREAT and O_EXCL are set, fail if the file exists. */
         fd = -E_EXIST;
         if (oflags & O_EXCL && !IS_ERR(vnode))
             goto error_release_node;
 
-        /*
-         * Create file if it does not exist.
-         */
+        /* Create file if it does not exist. */
         if (IS_ERR(vnode) && ERR_FROM_PTR(vnode) == E_NOENT) {
             vnode = vfs_create(path, VNODE_FILE);
         }
@@ -531,10 +552,10 @@ int sys_open(const char *path, int oflags)
         goto error_release_node;
 
     file = vfs_open_at(vnode, oflags);
-
-    fd = -E_IO;
-    if (IS_ERR(file))
+    if (IS_ERR(file)) {
+        fd = -ERR_FROM_PTR(file);
         goto error_release_node;
+    }
 
     fd = process_register_file(current->process, file);
     if (fd < 0)
