@@ -69,6 +69,11 @@ jobs:
       run: |
         nix develop --command make kernel
 
+    - name: Build initramfs
+      run: |
+        mkdir -p dev
+        tar cvf initramfs.tar dev
+
     - name: Build ISO
       run: |
         nix develop --command make iso
