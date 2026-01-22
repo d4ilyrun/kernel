@@ -52,13 +52,17 @@ jobs:
         key: ${{ runner.os }}-${{ env.cache-name }}-${{ env.release }}
         path: toolchain/binutils/binutils-${{ env.release }}.tar.gz
 
-    - name: Build Toolchain
+    - name: Configure (i686)
+      run: |
+        cp defconfigs/config.i686 .config
+
+    - name: Build Toolchain (i686)
       run: |
         nix develop .#gcc --command make gcc TARGET=i686-dailyrun ARCH= CROSS_COMPILE= GCC_CONFIGURE_FLAGS="--with-newlib"
-        nix develop .#gcc --command make sysroot
 
-    - name: Build libc (Newlib)
+    - name: Build libc
       run: |
+        nix develop .#gcc --command make sysroot
         nix develop .#newlib --command make newlib
 
     - name: Build Kernel

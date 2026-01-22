@@ -47,11 +47,6 @@
               ] ++ native_build_required;
 
               hardeningDisable = [ "fortify" ];
-
-              shellHook = ''
-                export ARCH=i686
-                export CROSS_COMPILE=toolchain/opt/bin/i686-dailyrun-
-              '';
             };
 
             test = pkgs.mkShell rec {
@@ -84,12 +79,6 @@
                 bison
                 isl
               ];
-
-              shellHook = ''
-                export TARGET=i686-dailyrun
-                export ARCH=
-                export CROSS_COMPILE=
-              '';
             };
 
             newlib = pkgs.mkShell.override { stdenv = pkgs.stdenvNoCC; } {
@@ -100,11 +89,6 @@
                 autoconf269 # newlib requires using v2.69 exactly
                 automake115x
               ];
-
-              shellHook = ''
-                export ARCH=i686
-                export CROSS_COMPILE=
-              '';
             };
           };
       }
