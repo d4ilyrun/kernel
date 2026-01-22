@@ -1,6 +1,8 @@
 #include <kernel/error.h>
+#include <kernel/init.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
+#include <kernel/memory/slab.h>
 #include <kernel/process.h>
 #include <kernel/vfs.h>
 #include <uapi/fcntl.h>
@@ -11,6 +13,8 @@
 #include <unistd.h>
 
 DECLARE_LLIST(vfs_mountpoints);
+
+static struct kmem_cache *kmem_cache_vnode;
 
 // Defined inside our linkerscript
 // These symbols are placed around the '.data.vfs.filesystems' section
@@ -387,15 +391,33 @@ struct file *vfs_open(const char *raw_path, int oflags)
     return file;
 }
 
+/*
+ *
+ */
+static void vfs_vnode_free(struct vnode *vnode)
+{
+    kmem_cache_free(kmem_cache_vnode, vnode);
+}
+
+/*
+ *
+ */
+static struct vnode *vfs_vnode_alloc(vm_flags_t vm_flags)
+{
+    return kmem_cache_alloc(kmem_cache_vnode, vm_flags);
+}
+
+/*
+ *
+ */
 vnode_t *vfs_vnode_acquire(vnode_t *node, bool *new)
 {
     if (node == NULL) {
-        node = kcalloc(1, sizeof(vnode_t), KMALLOC_KERNEL);
+        node = vfs_vnode_alloc(VM_KERNEL_RW);
         if (node == NULL)
             return PTR_ERR(E_NOMEM);
         if (new)
             *new = true;
-        INIT_SPINLOCK(node->lock);
     } else {
         if (new)
             *new = false;
@@ -406,6 +428,9 @@ vnode_t *vfs_vnode_acquire(vnode_t *node, bool *new)
     return node;
 }
 
+/*
+ *
+ */
 vnode_t *vfs_vnode_release(vnode_t *node)
 {
     if (!node)
@@ -414,7 +439,7 @@ vnode_t *vfs_vnode_release(vnode_t *node)
     if (node->refcount <= 1) {
         if (node->operations->release)
             node->operations->release(node);
-        kfree(node);
+        vfs_vnode_free(node);
         return NULL;
     }
 
@@ -550,3 +575,28 @@ int sys_stat(const char *path, struct stat *buf)
 {
     return sys_lstat(path, buf);
 }
+
+/*
+ * Used by the cache to intialize newly allocated vnodes.
+ */
+static void vfs_vnode_constructor(void *obj)
+{
+    struct vnode *vnode = obj;
+
+    INIT_SPINLOCK(vnode->lock);
+}
+
+/*
+ * Initialize the virtual filesystem API.
+ */
+error_t vfs_init(void)
+{
+    kmem_cache_vnode = kmem_cache_create("vnode", sizeof(struct vnode), 64,
+                                         vfs_vnode_constructor, NULL);
+    if (!kmem_cache_vnode)
+        return E_NOMEM;
+
+    return E_SUCCESS;
+}
+
+DECLARE_INITCALL(INIT_EARLY, vfs_init);
