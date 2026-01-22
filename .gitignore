@@ -1,8 +1,12 @@
 .config
-.cache
+
 build
-compile_commands.json
+
+# Dev environment stuff 
+.cache
+.clangd
 .env
+compile_commands.json
 
 *.tar
 *.tar.*
