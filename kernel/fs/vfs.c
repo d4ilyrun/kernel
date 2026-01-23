@@ -342,8 +342,7 @@ static inline error_t file_compute_flags(int oflags, int *flags)
 {
     *flags = 0;
 
-    if (oflags & (O_TRUNC | O_SYNC | O_NONBLOCK | O_NOCTTY) ||
-        oflags & (O_CLOEXEC | O_NOFOLLOW))
+    if (oflags & (O_TRUNC | O_SYNC | O_NONBLOCK | O_NOCTTY | O_NOFOLLOW))
         return -E_INVAL;
 
     if (O_READABLE(oflags))
@@ -353,6 +352,8 @@ static inline error_t file_compute_flags(int oflags, int *flags)
 
     if (oflags & O_APPEND)
         *flags |= FD_APPEND;
+    if (oflags & O_CLOEXEC)
+        *flags |= FD_NOINHERIT;
 
     return E_SUCCESS;
 }

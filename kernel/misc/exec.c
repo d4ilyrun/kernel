@@ -60,6 +60,20 @@ static NO_RETURN void execfmt_execute_executable(struct executable *executable,
                                                  void *stack_pointer,
                                                  void *base_pointer)
 {
+    struct process *process = current->process;
+
+    /*
+     * Close all files marked as CLOEXEC.
+     */
+    locked_scope(&current->process->files_lock) {
+        for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
+            if (process->files[i] && process->files[i]->flags & FD_NOINHERIT) {
+                file_put(process->files[i]);
+                process->files[i] = NULL;
+            }
+        }
+    }
+
     thread_jump_to_userland(stack_pointer, base_pointer, executable->entrypoint,
                             NULL);
 }

@@ -33,6 +33,7 @@ enum file_flags {
     FD_WRITE = _FWRITE,
     FD_RW = FD_READ | FD_WRITE,
     FD_APPEND = _FAPPEND,
+    FD_NOINHERIT = _FNOINHERIT, /* FD_CLOEXEC is already defined by fcntl(). */
 };
 
 /** Opened file description.
