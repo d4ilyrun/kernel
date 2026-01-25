@@ -7,16 +7,18 @@
 #include <utils/compiler.h>
 #include <utils/map.h>
 
-#define CPU_CACHE_ALIGN 64 /* 64B L1 cache lines */
+#define CPU_CACHE_SIZE_L1 64 /* 64B L1 cache lines */
+#define CPU_CACHE_ALIGN   CPU_CACHE_SIZE_L1
 
-#define X86_FEATURE_WORDS 2 /* Number of CPUID leaves that contain features. */
+#define X86_FEATURE_WORDS 10 /* Number of CPUID leaves that contain features. */
 
 struct x86_cpuinfo {
+    struct cpuinfo cpuinfo;
     const char *vendor;
     u32 features[X86_FEATURE_WORDS];
 };
 
-extern struct x86_cpuinfo cpuinfo;
+extern struct x86_cpuinfo x86_cpuinfo;
 
 /*
  * Register read/write wrappers.
@@ -245,6 +247,9 @@ CPUID_FUNCTION(edx)
     F(HTT, 1, 28), \
     F(TM, 1, 29), \
     F(PBE, 1, 31), \
+    \
+    /* Features in %edx for leaf 9 */ \
+    F(CLFLUSHOPT, 9, 23),
 
 #define X86_FEATURE_NAME(_feature) X86_FEATURE_##_feature
 #define X86_FEATURE_VAL(_word, _bit) ((_word << X86_FEATURE_WORD_OFF) | (_bit & 0xff))
@@ -262,7 +267,7 @@ static inline bool cpu_test_feature(enum x86_cpu_feature feature)
     int leaf = (feature >> X86_FEATURE_WORD_OFF);
     int bit = feature & (BIT(X86_FEATURE_WORD_OFF) - 1);
 
-    return BIT_READ(cpuinfo.features[leaf], bit);
+    return BIT_READ(x86_cpuinfo.features[leaf], bit);
 }
 
 #define cpu_has_feature(_feature) cpu_test_feature(X86_FEATURE_NAME(_feature))
@@ -286,6 +291,47 @@ static inline void wrmsr(uint32_t msr, uint64_t val)
     uint32_t eax = val;
     uint32_t edx = val >> 32;
     ASM("wrmsr" : : "a"(eax), "d"(edx), "c"(msr));
+}
+
+/*
+ * Memory barriers
+ *
+ * These assembly instructions are used to serialize memory operations when
+ * strict memory ordering is required.
+ */
+
+#define memory_barrier() ASM("mfence" ::: "memory")       /* serializes all reads & writes */
+#define read_memory_barrier() ASM("lfence" ::: "memory")  /* serializes reads */
+#define write_memory_barrier() ASM("sfence" ::: "memory") /* serializes writes */
+
+/*
+ * Cache line flushing
+ */
+
+/*
+ * Invalidates from every level of the cache hierarchy the cache line
+ * that contains an address.
+ *
+ * NOTE: This instruction does not enforce a particular memory ordering.
+ *       The caller should call memory_barrier() before and after using it.
+ */
+static inline void clflushopt(native_t addr)
+{
+    ASM("clflushopt %0" : "+m"(addr));
+}
+
+/*
+ * Invalidates from every level of the cache hierarchy the cache line
+ * that contains an address.
+ *
+ * NOTE: This instruction enforces a strict memory ordering. It is not required
+ *       to call memory_barrier() before using it. However it apparently also
+ *       needlessly flushes all the addresses inside the store buffer, that is
+ *       why the clflushopt instruction should be preferred whenever available.
+ */
+static inline void clflush(native_t addr)
+{
+    ASM("clflush %0" : "+m"(addr));
 }
 
 #endif /* KERNEL_I686_UTILS_CPU_OPS_H */

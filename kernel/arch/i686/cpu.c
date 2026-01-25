@@ -3,15 +3,72 @@
 #include <kernel/cpu.h>
 #include <kernel/init.h>
 #include <kernel/logger.h>
+#include <kernel/memory.h>
 
 #include <utils/macro.h>
+#include <utils/math.h>
 
-struct x86_cpuinfo cpuinfo;
+struct x86_cpuinfo x86_cpuinfo;
+const struct cpuinfo *cpuinfo = &x86_cpuinfo.cpuinfo;
 
 /*
  *
  */
-static void cpu_init_caches(void)
+void cache_flush(paddr_t addr)
+{
+    paddr_t cache_line = align_down(addr, cpuinfo->cache_flush_line_size);
+
+    if (!cpuinfo->cache_flush_available) {
+        log_warn("cannot flush individual cache lines");
+        return;
+    }
+
+    if (cpu_has_feature(CLFLUSHOPT)) {
+        memory_barrier();
+        clflushopt(cache_line);
+        memory_barrier();
+    } else {
+        clflush(cache_line);
+    }
+}
+
+/*
+ *
+ */
+void cache_flush_range(paddr_t addr, size_t range_size)
+{
+    paddr_t range_start = align_down(addr, cpuinfo->cache_flush_line_size);
+    paddr_t range_end = range_start + range_size;
+    bool has_clflush_opt;
+
+    if (!cpuinfo->cache_flush_available) {
+        log_warn("cannot flush individual cache lines");
+        return;
+    }
+
+    if (cpu_has_feature(CLFLUSHOPT)) {
+        has_clflush_opt = true;
+        memory_barrier();
+    } else {
+        has_clflush_opt = false;
+    }
+
+    for (paddr_t cache_line = range_start; cache_line < range_end;
+         cache_line += cpuinfo->cache_flush_line_size) {
+        if (has_clflush_opt)
+            clflushopt(cache_line);
+        else
+            clflush(cache_line);
+    }
+
+    if (has_clflush_opt)
+        memory_barrier();
+}
+
+/*
+ *
+ */
+static void cpu_init_caches(struct x86_cpuinfo *cpu)
 {
     u32 val;
 
@@ -25,6 +82,20 @@ static void cpu_init_caches(void)
     val &= ~CR0_CD;
     val &= ~CR0_NW;
     write_cr0(val);
+
+    /*
+     * The clflush instructions are not present on older CPUs.
+     */
+    if (!cpu_has_feature(CLFLUSHOPT) &&
+        !cpu_has_feature(CLFSH)) {
+        cpu->cpuinfo.cache_flush_available = false;
+        log_info("CLFLUSH not available");
+    } else {
+        val = cpuid_ebx(CPUID_LEAF_GETFEATURES);
+        cpu->cpuinfo.cache_flush_line_size = 8 * ((val >> 8) & 0xFF);
+        cpu->cpuinfo.cache_flush_available = true;
+        log_info("CLFLUSH line size: %dB", cpu->cpuinfo.cache_flush_line_size);
+    }
 }
 
 struct x86_cpu_vendor {
@@ -120,8 +191,8 @@ static void cpu_init_info(struct x86_cpuinfo *cpu)
  */
 error_t cpu_init(void)
 {
-    cpu_init_info(&cpuinfo);
-    cpu_init_caches();
+    cpu_init_info(&x86_cpuinfo);
+    cpu_init_caches(&x86_cpuinfo);
 
     return E_SUCCESS;
 }

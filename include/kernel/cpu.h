@@ -1,6 +1,16 @@
 #ifndef KERNEL_CPU_H
 #define KERNEL_CPU_H
 
+#include <kernel/types.h>
+
+struct cpuinfo {
+    /* Cache line flushing information */
+    bool cache_flush_available;
+    u32 cache_flush_line_size;
+};
+
+extern const struct cpuinfo *cpuinfo;
+
 #if ARCH == i686
 #include <kernel/arch/i686/cpu.h>
 #else
