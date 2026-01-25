@@ -21,7 +21,8 @@
 #include <libalgo/hashtable.h>
 
 enum kmem_cache_flag {
-    CACHE_F_EXTERNAL, /* slab & bufctl structs stored in an external buffer. */
+    CACHE_F_EXTERNAL,    /* slab & bufctl structs stored in an external buffer. */
+    CACHE_F_UNCACHEABLE, /* objects should use the uncacheable cache policy. */
 };
 
 /*
@@ -242,12 +243,17 @@ static struct kmem_slab *kmem_cache_grow(struct kmem_cache *cache, int flags)
     paddr_t paddr;
     size_t slab_size;
     unsigned int max_color_offset;
+    vm_flags_t vm_flags;
 
     UNUSED(flags);
 
     slab_size = align_up(cache->obj_size, PAGE_SIZE);
 
-    page = vm_alloc(&kernel_address_space, slab_size, VM_KERNEL_RW);
+    vm_flags = VM_KERNEL_RW;
+    if (BIT_READ(cache->flags, CACHE_F_UNCACHEABLE))
+        vm_flags |= VM_CACHE_UC;
+
+    page = vm_alloc(&kernel_address_space, slab_size, vm_flags);
     if (!page)
         return PTR_ERR(E_NOMEM);
 
@@ -420,6 +426,9 @@ static void kmem_cache_init(struct kmem_cache *cache, const char *name,
 
     cache->coloring_offset_next = 0;
     cache->flags = 0;
+
+    if (flags & KMEM_CACHE_UNCACHEABLE)
+        BIT_SET(cache->flags,  CACHE_F_UNCACHEABLE);
 
     /*
      * Slabs and bufctl struct for large objects are stored inside a dedicated

@@ -45,7 +45,8 @@ struct kmem_slab {
  * Flags passed to the kmem_cache_create() function.
  */
 enum kmem_cache_create_flags {
-    KMEM_CACHE_EXTERNAL = BIT(0), /* Force the use of external slabs. */
+    KMEM_CACHE_EXTERNAL = BIT(0),    /* Force the use of external slabs. */
+    KMEM_CACHE_UNCACHEABLE = BIT(1), /* Objects should use UC caching policy. */
 };
 
 /** Create a new cache.
