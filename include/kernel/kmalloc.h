@@ -157,20 +157,6 @@ void *krealloc(void *ptr, size_t size, int flags);
  */
 void *krealloc_array(void *ptr, size_t nmemb, size_t size, int flags);
 
-/**
- * Allocate an addressable memory buffer suitable for DMA operations
- *
- * @param size The size of the buffer
- *
- * @note DMA regions are by design always located inside the kernel's space
- *
- * @return A buffer whose physical pageframes are contiguous
- */
-void *kmalloc_dma(size_t size);
-
-/** Free a buffer allocated through @ref kmalloc_dma */
-void kfree_dma(void *dma_ptr);
-
 void kmalloc_api_init(void);
 
 /** @} */

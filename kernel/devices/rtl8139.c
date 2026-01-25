@@ -4,6 +4,7 @@
 #include <kernel/devices/pci.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
+#include <kernel/memory/dma.h>
 #include <kernel/mmu.h>
 #include <kernel/net.h>
 #include <kernel/net/ethernet.h>

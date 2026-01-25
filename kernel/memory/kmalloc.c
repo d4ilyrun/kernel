@@ -136,34 +136,6 @@ void *krealloc_array(void *ptr, size_t nmemb, size_t size, int flags)
     return krealloc(ptr, size, flags);
 }
 
-void *kmalloc_dma(size_t size)
-{
-    paddr_t physical;
-    void *ptr;
-
-    size = align_up(size, PAGE_SIZE);
-
-    physical = pmm_allocate_pages(size);
-    if (physical == PMM_INVALID_PAGEFRAME)
-        return NULL;
-
-    ptr = vm_alloc_at(&kernel_address_space, physical, size, VM_KERNEL_RW);
-
-    if (IS_ERR(ptr))
-        return NULL;
-    return ptr;
-}
-
-void kfree_dma(void *dma_ptr)
-{
-    if (!PAGE_ALIGNED(dma_ptr)) {
-        log_err("kfree_dma: address is not the start of a page: %p", dma_ptr);
-        return;
-    }
-
-    vm_free(&kernel_address_space, dma_ptr);
-}
-
 void kmalloc_api_init(void)
 {
     struct kmem_cache *cache;

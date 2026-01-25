@@ -4,6 +4,7 @@
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/memory/slab.h>
+#include <kernel/memory/dma.h>
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
 #include <kernel/vm.h>
@@ -24,4 +25,5 @@ void memory_init(struct multiboot_info *mbt)
 
     kmem_cache_api_init();
     kmalloc_api_init();
+    dma_api_init();
 }
