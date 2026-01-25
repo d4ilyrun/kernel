@@ -18,9 +18,73 @@ static const char *kmalloc_cache_names[] = {
     "size-4096", "size-8192", "size-16384",
 };
 
+/*
+ *
+ */
+static inline vm_flags_t kmalloc_flags_to_vm_flags(kmalloc_flags_t flags)
+{
+    vm_flags_t vm_flags = VM_KERNEL_RW;
+
+    UNUSED(flags);
+
+    return vm_flags;
+}
+
 void *kmalloc_from_cache(int cache_index, int flags)
 {
     return kmem_cache_alloc(kmalloc_size_caches[cache_index], flags);
+}
+
+/** Allocate a memory buffer too large to fit inside the default caches. */
+void *kmalloc_large(size_t size, int flags)
+{
+    struct vm_segment *vm_segment;
+    paddr_t paddr;
+
+    size = align_up(size, PAGE_SIZE);
+    flags = kmalloc_flags_to_vm_flags(flags);
+
+    if (WARN_ON_MSG(size <= KMALLOC_CACHE_MAX_SIZE, "use kmalloc_from_cache()"))
+        return NULL;
+
+    vm_segment = vm_alloc(&kernel_address_space, size, flags);
+    if (!vm_segment)
+        return NULL;
+
+    /* Mark all pages so we know how it was allocated when freeing. */
+    paddr = mmu_find_physical(vm_segment->start);
+    for (size_t off = 0; off < size; off += PAGE_SIZE)
+        address_to_page(paddr)->flags |= PAGE_LARGE_ALLOC;
+
+    return (void *)vm_segment->start;
+}
+
+/*
+ * Free a memory buffer that was allocated using kmalloc_large().
+ */
+static inline void kfree_large_alloc(void *ptr)
+{
+    vm_free(&kernel_address_space, PAGE_ALIGN_DOWN(ptr));
+}
+
+/*
+ *
+ */
+void kfree(void *ptr)
+{
+    struct page *page;
+    paddr_t paddr;
+
+    if (ptr == NULL)
+        return;
+
+    paddr = mmu_find_physical((vaddr_t)ptr);
+    page = address_to_page(paddr);
+
+    if (page->flags & PAGE_LARGE_ALLOC)
+        return kfree_large_alloc(ptr);
+
+    kmem_cache_free(page->slab.cache, ptr);
 }
 
 void *kcalloc(size_t nmemb, size_t size, int flags)
@@ -33,20 +97,6 @@ void *kcalloc(size_t nmemb, size_t size, int flags)
         return NULL;
 
     return memset(ptr, 0, size);
-}
-
-void kfree(void *ptr)
-{
-    struct page *page;
-    paddr_t paddr;
-
-    if (ptr == NULL)
-        return;
-
-    paddr = mmu_find_physical((vaddr_t)ptr);
-    page = address_to_page(paddr);
-
-    kmem_cache_free(page->slab.cache, ptr);
 }
 
 void *krealloc(void *ptr, size_t size, int flags)
