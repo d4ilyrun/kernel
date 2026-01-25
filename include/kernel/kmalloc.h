@@ -59,7 +59,7 @@
  */
 typedef enum kmalloc_flags {
     KMALLOC_KERNEL = 0, /* Default allocation flags. */
-} kmalloc_flags;
+} kmalloc_flags_t;
 
 #define KMALLOC_CACHE_MIN_SIZE 16
 #define KMALLOC_CACHE_MAX_SIZE 16384
@@ -97,6 +97,9 @@ static ALWAYS_INLINE __attribute__((const)) int kmalloc_cache_index(size_t size)
  */
 void *kmalloc_from_cache(int cache_index, int flags);
 
+/** Allocate a memory buffer too large to fit inside the default caches. */
+void *kmalloc_large(size_t size, int flags);
+
 /*
  *
  */
@@ -106,7 +109,7 @@ static ALWAYS_INLINE void *kmalloc(size_t size, int flags)
 
     cache_index = kmalloc_cache_index(size);
     if (cache_index < 0)
-        return NULL;
+        return kmalloc_large(size, flags);
 
     return kmalloc_from_cache(cache_index, flags);
 }
@@ -117,7 +120,7 @@ static ALWAYS_INLINE void *kmalloc(size_t size, int flags)
  *
  * @param nmemb The number of members to allocate
  * @param size The size of each members
- * @param flags Feature flags, must be a combination of @ref kmalloc_flags
+ * @param flags Feature flags, must be a combination of @ref kmalloc_flags_t
  *
  * @return The starting address of the newly allocated area
  */

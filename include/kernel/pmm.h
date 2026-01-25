@@ -61,9 +61,10 @@
  *  @enum page_flags
  */
 enum page_flags {
-    PAGE_AVAILABLE = BIT(0), ///< This page has not been allocated
-    PAGE_COW = BIT(1),       ///< Currently used in a CoW mapping
-    PAGE_SLAB = BIT(2),      ///< Page allocated by the slab allocator
+    PAGE_AVAILABLE = BIT(0),   ///< This page has not been allocated
+    PAGE_COW = BIT(1),         ///< Currently used in a CoW mapping
+    PAGE_SLAB = BIT(2),        ///< Page allocated by the slab allocator
+    PAGE_LARGE_ALLOC = BIT(3), ///< Page allocated by kmalloc_large()
 };
 
 /** Represents a physical pageframe
