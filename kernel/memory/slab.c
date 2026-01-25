@@ -84,35 +84,6 @@ static inline void kmem_cache_unlock(struct kmem_cache *cache)
 }
 
 /*
- * Find the start address of a slab object.
- */
-static inline void *kmem_slab_obj_start(const struct kmem_slab *slab, void *obj)
-{
-    off_t offset = obj - slab->page;
-
-    return obj - (offset % slab->cache->obj_real_size);
-}
-
-/*
- * Find the start address of the next object in a slab.
- *
- * This function assumes that @c obj points to the start of the object.
- */
-static inline void *kmem_slab_obj_next(const struct kmem_slab *slab, void *obj)
-{
-    return obj + slab->cache->obj_real_size;
-}
-
-/*
- * Check whether @c has been allocated by @c slab.
- */
-static inline bool
-kmem_slab_contains_obj(const struct kmem_slab *slab, void *obj)
-{
-    return PAGE_ALIGN_DOWN(obj) == slab->page;
-}
-
-/*
  * Free a single slab and all the bufctl structure it contains.
  */
 static void kmem_slab_destroy(struct kmem_slab *slab)
