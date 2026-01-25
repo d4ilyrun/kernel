@@ -41,10 +41,19 @@ struct kmem_slab {
     node_t this;
 };
 
-/** Create a new cache. */
+/*
+ * Flags passed to the kmem_cache_create() function.
+ */
+enum kmem_cache_create_flags {
+    KMEM_CACHE_EXTERNAL = BIT(0), /* Force the use of external slabs. */
+};
+
+/** Create a new cache.
+ *  @param flags A combination of @ref kkk
+ */
 struct kmem_cache *kmem_cache_create(const char *name, size_t obj_size,
                                      int obj_align, void (*constructor)(void *),
-                                     void (*destructor)(void *));
+                                     void (*destructor)(void *), int flags);
 
 /** Allocate an object from a cache
  *

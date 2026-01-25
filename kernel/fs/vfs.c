@@ -614,7 +614,7 @@ static void vfs_vnode_constructor(void *obj)
 error_t vfs_init(void)
 {
     kmem_cache_vnode = kmem_cache_create("vnode", sizeof(struct vnode), 64,
-                                         vfs_vnode_constructor, NULL);
+                                         vfs_vnode_constructor, NULL, 0);
     if (!kmem_cache_vnode)
         return E_NOMEM;
 

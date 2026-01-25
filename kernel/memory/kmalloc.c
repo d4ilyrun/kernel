@@ -121,7 +121,7 @@ void kmalloc_api_init(void)
 
     for (int i = 0; i < KMALLOC_CACHE_COUNT; ++i, obj_size <<= 1) {
         cache = kmem_cache_create(kmalloc_cache_names[i], obj_size, 16, NULL,
-                                  NULL);
+                                  NULL, 0);
         if (!cache)
             PANIC("failed to init kmalloc cache: '%s'", kmalloc_cache_names[i]);
 

@@ -409,7 +409,8 @@ void kmem_cache_free(struct kmem_cache *cache, void *obj)
 static void kmem_cache_init(struct kmem_cache *cache, const char *name,
                             size_t obj_size, int obj_align,
                             void (*constructor)(void *),
-                            void (*destructor)(void *))
+                            void (*destructor)(void *),
+                            int flags)
 {
     cache->name = name;
     cache->obj_size = obj_size;
@@ -424,8 +425,12 @@ static void kmem_cache_init(struct kmem_cache *cache, const char *name,
      * Slabs and bufctl struct for large objects are stored inside a dedicated
      * external buffer. Regular slabs append the kmem_bufctl struct after
      * the object directly inside the slab.
+     *
+     * It is also possible to enforce this using the KMEM_CACHE_EXTERNAL flags.
+     * This can be useful when using a cache with specific caching policies
+     * that should only apply to the objects and not the slab structures.
      */
-    if (obj_size >= KMEM_SLAB_LARGE_SIZE) {
+    if (obj_size >= KMEM_SLAB_LARGE_SIZE || flags & KMEM_CACHE_EXTERNAL) {
         BIT_SET(cache->flags, CACHE_F_EXTERNAL);
         cache->obj_real_size = align_up(obj_size, obj_align);
     } else {
@@ -439,7 +444,7 @@ static void kmem_cache_init(struct kmem_cache *cache, const char *name,
  */
 struct kmem_cache *kmem_cache_create(const char *name, size_t obj_size,
                                      int obj_align, void (*constructor)(void *),
-                                     void (*destructor)(void *))
+                                     void (*destructor)(void *), int flags)
 {
     struct kmem_cache *cache;
 
@@ -455,7 +460,8 @@ struct kmem_cache *kmem_cache_create(const char *name, size_t obj_size,
         return PTR_ERR(E_NOMEM);
     }
 
-    kmem_cache_init(cache, name, obj_size, obj_align, constructor, destructor);
+    kmem_cache_init(cache, name, obj_size, obj_align, constructor, destructor,
+                    flags);
 
     return cache;
 }
@@ -519,15 +525,15 @@ int kmem_cache_api_init(void)
 
     kmem_cache_constructor(&kmem_cache_cache);
     kmem_cache_init(&kmem_cache_cache, "kmem_cache", sizeof(struct kmem_cache),
-                    1, kmem_cache_constructor, kmem_cache_destructor);
+                    1, kmem_cache_constructor, kmem_cache_destructor, 0);
 
     kmem_cache_constructor(&kmem_slab_cache);
     kmem_cache_init(&kmem_slab_cache, "kmem_slab", sizeof(struct kmem_slab), 1,
-                    NULL, NULL);
+                    NULL, NULL, 0);
 
     kmem_cache_constructor(&kmem_bufctl_cache);
     kmem_cache_init(&kmem_bufctl_cache, "kmem_bufctl",
-                    sizeof(struct kmem_bufctl), 1, NULL, NULL);
+                    sizeof(struct kmem_bufctl), 1, NULL, NULL, 0);
 
     return 0;
 }
