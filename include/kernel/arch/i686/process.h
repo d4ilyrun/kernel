@@ -66,12 +66,12 @@ static inline void *arch_thread_get_stack_pointer(thread_context_t *ctx)
 static inline void
 arch_thread_set_base_pointer(thread_context_t *ctx, void *ptr)
 {
-    ctx->frame.stub.ebp = (vaddr_t)ptr;
+    ctx->frame.regs.ebp = (vaddr_t)ptr;
 }
 
 static inline void *arch_thread_get_base_pointer(thread_context_t *ctx)
 {
-    return (void *)ctx->frame.stub.ebp;
+    return (void *)ctx->frame.regs.ebp;
 }
 
 static inline void
@@ -113,7 +113,7 @@ static inline void *arch_thread_get_user_stack_top(const thread_context_t *ctx)
 static inline void *
 arch_thread_get_interrupt_return_address(const thread_context_t *ctx)
 {
-    return (void *)ctx->frame.state.eip;
+    return (void *)ctx->frame.frame.eip;
 }
 
 #endif /* KERNEL_ARCH_I686_PROCESS_H */

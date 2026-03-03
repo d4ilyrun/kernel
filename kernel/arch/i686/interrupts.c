@@ -85,7 +85,7 @@ void arch_interrupt_handle(interrupt_frame frame)
     error_t err;
 
     thread_set_interrupt_frame(current, &frame);
-    thread_set_stack_pointer(current, (void *)frame.state.esp);
+    thread_set_stack_pointer(current, (void *)frame.frame.esp);
 
     err = interrupt_handle(frame.nr);
     if (err == E_NOENT) {
@@ -93,9 +93,9 @@ void arch_interrupt_handle(interrupt_frame frame)
                 interrupt_name(frame.nr), frame.nr);
         log_dbg("Thread: '%s' (TID=%d)", current->process->name, current->tid);
         log_dbg("ERROR=" FMT32,                 frame.error);
-        log_dbg("FLAGS=" FMT32,                 frame.state.flags);
-        log_dbg("CS="    FMT32  ", SS="  FMT32, frame.state.cs, frame.state.ss);
-        log_dbg("EIP="   FMT32  ", ESP=" FMT32, frame.state.eip, frame.state.esp);
+        log_dbg("FLAGS=" FMT32,                 frame.frame.flags);
+        log_dbg("CS="    FMT32  ", SS="  FMT32, frame.frame.cs, frame.frame.ss);
+        log_dbg("EIP="   FMT32  ", ESP=" FMT32, frame.frame.eip, frame.frame.esp);
     }
 }
 

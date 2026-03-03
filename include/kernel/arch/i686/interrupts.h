@@ -42,6 +42,7 @@
 #include <kernel/types.h>
 
 #include <kernel/arch/i686/gdt.h>
+#include <kernel/arch/i686/cpu.h>
 
 #include <utils/compiler.h>
 
@@ -116,31 +117,17 @@ typedef struct PACKED idt_descriptor {
 /** @brief Frame passed onto the interrupt handlers by our stub handler */
 struct interrupt_frame {
 
-    /**
-     * @brief Dump of the process's registers.
-     * These are pushed by `pusha` inside our stub handler
-     */
-    struct registers_dump {
-        u32 edi, esi, ebp, esp;
-        u32 ebx, edx, ecx, eax;
-    } stub;
+    /** Snapshot of the registers at the time the interrupt happened.*/
+    struct x86_regs regs;
 
-    /** Interrupt number (pushed by our stub) */
+    /** Error code and interrupt number (pushed by our stub) */
     u32 nr;
-    /** Error code for this exception (pushed by our stub)  */
     u32 error;
 
-    /**
-     * @brief Default x86 interrupt frame pushed by the cpu
-     * @ref Intel developper manual, figure 6-4
+    /*
+     * The interrupt frame pushed by the hardware starts here.
      */
-    struct cpu_interrupt_frame {
-        u32 eip;
-        u32 cs;
-        u32 flags;
-        u32 esp;
-        u32 ss;
-    } state;
+    struct x86_interrupt_frame frame;
 };
 
 static ALWAYS_INLINE void arch_interrupts_disable(void)

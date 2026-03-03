@@ -3,6 +3,8 @@
 
 #include <kernel/types.h>
 
+#include <dailyrun/arch/i686/cpu.h>
+
 #include <utils/bits.h>
 #include <utils/compiler.h>
 #include <utils/map.h>
