@@ -28,7 +28,7 @@
  */
 typedef struct spinlock {
     bool locked;
-#ifdef SPINLOCK_DEBUG
+#ifdef CONFIG_SPINLOCK_DEBUG
     /** Instruction pointer where this lock was last acquired. */
     vaddr_t owner;
 #endif
