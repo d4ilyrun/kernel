@@ -19,6 +19,27 @@ struct syscall {
     int arg_count;
 };
 
+#ifdef CONFIG_TRACE_SYSCALLS
+
+#include <kernel/process.h>
+
+static inline void trace_syscall_entry(const struct syscall *syscall)
+{
+    log_dbg("[%d] entering %s()", current->tid, syscall->name);
+}
+
+static inline void trace_syscall_exit(const struct syscall *syscall, int ret)
+{
+    log_dbg("[%d] exiting %s() with %d", current->tid, syscall->name, ret);
+}
+
+#else
+
+#define trace_syscall_entry(...)
+#define trace_syscall_exit(...)
+
+#endif /* CONFIG_TRACE_SYSCALLS */
+
 /** Parse the sycall's arguments from the arch-specific interrupt frame */
 void arch_syscall_get_args(interrupt_frame *frame, syscall_args_t *args);
 
@@ -65,6 +86,7 @@ static u32 syscall(void *frame)
     }
 
     syscall = &syscalls[args.nr];
+    trace_syscall_entry(syscall);
 
     switch (syscall->arg_count) {
     case 0:
@@ -86,6 +108,7 @@ static u32 syscall(void *frame)
     }
 
     arch_syscall_set_return_value(frame, ret);
+    trace_syscall_exit(syscall, ret);
 
     return ret;
 }
