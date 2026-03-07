@@ -57,11 +57,11 @@ static void schedule_locked(bool preempt, bool reschedule)
     if (next_node == NULL)
         return;
 
-    thread_t *next = container_of(next_node, thread_t, this);
+    thread_t *next = container_of(next_node, thread_t, this_sched);
 
     if (reschedule) {
         if (current->state != SCHED_WAITING && current->state != SCHED_ZOMBIE)
-            queue_enqueue(&scheduler.ready, &current->this);
+            queue_enqueue(&scheduler.ready, &current->this_sched);
     }
 
     /*
@@ -71,11 +71,11 @@ static void schedule_locked(bool preempt, bool reschedule)
         /*
          * Prevent the current thread from killing itself.
          */
-        if (queue_peek(&scheduler.ready) != &current->this ||
+        if (queue_peek(&scheduler.ready) != &current->this_sched ||
             current->state != SCHED_KILLED) {
             next_node = queue_dequeue(&scheduler.ready);
-            next = container_of(next_node, thread_t, this);
-            queue_enqueue(&scheduler.ready, &idle_thread->this);
+            next = container_of(next_node, thread_t, this_sched);
+            queue_enqueue(&scheduler.ready, &idle_thread->this_sched);
         }
     }
 
@@ -126,7 +126,7 @@ void sched_new_thread(thread_t *thread)
         return;
 
     thread->state = SCHED_RUNNING;
-    queue_enqueue(&scheduler.ready, &thread->this);
+    queue_enqueue(&scheduler.ready, &thread->this_sched);
 }
 
 void sched_block_thread(struct thread *thread)
@@ -152,7 +152,7 @@ void sched_unblock_thread(thread_t *thread)
     if (thread->state == SCHED_WAITING)
         thread->state = SCHED_RUNNING;
 
-    queue_enqueue(&scheduler.ready, &thread->this);
+    queue_enqueue(&scheduler.ready, &thread->this_sched);
 
     // give the least time possible to the IDLE task
     if (current == idle_thread)
@@ -163,8 +163,8 @@ void sched_unblock_thread(thread_t *thread)
 
 static int process_cmp_wakeup(const void *current_node, const void *cmp_node)
 {
-    const thread_t *current = container_of(current_node, thread_t, this);
-    const thread_t *cmp = container_of(cmp_node, thread_t, this);
+    const thread_t *current = container_of(current_node, thread_t, this_sched);
+    const thread_t *cmp = container_of(cmp_node, thread_t, this_sched);
 
     RETURN_CMP(current->sleep.wakeup, cmp->sleep.wakeup);
 }
@@ -172,7 +172,7 @@ static int process_cmp_wakeup(const void *current_node, const void *cmp_node)
 void sched_block_waiting_until(struct thread *thread, clock_t until)
 {
     thread->sleep.wakeup = until;
-    llist_insert_sorted(&sleeping_tasks, &current->this, process_cmp_wakeup);
+    llist_insert_sorted(&sleeping_tasks, &current->this_sched, process_cmp_wakeup);
     sched_block_thread(current);
 }
 
@@ -185,7 +185,7 @@ void sched_unblock_waiting_before(clock_t deadline)
 
     while (!llist_is_empty(&sleeping_tasks)) {
         next_wakeup = container_of(llist_first(&sleeping_tasks), struct thread,
-                                   this);
+                                   this_sched);
         if (next_wakeup->sleep.wakeup > deadline)
             break;
 

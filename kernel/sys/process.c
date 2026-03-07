@@ -106,6 +106,11 @@ thread_t *current = &kernel_process_initial_thread;
 
 struct process *init_process = NULL;
 
+DECLARE_LLIST(processes_list);
+DECLARE_SPINLOCK(processes_list_lock);
+DECLARE_LLIST(threads_list);
+DECLARE_SPINLOCK(threads_list_lock);
+
 /** Arch specific, hardware level thread switching
  *
  * This updates the content of the registers to effectively switch
@@ -294,8 +299,12 @@ void process_kill(struct process *process, int status)
      */
     locked_scope (&process->lock) {
 
-        if (process->state == SCHED_KILLED)
+        /* Not in the list of alive processes. */
+        if (process->this_global.next == &process->this_global)
             goto reschedule_current;
+
+        locked_scope (&processes_list_lock)
+            llist_remove(&process->this_global);
 
         /*
          * Avoid race condition where the current thread would be rescheduled
@@ -305,7 +314,7 @@ void process_kill(struct process *process, int status)
         no_preemption_scope () {
             FOREACH_LLIST_SAFE (node, tmp, &process->threads) {
                 struct thread *thread = container_of(node, struct thread,
-                                                     proc_this);
+                                                     this_proc);
                 thread_kill_locked(thread);
             }
         }
@@ -329,7 +338,7 @@ void process_init_kernel_process(void)
     INIT_SPINLOCK(kernel_process.files_lock);
 
     llist_add(&kernel_process.threads,
-              &kernel_process_initial_thread.proc_this);
+              &kernel_process_initial_thread.this_proc);
 
     /*
      * Userspace address space is inherited by processes when forking.
@@ -370,6 +379,8 @@ void process_init_kernel_process(void)
               "any other thread");
 
     thread_set_user_stack(&kernel_process_initial_thread, ustack);
+
+    llist_add(&threads_list, &kernel_process_initial_thread.this_global);
 }
 
 int process_register_file(struct process *process, struct file *file)
@@ -481,9 +492,13 @@ thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
     thread->flags = flags;
     thread->process = process_get(process);
 
-    llist_add(&process->threads, &thread->proc_this);
+    llist_add(&process->threads, &thread->this_proc);
 
     spinlock_release(&process->lock);
+
+    /* Thread is officially 'alive', make it searchable. */
+    locked_scope (&threads_list_lock)
+        llist_add(&threads_list, &thread->this_global);
 
     return thread;
 
@@ -495,6 +510,9 @@ thread_free:
     return PTR_ERR(err);
 }
 
+/*
+ * Actually free a previously killed thread.
+ */
 static void thread_free(thread_t *thread)
 {
     struct process *process = thread->process;
@@ -545,6 +563,9 @@ static void thread_kill_locked(thread_t *thread)
 
     WARN_ON(!process->lock.locked);
 
+    locked_scope (&threads_list_lock)
+        llist_remove(&thread->this_global);
+
     arch_thread_clear(thread);
 
     /*
@@ -559,7 +580,7 @@ static void thread_kill_locked(thread_t *thread)
      * We just killed the process's last thread, we must clean the address
      * space while it is still loaded.
      */
-    llist_remove(&thread->proc_this);
+    llist_remove(&thread->this_proc);
     if (llist_is_empty(&process->threads)) {
         arch_process_clear(process);
         address_space_clear(process->as);
@@ -681,6 +702,9 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
     locked_scope (&current->process->lock)
         llist_add(&current->process->children, &new_process->this);
 
+    locked_scope (&processes_list_lock)
+        llist_add(&processes_list, &new_process->this_global);
+
     /*
      * Duplicate the current thread's stack.
      *
@@ -793,4 +817,40 @@ pid_t sys_waitpid(pid_t pid, int *stat_loc, int options)
     process_collect_zombie(child);
 
     return child_pid;
+}
+
+/*
+ *
+ */
+struct process *process_find_by_pid(pid_t pid)
+{
+    struct process *process;
+
+    locked_scope (&processes_list_lock)
+    {
+        FOREACH_LLIST_ENTRY(process, &processes_list, this_global) {
+            if (process->pid == pid)
+                return process;
+        }
+    }
+
+    return NULL;
+}
+
+/*
+ *
+ */
+struct thread *thread_find_by_tid(pid_t tid)
+{
+    struct thread *thread;
+
+    locked_scope (&threads_list_lock)
+    {
+        FOREACH_LLIST_ENTRY(thread, &threads_list, this_global) {
+            if (thread->tid == tid)
+                return thread;
+        }
+    }
+
+    return NULL;
 }

@@ -90,7 +90,8 @@ struct process {
 
     llist_t threads;        /*!< Linked list of the process' active threads */
     llist_t children;       /*!< Linked list of the process' active children */
-    node_t this;            /*< Node inside the parent's list of children */
+    node_t  this;           /*!< Node inside the parent's list of children */
+    node_t  this_global;    /*!< Used by the global list of alive processes */
 
     size_t refcount; /*!< Reference count to this process.
                          We only kill a process once all of its threads have
@@ -135,13 +136,14 @@ typedef struct thread {
     thread_context_t context;
     thread_state_t state; /*!< Thread's current state, used by the scheduler */
 
-    struct process *process; /*!< Containing process */
-    node_t proc_this; /*!< Linked list used by the process to list threads */
-
     pid_t tid; /*!< Thread ID */
     u32 flags; /*!< Combination of \ref thread_flags values */
 
-    node_t this; /*!< Intrusive linked list used by the scheduler */
+    struct process *process; /*!< Containing process */
+
+    node_t this_proc;   /*!< Used by a process to list threads */
+    node_t this_sched;  /*!< Used by the scheduler */
+    node_t this_global; /*!< Used by the global list of alive processes */
 
     /** Information relative to the current state of the thread */
     union {
@@ -152,6 +154,17 @@ typedef struct thread {
     };
 
 } thread_t;
+
+/*
+ * List of all processes and threads currently alive.
+ *
+ * These list only contain live threads/processes so that lookups
+ * do not return objects that have already been killed.
+ */
+extern llist_t processes_list;
+extern spinlock_t processes_list_lock;
+extern llist_t threads_list;
+extern spinlock_t threads_list_lock;
 
 /** @enum thread_flags */
 typedef enum thread_flags {
@@ -332,6 +345,9 @@ static inline void process_set_name(struct process *process, const char *name,
     strlcpy(process->name, name, MIN(size + 1, PROCESS_NAME_MAX_LEN));
 }
 
+/** Find an **alive** process by its PID. */
+struct process *process_find_by_pid(pid_t pid);
+
 /** The currently running thread */
 extern thread_t *current;
 
@@ -403,8 +419,7 @@ void thread_kill(thread_t *);
  */
 struct thread *thread_fork(struct thread *, thread_entry_t, void *);
 
-/** @defgroup arch_process Processes - arch specifics
- *  @ingroup x86_process
- */
+/** Find an **alive** thread by its TID. */
+struct thread *thread_find_by_tid(pid_t tid);
 
 /** @} */

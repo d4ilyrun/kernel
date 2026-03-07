@@ -24,7 +24,7 @@ void waitqueue_enqueue_locked(struct waitqueue *queue, struct thread *thread)
      */
     no_preemption_scope () {
         thread->state = SCHED_WAITING;
-        queue_enqueue(&queue->queue, &thread->this);
+        queue_enqueue(&queue->queue, &thread->this_sched);
         /* Release the lock held by the caller BEFORE rescheduling */
         spinlock_release(&queue->lock);
     }
@@ -41,7 +41,7 @@ const struct thread *waitqueue_peek(struct waitqueue *queue)
     locked_scope (&queue->lock) {
         if (!queue_is_empty(&queue->queue)) {
             node = queue_peek(&queue->queue);
-            thread = container_of(node, struct thread, this);
+            thread = container_of(node, struct thread, this_sched);
         }
     }
 
@@ -56,7 +56,7 @@ struct thread *waitqueue_dequeue(struct waitqueue *queue)
     locked_scope (&queue->lock) {
         if (!queue_is_empty(&queue->queue)) {
             node = queue_dequeue(&queue->queue);
-            thread = container_of(node, struct thread, this);
+            thread = container_of(node, struct thread, this_sched);
         }
     }
 
@@ -76,7 +76,7 @@ size_t waitqueue_dequeue_all(struct waitqueue *queue)
     locked_scope (&queue->lock) {
         while (!queue_is_empty(&queue->queue)) {
             node = queue_dequeue(&queue->queue);
-            thread = container_of(node, struct thread, this);
+            thread = container_of(node, struct thread, this_sched);
             sched_new_thread(thread);
             count += 1;
         }
