@@ -35,6 +35,7 @@
 #include <kernel/types.h>
 #include <kernel/user.h>
 #include <kernel/vmm.h>
+#include <kernel/signal.h>
 
 #include <libalgo/linked_list.h>
 #include <utils/compiler.h>
@@ -105,6 +106,13 @@ struct process {
     struct file *files[PROCESS_FD_COUNT];
     spinlock_t files_lock; /*!< Lock for @ref open_files */
 
+    /*
+     * Signal handling.
+     */
+    struct signal_set  *sig_set;     /* Registered signal handlers. */
+    struct signal_queue sig_pending;
+    sig_sa_sigaction_t  sig_handler; /* stub handler set by sigsethandler(). */
+
     thread_state_t state;
     uint8_t exit_status; /** Transmitted to the parent process during wait() */
 
@@ -152,6 +160,12 @@ typedef struct thread {
             clock_t wakeup; /*!< Time when it should wakeup (in ticks) */
         } sleep;
     };
+
+    /*
+     * Signal handling.
+     */
+    struct signal_queue sig_pending;
+    sigset_t            sig_blocked; /* mask of currently blocked signals. */
 
 } thread_t;
 
@@ -307,6 +321,9 @@ extern struct process *init_process;
  */
 void process_init_kernel_process(void);
 
+/** Kill a process. */
+void process_kill(struct process *process, int status);
+
 /** Register an open file inside the process's open file descriptor table.
  *  @return The registered file's index inside the open file descriptor table.
  */
@@ -418,6 +435,12 @@ void thread_kill(thread_t *);
  * @return The newly created thread
  */
 struct thread *thread_fork(struct thread *, thread_entry_t, void *);
+
+/** Try and deliver the first non-blocked pending signal.
+ *
+ * This function should be called before returning to userland.
+ */
+void thread_deliver_pending_signal(struct thread *thread);
 
 /** Find an **alive** thread by its TID. */
 struct thread *thread_find_by_tid(pid_t tid);
