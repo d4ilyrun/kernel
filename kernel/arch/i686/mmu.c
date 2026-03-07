@@ -794,14 +794,29 @@ static INTERRUPT_HANDLER_FUNCTION(page_fault)
                                                : current->process->as;
         if (unlikely(!as)) {
             log_err("page_fault: address space is NULL");
-            goto page_fault_panic;
+            goto page_fault_error;
         }
 
         if (!address_space_fault(as, faulty_address, is_cow))
             return INTERRUPT_HANDLED;
     }
 
-page_fault_panic:
+page_fault_error:
+
+    if (!thread_is_kernel(current)) {
+        siginfo_t sig_info = {
+            .si_signo = SIGSEGV,
+            .si_code = 0,
+        };
+        log_info("%s: segmentation fault: %s access on a %s page at %p "
+                 "(eip: %#08x)",
+                 current->process->name, error.write ? "write" : "read",
+                 error.present ? "protected" : "non-present", faulty_address,
+                 frame->frame.eip);
+        signal_process(current->process, &sig_info);
+        return INTERRUPT_HANDLED;
+    }
+
     PANIC("PAGE FAULT at " FMT32 ": %s access on a %s page %s", faulty_address,
           error.write ? "write" : "read",
           error.present ? "protected" : "non-present",

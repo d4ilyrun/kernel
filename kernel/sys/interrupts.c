@@ -6,6 +6,7 @@
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/sched.h>
+#include <kernel/signal.h>
 
 #include <libalgo/linked_list.h>
 
@@ -161,6 +162,32 @@ const char *interrupt_name(unsigned int nr)
 {
     return interrupt_chip_interrupt_name(&interrupt_root_chip, nr);
 }
+
+/*
+ * Define a simple default interrupt handler that signals the process
+ * through the appropriate UNIX signal vector.
+ */
+#define define_process_signal_interrupt_handler(_name, _signo, _code) \
+    static u32 _name##_handler(MAYBE_UNUSED void *data)               \
+    {                                                                 \
+        siginfo_t info;                                               \
+                                                                      \
+        if (thread_is_kernel(current))                                \
+            PANIC(stringify(_name));                                  \
+                                                                      \
+        info.si_signo = _signo;                                       \
+        info.si_code = _code;                                         \
+        signal_process(current->process, &info);                      \
+                                                                      \
+        return INTERRUPT_HANDLED;                                     \
+    }                                                                 \
+                                                                      \
+    struct interrupt_handler _name = {                                \
+        .handler = _name##_handler,                                   \
+    }
+
+define_process_signal_interrupt_handler(division_by_zero, SIGILL, 0);
+define_process_signal_interrupt_handler(invalid_instruction, SIGILL, 0);
 
 /*
  *

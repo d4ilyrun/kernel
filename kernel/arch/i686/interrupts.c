@@ -150,6 +150,9 @@ error_t arch_interrupts_init(struct interrupt_chip *root_chip)
                             interrupt_handler_stubs[i]);
     }
 
+    interrupts_install_static_handler(DIVISION_ERROR, &division_by_zero);
+    interrupts_install_static_handler(INVALID_OPCODE, &invalid_instruction);
+
     /*
      * Make syscall interrupt callable from userland.
      */
