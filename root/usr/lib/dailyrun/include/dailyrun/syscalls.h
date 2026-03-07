@@ -33,16 +33,22 @@
     F(getgid,				25,		0,		default,		gid_t,		void)                                                                        \
     F(getegid,				26,		0,		default,		gid_t,		void)                                                                        \
     F(kill,					27,		2,		default,		int,		pid_t, int)                                                                  \
+    F(sigaction,			28,		3,		default,		int,		int, const struct sigaction *, struct sigaction *)                           \
+    F(sigprocmask,			29,		4,		default,		int,		int, const sigset_t *, sigset_t *, size_t)                                   \
+    F(sigpending,			30,		1,		default,		int,		sigset_t *)                                                                  \
+    F(sigsethandler,		31, 	1,		default,		int,		sig_sa_sigaction_t)                                                          \
+    F(sigreturn,			32, 	1,		default,		int,		ucontext_t *)                                                                \
 
 /*
  * The list of available syscall vectors.
  */
 enum syscall_nr {
 #define SYSCALL_NUMBER(name, vector, ...) SYS_##name = vector,
-    DEFINE_SYSCALLS(SYSCALL_NUMBER) SYSCALL_COUNT
+    DEFINE_SYSCALLS(SYSCALL_NUMBER) /*  */
+	SYSCALL_COUNT
 #undef SYSCALL_NUMBER
 };
 
 #endif /* _DAILYRUN_SYSCALLS_H */
 
-// vi: ft=c tabstop=4 noexpandtab
+// vi: ft=c tabstop=4 shiftwidth=4 noexpandtab

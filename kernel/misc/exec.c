@@ -6,6 +6,7 @@
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
 #include <kernel/process.h>
+#include <kernel/signal.h>
 #include <kernel/vfs.h>
 
 #include <utils/container_of.h>
@@ -335,6 +336,14 @@ error_t execfmt_execute(struct exec_params *params)
     }
 
     can_return = false;
+
+    /*
+     * Reset signals (configuration and state).
+     */
+    signal_queue_flush(&current->process->sig_pending);
+    signal_queue_flush(&current->sig_pending);
+    signal_set_reset(current->process->sig_set);
+    current->process->sig_handler = NULL;
 
     ret = address_space_init(current->process->as);
     if (ret) {

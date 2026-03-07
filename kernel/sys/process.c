@@ -28,12 +28,10 @@
  * This is also the case for the init process, which is forked from the initial
  * kernel process (which is provided with a dummy user-stack for this purpose).
  *
- * Processes can only be killed in 2 ways:
+ * Processes can only be killed the following ways:
  *
- *  - process_kill() is called when the process calls the exit() syscall.
- *
- *  - By the kernel when the process raises an exception or receives a signal
- *    whose default action is to kill the process (TODO).
+ *  - process_kill() is called when the process calls the exit() syscall, or
+ *    receives a signal for which the configured action is to exit the process.
  *
  * ### Kernel process
  *
@@ -182,6 +180,7 @@ static void process_collect_zombie(struct process *zombie)
     WRITE_ONCE(zombie->state, SCHED_KILLED);
     llist_remove(&zombie->this);
 
+    signal_set_free(zombie->sig_set);
     kfree(zombie);
 }
 
@@ -210,8 +209,10 @@ static void process_make_zombie(struct process *process)
     WRITE_ONCE(process->state, SCHED_ZOMBIE);
 
     /*
-     * Release all open files.
+     * Release any ressource that might still be held by the process (signal,
+     * open file descriptions, ...).
      */
+
     locked_scope (&process->files_lock) {
         for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
             if (process->files[i])
@@ -219,6 +220,7 @@ static void process_make_zombie(struct process *process)
         }
     }
 
+    signal_queue_flush(&process->sig_pending);
     address_space_destroy(process->as);
 
     /* Attach all orphans to the init process. */
@@ -282,6 +284,8 @@ static struct process *process_new(void)
     INIT_SPINLOCK(process->lock);
     INIT_LLIST(process->threads);
     INIT_LLIST(process->children);
+
+    signal_queue_init(&process->sig_pending);
 
     return process;
 }
@@ -382,6 +386,10 @@ void process_init_kernel_process(void)
               "any other thread");
 
     thread_set_user_stack(&kernel_process_initial_thread, ustack);
+
+    kernel_process.sig_set = NULL;
+    signal_queue_init(&kernel_process.sig_pending);
+    signal_queue_init(&kernel_process_initial_thread.sig_pending);
 
     llist_add(&threads_list, &kernel_process_initial_thread.this_global);
 }
@@ -486,6 +494,8 @@ thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
     else
         thread->tid = process_next_pid();
 
+    signal_queue_init(&thread->sig_pending);
+
     err = arch_thread_init(thread, entrypoint, data, esp, ebp);
     if (err) {
         log_err("Failed to initialize new thread: %pe", &err);
@@ -532,6 +542,8 @@ static void thread_free(thread_t *thread)
      */
     if (unlikely(thread == current))
         PANIC("thread %d tried to kill itself", thread->tid);
+
+    signal_queue_flush(&thread->sig_pending);
 
     no_preemption_scope () {
         vm_free(&kernel_address_space, thread_get_kernel_stack(thread));
@@ -686,6 +698,11 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
                          PROCESS_NAME_MAX_LEN);
         address_space_copy_current(new_process->as);
         new_process->creds = creds_get(current->process->creds);
+        new_process->sig_set = signal_set_clone(current->process->sig_set);
+        if (new_process->sig_set == NULL) {
+            err = E_NOMEM;
+            goto process_destroy;
+        }
     }
 
     /* Duplicate the current process' open files. */
@@ -716,10 +733,16 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
      */
     thread_set_user_stack(new, thread_get_user_stack(thread));
 
+    /*
+     * The signal mask for a thread is inherited from the creating thread.
+     */
+    new->sig_blocked = thread->sig_blocked;
+
     return new;
 
 process_destroy:
     address_space_destroy(new_process->as);
+    signal_set_free(new_process->sig_set);
     kfree(new_process);
     return PTR_ERR(err);
 }
@@ -856,4 +879,29 @@ struct thread *thread_find_by_tid(pid_t tid)
     }
 
     return NULL;
+}
+
+/*
+ *
+ */
+void thread_deliver_pending_signal(struct thread *thread)
+{
+    struct signal_context *sig_ctx;
+
+    /*
+     * Find the first pending signal that is deliverable.
+     *
+     * Prioritize thread-specific signals.
+     */
+    sig_ctx = signal_queue_pop(&thread->sig_pending,
+                               thread->sig_blocked);
+    if (!sig_ctx)
+        sig_ctx = signal_queue_pop(&thread->process->sig_pending,
+                                   thread->sig_blocked);
+
+    /* No pending signal. */
+    if (!sig_ctx)
+        return;
+
+    signal_deliver(thread, sig_ctx);
 }

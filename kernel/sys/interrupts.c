@@ -49,6 +49,9 @@ error_t interrupt_handle(unsigned int nr)
 
     err = interrupt_chip_interrupt_handle(&interrupt_root_chip, nr);
 
+    if (!thread_is_kernel(current))
+        thread_deliver_pending_signal(current);
+
     /*
      * Try to reschedule the current thread. This is the best time to do so.
      *

@@ -12,6 +12,7 @@ KERNEL_ARCH_SRCS := \
     interrupts.asm \
     process.c \
     process.S \
+    signal.c \
     syscalls.c \
     mmu.c \
     setup.c \
