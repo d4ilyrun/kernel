@@ -174,6 +174,14 @@ static inline void scope_irq_off_destructor(scope_irq_off_t *guard)
              scope_irq_off_constructor();                          \
          !guard.done; guard.done = true)
 
+
+/*
+ * Generic interrupt handlers.
+ */
+
+extern struct interrupt_handler division_by_zero;
+extern struct interrupt_handler invalid_instruction;
+
 /** @} */
 
 #endif /* KERNEL_INTERRUPTS_H */
