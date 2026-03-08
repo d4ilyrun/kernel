@@ -1,4 +1,4 @@
-#include <uapi/arch/i686/syscalls.h>
+#include <dailyrun/arch/i686/syscalls.h>
 
 #include <stdint.h>
 #include <sys/errno.h>

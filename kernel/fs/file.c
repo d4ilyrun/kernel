@@ -3,7 +3,8 @@
 #include <kernel/process.h>
 #include <kernel/timer.h>
 #include <kernel/vfs.h>
-#include <uapi/kernel/net.h> /* struct msghdr */
+
+#include <dailyrun/net.h> /* struct msghdr */
 
 #include <unistd.h>
 

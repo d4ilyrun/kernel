@@ -17,7 +17,8 @@
 #include <kernel/socket.h>
 #include <kernel/timer.h>
 #include <kernel/vfs.h>
-#include <uapi/limits.h>
+
+#include <limits.h>
 
 static struct file_operations socket_fops;
 

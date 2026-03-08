@@ -40,13 +40,13 @@
 #include <kernel/file.h>
 #include <kernel/types.h>
 #include <kernel/user.h>
-#include <uapi/fcntl.h>
 
 #include <lib/path.h>
 #include <libalgo/linked_list.h>
 #include <utils/compiler.h>
 #include <utils/stringify.h>
 
+#include <fcntl.h>
 #include <sys/stat.h>
 
 struct block_device;

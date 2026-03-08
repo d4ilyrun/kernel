@@ -23,7 +23,7 @@
 #ifndef KERNEL_ARCH_I686_SYSCALLS_H
 #define KERNEL_ARCH_I686_SYSCALLS_H
 
-#include <uapi/arch/i686/syscalls.h>
+#include <dailyrun/arch/i686/syscalls.h>
 
 #endif /* KERNEL_ARCH_I684_SYSCALLS_H */
 

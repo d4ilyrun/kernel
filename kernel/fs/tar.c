@@ -23,7 +23,8 @@
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/vfs.h>
-#include <uapi/limits.h>
+
+#include <limits.h>
 
 #include <lib/path.h>
 #include <libalgo/tree.h>

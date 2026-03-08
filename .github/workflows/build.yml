@@ -56,13 +56,16 @@ jobs:
       run: |
         cp defconfigs/config.i686 .config
 
+    - name: Install headers
+      run: |
+        make root
+
     - name: Build Toolchain (i686)
       run: |
         nix develop .#gcc --command make gcc TARGET=i686-dailyrun ARCH= CROSS_COMPILE= GCC_CONFIGURE_FLAGS="--with-newlib"
 
     - name: Build libc
       run: |
-        nix develop .#gcc --command make sysroot
         nix develop .#newlib --command make newlib
 
     - name: Build Kernel

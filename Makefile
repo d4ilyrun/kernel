@@ -41,6 +41,7 @@ KERNEL_DIR		:= kernel
 SCRIPTS_DIR		:= scripts
 DOCS_DIR		:= docs
 TOOLCHAIN_DIR	:= toolchain
+ROOT_DIR		:= root
 
 DEBUG ?= y
 
@@ -165,15 +166,31 @@ compile_commands.json:
 	$(call ASSERT_EXE_EXISTS,bear)
 	$(SILENT)bear -- $(MAKE) -B all
 
+#
+# Build user directory
+#
+.PHONY: root
+root:
+	$(call INSTALL, $(ROOT_DIR)/, $(BUILD_DIR)/$(ROOT_DIR))
+
+TO_CLEAN += $(BUILD_DIR)/$(ROOT_DIR)
+
+#
+# Remove build artifacts
+#
 clean/%:
 	$(RM) -rf $(shell echo "$@" | sed "s/clean/$(BUILD_DIR)/")
 
+.PHONY: clean
 clean:
 	$(foreach to_clean,$(TO_CLEAN),$(RM) -rf $(to_clean) $(newline))
 
+#
+# Remove build artifacts and more
+#
+.PHONY: distclean
 distclean: clean
 	$(foreach to_clean,$(TO_DISTCLEAN),$(RM) -rf $(to_clean) $(newline))
 
-.PHONY: clean distclean
 
 -include $(DEPS)

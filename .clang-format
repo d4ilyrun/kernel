@@ -33,16 +33,20 @@ SpacesInParentheses: false
 
 IncludeBlocks: Regroup
 IncludeCategories:
-    - Regex: '<(kernel|uapi)/arch/.*>'
+    - Regex: '<(kernel)/arch/.*>'
       Priority: 2
-    - Regex: '<(kernel|uapi)/.*>'
+    - Regex: '<(kernel)/.*>'
       Priority: 1
-    - Regex: '<(uacpi|utils|lib.*)/.*>'
-      Priority: 3
-    - Regex: '<.*>'
+    - Regex: '<(dailyrun)/arch/.*>'
       Priority: 4
-    - Regex: '.*'
+    - Regex: '<(dailyrun)/.*>'
+      Priority: 3
+    - Regex: '<(uacpi|utils|lib.*)/.*>'
       Priority: 5
+    - Regex: '<.*>'
+      Priority: 6
+    - Regex: '.*'
+      Priority: 7
 
 ForEachMacros:
   - FOREACH_LLIST

@@ -1,7 +1,5 @@
-#ifndef UAPI_FCNTL_H
-#define UAPI_FCNTL_H
-
-#include <fcntl.h>
+#ifndef _FCNTL_H
+#define _FCNTL_H
 
 #ifndef O_EXEC
 #define O_EXEC 0
@@ -18,4 +16,6 @@
 #define S_IRWG (S_IRGRP | S_IWGRP)
 #define S_IRWO (S_IROTH | S_IWOTH)
 
-#endif /* UAPI_FCNTL_H */
+#include_next <fcntl.h>
+
+#endif /* _FCNTL_H */

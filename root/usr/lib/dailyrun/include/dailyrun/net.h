@@ -1,12 +1,11 @@
-#ifndef UAPI_KERNEL_NET_H
-#define UAPI_KERNEL_NET_H
+#ifndef _KERNEL_NET_H
+#define _KERNEL_NET_H
 
-#include <uapi/kernel/net/ip.h>
+#include <dailyrun/net/ip.h>
 
 #include <stdint.h>
 #include <stddef.h>
 
-/* TODO: uapi/types.h */
 typedef uint16_t sa_family_t;
 typedef size_t socklen_t;
 
@@ -58,4 +57,4 @@ struct cmsghdr {
     unsigned char cmsg_data[];
 };
 
-#endif /* UAPI_KERNEL_NET_H */
+#endif /* _KERNEL_NET_H */

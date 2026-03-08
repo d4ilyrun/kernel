@@ -1,5 +1,5 @@
-#ifndef UAPI_ARCH_I686_SYSCALLS_H
-#define UAPI_ARCH_I686_SYSCALLS_H
+#ifndef _ARCH_I686_SYSCALLS_H
+#define _ARCH_I686_SYSCALLS_H
 
 /** The interrupt number used to trigger a syscall */
 #define SYSCALL_INTERRUPT_NR 0x80
@@ -37,4 +37,4 @@
     F(seteuid	, 464	, 1	, default	, int	    , uid_t) \
     F(setegid	, 465	, 1	, default	, int	    , gid_t) \
 
-#endif /* UAPI_ARCH_I686_SYSCALLS_H */
+#endif /* _ARCH_I686_SYSCALLS_H */

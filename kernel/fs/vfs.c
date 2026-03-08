@@ -5,7 +5,6 @@
 #include <kernel/memory/slab.h>
 #include <kernel/process.h>
 #include <kernel/vfs.h>
-#include <uapi/fcntl.h>
 
 #include <utils/container_of.h>
 

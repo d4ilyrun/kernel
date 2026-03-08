@@ -50,7 +50,8 @@
 #define KERNEL_NET_H
 
 #include <kernel/types.h>
-#include <uapi/kernel/net.h>
+
+#include <dailyrun/net.h>
 
 #include <utils/bits.h>
 
