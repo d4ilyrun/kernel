@@ -24,7 +24,8 @@ $(GCC_BUILD_DIR)/config.status: binutils $(GCC_DIR)
 	$(SILENT)\
 		cd $(dir $@) && \
 		$(PWD)/$(GCC_DIR)/configure \
-			--disable-nls --enable-languages=c \
+			--disable-nls --disable-gcov \
+			--enable-languages=c \
 			--with-sysroot=$(SYSROOT) \
 			--host="$(HOST)" \
 			--target="$(TARGET)" \
