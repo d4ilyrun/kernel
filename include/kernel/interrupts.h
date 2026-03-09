@@ -28,6 +28,16 @@
 #include <kernel/error.h>
 #include <kernel/types.h>
 
+#include <libalgo/linked_list.h>
+
+/**
+ *  Values returned by an interrupt handler.
+ */
+typedef enum interrupt_return {
+    INTERRUPT_HANDLED, /*!< Interrupt was handled by the handler. */
+    INTERRUPT_IGNORED, /*!< Interrupt was for another handler. */
+} interrupt_return_t;
+
 /**
  *  @brief Frame passed onto the interrupt handlers when triggering an interrupt
  *  @note This is a only a forward declaration. The actual definition
@@ -36,13 +46,18 @@
 typedef struct interrupt_frame interrupt_frame;
 
 /** Function pointer to an interrupt handler */
-typedef u32 (*interrupt_handler_func_t)(void *);
+typedef interrupt_return_t (*interrupt_handler_func_t)(void *);
+
+struct interrupt_handler {
+    interrupt_handler_func_t    handler;
+    void                        *data;
+    node_t                      this; /* used by interrupt_vector->handlers */
+};
 
 /** A single hardware IRQ vector. */
 struct interrupt_vector {
-    interrupt_handler_func_t handler;
-    void *data;
-    const char *name;
+    const char  *name;
+    llist_t     handlers;
 };
 
 struct interrupt_chip {
@@ -56,7 +71,18 @@ struct interrupt_chip {
  *  @param handler The handler function called when the interrupt occurs
  *  @param data Data passed to the interrupt handler
  */
-error_t interrupts_set_handler(unsigned int irq, interrupt_handler_func_t, void *);
+error_t
+interrupts_install_handler(unsigned int irq, interrupt_handler_func_t, void *);
+
+/** Install a pre-configured interrupt handler.
+ *
+ *  This function must be used only when configuring an interrupt handler
+ *  at before the virtual memory subsystem is initialized (INIT_BOOTSTRAP).
+ *
+ *  The interrupt_handler strcuture is initialized and provided by the caller.
+ */
+error_t
+interrupts_install_static_handler(unsigned int nr, struct interrupt_handler *);
 
 /** Retreive the current handler for a given IRQ
  *
@@ -64,15 +90,12 @@ error_t interrupts_set_handler(unsigned int irq, interrupt_handler_func_t, void 
  * @param[out] pdata If not NULL, the handler's associated data is stored inside
  *                   this pointer (optional)
  *
+ * @note In the case of shared interrupts this function always returns the first
+ *       installed handler.
+ *
  * @return The current handler function fo the IRQ
  */
 interrupt_handler_func_t interrupts_get_handler(unsigned int irq, void **);
-
-/** Return wether a custom interrupt has been installed for the given vector */
-static inline bool interrupts_has_been_installed(unsigned int irq)
-{
-    return interrupts_get_handler(irq, NULL) != NULL;
-}
 
 error_t interrupt_handle(unsigned int nr);
 const char *interrupt_name(unsigned int nr);
@@ -85,7 +108,7 @@ const char *interrupt_name(unsigned int nr);
  * You must always use this function when defining an interrupt handler.
  */
 #define INTERRUPT_HANDLER_FUNCTION(_interrupt) \
-    u32 INTERRUPT_HANDLER(_interrupt)(void *data)
+    interrupt_return_t INTERRUPT_HANDLER(_interrupt)(void *data)
 
 /** @brief Disable interrupts on the current CPU. */
 static inline void interrupts_disable(void)

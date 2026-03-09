@@ -356,7 +356,7 @@ uacpi_kernel_install_interrupt_handler(uacpi_u32 irq,
     handle->handler = interrupts_get_handler(irq, &handle->data);
     *out_irq_handle = handle;
 
-    err = interrupts_set_handler(irq, handler, ctx);
+    err = interrupts_install_handler(irq, handler, ctx);
     if (err) {
         kfree(handle);
         *out_irq_handle = NULL;
@@ -373,7 +373,7 @@ uacpi_kernel_uninstall_interrupt_handler(uacpi_interrupt_handler handler,
     UNUSED(handler);
 
     uacpi_irq_handle *irq = irq_handle;
-    interrupts_set_handler(irq->irq, irq->handler, irq->data);
+    interrupts_install_handler(irq->irq, irq->handler, irq->data);
 
     return UACPI_STATUS_OK;
 }

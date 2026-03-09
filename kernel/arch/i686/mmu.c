@@ -80,7 +80,15 @@
 #include <stddef.h>
 #include <string.h>
 
+/*
+ * Page fault handler must be statically defined since it is registered
+ * before the virtual memory API has been initialized.
+ */
 static INTERRUPT_HANDLER_FUNCTION(page_fault);
+static struct interrupt_handler page_fault_interrupt_handler = {
+    .handler = INTERRUPT_HANDLER(page_fault),
+    .data = NULL,
+};
 
 /** Number of entries inside the page directory */
 #define MMU_PDE_COUNT (1024)
@@ -701,7 +709,8 @@ bool mmu_init(void)
         return false;
     }
 
-    interrupts_set_handler(PAGE_FAULT, INTERRUPT_HANDLER(page_fault), NULL);
+    interrupts_install_static_handler(PAGE_FAULT,
+                                      &page_fault_interrupt_handler);
 
     /* Initialize caching structures. */
     mmu_init_pat();
@@ -783,7 +792,7 @@ static INTERRUPT_HANDLER_FUNCTION(page_fault)
         }
 
         if (!address_space_fault(as, faulty_address, is_cow))
-            return E_SUCCESS;
+            return INTERRUPT_HANDLED;
     }
 
 page_fault_panic:

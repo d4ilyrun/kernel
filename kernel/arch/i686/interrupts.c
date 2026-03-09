@@ -144,9 +144,8 @@ error_t arch_interrupts_init(struct interrupt_chip *root_chip)
      * every the custom interrupt vector.
      */
     for (int i = 0; i < IDT_LENGTH; ++i) {
-        idt_interrupt_vectors[i].data = NULL;
-        idt_interrupt_vectors[i].handler = NULL;
         idt_interrupt_vectors[i].name = idt_interrupt_names[i];
+        INIT_LLIST(idt_interrupt_vectors[i].handlers);
         configure_idt_entry(&idt[i], INTERRUPT_GATE_32B,
                             interrupt_handler_stubs[i]);
     }

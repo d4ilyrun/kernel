@@ -208,13 +208,18 @@ static void pci_device_setup_bars(struct pci_device *device)
     }
 }
 
-static u32 __pci_device_handle_interrupt(void *device)
+static interrupt_return_t __pci_device_handle_interrupt(void *device)
 {
     struct pci_device *pdev = device;
-    error_t ret;
+    interrupt_return_t ret;
 
-    if (!pdev->interrupt_handler)
-        return E_SUCCESS;
+    /*
+     * NOTE: What if the interrupt line is shared with a non-pci interrupt?
+     *       BIOS should configure the IRQ lines properly for this to never
+     *       happen I guess...
+     */
+    if (!pdev || !pdev->interrupt_handler)
+        return INTERRUPT_IGNORED;
 
     interrupts_disable();
 
@@ -226,9 +231,12 @@ static u32 __pci_device_handle_interrupt(void *device)
     return ret;
 }
 
-error_t pci_device_register_interrupt_handler(struct pci_device *pdev,
-                                              interrupt_handler_func_t handler,
-                                              void *data)
+/*
+ *
+ */
+error_t pci_device_install_interrupt_handler(struct pci_device *pdev,
+                                             interrupt_handler_func_t handler,
+                                             void *data)
 {
     uint8_t interrupt;
 
@@ -238,18 +246,11 @@ error_t pci_device_register_interrupt_handler(struct pci_device *pdev,
     if (!pdev->interrupt_line)
         return E_SUCCESS;
 
-    /* TODO: Implement MSI (+ remove dependency on arch-specifi IRQ) */
-    if (interrupts_has_been_installed(interrupt)) {
-        log_warn("another interrupt has already been installed on the "
-                 "interrupt line (" FMT8 ")",
-                 interrupt);
-        return E_BUSY;
-    }
-
     pdev->interrupt_data = data;
     pdev->interrupt_handler = handler;
 
-    interrupts_set_handler(interrupt, __pci_device_handle_interrupt, pdev);
+    /* TODO: Implement MSI + remove dependency on arch-specifi PIC IRQ. */
+    interrupts_install_handler(interrupt, __pci_device_handle_interrupt, pdev);
     pic_enable_irq(pdev->interrupt_line);
 
     pci_device_enable_interrupts(pdev, true);

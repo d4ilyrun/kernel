@@ -84,7 +84,7 @@ error_t pci_device_register(struct pci_device *);
  *  @param interrupt_handler The interrupt handler function
  *  @param data The data passed to the interrupt handler
  */
-error_t pci_device_register_interrupt_handler(struct pci_device *,
+error_t pci_device_install_interrupt_handler(struct pci_device *,
                                               interrupt_handler_func_t, void *data);
 
 /** Enable/Disable a device's response to I/O space accesses */

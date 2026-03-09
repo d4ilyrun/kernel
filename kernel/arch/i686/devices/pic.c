@@ -57,8 +57,8 @@ void pic_reset()
     log_info("Setting up custom IRQs handlers");
     pic_enable_irq(IRQ_CASCADE); /* Allow IRQs on slave to be triggered */
     pic_enable_irq(IRQ_KEYBOARD);
-    interrupts_set_handler(PIC_MASTER_VECTOR + IRQ_KEYBOARD,
-                           INTERRUPT_HANDLER(irq_keyboard), NULL);
+    interrupts_install_handler(PIC_MASTER_VECTOR + IRQ_KEYBOARD,
+                               INTERRUPT_HANDLER(irq_keyboard), NULL);
 }
 
 void pic_eoi(pic_irq irq)
@@ -109,5 +109,5 @@ static INTERRUPT_HANDLER_FUNCTION(irq_keyboard)
 
     pic_eoi(IRQ_KEYBOARD);
 
-    return E_SUCCESS;
+    return INTERRUPT_HANDLED;
 }

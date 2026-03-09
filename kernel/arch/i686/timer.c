@@ -39,8 +39,8 @@ error_t arch_timer_start(u32 frequency)
         return err;
     }
 
-    interrupts_set_handler(PIC_MASTER_VECTOR + IRQ_TIMER,
-                           INTERRUPT_HANDLER(irq_timer), NULL);
+    interrupts_install_handler(PIC_MASTER_VECTOR + IRQ_TIMER,
+                               INTERRUPT_HANDLER(irq_timer), NULL);
     pic_enable_irq(IRQ_TIMER);
 
     return E_SUCCESS;
@@ -56,7 +56,7 @@ static INTERRUPT_HANDLER_FUNCTION(irq_timer)
     pic_eoi(IRQ_TIMER);
 
     if (!scheduler_initialized)
-        return E_SUCCESS;
+        return INTERRUPT_HANDLED;
 
     // TODO: Use a separate and more modern timer for scheduler (LAPIC, HPET)
     //
@@ -75,5 +75,5 @@ static INTERRUPT_HANDLER_FUNCTION(irq_timer)
     if (current->running.preempt <= timer_ticks_counter)
         schedule();
 
-    return E_SUCCESS;
+    return INTERRUPT_HANDLED;
 }

@@ -65,7 +65,7 @@ static const struct syscall syscalls[SYSCALL_COUNT] = {
                                                 (void *)_arg3))
 
 /** Perform a syscall */
-static u32 syscall(void *data)
+static interrupt_return_t syscall(void *data)
 {
     const struct syscall *syscall;
     struct interrupt_frame *frame;
@@ -78,8 +78,9 @@ static u32 syscall(void *data)
     arch_syscall_get_args(frame, &args);
 
     if (args.nr >= SYSCALL_COUNT || !syscalls[args.nr].handler) {
-        log_err("Unimplemented syscall: %d", args.nr);
-        return -E_NOT_IMPLEMENTED;
+        log_err("unimplemented syscall: %d", args.nr);
+        ret = -E_NOT_IMPLEMENTED;
+        goto syscall_exit;
     }
 
     syscall = &syscalls[args.nr];
@@ -102,20 +103,20 @@ static u32 syscall(void *data)
         log_err("%s: unsupported arg count (%d)", syscall->name,
                 syscall->arg_count);
         ret = -E_NOT_SUPPORTED;
+        goto syscall_exit;
     }
 
+syscall_exit:
     arch_syscall_set_return_value(frame, ret);
     trace_syscall_exit(syscall, ret);
-
-    return ret;
+    return INTERRUPT_HANDLED;
 }
 
 static error_t syscall_init(void)
 {
     // The switch from user to kernel mode is performed by triggering the
     // 128th interrupt (the most common way).
-    interrupts_set_handler(0x80, syscall, NULL);
-    return E_SUCCESS;
+    return interrupts_install_handler(0x80, syscall, NULL);
 }
 
 DECLARE_INITCALL(INIT_LATE, syscall_init);

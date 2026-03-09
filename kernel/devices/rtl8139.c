@@ -242,19 +242,22 @@ static error_t rtl8139_receive_packet(struct rtl8139 *rtl8139)
     return ret;
 }
 
-static u32 rtl8139_interrupt_handler(void *data)
+static interrupt_return_t rtl8139_interrupt_handler(void *data)
 {
     struct rtl8139 *rtl8139 = data;
     uint16_t isr = rtl8139_readw(rtl8139, INTERRUPT_STATUS);
 
-    if (isr & INT_RX_OK) {
+    isr &= ~RTL8139_SUPPORTED_INTERRUPTS;
+    if (isr == 0)
+        return INTERRUPT_IGNORED; /* not for us. */
+
+    if (isr & INT_RX_OK)
         rtl8139_receive_packet(rtl8139);
-    }
 
     /* clear interrupt source bit by writing one to the ISR (6.7) */
     rtl8139_writew(rtl8139, INTERRUPT_STATUS, isr);
 
-    return E_SUCCESS;
+    return INTERRUPT_HANDLED;
 }
 
 static error_t rtl8139_enable_capability(struct ethernet_device *device,
@@ -377,7 +380,7 @@ static error_t rtl8139_probe(struct device *dev)
                        mmu_find_physical((vaddr_t)tx));
     }
 
-    ret = pci_device_register_interrupt_handler(pdev, rtl8139_interrupt_handler,
+    ret = pci_device_install_interrupt_handler(pdev, rtl8139_interrupt_handler,
                                                 rtl8139);
     if (ret)
         goto probe_failed;
