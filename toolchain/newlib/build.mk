@@ -29,8 +29,11 @@ $(NEWLIB_BUILD_DIR)/config.status: $(NEWLIB_DIR)
 	$(SILENT)\
 		cd $(dir $@) && \
 		$(PWD)/$(NEWLIB_DIR)/configure \
+			--host="$(HOST)" \
 			--target="$(TARGET)" \
-			--prefix="$(PREFIX)" \
+			--prefix="$(SYSROOT)/usr" \
+			--with-tooldir="$(SYSROOT)/usr" \
+			--with-build-sysroot="$(SYSROOT)" \
 			$(NEWLIB_CONFIGURE_FLAGS) \
 		>  configure.log \
 		2> configure.err
@@ -38,7 +41,7 @@ $(NEWLIB_BUILD_DIR)/config.status: $(NEWLIB_DIR)
 libc: newlib
 newlib: newlib/configure
 	$(call LOG,MAKE,newlib)
-	$(call MAKE_RECURSIVE,$(NEWLIB_BUILD_DIR),all CFLAGS='$(ASFLAGS)',newlib/)
+	$(call MAKE_RECURSIVE,$(NEWLIB_BUILD_DIR),all,newlib/)
 	$(call MAKE_RECURSIVE,$(NEWLIB_BUILD_DIR),install,newlib/)
 
 .PHONY: libc newlib newlib/configure newlib/prepare newlib/tar
