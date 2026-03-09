@@ -157,6 +157,7 @@ typedef struct thread {
 typedef enum thread_flags {
     THREAD_KERNEL           = BIT(0), ///< This is a kernel thread
     THREAD_RESCHED          = BIT(1), ///< Reschedule when exiting interrupt
+    THREAD_IN_KERNEL_MODE   = BIT(2), ///< Thread is running in kernel mode
 } process_flags_t;
 
 /***/

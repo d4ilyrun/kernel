@@ -143,6 +143,12 @@ struct interrupt_frame {
     } state;
 };
 
+static inline bool
+arch_interrupt_frame_is_user(const struct interrupt_frame *frame)
+{
+    return frame->state.cs == GDT_ENTRY_USER_CODE;
+}
+
 static ALWAYS_INLINE void arch_interrupts_disable(void)
 {
     ASM("cli");

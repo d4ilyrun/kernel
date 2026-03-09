@@ -41,13 +41,16 @@ interrupt_chip_interrupt_handle(const struct interrupt_chip *chip,
  * Tries to find the appropriate IRQ handler (installed via
  * interrupts_set_handler()) and execute it.
  */
-error_t interrupt_handle(unsigned int nr)
+error_t interrupt_handle(struct interrupt_frame *frame, unsigned int nr)
 {
     error_t err;
 
-    current->flags |= THREAD_RESCHED;
+    current->flags |= THREAD_RESCHED | THREAD_IN_KERNEL_MODE;
 
     err = interrupt_chip_interrupt_handle(&interrupt_root_chip, nr);
+
+    if (interrupt_frame_is_user(frame))
+        current->flags &= ~THREAD_IN_KERNEL_MODE;
 
     /*
      * Try to reschedule the current thread. This is the best time to do so.

@@ -112,8 +112,9 @@ struct process *init_process = NULL;
  * into the desired thread.
  *
  * @param context The next thread's hardware context
+ * @param keep_mmu Keep the current MMU loaded
  */
-extern void arch_thread_switch(thread_context_t *);
+extern void arch_thread_switch(thread_context_t *, bool keep_mmu);
 
 /** Arch specific, initialize the thread's arch specific context
  *
@@ -434,9 +435,15 @@ thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
     void *kstack = NULL;
     error_t err;
 
+    flags &= ~THREAD_IN_KERNEL_MODE;
+
     /* Userland processes cannot spawn kernel threads */
     if (flags & THREAD_KERNEL && process != &kernel_process)
         return PTR_ERR(E_INVAL);
+
+    /* Kernel threads always run in kernel mode. */
+    if (flags & THREAD_KERNEL)
+        flags |= THREAD_IN_KERNEL_MODE;
 
     spinlock_acquire(&process->lock);
 
@@ -530,12 +537,25 @@ static void thread_free(thread_t *thread)
 
 bool thread_switch(thread_t *thread)
 {
+    bool keep_mmu;
+
     if (thread->state == SCHED_KILLED) {
         thread_free(thread);
         return false;
     }
 
-    arch_thread_switch(&thread->context);
+    /*
+     * Kernel pages are shared between all processes so we can keep using
+     * the same MMU. This avoids unnecessary TLD shootdowns.
+     *
+     * FIXME: Identify when 'thread' absolutely needs the original MMU
+     *        (execve, page fault, etc ...). Or allow editing another process'
+     *        MMU.
+     */
+    keep_mmu = (thread->flags & THREAD_IN_KERNEL_MODE) &&
+               (current->flags & THREAD_IN_KERNEL_MODE);
+    arch_thread_switch(&thread->context, keep_mmu);
+
     return true;
 }
 

@@ -9,24 +9,25 @@
 
 .section .text
 
-/* void arch_thread_switch(struct x86_thread *) */
+/* void arch_thread_switch(struct x86_thread *, bool keep_mmu) */
 .type arch_thread_switch, @function
 arch_thread_switch:
 
     // retrieve first argument
     mov 4(%esp), %edi
+    mov 8(%esp), %esi
 
-    // Save current thread
     // Save callee registers to be popped when re-entering this thread
     pushl %edi
     pushl %esi
     pushl %ebx
     pushl %ebp
-    // Save current state into current thread: cr3, esp
-    movl (current), %esi
+
+    // Save thread state into current: cr3, esp
+    movl (current), %ecx
     movl %cr3, %ebx
-    movl %ebx, 0x0(%esi)
-    movl %esp, 0xc(%esi)
+    movl %ebx, 0x0(%ecx)
+    movl %esp, 0xc(%ecx)
 
     // Load next thread
     movl %edi, current
@@ -34,10 +35,12 @@ arch_thread_switch:
     movl 0x0(%edi), %eax    // eax=cr3
     movl 0x4(%edi), %edi    // edi=esp0
     // write kernel stack into TSS.ESP0
-    leal (kernel_tss), %esi
-    movl %edi, 0x4(%esi)
+    leal (kernel_tss), %ecx
+    movl %edi, 0x4(%ecx)
     // Load page directory only if necessary
-    cmpl %eax, %ebx
+    test %esi, %esi // if (keep_mmu == true)
+    jne 1f
+    cmpl %eax, %ebx // if (old_mmu == new_mmu)
     je 1f
     movl %eax, %cr3
 1:

@@ -97,7 +97,7 @@ interrupts_install_static_handler(unsigned int nr, struct interrupt_handler *);
  */
 interrupt_handler_func_t interrupts_get_handler(unsigned int irq, void **);
 
-error_t interrupt_handle(unsigned int nr);
+error_t interrupt_handle(struct interrupt_frame *, unsigned int nr);
 const char *interrupt_name(unsigned int nr);
 
 /** Compute the interrupt's handler's name */
@@ -143,6 +143,14 @@ static inline void interrupts_restore(bool enabled)
 {
     if (enabled)
         interrupts_enable();
+}
+
+/** @return True if the interrupt frame indicates that the interrupt
+ *          was raised while executing user code.
+ */
+static inline bool interrupt_frame_is_user(const struct interrupt_frame *frame)
+{
+    return arch_interrupt_frame_is_user(frame);
 }
 
 typedef struct {

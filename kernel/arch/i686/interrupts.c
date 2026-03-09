@@ -87,7 +87,7 @@ void arch_interrupt_handle(interrupt_frame frame)
     thread_set_interrupt_frame(current, &frame);
     thread_set_stack_pointer(current, (void *)frame.state.esp);
 
-    err = interrupt_handle(frame.nr);
+    err = interrupt_handle(&frame, frame.nr);
     if (err == E_NOENT) {
         log_err("Unsupported interrupt: %s (" FMT32 ")",
                 interrupt_name(frame.nr), frame.nr);
