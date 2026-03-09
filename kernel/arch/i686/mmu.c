@@ -767,10 +767,12 @@ static INTERRUPT_HANDLER_FUNCTION(page_fault)
 {
     // The CR2 register holds the virtual address which caused the Page Fault
     void *faulty_address = (void *)read_cr2();
-    interrupt_frame *frame = data;
+    interrupt_frame *frame = thread_get_interrupt_frame(current);
     page_fault_error error = *(page_fault_error *)&frame->error;
     bool is_cow = error.present && error.write;
     struct address_space *as;
+
+    UNUSED(data);
 
     if (!error.present || is_cow) {
         as = IS_KERNEL_ADDRESS(faulty_address) ? &kernel_address_space

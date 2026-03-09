@@ -5,6 +5,7 @@
 #include <kernel/init.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
+#include <kernel/process.h>
 #include <kernel/syscalls.h>
 #include <kernel/timer.h>
 
@@ -64,12 +65,16 @@ static const struct syscall syscalls[SYSCALL_COUNT] = {
                                                 (void *)_arg3))
 
 /** Perform a syscall */
-static u32 syscall(void *frame)
+static u32 syscall(void *data)
 {
     const struct syscall *syscall;
+    struct interrupt_frame *frame;
     syscall_args_t args;
     u32 ret;
 
+    UNUSED(data);
+
+    frame = thread_get_interrupt_frame(current);
     arch_syscall_get_args(frame, &args);
 
     if (args.nr >= SYSCALL_COUNT || !syscalls[args.nr].handler) {

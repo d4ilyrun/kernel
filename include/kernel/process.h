@@ -209,6 +209,13 @@ thread_set_interrupt_frame(thread_t *thread,
     arch_thread_set_interrupt_frame(&thread->context, frame);
 }
 
+/** Get a thread's current interrupt frame. */
+static inline struct interrupt_frame *
+thread_get_interrupt_frame(struct thread *thread)
+{
+    return arch_thread_get_interrupt_frame(&thread->context);
+}
+
 /** Set the thread's kernel stack bottom address */
 static inline void thread_set_kernel_stack(struct thread *thread, void *stack)
 {

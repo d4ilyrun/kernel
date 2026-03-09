@@ -79,7 +79,13 @@ static inline void
 arch_thread_set_interrupt_frame(thread_context_t *ctx,
                                 const struct interrupt_frame *frame)
 {
-    ctx->frame = *frame;;
+    ctx->frame = *frame;
+}
+
+static inline struct interrupt_frame *
+arch_thread_get_interrupt_frame(thread_context_t *ctx)
+{
+    return &ctx->frame;
 }
 
 static inline void
