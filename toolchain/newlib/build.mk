@@ -1,22 +1,23 @@
 TOOLCHAIN_NEWLIB_DIR := $(TOOLCHAIN_DIR)/newlib
 
-NEWLIB_VERSION		:= 4.5.0.20241231
-NEWLIB_TAR_URL		:= ftp://sourceware.org/pub/newlib/newlib-$(NEWLIB_VERSION).tar.gz
-NEWLIB_DIR			:= $(TOOLCHAIN_NEWLIB_DIR)/newlib-$(NEWLIB_VERSION)
-NEWLIB_TAR			:= $(NEWLIB_DIR).tar.gz
-NEWLIB_BUILD_DIR	:= $(BUILD_DIR)/newlib-$(NEWLIB_VERSION)
+NEWLIB_VERSION			:= 4.5.0.20241231
+NEWLIB_VERSION_SHORT	:= 4.5.0
+NEWLIB_TAR_URL			:= ftp://sourceware.org/pub/newlib/newlib-$(NEWLIB_VERSION).tar.gz
+NEWLIB_TAR				:= $(TOOLCHAIN_NEWLIB_DIR)/newlib-$(NEWLIB_VERSION).tar.gz
+NEWLIB_BUILD_DIR		:= $(BUILD_DIR)/newlib/$(TARGET)-$(NEWLIB_VERSION_SHORT)
 
 newlib/tar: $(NEWLIB_TAR)
 $(NEWLIB_TAR):
 	$(call COMPILE,WGET,$@)
 	$(SILENT)$(WGET) $(NEWLIB_TAR_URL) -O $@
 
-newlib/prepare: $(NEWLIB_DIR)
-$(NEWLIB_DIR): $(NEWLIB_TAR)
+newlib/prepare: $(NEWLIB_BUILD_DIR)
+$(NEWLIB_BUILD_DIR): $(NEWLIB_TAR)
 	$(SILENT)$(call CHECK_VERSION,autoconf,2.69)
 	$(SILENT)$(call CHECK_VERSION,automake,1.15.1)
 	$(call COMPILE,EXTRACT,$@)
-	$(SILENT)tar xf $(NEWLIB_TAR) -C $(dir $@)
+	$(SILENT)tar xf $(NEWLIB_TAR) -C $(BUILD_DIR)/newlib
+	$(SILENT)mv $(BUILD_DIR)/newlib/newlib-$(NEWLIB_VERSION) $@
 	$(call LOG,PATCH,$@)
 	$(SILENT)cp -rf $(TOOLCHAIN_NEWLIB_DIR)/port/* $@
 	$(call LOG,RECONF,$@)
@@ -24,11 +25,11 @@ $(NEWLIB_DIR): $(NEWLIB_TAR)
 	$(SILENT)cp -rf $(TOOLCHAIN_NEWLIB_DIR)/port/* $@
 
 newlib/configure: $(NEWLIB_BUILD_DIR)/config.status
-$(NEWLIB_BUILD_DIR)/config.status: $(NEWLIB_DIR)
+$(NEWLIB_BUILD_DIR)/config.status: $(NEWLIB_BUILD_DIR)
 	$(call COMPILE,CONFIGURE,$@)
 	$(SILENT)\
 		cd $(dir $@) && \
-		$(PWD)/$(NEWLIB_DIR)/configure \
+		$(PWD)/$(NEWLIB_BUILD_DIR)/configure \
 			--host="$(HOST)" \
 			--target="$(TARGET)" \
 			--prefix="$(SYSROOT)/usr" \
@@ -47,4 +48,3 @@ newlib: newlib/configure
 .PHONY: libc newlib newlib/configure newlib/prepare newlib/tar
 
 TO_CLEAN += $(NEWLIB_BUILD_DIR)
-TO_DISTCLEAN += $(NEWLIB_DIR)
