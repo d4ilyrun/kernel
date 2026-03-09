@@ -1,10 +1,10 @@
-extern default_interrupt_handler
+extern arch_interrupt_handle
 
 section .text
 __common_handler:
     pushad
     cld
-    call default_interrupt_handler
+    call arch_interrupt_handle
     popad
     add esp, 8
     iret

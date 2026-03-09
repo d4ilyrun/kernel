@@ -27,6 +27,7 @@ KERNEL_SRCS := 	\
 	sys/pci.c \
 	sys/signal.c \
 	sys/timer.c \
+	sys/interrupts.c \
 	misc/printk.c \
 	misc/logger.c \
 	misc/console.c \

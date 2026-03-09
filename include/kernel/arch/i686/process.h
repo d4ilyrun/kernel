@@ -11,9 +11,8 @@
  * @{
  */
 
-#include <kernel/types.h>
 #include <kernel/interrupts.h>
-
+#include <kernel/types.h>
 
 /**
  * Contains all the system-level information about a task

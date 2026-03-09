@@ -1,43 +1,28 @@
 #define LOG_DOMAIN "interrupt"
 
-#include <kernel/devices/uart.h>
-#include <kernel/init.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
-#include <kernel/printk.h>
 #include <kernel/process.h>
 #include <kernel/syscalls.h>
 
-#include <kernel/arch/i686/devices/pic.h>
 #include <kernel/arch/i686/gdt.h>
 
 #include <dailyrun/arch/i686/syscalls.h>
 
-#include <utils/bits.h>
-#include <utils/compiler.h>
-
-#include <string.h>
+#define IDT_LENGTH 256
+#define IDT_SIZE (IDT_LENGTH * sizeof(idt_descriptor))
+#define IDT_BASE_ADDRESS 0x00000000UL
 
 static volatile idt_descriptor idt[IDT_LENGTH];
+static struct interrupt_vector idt_interrupt_vectors[IDT_LENGTH];
 
-// Global addressable interrupt handler stub tables
-extern interrupt_handler interrupt_handler_stubs[IDT_LENGTH];
-
-typedef struct {
-    interrupt_handler handler; // The interrupt handler
-    void *data;                // Data passed as an argument to the handler
-} interrupt_handler_callback;
+/* Global addressable interrupt handler stub tables (see interrupts.asm) */
+extern interrupt_handler_func_t interrupt_handler_stubs[IDT_LENGTH];
 
 /*
- * Custom ISRs, defined at runtime and called by __stub_interrupt_handler
- * using the interrupt number (if set).
- *
- * These are set using \c interrupts_set_handler
+ * Protected mode Interrupts and Exceptions (Table 6-1, Intel vol.3)
  */
-static interrupt_handler_callback custom_interrupt_handlers[IDT_LENGTH];
-
-static const char *interrupt_names[] = {
-    // Protected mode Interrupts and Exceptions (Table 6-1, Intel vol.3)
+static const char *idt_interrupt_names[IDT_LENGTH] = {
     "Division By Zero",
     "Debug",
     "Non Maskable Interrupt",
@@ -92,141 +77,89 @@ static const char *interrupt_names[] = {
 // IDT entry flag: gate is present
 #define IDT_PRESENT BIT(7)
 
-const char *interrupts_to_str(u8 nr)
+/*
+ * Entrypoint for hardware all hardware IRQs raised by the IDT.
+ */
+void arch_interrupt_handle(interrupt_frame frame)
 {
-    static const char *unknown = "Unnamed Interrupt";
+    error_t err;
 
-    if (nr < (sizeof interrupt_names / sizeof interrupt_names[0]))
-        return interrupt_names[nr];
+    thread_set_interrupt_frame(current, &frame);
+    thread_set_stack_pointer(current, (void *)frame.state.esp);
 
-    return unknown;
+    err = interrupt_handle(frame.nr);
+    if (err == E_NOENT) {
+        log_err("Unsupported interrupt: %s (" FMT32 ")",
+                interrupt_name(frame.nr), frame.nr);
+        log_dbg("Thread: '%s' (TID=%d)", current->process->name, current->tid);
+        log_dbg("ERROR=" FMT32,                 frame.error);
+        log_dbg("FLAGS=" FMT32,                 frame.state.flags);
+        log_dbg("CS="    FMT32  ", SS="  FMT32, frame.state.cs, frame.state.ss);
+        log_dbg("EIP="   FMT32  ", ESP=" FMT32, frame.state.eip, frame.state.esp);
+    }
 }
 
-void interrupts_set_handler(u8 nr, interrupt_handler handler, void *data)
-{
-    log_info("Setting custom handler for '%s' (" FMT8 ")",
-             interrupts_to_str(nr), nr);
-    custom_interrupt_handlers[nr].handler = handler;
-    custom_interrupt_handlers[nr].data = data;
-}
-
-interrupt_handler interrupts_get_handler(u8 irq, void **pdata)
-{
-    if (pdata != NULL)
-        *pdata = custom_interrupt_handlers[irq].data;
-    return custom_interrupt_handlers[irq].handler;
-}
-
-static ALWAYS_INLINE idt_descriptor new_idt_entry(idt_gate_type type,
-                                                  u32 address)
+/*
+ *
+ */
+static void configure_idt_entry(volatile idt_descriptor *desc,
+                                idt_gate_type type, void *address)
 {
     if (type == TASK_GATE) {
-        return (idt_descriptor){
+        *desc = (idt_descriptor){
             .offset_low = 0,
             // segment selector: TSS from GDT, level=0
             .segment.index = GDT_ENTRY_TSS,
             .access = TASK_GATE | IDT_PRESENT,
             .offset_high = 0,
         };
+    } else {
+        *desc = (idt_descriptor){
+            .offset_low = (u32)address & 0xFFFF,
+            // segment selector: kernel code from GDT, level=0
+            .segment.index = GDT_ENTRY_KERNEL_CODE,
+            .access = type | IDT_PRESENT,
+            .offset_high = (u32)address >> 16,
+        };
     }
+}
 
-    return (idt_descriptor){
-        .offset_low = address & 0xFFFF,
-        // segment selector: kernel code from GDT, level=0
-        .segment.index = GDT_ENTRY_KERNEL_CODE,
-        .access = type | IDT_PRESENT,
-        .offset_high = address >> 16,
+/*
+ * Called by interrupts_init() in sys/interrupts.c.
+ *
+ * Initialize the system's root interrupt chip.
+ */
+error_t arch_interrupts_init(struct interrupt_chip *root_chip)
+{
+    static volatile idtr idtr = {
+        .size = IDT_SIZE - 1,
+        .offset = (size_t)idt,
     };
-}
 
-static inline void
-interrupts_set_idt(u16 nr, idt_gate_type type, interrupt_handler handler)
-{
-    if (nr >= IDT_LENGTH) {
-        log_err("interrupts_set: invalid index: " FMT16, nr);
-        return;
-    }
+    root_chip->interrupts = idt_interrupt_vectors;
+    root_chip->interrupt_count = IDT_LENGTH;
 
-    idt_descriptor entry = new_idt_entry(type, (u32)handler);
-
-    idt[nr] = entry; // NOLINT
-}
-
-void idt_log(void)
-{
-    idtr idtr;
-    ASM("sidt %0" : "=m"(idtr) : : "memory");
-    log_info("IDTR = { size: " FMT16 ", offset:" FMT32 " }",
-             idtr.size, idtr.offset);
-
-    log_info("Interrupt descriptors");
-
-    for (size_t i = 0; i < IDT_LENGTH; ++i) {
-        idt_descriptor interrupt = idt[i];
-        if (interrupt.segment.raw == 0)
-            continue; // Uninitialized
-
-        printk("%ld = { offset: " FMT32 ", segment: " FMT16
-                         ", access: " FMT8 " } <%s>\n",
-               i, interrupt.offset_low | (interrupt.offset_high << 16),
-               interrupt.segment.raw, interrupt.access, interrupts_to_str(i));
-    }
-}
-
-void default_interrupt_handler(interrupt_frame frame)
-{
-    interrupt_handler_callback *handler = &custom_interrupt_handlers[frame.nr];
-
-    // Call the custom handler, defined inside custom_interrupt_handlers,
-    // if it exists. Else, we consider this interrupt as 'unsupported'.
-
-    if (handler->handler == NULL) {
-        log_err("Unsupported interrupt: %s (" FMT32 ")",
-                interrupts_to_str(frame.nr), frame.nr);
-        log_dbg("Thread: '%s' (TID=%d)", current->process->name, current->tid);
-        log_dbg("ERROR=" FMT32, frame.error);
-        log_dbg("FLAGS=" FMT32, frame.state.flags);
-        log_dbg("CS=" FMT32 ", SS=" FMT32, frame.state.cs,
-                frame.state.ss);
-        log_dbg("EIP=" FMT32 ", ESP=" FMT32, frame.state.eip,
-                frame.state.esp);
-        return;
-    }
-
-    thread_set_interrupt_frame(current, &frame);
-    thread_set_stack_pointer(current, (void *)frame.state.esp);
-
-    // Pass the frame as argument if no data was given
-    // This is done to not have to differiente CPU exceptions from custom IRQs
-    handler->handler(handler->data ? handler->data : &frame);
-}
-
-static error_t interrupts_init(void)
-{
-    interrupts_disable();
-
-    // Load up the IDTR
-    static volatile idtr idtr = {.size = IDT_SIZE - 1, .offset = (size_t)idt};
-    ASM("lidt (%0)" : : "m"(idtr) : "memory");
-
-    // Empty descriptor slots in the IDT should have the present flag set to 0.
-    // Fill the whole IDT with null descriptors
-    memset((void *)idt, 0, IDT_SIZE);
-
-    // Empty the list of custom ISRs
-    memset(custom_interrupt_handlers, 0, sizeof(custom_interrupt_handlers));
-
-    log_info("Setting up interrupt handler stubs");
+    /*
+     * Install every stub interrupt handlers (see interrupts.asm) and remove
+     * every the custom interrupt vector.
+     */
     for (int i = 0; i < IDT_LENGTH; ++i) {
-        interrupts_set_idt(i, INTERRUPT_GATE_32B, interrupt_handler_stubs[i]);
+        idt_interrupt_vectors[i].data = NULL;
+        idt_interrupt_vectors[i].handler = NULL;
+        idt_interrupt_vectors[i].name = idt_interrupt_names[i];
+        configure_idt_entry(&idt[i], INTERRUPT_GATE_32B,
+                            interrupt_handler_stubs[i]);
     }
 
-    // Mark syscall interrupt as callable from userland
+    /*
+     * Make syscall interrupt callable from userland.
+     */
     idt[SYSCALL_INTERRUPT_NR].access |= (3 << 5);
 
-    log_dbg("Finished setting up the IDT");
+    /*
+     * IDT is fully configured, load it.
+     */
+    ASM("lidt (%0)" : : "m"(idtr) : "memory");
 
     return E_SUCCESS;
 }
-
-DECLARE_INITCALL(INIT_BOOTSTRAP, interrupts_init);

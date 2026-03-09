@@ -336,7 +336,7 @@ void uacpi_kernel_vlog(uacpi_log_level level, const uacpi_char *format,
 
 typedef struct uacpi_irq_handle {
     u8 irq;
-    interrupt_handler handler;
+    interrupt_handler_func_t handler;
     void *data;
 } uacpi_irq_handle;
 
@@ -346,8 +346,7 @@ uacpi_kernel_install_interrupt_handler(uacpi_u32 irq,
                                        uacpi_handle ctx,
                                        uacpi_handle *out_irq_handle)
 {
-    if (irq > IDT_LENGTH)
-        return UACPI_STATUS_INVALID_ARGUMENT;
+    error_t err;
 
     uacpi_irq_handle *handle = kmalloc(sizeof(*handle), KMALLOC_KERNEL);
     if (handle == NULL)
@@ -355,9 +354,14 @@ uacpi_kernel_install_interrupt_handler(uacpi_u32 irq,
 
     handle->irq = irq;
     handle->handler = interrupts_get_handler(irq, &handle->data);
-
-    interrupts_set_handler(irq, handler, ctx);
     *out_irq_handle = handle;
+
+    err = interrupts_set_handler(irq, handler, ctx);
+    if (err) {
+        kfree(handle);
+        *out_irq_handle = NULL;
+        return UACPI_STATUS_INVALID_ARGUMENT;
+    }
 
     return UACPI_STATUS_OK;
 }

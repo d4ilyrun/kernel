@@ -45,10 +45,6 @@
 
 #include <utils/compiler.h>
 
-#define IDT_LENGTH 256
-#define IDT_SIZE (IDT_LENGTH * sizeof(idt_descriptor))
-#define IDT_BASE_ADDRESS 0x00000000UL
-
 /**
  * @enum x86_exceptions
  * @brief List of all x86 CPU exceptions
@@ -147,9 +143,6 @@ struct interrupt_frame {
     } state;
 };
 
-/** Print the content of the IDT and IDTR */
-void idt_log(void);
-
 static ALWAYS_INLINE void arch_interrupts_disable(void)
 {
     ASM("cli");
@@ -164,6 +157,13 @@ static ALWAYS_INLINE bool arch_interrupts_test_and_disable(void)
 {
     u32 eflags;
     ASM("pushf; cli; popl %0" : "=r"(eflags)::"memory");
+    return boolean(eflags & 0x200); // flag: IF
+}
+
+static ALWAYS_INLINE bool arch_interrupts_enabled(void)
+{
+    u32 eflags;
+    ASM("pushf; popl %0" : "=r"(eflags)::"memory");
     return boolean(eflags & 0x200); // flag: IF
 }
 

@@ -49,7 +49,7 @@ struct pci_device {
     pci_device_id_t id;  ///< The PCI device's vendor/device ID
 
     u8 interrupt_line; ///< The PIC interrupt number used by the PCI device
-    interrupt_handler interrupt_handler; ///< The interrupt handler routine
+    interrupt_handler_func_t interrupt_handler; ///< The interrupt handler routine
     void *interrupt_data; /// Data passed to the interrupt routine
 
 #define PCI_BAR_MAX_COUNT 6
@@ -85,7 +85,7 @@ error_t pci_device_register(struct pci_device *);
  *  @param data The data passed to the interrupt handler
  */
 error_t pci_device_register_interrupt_handler(struct pci_device *,
-                                              interrupt_handler, void *data);
+                                              interrupt_handler_func_t, void *data);
 
 /** Enable/Disable a device's response to I/O space accesses */
 void pci_device_enable_io(struct pci_device *, bool);

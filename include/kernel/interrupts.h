@@ -25,6 +25,7 @@
 #include <kernel/arch/i686/interrupts.h>
 #endif
 
+#include <kernel/error.h>
 #include <kernel/types.h>
 
 /**
@@ -35,18 +36,27 @@
 typedef struct interrupt_frame interrupt_frame;
 
 /** Function pointer to an interrupt handler */
-typedef u32 (*interrupt_handler)(void *);
+typedef u32 (*interrupt_handler_func_t)(void *);
+
+/** A single hardware IRQ vector. */
+struct interrupt_vector {
+    interrupt_handler_func_t handler;
+    void *data;
+    const char *name;
+};
+
+struct interrupt_chip {
+    struct interrupt_vector *interrupts; /* Array of struct interrupt_vector */
+    size_t                  interrupt_count;
+};
 
 /** Dynamically set an interrupt handler
  *
  *  @param irq The IRQ number to associate the handler with
  *  @param handler The handler function called when the interrupt occurs
  *  @param data Data passed to the interrupt handler
- *
- *  @info If \c data is NULL, the kernel will pass a pointer to the interrupt
- *        frame (\ref interrup_frame) when calling the handler instead
  */
-void interrupts_set_handler(u8 irq, interrupt_handler, void *);
+error_t interrupts_set_handler(unsigned int irq, interrupt_handler_func_t, void *);
 
 /** Retreive the current handler for a given IRQ
  *
@@ -56,16 +66,16 @@ void interrupts_set_handler(u8 irq, interrupt_handler, void *);
  *
  * @return The current handler function fo the IRQ
  */
-interrupt_handler interrupts_get_handler(u8 irq, void **);
+interrupt_handler_func_t interrupts_get_handler(unsigned int irq, void **);
 
 /** Return wether a custom interrupt has been installed for the given vector */
-static inline bool interrupts_has_been_installed(u8 irq)
+static inline bool interrupts_has_been_installed(unsigned int irq)
 {
     return interrupts_get_handler(irq, NULL) != NULL;
 }
 
-/** Returns the name of an interrupt from its vector number */
-const char *interrupts_to_str(u8 nr);
+error_t interrupt_handle(unsigned int nr);
+const char *interrupt_name(unsigned int nr);
 
 /** Compute the interrupt's handler's name */
 #define INTERRUPT_HANDLER(_interrupt) _interrupt##_handler
@@ -95,6 +105,11 @@ static inline void interrupts_enable(void)
 static inline bool interrupts_test_and_disable(void)
 {
     return arch_interrupts_test_and_disable();
+}
+
+static inline bool interrupts_enabled(void)
+{
+    return arch_interrupts_enabled();
 }
 
 /** Restore the previous interrupt state.

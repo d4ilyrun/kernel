@@ -227,7 +227,7 @@ static u32 __pci_device_handle_interrupt(void *device)
 }
 
 error_t pci_device_register_interrupt_handler(struct pci_device *pdev,
-                                              interrupt_handler handler,
+                                              interrupt_handler_func_t handler,
                                               void *data)
 {
     uint8_t interrupt;
