@@ -175,6 +175,16 @@ compile_commands.json:
 	$(call ASSERT_EXE_EXISTS,bear)
 	$(SILENT)bear -- $(MAKE) -B all
 
+clangd:
+	$(SILENT)echo -e > .clangd "\
+	CompileFlags:\n\
+	  Add:\n\
+	    - --sysroot=$(SYSROOT)\n\
+	    - --target=$(TARGET)\n\
+	    - -isystem$(SYSROOT)/usr/lib/dailyrun/include\n\
+	    - -isystem$(SYSROOT)/usr/lib/include\
+"
+
 #
 # Build user directory
 #
