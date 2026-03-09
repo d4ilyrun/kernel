@@ -109,8 +109,17 @@ define newline
 
 endef
 
+# Make sure that a package exists on the build system (i.e. an executable)
+define CHECK_PACKAGE
+  if ! which $(1) > /dev/null ; then \
+    echo "error: $(1): package not found" >&2; \
+    exit 1; \
+  fi
+endef
+
 define CHECK_VERSION
-  if  ! $(1) --version | grep '$(2)' &> /dev/null; then \
+  $(call CHECK_PACKAGE,$(1)); \
+  if  ! $(1) --version | grep '$(2)' > /dev/null; then \
     echo "error: $(1): invalid version (expected $(2))" >&2; \
     exit 1; \
   fi
