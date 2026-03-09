@@ -33,20 +33,10 @@ typedef struct syscall_args {
     u32 arg1, arg2, arg3, arg4, arg5, arg6;
 } syscall_args_t;
 
-#define SYSCALL_NUMBER(name, vector, ...) CONCAT(SYS_, name) = vector,
-#define SYSCALL_FUNCTION(name, vector, argc, type, ret_type, ...) \
-    ret_type CONCAT(sys_, name)(__VA_ARGS__);
-
-/** The list of available syscall vectors.
- *  @enum syscall_nr
- */
-enum syscal_nr {
-    DEFINE_SYSCALLS(SYSCALL_NUMBER)
-    SYSCALL_COUNT
-};
-
 /* SYSCALLS HANDLER */
 
-DEFINE_SYSCALLS(SYSCALL_FUNCTION)
+#define SYSCALL_FUNCTION(name, vector, argc, type, ret_type, ...) \
+    ret_type CONCAT(sys_, name)(__VA_ARGS__);
+DEFINE_SYSCALLS(SYSCALL_FUNCTION);
 
 #endif /* KERNEL_SYSCALLS_H */

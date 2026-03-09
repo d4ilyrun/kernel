@@ -34,6 +34,15 @@
     F(getegid,				26,		0,		default,		gid_t,		void)                                                                        \
     F(kill,					27,		2,		default,		int,		pid_t, int)                                                                  \
 
+/*
+ * The list of available syscall vectors.
+ */
+enum syscall_nr {
+#define SYSCALL_NUMBER(name, vector, ...) SYS_##name = vector,
+    DEFINE_SYSCALLS(SYSCALL_NUMBER) SYSCALL_COUNT
+#undef SYSCALL_NUMBER
+};
+
 #endif /* _DAILYRUN_SYSCALLS_H */
 
 // vi: ft=c tabstop=4 noexpandtab
