@@ -145,11 +145,6 @@ typedef struct thread {
 
     /** Information relative to the current state of the thread */
     union {
-        /** For running threads only */
-        struct {
-            /** End of the currently running thread's timeslice */
-            clock_t preempt;
-        } running;
         /** For sleeping threads only */
         struct {
             clock_t wakeup; /*!< Time when it should wakeup (in ticks) */
@@ -160,7 +155,8 @@ typedef struct thread {
 
 /** @enum thread_flags */
 typedef enum thread_flags {
-    THREAD_KERNEL = BIT(0), ///< This thread runs in kernel mode
+    THREAD_KERNEL           = BIT(0), ///< This is a kernel thread
+    THREAD_RESCHED          = BIT(1), ///< Reschedule when exiting interrupt
 } process_flags_t;
 
 /***/

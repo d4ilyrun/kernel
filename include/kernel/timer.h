@@ -20,18 +20,15 @@
 #include <kernel/time.h>
 #include <kernel/types.h>
 
-/** The frequency used for the timer (in Hz) */
-#define HZ CLOCK_PER_SECOND
-
 /** @brief Compute the number of ticks in a given time frame @{ */
-#define SEC_TO_TICKS(_time) SEC((_time) * HZ)
+#define SEC_TO_TICKS(_time) SEC((_time) * TICKS_PER_SECOND)
 #define MS_TO_TICKS(_time) MS_TO_SEC(SEC_TO_TICKS(_time))
 #define US_TO_TICKS(_time) US_TO_SEC(SEC_TO_TICKS(_time))
 #define NS_TO_TICKS(_time) NS_TO_SEC(SEC_TO_TICKS(_time))
 /** @} */
 
 /** @brief Convert a number of ticks into a regular time unit @{ */
-#define TICKS_TO_SEC(_ticks) SEC((_ticks) / HZ)
+#define TICKS_TO_SEC(_ticks) SEC((_ticks) / TICKS_PER_SECOND)
 #define TICKS_TO_MS(_ticks) MS(TICKS_TO_SEC(_ticks))
 #define TICKS_TO_US(_ticks) US(TICKS_TO_SEC(_ticks))
 #define TICKS_TO_NS(_ticks) NS(TICKS_TO_SEC(_ticks))

@@ -8,8 +8,14 @@
 #ifndef KERNEL_TIME_H
 #define KERNEL_TIME_H
 
-/* The number of clock ticks in a second (1KHz). */
-#define CLOCK_PER_SECOND 1000
+/*
+ * The number of clock ticks in a second (100Hz, 1 tick = 100ms).
+ *
+ * This is also used as the maximum time a thread is allowed to run for
+ * before being rescheduled (thread will be forcefully rescheduled
+ * when a timer interrupt eventually occurs).
+ */
+#define TICKS_PER_SECOND 100
 
 /** @brief Used for conversions from seconds to another time unit @{ */
 #define SEC(_x) (_x)

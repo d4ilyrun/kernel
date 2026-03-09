@@ -783,6 +783,12 @@ static INTERRUPT_HANDLER_FUNCTION(page_fault)
 
     UNUSED(data);
 
+    /*
+     * Starting a new process can generate a lot of page faults. Avoid
+     * rescheduling for page faults to speed up process startup.
+     */
+    current->flags &= ~THREAD_RESCHED;
+
     if (!error.present || is_cow) {
         as = IS_KERNEL_ADDRESS(faulty_address) ? &kernel_address_space
                                                : current->process->as;

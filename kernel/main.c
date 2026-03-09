@@ -190,7 +190,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
      * IRQs and controllers are setup, we can safely enable interrupts.
      */
     interrupts_enable();
-    timer_start(HZ);
+    timer_start(TICKS_PER_SECOND);
 
     mbt_info = kmalloc(mbt_tmp.mbt.total_size, KMALLOC_KERNEL);
     memcpy(mbt_info, mbt_tmp.raw, mbt_tmp.mbt.total_size);

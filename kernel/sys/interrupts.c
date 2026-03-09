@@ -5,6 +5,7 @@
 #include <kernel/interrupts.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
+#include <kernel/sched.h>
 
 #include <libalgo/linked_list.h>
 
@@ -42,7 +43,22 @@ interrupt_chip_interrupt_handle(const struct interrupt_chip *chip,
  */
 error_t interrupt_handle(unsigned int nr)
 {
-    return interrupt_chip_interrupt_handle(&interrupt_root_chip, nr);
+    error_t err;
+
+    current->flags |= THREAD_RESCHED;
+
+    err = interrupt_chip_interrupt_handle(&interrupt_root_chip, nr);
+
+    /*
+     * Try to reschedule the current thread. This is the best time to do so.
+     *
+     * TODO: Make sure that a user thread does not return to userland with
+     *       preemption disabled.
+     */
+    if (current->flags & THREAD_RESCHED)
+        schedule();
+
+    return err;
 }
 
 /*

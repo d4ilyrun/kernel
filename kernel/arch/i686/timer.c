@@ -15,11 +15,11 @@
 
 #define LOG_DOMAIN "timer"
 
-#include <kernel/timer.h>
 #include <kernel/error.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/sched.h>
+#include <kernel/timer.h>
 
 #include <kernel/arch/i686/devices/pic.h>
 #include <kernel/arch/i686/devices/pit.h>
@@ -55,25 +55,11 @@ static INTERRUPT_HANDLER_FUNCTION(irq_timer)
 
     pic_eoi(IRQ_TIMER);
 
-    if (!scheduler_initialized)
-        return INTERRUPT_HANDLED;
-
-    // TODO: Use a separate and more modern timer for scheduler (LAPIC, HPET)
-    //
-    // We could be setting the next timer interrupt dynamically to match the
-    // next due task, but:
-    // * this is our main timekeeping source, and it would make it less accurate
-    // * the PIT is too slow to re-program dynamically like this
-
-    // TODO: Don't mingle IRQ and scheduling
-
     /*
      * Unblock waiting threads whose deadline has been reached, and preempt
      * the current thread if we reached the end of its timeslice.
      */
     sched_unblock_waiting_before(timer_ticks_counter);
-    if (current->running.preempt <= timer_ticks_counter)
-        schedule();
 
     return INTERRUPT_HANDLED;
 }

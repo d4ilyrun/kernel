@@ -14,9 +14,6 @@ bool scheduler_initialized = false;
 
 static DECLARE_LLIST(sleeping_tasks);
 
-/** The maximum timeslice given to a thread by the scheduler */
-#define SCHED_TIMESLICE MS_TO_TICKS(2ULL) // 2MS
-
 typedef struct scheduler {
 
     /** The runqueue
@@ -50,6 +47,9 @@ static void schedule_locked(bool preempt, bool reschedule)
 {
     node_t *next_node;
 
+    if (unlikely(!scheduler_initialized))
+        return;
+
     if (atomic_read(&scheduler.sync.preemption_level) > 1 && !preempt)
         return;
 
@@ -79,11 +79,8 @@ static void schedule_locked(bool preempt, bool reschedule)
         }
     }
 
-    next->running.preempt = timer_gettick() + SCHED_TIMESLICE;
-
-    if (!thread_switch(next)) {
+    if (!thread_switch(next))
         schedule_locked(preempt, false);
-    }
 }
 
 void schedule(void)
