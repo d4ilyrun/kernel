@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <sys/errno.h>
 #include <sys/fcntl.h>
+#include <sys/signal.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/times.h>
@@ -85,6 +86,24 @@ char **environ; /* pointer to array of char * strings that define the current
         return ret;                                                        \
     }
 
+#define DEFINE_SYSCALL_4_default(_ret_type, _syscall, _nr, _type1, _type2,    \
+                                 _type3, _type4, ...)                         \
+    _ret_type _##_syscall(_type1 arg1, _type2 arg2, _type3 arg3, _type4 arg4, \
+                          ##__VA_ARGS__)                                      \
+    {                                                                         \
+        _ret_type ret;                                                        \
+        __asm__ volatile("int $0x80"                                          \
+                         : "=a"(ret)                                          \
+                         : "a"(_nr), "b"(arg1), "c"(arg2), "d"(arg3),         \
+                           "S"(arg4)                                          \
+                         : "memory");                                         \
+        if (ret < 0) {                                                        \
+            errno = (int)ret;                                                 \
+            ret = (_ret_type) - 1;                                            \
+        }                                                                     \
+        return ret;                                                           \
+    }
+
 /*
  * Noreturn syscalls (exit)
  */
@@ -112,6 +131,32 @@ pid_t _wait(int *status)
 {
     return _waitpid(-1, status, 0);
 }
+
+/*
+ * signal() should not be used for anything else than setting the handler
+ * to SIGDFL or SIGIGN. For other values follow the BSD semantics: the signal
+ * is masked until delivered and handler (also the same as glibc).
+ */
+sig_sa_handler_t signal(int signo, sig_sa_handler_t handler)
+{
+    struct sigaction sigaction = {
+        .sa_handler = handler,
+        .sa_flags = 0,
+    };
+
+    sigemptyset(&sigaction.sa_mask);
+    sigaddset(&sigaction.sa_mask, signo);
+
+    if (_sigaction(signo, &sigaction, &sigaction) < 0)
+        return SIG_ERR;
+
+    return sigaction.sa_handler;
+}
+
+#define alias(f) __attribute__((__alias__(f)))
+
+int sigreturn(ucontext_t *ucontext) alias("_sigreturn");
+int sigsethandler(sig_sa_sigaction_t handler) alias("_sigsethandler");
 
 /*
  * Unimplemented syscalls
