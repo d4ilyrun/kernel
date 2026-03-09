@@ -19,11 +19,9 @@
 #ifndef KERNEL_SYSCALLS_H
 #define KERNEL_SYSCALLS_H
 
-#if ARCH == I686
-#include <kernel/arch/i686/syscalls.h>
-#endif
-
 #include <kernel/types.h>
+
+#include <dailyrun/syscalls.h>
 
 #include <utils/macro.h>
 
@@ -40,12 +38,6 @@ typedef struct syscall_args {
     ret_type CONCAT(sys_, name)(__VA_ARGS__);
 
 /** The list of available syscall vectors.
- *
- *  To make porting already existing programs easier, our syscall
- *  numbers are copied 1:1 from Linux.
- *
- *  @note Syscall numbers may differ depending on the architecture.
- *
  *  @enum syscall_nr
  */
 enum syscal_nr {

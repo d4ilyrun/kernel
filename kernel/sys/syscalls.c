@@ -63,13 +63,6 @@ static const struct syscall syscalls[SYSCALL_COUNT] = {
     (((u32(*)(void *, void *, void *))_syscall)((void *)_arg1, (void *)_arg2, \
                                                 (void *)_arg3))
 
-/**
- * Find a syscall's name when porting a program that was compiled for Linux.
- *
- * The syscall
- */
-extern const char *syscall_linux_syscalls[];
-
 /** Perform a syscall */
 static u32 syscall(void *frame)
 {
@@ -80,8 +73,7 @@ static u32 syscall(void *frame)
     arch_syscall_get_args(frame, &args);
 
     if (args.nr >= SYSCALL_COUNT || !syscalls[args.nr].handler) {
-        log_err("Unimplemented syscall: '%s' (%d)",
-                syscall_linux_syscalls[args.nr], args.nr);
+        log_err("Unimplemented syscall: %d", args.nr);
         return -E_NOT_IMPLEMENTED;
     }
 

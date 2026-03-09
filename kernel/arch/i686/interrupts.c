@@ -11,6 +11,8 @@
 #include <kernel/arch/i686/devices/pic.h>
 #include <kernel/arch/i686/gdt.h>
 
+#include <dailyrun/arch/i686/syscalls.h>
+
 #include <utils/bits.h>
 #include <utils/compiler.h>
 
