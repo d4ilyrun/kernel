@@ -1,6 +1,8 @@
 .config
 
 build
+*.err
+*.log
 
 # Dev environment stuff 
 .cache

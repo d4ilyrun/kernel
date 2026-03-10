@@ -42,6 +42,7 @@ SCRIPTS_DIR		:= scripts
 DOCS_DIR		:= docs
 TOOLCHAIN_DIR	:= toolchain
 ROOT_DIR		:= root
+APPS_DIR		:= apps
 
 DEBUG ?= y
 
@@ -95,12 +96,12 @@ endef
 ifeq ($(VERBOSE),y)
 define MAKE_RECURSIVE
   $(call LOG,MAKE,$(3)$(2))
-  $(SILENT)$(MAKE) -C $(1) $(2)
+  $(SILENT)$(MAKE) -C $(1) $(2) $(4)
 endef
 else
 define MAKE_RECURSIVE
   $(call LOG,MAKE,$(3)$(2))
-  $(SILENT)$(MAKE) -C $(1) $(2) $(call REDIRECT_OUTPUT,$(1)/make)
+  $(SILENT)$(MAKE) -C $(1) $(2) $(4) $(call REDIRECT_OUTPUT,$(1)/make)
 endef
 endif
 
@@ -129,6 +130,7 @@ all: kernel
 
 include $(TOOLCHAIN_DIR)/build.mk
 include $(LIB_DIR)/build.mk
+include $(APPS_DIR)/build.mk
 include $(KERNEL_DIR)/build.mk
 include $(DOCS_DIR)/build.mk
 
@@ -201,7 +203,7 @@ clean/%:
 	$(RM) -rf $(shell echo "$@" | sed "s/clean/$(BUILD_DIR)/")
 
 .PHONY: clean
-clean:
+clean: apps/clean
 	$(foreach to_clean,$(TO_CLEAN),$(RM) -rf $(to_clean) $(newline))
 
 #
