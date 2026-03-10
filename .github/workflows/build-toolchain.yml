@@ -1,10 +1,6 @@
 name: Build Toolchain
 
 on:
-  pull_request:
-  push:
-    branches:
-    - master
   workflow_call:
     outputs:
       cache-key-gcc:
