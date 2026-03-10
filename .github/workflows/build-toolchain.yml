@@ -1,0 +1,168 @@
+name: Build Toolchain
+
+on:
+  pull_request:
+  push:
+    branches:
+    - master
+  workflow_call:
+    outputs:
+      cache-key-gcc:
+        description: "GCC cache key"
+        value: ${{ jobs.cache-gcc.outputs.cache-key }}
+      cache-key-libc:
+        description: "Libc cache key"
+        value: ${{ jobs.cache-libc.outputs.cache-key }}
+
+jobs:
+
+  #
+  # Do not re-build toolchain if already cached
+  #
+
+  cache-gcc:
+    name: Find cached GCC version
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+      cache-hit: ${{ steps.cache-fetch.outputs.cache-hit }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate cache key
+        id: cache-key
+        run: |
+          echo "key=toolchain-${{ runner.os }}-${{ hashFiles('toolchain/gcc/**', 'toolchain/binutils/**') }}" >> $GITHUB_OUTPUT
+
+      - name: Find cached version
+        id: cache-fetch
+        uses: actions/cache@v4
+        with:
+          lookup-only: true
+          key: ${{ steps.cache-key.outputs.key }}
+          path: /opt/toolchains/i686-dailyrun
+
+  cache-libc:
+    name: Find cached Libc version
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+      cache-hit: ${{ steps.cache-fetch.outputs.cache-hit }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate cache key
+        id: cache-key
+        run: |
+          echo "key=libc-${{ runner.os }}-${{ hashFiles('toolchain/newlib/**', 'root/usr/lib/dailyrun/**') }}" >> $GITHUB_OUTPUT
+
+      - name: Find cached version
+        id: cache-fetch
+        uses: actions/cache@v4
+        with:
+          lookup-only: true
+          key: ${{ steps.cache-key.outputs.key }}
+          path: build/root
+
+  build-gcc:
+    name: "Build GCC"
+    needs: cache-gcc
+    if: needs.cache-gcc.outputs.cache-hit != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      #
+      # Downloading the archives takes time, so use a cache here also
+      #
+      - name: Restore GCC sources from cache
+        id: cache-gcc
+        uses: actions/cache@v4
+        env:
+          cache-name: gcc-sources
+          release: 12.3.0
+        with:
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ env.release }}
+          path: toolchain/gcc/gcc-${{ env.release }}.tar.gz
+
+      - name: Restore binutils/GDB sources from cache
+        id: cache-binutils
+        uses: actions/cache@v4
+        env:
+          cache-name: binutils-sources
+          release: 2.44
+        with:
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ env.release }}
+          path: toolchain/binutils/binutils-${{ env.release }}.tar.gz
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v17
+        with:
+          extra_nix_config: |
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure (i686)
+        run: |
+          cp defconfigs/config.i686 .config
+
+      - name: Build Toolchain (i686)
+        run: |
+          nix develop .#gcc --command make gcc TARGET=i686-dailyrun ARCH= CROSS_COMPILE= GCC_CONFIGURE_FLAGS="--with-newlib"
+
+      - name: Save toolchain to cache
+        uses: actions/cache/save@v4
+        with:
+          key: ${{ needs.cache-gcc.outputs.cache-key }}
+          path: /opt/toolchains/i686-dailyrun
+
+  build-libc:
+    name: "Build Libc"
+    needs: [ cache-gcc, cache-libc, build-gcc ]
+    if: |
+        always() &&
+        needs.cache-libc.outputs.cache-hit != 'true' &&
+        (needs.cache-gcc.outputs.cache-hit == 'true' || needs.build-gcc.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v17
+        with:
+          extra_nix_config: |
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure (i686)
+        run: |
+          cp defconfigs/config.i686 .config
+
+      - name: Install headers
+        run: make root
+
+      - name: Build libc
+        id: build-libc
+        continue-on-error: true
+        run: nix develop .#newlib --command make newlib VERBOSE=y
+
+      - name: Upload build logs on failure
+        if: steps.build-libc.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: libc-build-logs
+          path: |
+            build/newlib/i686-dailyrun-4.5.0/**/config.log
+            build/newlib/i686-dailyrun-4.5.0/configure.err
+            build/newlib/i686-dailyrun-4.5.0/configure.log
+            build/newlib/i686-dailyrun-4.5.0/make.err
+            build/newlib/i686-dailyrun-4.5.0/make.log
+
+      - name: Save libc to cache
+        if: steps.build-libc.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          key: ${{ needs.cache-libc.outputs.cache-key }}
+          path: build/root
+
+      - name: Exit if build failed
+        if: steps.build-libc.outcome == 'failure'
+        run: exit 1
