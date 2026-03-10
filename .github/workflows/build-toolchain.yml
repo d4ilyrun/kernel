@@ -95,11 +95,11 @@ jobs:
           key: ${{ runner.os }}-${{ env.cache-name }}-${{ env.release }}
           path: toolchain/binutils/binutils-${{ env.release }}.tar.gz
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v17
-        with:
-          extra_nix_config: |
-            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+      - name: Install dependencies
+        run: |
+          sudo apt install build-essential pkg-config automake autoconf autoconf-archive autogen
+          sudo apt install libisl-dev libgmp-dev libmpfr-dev libmpc-dev
+          sudo apt install flex bison
 
       - name: Configure (i686)
         run: |
@@ -107,7 +107,7 @@ jobs:
 
       - name: Build Toolchain (i686)
         run: |
-          nix develop .#gcc --command make gcc TARGET=i686-dailyrun ARCH= CROSS_COMPILE= GCC_CONFIGURE_FLAGS="--with-newlib"
+          make gcc TARGET=i686-dailyrun ARCH= CROSS_COMPILE= GCC_CONFIGURE_FLAGS="--with-newlib"
 
       - name: Save toolchain to cache
         uses: actions/cache/save@v4
@@ -126,11 +126,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v17
+      - name: Install toolchain
+        uses: actions/cache@v4
         with:
-          extra_nix_config: |
-            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+          key: ${{ needs.cache-gcc.outputs.cache-key }}
+          path: /opt/toolchains/i686-dailyrun
+
+      - name: Install dependencies
+        run: |
+          sudo apt install build-essential pkg-config
+          sudo apt install libisl-dev libgmp-dev libmpfr-dev libmpc-dev
+
+          # Install automake 1.15.1 (specific version required by newlib)
+          cd /tmp
+          wget https://ftp.gnu.org/gnu/automake/automake-1.15.1.tar.gz
+          tar -xzf automake-1.15.1.tar.gz
+          cd automake-1.15.1
+          ./configure --prefix=/usr/local
+          make
+          sudo make install
+
+          # Install autoconf 2.69 (specific version required by newlib)
+          cd /tmp
+          wget https://ftp.gnu.org/gnu/autoconf/autoconf-2.69.tar.gz
+          tar -xzf autoconf-2.69.tar.gz
+          cd autoconf-2.69
+          ./configure --prefix=/usr/local
+          make
+          sudo make install
 
       - name: Configure (i686)
         run: |
@@ -142,7 +165,8 @@ jobs:
       - name: Build libc
         id: build-libc
         continue-on-error: true
-        run: nix develop .#newlib --command make newlib VERBOSE=y
+        run: |
+          make newlib
 
       - name: Upload build logs on failure
         if: steps.build-libc.outcome == 'failure'
