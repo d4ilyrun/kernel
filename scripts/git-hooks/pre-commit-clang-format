@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+#
+# pre-commit hook: run clang-format only on changed lines
+#
+#
+set -euo pipefail
+
+CLANG_FORMAT="${CLANG_FORMAT:-clang-format}"
+file="$1"
+
+command -v "$CLANG_FORMAT" &>/dev/null || { echo "clang-format not found" >&2; exit 1; }
+
+mapfile -t ranges < <(
+  git diff --cached --unified=0 -- "$file" \
+    | awk '/^@@/ {
+        match($0, /\+([0-9]+)(,([0-9]+))?/, a)
+        start = a[1]+0; count = (a[3]!="") ? a[3]+0 : 1
+        if (count > 0) print start " " start+count-1
+      }'
+)
+
+[[ ${#ranges[@]} -eq 0 ]] && exit 0
+
+exit_code=0
+
+for range in "${ranges[@]}"; do
+  start="${range% *}"
+  end="${range#* }"
+
+  "$CLANG_FORMAT" -i "--lines=${start}:${end}" "$file"
+  if git diff -U0 -- "$file" | awk -v start="$start" -v end="$end" '
+    /^@@/ {
+      match($0, /\+([0-9]+)(,([0-9]+))?/, a)
+      l = a[1]+0; count = (a[3]!="") ? a[3]+0 : 1
+      if (l <= end && l+count-1 >= start) found=1
+    }
+    END { exit !found }
+  '; then
+    echo "${file}: lines ${start} to ${end} formatted incorrectly" >&2
+    exit_code=1
+  fi
+done
+
+exit $exit_code
