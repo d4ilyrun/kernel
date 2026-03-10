@@ -1,0 +1,55 @@
+name: Build Kernel
+
+on:
+  pull_request:
+  push:
+    branches:
+    - master
+
+jobs:
+  toolchain:
+    uses: ./.github/workflows/build-toolchain.yml
+
+  build:
+    name: Build kernel
+    runs-on: ubuntu-latest
+    needs: toolchain
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install toolchain
+        uses: actions/cache@v4
+        with:
+          key: ${{ needs.toolchain.outputs.cache-key-gcc }}
+          path: /opt/toolchains/i686-dailyrun
+
+      - name: Install libc
+        uses: actions/cache@v4
+        with:
+          key: ${{ needs.toolchain.outputs.cache-key-libc }}
+          path: build/root
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v17
+        with:
+          extra_nix_config: |
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure (i686)
+        run: |
+          cp defconfigs/config.i686 .config
+
+      - name: Build Kernel
+        run: |
+          nix develop --command make kernel
+
+      - name: Build initramfs
+        run: |
+          mkdir -p dev
+          tar cvf initramfs.tar dev
+
+      - name: Build ISO
+        run: |
+          nix develop --command make iso
