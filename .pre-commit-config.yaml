@@ -1,4 +1,4 @@
-default_stages: [ commit, prepare-commit-msg ]
+default_stages: [ pre-commit, prepare-commit-msg ]
 
 repos:
   - repo: "https://github.com/pre-commit/pre-commit-hooks"
@@ -10,7 +10,7 @@ repos:
         exclude: docs/specs/.*\.pdf
       - id: check-shebang-scripts-are-executable
       - id: check-merge-conflict
-        stages: [ merge-commit ]
+        stages: [ pre-merge-commit ]
 
   - repo: "https://github.com/d4ilyrun/pre-commit-hooks"
     rev: "v1.0.6"
