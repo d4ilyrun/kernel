@@ -114,7 +114,7 @@ struct process {
     sig_sa_sigaction_t  sig_handler; /* stub handler set by sigsethandler(). */
 
     thread_state_t state;
-    uint8_t exit_status; /** Transmitted to the parent process during wait() */
+    uint16_t exit_status; /** Transmitted to the parent process during wait() */
 
     struct user_creds *creds; /** Process credentials. */
 
@@ -322,7 +322,7 @@ extern struct process *init_process;
 void process_init_kernel_process(void);
 
 /** Kill a process. */
-void process_kill(struct process *process, int status);
+void process_kill(struct process *process, uint16_t status);
 
 /** Register an open file inside the process's open file descriptor table.
  *  @return The registered file's index inside the open file descriptor table.

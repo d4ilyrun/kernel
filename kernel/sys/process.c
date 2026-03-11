@@ -290,7 +290,7 @@ static struct process *process_new(void)
     return process;
 }
 
-void process_kill(struct process *process, int status)
+void process_kill(struct process *process, uint16_t status)
 {
     if (process == &kernel_process) {
         log_err("Trying to free the kernel process");
@@ -775,7 +775,7 @@ void thread_set_mmu(struct thread *thread, paddr_t mmu)
 
 void sys_exit(int status)
 {
-    process_kill(current->process, status);
+    process_kill(current->process, status << 8);
 }
 
 pid_t sys_getpid(void)
@@ -791,7 +791,6 @@ pid_t sys_waitpid(pid_t pid, int *stat_loc, int options)
     struct process *process = current->process;
     struct process *child;
     pid_t child_pid;
-    uint8_t signo = 0;
     bool exists;
     bool found;
 
@@ -836,8 +835,7 @@ pid_t sys_waitpid(pid_t pid, int *stat_loc, int options)
         schedule();
     }
 
-    if (stat_loc)
-        *stat_loc = (child->exit_status << 8) | signo;
+    *stat_loc = child->exit_status;
 
     child_pid = child->pid;
     process_collect_zombie(child);
