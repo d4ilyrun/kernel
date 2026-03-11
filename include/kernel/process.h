@@ -110,6 +110,12 @@ struct process {
 
     struct user_creds creds; /** Process credentials. */
 
+    /*
+     * Job control.
+     */
+    struct process_group    *group;
+    struct session          *session;
+
     spinlock_t lock;
 };
 
@@ -154,6 +160,27 @@ typedef struct thread {
     };
 
 } thread_t;
+
+/*
+ * Session
+ *
+ * A collection of process groups established for job control purposes.
+ */
+struct session {
+    LLIST_HEAD(groups);
+};
+
+/*
+ * Process group
+ */
+struct process_group {
+    LLIST_NODE(this);
+    LLIST_HEAD(members);
+    struct session *session;
+    pid_t           pgid;  /* Process group ID. */
+    size_t          links; /* Link count to other groups in the same session.
+                            * Used to detect orphaned process groups. */
+};
 
 /*
  * List of all processes and threads currently alive.

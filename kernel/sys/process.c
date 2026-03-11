@@ -854,3 +854,19 @@ struct thread *thread_find_by_tid(pid_t tid)
 
     return NULL;
 }
+
+/*
+ *
+ */
+int sys_setpgid(pid_t pid, pid_t pgid)
+{
+    return -E_NOT_IMPLEMENTED;
+}
+
+/*
+ *
+ */
+pid_t sys_getpgid(pid_t pid)
+{
+    return -E_NOT_IMPLEMENTED;
+}

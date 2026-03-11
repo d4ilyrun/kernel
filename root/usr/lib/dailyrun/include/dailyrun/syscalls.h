@@ -32,7 +32,11 @@
     F(setresgid,			24,		3,		default,		int,		gid_t, gid_t, gid_t)                                                         \
     F(getgid,				25,		0,		default,		gid_t,		void)                                                                        \
     F(getegid,				26,		0,		default,		gid_t,		void)                                                                        \
-    F(kill,					27,		2,		default,		int,		pid_t, int)                                                                  \
+    F(setsid,				27,		1,		default,		int,		pid_t, pid_t)                                                                \
+    F(getsid,				28,		1,		default,		pid_t,		pid_t)                                                                       \
+    F(setpgid,				29,		1,		default,		int,		pid_t, pid_t)                                                                \
+    F(getpgid,				30,		1,		default,		pid_t,		pid_t)                                                                       \
+    F(kill,					31,		2,		default,		int,		pid_t, int)                                                                  \
 
 /*
  * The list of available syscall vectors.
