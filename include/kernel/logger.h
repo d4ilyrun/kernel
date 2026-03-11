@@ -98,7 +98,6 @@ void stack_trace(void);
 /** @brief Change the maximum log level to display */
 void log_set_level(enum log_level);
 
-/** @brief Call the panic function with the appropriate parameters */
 #define PANIC(...)                   \
     {                                \
         do {                         \
@@ -106,6 +105,18 @@ void log_set_level(enum log_level);
             panic(esp, __VA_ARGS__); \
         } while (0);                 \
     }
+
+#define PANIC_ON(cond, ...)     \
+    {                           \
+        if (cond)               \
+            PANIC(__VA_ARGS__); \
+    }
+
+#define ASSERT(cond)                                                         \
+    do {                                                                     \
+        PANIC_ON(!(cond), "assertion failed: %s: line %d: %s", __FUNCTION__, \
+                 __LINE__, stringify(cond));                                 \
+    } while (0)
 
 #define WARN(_msg, ...)                              \
     do {                                             \
