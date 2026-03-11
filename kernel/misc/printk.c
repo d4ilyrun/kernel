@@ -466,6 +466,7 @@ static int printk_step_pointer(const char *c, int *written, va_list *parameters,
                           ctx, written);
         break;
     default:
+        ctx->flags.alternate_form = true;
         printk_utoa_base((unsigned int)va_arg(*parameters, void *), 16, ctx,
                          written);
         step_size = 0;
