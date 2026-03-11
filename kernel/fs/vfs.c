@@ -138,6 +138,7 @@ error_t vfs_unmount(const char *path)
 static inline struct vnode *
 vfs_find_child_at(struct vnode **parent, const path_segment_t *segment)
 {
+    struct user_creds *creds = NULL;
     vnode_t *node = *parent;
     vnode_t *child;
     vfs_t *fs;
@@ -161,21 +162,22 @@ vfs_find_child_at(struct vnode **parent, const path_segment_t *segment)
         *parent = node;
     }
 
+    creds = creds_get(current->process->creds);
+
     child = PTR_ERR(E_NOT_DIRECTORY);
     if (node->type != VNODE_DIRECTORY)
         goto out;
 
     /* Make sure that the user can search for files inside this directory. */
-    locked_scope (&current->process->lock) {
-        child = PTR_ERR(E_ACCESS);
-        if (!vfs_vnode_check_creds(node, &current->process->creds, O_SEARCH))
-            goto out;
-    }
+    child = PTR_ERR(E_ACCESS);
+    if (!vfs_vnode_check_creds(node, creds, O_SEARCH))
+        goto out;
 
     child = node->operations->lookup(node, segment);
 
 out:
     spinlock_release(&node->lock);
+    creds_put(creds);
     return child;
 }
 
@@ -243,6 +245,7 @@ static vnode_t *
 vfs_create_at(struct vnode *parent, const char *name, vnode_type type)
 {
     struct vnode *vnode;
+    struct user_creds *creds;
 
     if (parent->operations->create == NULL)
         return PTR_ERR(E_NOT_SUPPORTED);
@@ -251,13 +254,14 @@ vfs_create_at(struct vnode *parent, const char *name, vnode_type type)
     if (IS_ERR(vnode))
         return vnode;
 
-    vnode->stat.st_nlink = 1;
+    creds = creds_get(current->process->creds);
 
     /* TODO: set file access mode (see opengroup's description of O_CREAT). */
-    locked_scope (&current->process->lock) {
-        vnode->stat.st_gid = current->process->creds.egid;
-        vnode->stat.st_uid = current->process->creds.euid;
-    }
+    vnode->stat.st_nlink = 1;
+    vnode->stat.st_gid = creds->egid;
+    vnode->stat.st_uid = creds->euid;
+
+    creds_put(creds);
 
     return vnode;
 }
@@ -366,6 +370,7 @@ static inline error_t file_compute_flags(int oflags, int *flags)
 static struct file *vfs_open_at(struct vnode *vnode, int oflags)
 {
     struct file *file;
+    struct user_creds *creds;
     error_t err;
     int flags;
 
@@ -373,32 +378,37 @@ static struct file *vfs_open_at(struct vnode *vnode, int oflags)
     if (err)
         return PTR_ERR(err);
 
+    creds = creds_get(current->process->creds);
+
     locked_scope (&vnode->lock) {
 
+        file = PTR_ERR(E_NOT_DIRECTORY);
         if (vnode->type != VNODE_DIRECTORY) {
             if (oflags & O_DIRECTORY)
-                return PTR_ERR(E_NOT_DIRECTORY);
+                goto out;
             if (oflags & O_SEARCH && O_SEARCH != O_EXEC)
-                return PTR_ERR(E_NOT_DIRECTORY);
+                goto out;
         }
 
+        file = PTR_ERR(E_NOT_SUPPORTED);
         if (!vnode->operations->open)
-            return PTR_ERR(E_NOT_SUPPORTED);
+            goto out;
 
-        locked_scope (&current->process->lock) {
-            if (!vfs_vnode_check_creds(vnode, &current->process->creds, flags))
-                return PTR_ERR(E_PERM);
-        }
+        file = PTR_ERR(E_PERM);
+        if (!vfs_vnode_check_creds(vnode, creds, flags))
+            goto out;
 
         file = vnode->operations->open(vnode);
         if (IS_ERR(file))
-            return file;
+            goto out;
     }
 
     file->flags = flags;
     if (flags & FD_APPEND)
         file_seek(file, 0, SEEK_END);
 
+out:
+    creds_put(creds);
     return file;
 }
 

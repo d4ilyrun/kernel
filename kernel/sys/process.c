@@ -91,15 +91,18 @@ struct thread kernel_process_initial_thread = {
     .tid = PROCESS_KERNEL_PID,
 };
 
+static struct user_creds kernel_creds = {
+    .ref = REFCNT_INIT_STATIC(),
+    .ruid = UID_ROOT,
+    .euid = UID_ROOT,
+    .suid = UID_ROOT,
+};
+
 struct process kernel_process = {
     .name = "kstartup",
     .refcount = 1, /* static initial thread */
     .pid = PROCESS_KERNEL_PID,
-    .creds = {
-        .ruid = UID_ROOT,
-        .euid = UID_ROOT,
-        .suid = UID_ROOT,
-    },
+    .creds = &kernel_creds,
 };
 
 thread_t *current = &kernel_process_initial_thread;
@@ -661,7 +664,7 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
         process_set_name(new_process, current->process->name,
                          PROCESS_NAME_MAX_LEN);
         address_space_copy_current(new_process->as);
-        creds_copy(&new_process->creds, &current->process->creds);
+        new_process->creds = creds_get(current->process->creds);
     }
 
     /* Duplicate the current process' open files. */
