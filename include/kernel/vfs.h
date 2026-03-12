@@ -198,6 +198,9 @@ typedef struct vnode_operations {
      */
     void (*release)(vnode_t *node);
 
+    /** Fill a buffer with directory entries. */
+    error_t (*getdents)(vnode_t *node, off_t *offp, void *buf, size_t *sizep);
+
 } vnode_ops_t;
 
 /** @struct vnode

@@ -55,14 +55,17 @@ static const struct syscall syscalls[SYSCALL_COUNT] = {
     DEFINE_SYSCALLS(DECLARE_SYSCALL)
 };
 
-#define DO_SYSCALL_0(_syscall) (((u32(*)(void))_syscall)())
+#define DO_SYSCALL_0(_syscall) (((u32 (*)(void))_syscall)())
 #define DO_SYSCALL_1(_syscall, _arg1) \
-    (((u32(*)(void *))_syscall)((void *)_arg1))
+    (((u32 (*)(void *))_syscall)((void *)_arg1))
 #define DO_SYSCALL_2(_syscall, _arg1, _arg2) \
-    (((u32(*)(void *, void *))_syscall)((void *)_arg1, (void *)_arg2))
-#define DO_SYSCALL_3(_syscall, _arg1, _arg2, _arg3)                           \
-    (((u32(*)(void *, void *, void *))_syscall)((void *)_arg1, (void *)_arg2, \
-                                                (void *)_arg3))
+    (((u32 (*)(void *, void *))_syscall)((void *)_arg1, (void *)_arg2))
+#define DO_SYSCALL_3(_syscall, _arg1, _arg2, _arg3)                            \
+    (((u32 (*)(void *, void *, void *))_syscall)((void *)_arg1, (void *)_arg2, \
+                                                 (void *)_arg3))
+#define DO_SYSCALL_4(_syscall, _arg1, _arg2, _arg3, _arg4) \
+    (((u32 (*)(void *, void *, void *, void *))_syscall)(  \
+        (void *)_arg1, (void *)_arg2, (void *)_arg3, (void *)_arg4))
 
 /** Perform a syscall */
 static interrupt_return_t syscall(void *data)
@@ -98,6 +101,10 @@ static interrupt_return_t syscall(void *data)
         break;
     case 3:
         ret = DO_SYSCALL_3(syscall->handler, args.arg1, args.arg2, args.arg3);
+        break;
+    case 4:
+        ret = DO_SYSCALL_4(syscall->handler, args.arg1, args.arg2, args.arg3,
+                           args.arg4);
         break;
     default:
         log_err("%s: unsupported arg count (%d)", syscall->name,
