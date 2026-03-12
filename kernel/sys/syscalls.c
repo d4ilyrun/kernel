@@ -45,7 +45,7 @@ static inline void trace_syscall_exit(const struct syscall *syscall, int ret)
 void arch_syscall_get_args(interrupt_frame *frame, syscall_args_t *args);
 
 /** Set the value to be returned by the syscall */
-void arch_syscall_set_return_value(interrupt_frame *frame, u32 value);
+void arch_syscall_set_return_value(u32 value);
 
 #define DECLARE_SYSCALL(name, vector, argc, ...) \
     [SYS_##name] = {#name, (void *)sys_##name, argc},
@@ -109,7 +109,7 @@ static interrupt_return_t syscall(void *data)
     trace_syscall_exit(syscall, ret);
 
 syscall_exit:
-    arch_syscall_set_return_value(frame, ret);
+    arch_syscall_set_return_value(ret);
     return INTERRUPT_HANDLED;
 }
 
