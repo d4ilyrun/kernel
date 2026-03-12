@@ -86,11 +86,14 @@ typedef enum thread_state {
 struct process {
     char name[PROCESS_NAME_MAX_LEN]; /*!< The thread's name */
     pid_t pid;                       /*!< Process' unique ID */
+    unsigned int flags;
 
     struct address_space *as; /*!< The process's address space */
 
+    struct process *parent;
     llist_t threads;        /*!< Linked list of the process' active threads */
     llist_t children;       /*!< Linked list of the process' active children */
+
     node_t  this;           /*!< Node inside the parent's list of children */
     node_t  this_global;    /*!< Used by the global list of alive processes */
 
@@ -120,6 +123,16 @@ struct process {
 
     spinlock_t lock;
 };
+
+/*
+ * Possible values for (struct process)->flags.
+ */
+enum process_flags {
+    PROC_SA_NOCLDWAIT = BIT(0), /* Do not generate SIGCHLD when children stop */
+};
+
+/* Union of all the flags that should be inherited when forking. */
+#define PROC_FLAGS_INHERITED (PROC_SA_NOCLDWAIT)
 
 /**
  * @brief A single thread.
