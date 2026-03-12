@@ -3,6 +3,7 @@
 #include <kernel/process.h>
 #include <kernel/timer.h>
 #include <kernel/vfs.h>
+#include <dirent.h>
 
 #include <dailyrun/net.h> /* struct msghdr */
 
