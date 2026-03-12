@@ -346,7 +346,7 @@ static inline error_t file_compute_flags(int oflags, int *flags)
     *flags = 0;
 
     if (oflags & (O_TRUNC | O_SYNC | O_NONBLOCK | O_NOCTTY | O_NOFOLLOW))
-        return -E_INVAL;
+        return E_INVAL;
 
     if (O_READABLE(oflags))
         *flags |= FD_READ;
