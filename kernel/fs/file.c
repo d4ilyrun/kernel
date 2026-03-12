@@ -269,3 +269,50 @@ int sys_fstat(int fd, struct stat *buf)
 
     return 0;
 }
+
+/*
+ * Read a block of directory entries into a buffer.
+ */
+ssize_t sys_getdents(int fd, void *buf, size_t size, int flags)
+{
+    struct process *process = current->process;
+    struct vnode *vnode;
+    struct file *file;
+    size_t old_size = size;
+    error_t err;
+
+    UNUSED(flags);
+
+    file = process_file_get(process, fd);
+    if (!file || !(file->flags & FD_READ))
+        return -E_BAD_FD;
+    vnode = file->vnode;
+
+    err = E_NOT_DIRECTORY;
+    if (vnode->type != VNODE_DIRECTORY)
+        goto err;
+
+    err = E_NOT_SUPPORTED;
+    if (vnode->operations->getdents == NULL)
+        goto err;
+
+    locked_scope (&file->lock) {
+        err = E_INVAL;
+        if (file->pos < 0)
+            goto err;
+
+        locked_scope (&vnode->lock) {
+            err = vnode->operations->getdents(vnode, &file->pos, buf, &size);
+            if (err)
+                goto err;
+        }
+    }
+
+    process_file_put(process, file);
+
+    return size - old_size;
+
+err:
+    process_file_put(process, file);
+    return -err;
+}

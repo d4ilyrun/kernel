@@ -26,6 +26,7 @@ static const char *const ERROR_DESCRIPTIONS[E_TOTAL_COUNT] = {
     [E_READ_ONLY_FS] = "Read-only file system",
     [E_NAME_TOO_LONG] = "File name too long",
     [E_NOT_IMPLEMENTED] = "Not implemented",
+    [E_OVERFLOW] = "Value too large for defined data type",
     [E_BAD_FD] = "File descriptor in bad state",
     [E_NOT_SOCKET] = "Socket operation on non-socket",
     [E_DEST_ADDR_REQUIRED] = "Destination address required",
