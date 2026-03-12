@@ -1,5 +1,7 @@
 #include_next <sys/signal.h>
 
+#define SA_NOCLDWAIT 0x20 /* Children dont' generate SIGCHLD in _exit(). */
+
 /*
  * Signature of both signal handler functions inside struct sigaction.
  */

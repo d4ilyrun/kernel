@@ -198,6 +198,8 @@ static void process_collect_zombie(struct process *zombie)
 static void process_make_zombie(struct process *process)
 {
     struct process *child;
+    struct process *parent;
+    siginfo_t sigchld;
 
     log_info("freeing process: %s", process->name);
 
@@ -223,19 +225,53 @@ static void process_make_zombie(struct process *process)
     signal_queue_flush(&process->sig_pending);
     address_space_destroy(process->as);
 
-    /* Attach all orphans to the init process. */
+    /*
+     * Attach all orphans to the init process.
+     */
     FOREACH_LLIST_ENTRY(child, &process->children, this)
     {
         locked_scope (&child->lock) {
             llist_add(&init_process->children, &child->this);
+            child->parent = init_process;
         }
     }
 
-    spinlock_release(&process->lock);
+    /*
+     * We cannot hold a reference to the process' parents so it might be in
+     * the process of being made into a zombie itself. Detect this case and
+     * move ourselves into the init process' children before sending SIGCHLD.
+     */
+    parent = process->parent;
+    if (READ_ONCE(parent->state) == SCHED_ZOMBIE) {
+        llist_add(&init_process->children, &process->this);
+        parent = init_process;
+    }
 
     /*
-     * TODO: a SIGCHLD shall be sent to the parent process.
+     * If the parent process' ignores the SIGCHLD signal the process' lifetime
+     * must end immediately. This avoids dangling references to uncollectable
+     * zombie processes.
+     *
+     * FIXME: We should delay this a bit to make sure no one's holding
+     *        the lock anymore. This may the source of use after free errors.
+     *        But ... that's for another day, this will work for now.
      */
+    if (parent->flags & PROC_SA_NOCLDWAIT) {
+        process_collect_zombie(process);
+        return;
+    }
+
+    /*
+     * TODO: Use our own signal.h header since newlib defines almost no macro...
+     *       We should be forwarding additional informations, such as the exit
+     *       code and CLD_* values...
+     */
+    memset(&sigchld, 0, sizeof(sigchld));
+    sigchld.si_signo = SIGCHLD;
+    signal_process(parent, &sigchld);
+
+    spinlock_release(&process->lock);
+
 }
 
 static struct process *process_get(struct process *process)
@@ -386,6 +422,8 @@ void process_init_kernel_process(void)
               "any other thread");
 
     thread_set_user_stack(&kernel_process_initial_thread, ustack);
+
+    kernel_process.flags = 0;
 
     kernel_process.sig_set = NULL;
     signal_queue_init(&kernel_process.sig_pending);
@@ -698,6 +736,7 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
                          PROCESS_NAME_MAX_LEN);
         address_space_copy_current(new_process->as);
         new_process->creds = creds_get(current->process->creds);
+        new_process->flags = current->process->flags & PROC_FLAGS_INHERITED;
         new_process->sig_set = signal_set_clone(current->process->sig_set);
         if (new_process->sig_set == NULL) {
             err = E_NOMEM;
@@ -719,6 +758,7 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
         goto process_destroy;
     }
 
+    new_process->parent = current->process;
     locked_scope (&current->process->lock)
         llist_add(&current->process->children, &new_process->this);
 
@@ -784,7 +824,7 @@ pid_t sys_getpid(void)
 }
 
 /*
- * TODO: waitpid(): hande signals
+ *
  */
 pid_t sys_waitpid(pid_t pid, int *stat_loc, int options)
 {

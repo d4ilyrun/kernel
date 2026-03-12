@@ -122,6 +122,7 @@ static void signal_set_init(struct signal_set *set)
 {
     for (int signo = SIGNAL_MIN; signo <= SIGNAL_MAX; ++signo)
         set->sig_actions[signo].sa_action.sa_handler = SIG_DFL;
+    current->process->flags |= PROC_SA_NOCLDWAIT;
 }
 
 /*
@@ -655,6 +656,21 @@ static error_t signal_action_configure(struct signal_set *set, int signo,
         if (old_sig_action)
             *old_sig_action = *orig;
         *orig = *sig_action;
+    }
+
+    /*
+     * Pre-compute whether children should issue a SIGCHLD signal when exiting.
+     * According to the spec the signal should still be generated if sa_handler
+     * is set to SI_IGN and SA_NOCLDWAIT is not set, but this things easier to
+     * understand and who cares I guess.
+     */
+    if (signo == SIGCHLD) {
+        if (sa_action->sa_flags & SA_NOCLDWAIT ||
+            sa_action->sa_handler == SIG_IGN ||
+            sa_action->sa_handler == SIG_DFL) /* SIGCHLD: SIG_DFL == ignore */
+            current->process->flags |= SA_NOCLDWAIT;
+        else
+            current->process->flags &= ~SA_NOCLDWAIT;
     }
 
     return E_SUCCESS;
