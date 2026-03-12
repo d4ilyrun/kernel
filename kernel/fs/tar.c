@@ -24,8 +24,6 @@
 #include <kernel/logger.h>
 #include <kernel/vfs.h>
 
-#include <limits.h>
-
 #include <lib/path.h>
 #include <libalgo/tree.h>
 #include <utils/compiler.h>
@@ -33,8 +31,11 @@
 #include <utils/macro.h>
 #include <utils/math.h>
 
+#include <limits.h>
+#include <stdalign.h>
 #include <stddef.h>
 #include <string.h>
+#include <sys/dir.h>
 
 static vfs_ops_t tar_vfs_ops;
 static vnode_ops_t tar_vnode_ops;
@@ -97,6 +98,7 @@ typedef struct tar_filesystem {
 typedef struct tar_node {
     struct tar_header header; ///< The TAR header corresponding to this file
     char name[NAME_MAX];      ///< The name of this file
+    size_t name_size;         ///< The size of 'name' (including NUL byte)
     tree_node_t this;         ///< This file's intrusive node used by the tree
     vnode_t *vnode; ///< The vnode corresponding to this file (if referenced)
     size_t size;    ///< The file's size
@@ -168,7 +170,8 @@ tar_read(struct tar_filesystem *fs, void *buffer, off_t offset, size_t size)
 static void
 tar_node_set_name(struct tar_node *node, const char *name, size_t size)
 {
-    strlcpy(node->name, name, MIN(size + 1, sizeof(node->name)));
+    node->name_size = MIN(size + 1, sizeof(node->name));
+    strlcpy(node->name, name, node->name_size);
 }
 
 static struct tar_node *tar_node_alloc(struct tar_filesystem *fs)
@@ -358,6 +361,33 @@ static void tar_vfs_delete(vfs_t *vfs)
     tree_free(tar->root, tar_node_free);
 }
 
+/*
+ *
+ */
+static inline enum vnode_type tar_vnode_type(const struct tar_node *node)
+{
+    switch (node->header.type) {
+    case TAR_TYPE_FILE:
+        return VNODE_FILE;
+    case TAR_TYPE_HARDLINK:
+    case TAR_TYPE_SYMLINK:
+        return VNODE_SYMLINK;
+    case TAR_TYPE_CHARDEV:
+        return VNODE_CHARDEVICE;
+    case TAR_TYPE_BLOCKDEV:
+        return VNODE_BLOCKDEVICE;
+    case TAR_TYPE_DIRECTORY:
+        return VNODE_DIRECTORY;
+    case TAR_TYPE_FIFO:
+        return VNODE_FIFO;
+    }
+
+    return -1;
+}
+
+/*
+ *
+ */
 static vnode_t *tar_get_vnode(tar_node_t *node, vfs_t *fs)
 {
     struct tar_header *header = &node->header;
@@ -373,6 +403,7 @@ static vnode_t *tar_get_vnode(tar_node_t *node, vfs_t *fs)
     node->vnode->fs = fs;
     node->vnode->operations = &tar_vnode_ops;
     node->vnode->pdata = node;
+    node->vnode->type = tar_vnode_type(node);
 
     /*
      * Initialize vnode statistics.
@@ -395,28 +426,6 @@ static vnode_t *tar_get_vnode(tar_node_t *node, vfs_t *fs)
     stat->st_mtim.tv_nsec = tar_read_number(header->mtime);
     stat->st_atim = stat->st_mtim;
     stat->st_nlink = 1;
-
-    switch (header->type) {
-    case TAR_TYPE_FILE:
-        node->vnode->type = VNODE_FILE;
-        break;
-    case TAR_TYPE_HARDLINK:
-    case TAR_TYPE_SYMLINK:
-        node->vnode->type = VNODE_SYMLINK;
-        break;
-    case TAR_TYPE_CHARDEV:
-        node->vnode->type = VNODE_CHARDEVICE;
-        break;
-    case TAR_TYPE_BLOCKDEV:
-        node->vnode->type = VNODE_BLOCKDEVICE;
-        break;
-    case TAR_TYPE_DIRECTORY:
-        node->vnode->type = VNODE_DIRECTORY;
-        break;
-    case TAR_TYPE_FIFO:
-        node->vnode->type = VNODE_FIFO;
-        break;
-    }
 
     return node->vnode;
 }
@@ -444,12 +453,59 @@ static struct file *tar_vnode_open(vnode_t *vnode)
     return file_open(vnode, &tar_file_ops);
 }
 
+/*
+ *
+ */
+static error_t
+tar_vnode_getdents(vnode_t *vnode, off_t *offp, void *buf, size_t *sizep)
+{
+    struct tar_node *node = vnode->pdata;
+    struct posix_dent *dent = buf;
+    struct tar_node *child;
+    size_t size = 0;
+    off_t off = 0;
+
+    FOREACH_CHILDREN_ENTRY(child, &node->this, this)
+    {
+        reclen_t reclen;
+
+        /* log(n) offset until we find a better way to store children. */
+        if (off < *offp) {
+            off += 1;
+            continue;
+        }
+
+        reclen = sizeof(*dent) + child->name_size;
+        reclen = align_up(reclen, alignof(struct posix_dent));
+        if (size + reclen > *sizep)
+            break;
+
+        dent->d_ino = 0;
+        dent->d_type = tar_vnode_type(node);
+        dent->d_reclen = reclen;
+        memcpy(dent->d_name, child->name, child->name_size);
+
+        dent = (void *)dent + reclen;
+        size += reclen;
+        off += 1;
+    }
+
+    *sizep = size;
+    *offp = off;
+
+    return 0;
+}
+
+/*
+ *
+ */
 static vnode_ops_t tar_vnode_ops = {
     .lookup = tar_vnode_lookup,
     .release = tar_vnode_release,
     .create = tar_vnode_create,
     .open = tar_vnode_open,
     .remove = tar_vnode_remove,
+    .getdents = tar_vnode_getdents,
 };
 
 static vfs_ops_t tar_vfs_ops = {
