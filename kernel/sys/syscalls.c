@@ -67,7 +67,7 @@ static const struct syscall syscalls[SYSCALL_COUNT] = {
 /** Perform a syscall */
 static interrupt_return_t syscall(void *data)
 {
-    const struct syscall *syscall;
+    const struct syscall *syscall = NULL;
     struct interrupt_frame *frame;
     syscall_args_t args;
     u32 ret;
@@ -106,9 +106,10 @@ static interrupt_return_t syscall(void *data)
         goto syscall_exit;
     }
 
+    trace_syscall_exit(syscall, ret);
+
 syscall_exit:
     arch_syscall_set_return_value(frame, ret);
-    trace_syscall_exit(syscall, ret);
     return INTERRUPT_HANDLED;
 }
 
