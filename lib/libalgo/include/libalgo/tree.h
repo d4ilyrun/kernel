@@ -40,6 +40,15 @@ typedef tree_node_t *tree_t;
  */
 #define FOREACH_CHILDREN(_iter, _node) FOREACH_LLIST (_iter, &(_node)->children)
 
+/** Loop over each children of a tree node
+ *
+ *  @param _child The variable used to store the child
+ *  @param _node  The tree node
+ *  @param _field The name of the field containing the node
+ */
+#define FOREACH_CHILDREN_ENTRY(_child, _node, _field) \
+    FOREACH_LLIST_ENTRY (_child, &(_node)->children, _field.this)
+
 /** Convert a linked list node to its containing tree node
  *
  * Children of a node are linked together and addressed using a likned list, it
