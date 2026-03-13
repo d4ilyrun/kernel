@@ -49,6 +49,7 @@ struct initcall {
 struct initcall_section {
     struct initcall *start;
     struct initcall *end;
+    const char *name;
 };
 
 #define DECLARE_INITCALL(_step, _function)        \

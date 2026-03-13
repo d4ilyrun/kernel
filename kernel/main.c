@@ -56,30 +56,37 @@ void kernel_task_worker(void *data);
 void kernel_task_mutex(void *data);
 void kernel_task_ping(void *data);
 
-void initcall_do_level(enum init_step level)
-{
-
 #define INITCALL_IMPORT_LEVEL(_level)           \
     extern void *_kernel_init_##_level##_start; \
     extern void *_kernel_init_##_level##_end;
 
 #define INITCALL_SECTION(_level)                                    \
     {                                                               \
+        .name = stringify(_level),                                  \
         .start = (struct initcall *)&_kernel_init_##_level##_start, \
         .end = (struct initcall *)&_kernel_init_##_level##_end,     \
     },
 
-    /*
-     * Import all initcall sections defined inside the linkerscript,
-     * and generate a table of [start, end] address to easily iterate over
-     * each section's initcalls.
-     */
-    MAP(INITCALL_IMPORT_LEVEL, INIT_STEPS);
-    static const struct initcall_section initall_sections[] = {
-        MAP(INITCALL_SECTION, INIT_STEPS)};
+/*
+ * Import all initcall sections defined inside the linkerscript,
+ * and generate a table of [start, end] address to easily iterate over
+ * each section's initcalls.
+ */
+MAP(INITCALL_IMPORT_LEVEL, INIT_STEPS);
+static const struct initcall_section initall_sections[] = {
+    MAP(INITCALL_SECTION, INIT_STEPS)
+    /* */
+};
 
+/*
+ *
+ */
+void initcall_do_level(enum init_step level)
+{
     const struct initcall_section *section = &initall_sections[level];
     error_t err;
+
+    log(LOG_LEVEL_DEBUG, "initcall", "starting step %s", section->name);
 
     for (struct initcall *initcall = section->start; initcall < section->end;
          initcall += 1) {
@@ -89,6 +96,8 @@ void initcall_do_level(enum init_step level)
             log(LOG_LEVEL_WARN, "initcall", "%s failed with %pe",
                 initcall->name, &err);
     }
+
+    log(LOG_LEVEL_DEBUG, "initcall", "step %s finished", section->name);
 }
 
 static error_t kernel_mount_initfs(struct multiboot_tag_module *module)
