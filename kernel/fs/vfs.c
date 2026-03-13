@@ -3,9 +3,9 @@
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/memory/slab.h>
+#include <kernel/pmm.h>
 #include <kernel/process.h>
 #include <kernel/vfs.h>
-#include <kernel/pmm.h>
 
 #include <utils/container_of.h>
 
@@ -60,7 +60,7 @@ static error_t vfs_mount_at(vnode_t *mountpoint, const char *fs_type,
     if (fs == NULL)
         return E_INVAL;
 
-    new = fs->new(blkdev);
+    new = fs->new (blkdev);
     if (IS_ERR(new))
         return ERR_FROM_PTR(new);
 
@@ -105,7 +105,7 @@ error_t vfs_mount(const char *mount_path, const char *fs_type,
 static error_t vfs_unmount_at(struct vnode *vnode)
 {
     llist_remove(&vnode->mounted_here->this);
-    vnode->mounted_here->operations->delete(vnode->mounted_here);
+    vnode->mounted_here->operations->delete (vnode->mounted_here);
 
     /* A mounted FS keeps a reference to the vnode it is mounted on */
     vfs_vnode_release(vnode->mounted_here->node);
@@ -498,7 +498,7 @@ struct page *vfs_vnode_get_page(struct vnode *vnode, off_t offset)
     if (IS_ERR(page))
         return page;
 
-    page->vnode = vnode;
+    page->vnode.vnode = vnode;
 
     return page;
 }
