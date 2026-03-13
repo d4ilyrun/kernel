@@ -115,7 +115,7 @@ block_device_cache_create(struct block_device *blkdev, blkcnt_t block)
     entry->buffer = buffer;
     entry->page = address_to_page(paddr);
     entry->cache = cache;
-    entry->refcount = 0;
+    refcnt_init(&entry->refcount);
 
     /*
      * Initialize the cache entry by filling it with the content
@@ -157,14 +157,13 @@ block_device_cache_get(struct block_device *blkdev, blkcnt_t block)
     spinlock_acquire(&cache->lock);
 
     entry = block_device_cache_find(blkdev, block);
-    if (entry)
-        goto cache_get_exit;
+    if (!entry)
+        entry = block_device_cache_create(blkdev, block);
+    else
+        refcnt_get(&entry->refcount);
 
-    entry = block_device_cache_create(blkdev, block);
-
-cache_get_exit:
-    entry->refcount += 1;
     spinlock_release(&cache->lock);
+
     return entry;
 }
 
@@ -174,29 +173,15 @@ bool block_device_cache_put(struct block_device *blkdev,
     struct page_cache *cache = &blkdev->cache;
     error_t err;
 
-    spinlock_acquire(&cache->lock);
-
-    entry->refcount -= 1;
-    if (entry->refcount > 0) {
-        spinlock_release(&cache->lock);
+    /* This cache entry is being used by someone else. */
+    if (refcnt_put(&entry->refcount) > 0)
         return false;
-    }
 
+    /* Remove entry from the device's cache. Set it to be removed by kflushd. */
+    spinlock_acquire(&cache->lock);
     llist_remove(&entry->this);
-    locked_scope(&global_cached_pages_lock)
-    {
-        llist_remove(&entry->this_global);
-    }
-
-    err = block_device_cache_writeback(entry);
-    if (err)
-        log_warn("%s: failed to flush cache entry %ld: %pE", blkdev->dev.name,
-                 entry->first_block, &err);
-
     spinlock_release(&cache->lock);
-
-    vm_free(&kernel_address_space, entry->buffer);
-    cache_entry_free(entry);
+    entry->flags |= CACHE_ENTRY_FREE;
 
     return true;
 }
@@ -264,10 +249,18 @@ static void block_device_cache_flush(void *cookie)
     while (true) {
         spinlock_acquire(&global_cached_pages_lock);
         FOREACH_LLIST_ENTRY (entry, &global_cached_pages, this_global) {
-            if (!mmu_is_dirty((vaddr_t)entry->buffer))
-                continue;
-            block_device_cache_writeback(entry);
-            mmu_clear_dirty((vaddr_t)entry->buffer);
+            /* dirty bit is used to identify dirty cache entries. */
+            if (mmu_is_dirty((vaddr_t)entry->buffer)) {
+                block_device_cache_writeback(entry);
+                mmu_clear_dirty((vaddr_t)entry->buffer);
+            }
+
+            /* entry */
+            if (entry->flags & CACHE_ENTRY_FREE) {
+                llist_remove(&entry->this_global);
+                vm_free(&kernel_address_space, entry->buffer);
+                cache_entry_free(entry);
+            }
         }
         spinlock_release(&global_cached_pages_lock);
 

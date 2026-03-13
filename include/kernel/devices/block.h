@@ -32,6 +32,7 @@
 #define KERNEL_DEVICES_BLOCK_H
 
 #include <kernel/device.h>
+#include <kernel/refcnt.h>
 #include <kernel/spinlock.h>
 
 #include <libalgo/queue.h>
@@ -61,7 +62,15 @@ struct page_cache_entry {
     struct page_cache *cache; /*!< The cache this entry is located inside */
     struct page *page;        /*!< This entry's physical page */
     void *buffer;             /*!< Kernel buffer mapped onto @c page */
-    unsigned int refcount;    /*!< Reference count */
+    refcnt_t refcount;        /*!< Reference count */
+    int flags;
+};
+
+/*
+ * Values for page_cache_entry->flags.
+ */
+enum {
+    CACHE_ENTRY_FREE = BIT(0),
 };
 
 /**
