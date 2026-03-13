@@ -76,7 +76,8 @@ static error_t icmp_handle_echo_reply(struct packet *packet)
     if (packet_payload_size(packet) < sizeof(*icmphdr))
         return E_INVAL;
 
-    locked_scope (&af_inet_icmp_sockets_lock) {
+    locked_scope(&af_inet_icmp_sockets_lock)
+    {
         FOREACH_LLIST (node, &af_inet_icmp_sockets) {
             isock = to_isock(node);
             if (isock->identifier > icmphdr->identifier) {

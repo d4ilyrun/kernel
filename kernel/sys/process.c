@@ -158,7 +158,8 @@ static pid_t process_next_pid(void)
 
     pid_t pid;
 
-    locked_scope (&pid_lock) {
+    locked_scope(&pid_lock)
+    {
         pid = g_highest_pid;
         if (__builtin_add_overflow(g_highest_pid, 1, &g_highest_pid))
             log_err("!!! PID OVERFLOW !!!");
@@ -215,7 +216,8 @@ static void process_make_zombie(struct process *process)
      * open file descriptions, ...).
      */
 
-    locked_scope (&process->files_lock) {
+    locked_scope(&process->files_lock)
+    {
         for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
             if (process->files[i])
                 file_put(process->files[i]);
@@ -228,9 +230,9 @@ static void process_make_zombie(struct process *process)
     /*
      * Attach all orphans to the init process.
      */
-    FOREACH_LLIST_ENTRY(child, &process->children, this)
-    {
-        locked_scope (&child->lock) {
+    FOREACH_LLIST_ENTRY (child, &process->children, this) {
+        locked_scope(&child->lock)
+        {
             llist_add(&init_process->children, &child->this);
             child->parent = init_process;
         }
@@ -340,7 +342,8 @@ void process_kill(struct process *process, uint16_t status)
      * would create a race condition where the second thread's exit status
      * would overwrite the first one.
      */
-    locked_scope (&process->lock) {
+    locked_scope(&process->lock)
+    {
 
         /* Not in the list of alive processes. */
         if (process->this_global.next == &process->this_global)
@@ -354,7 +357,8 @@ void process_kill(struct process *process, uint16_t status)
          * after being marked killable, and before having marked the rest
          * of the threads.
          */
-        no_preemption_scope () {
+        no_preemption_scope()
+        {
             FOREACH_LLIST_SAFE (node, tmp, &process->threads) {
                 struct thread *thread = container_of(node, struct thread,
                                                      this_proc);
@@ -439,7 +443,8 @@ int process_register_file(struct process *process, struct file *file)
     /*
      * Find the first available file descriptor index.
      */
-    locked_scope (&process->files_lock) {
+    locked_scope(&process->files_lock)
+    {
         for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
             if (process->files[i] == NULL)
                 continue;
@@ -459,7 +464,8 @@ error_t process_unregister_file(struct process *process, int fd)
     if (fd >= PROCESS_FD_COUNT)
         return E_BAD_FD;
 
-    locked_scope (&process->files_lock) {
+    locked_scope(&process->files_lock)
+    {
         file = process->files[fd];
         if (!file)
             return E_BAD_FD;
@@ -477,11 +483,11 @@ struct file *process_file_get(struct process *process, int fd)
     if (fd >= PROCESS_FD_COUNT)
         return NULL;
 
-    locked_scope (&process->files_lock) {
+    locked_scope(&process->files_lock)
+    {
         file = process->files[fd];
         if (file)
             file_get(file);
-
     }
 
     return file;
@@ -548,7 +554,7 @@ thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
     spinlock_release(&process->lock);
 
     /* Thread is officially 'alive', make it searchable. */
-    locked_scope (&threads_list_lock)
+    locked_scope(&threads_list_lock)
         llist_add(&threads_list, &thread->this_global);
 
     return thread;
@@ -583,7 +589,8 @@ static void thread_free(thread_t *thread)
 
     signal_queue_flush(&thread->sig_pending);
 
-    no_preemption_scope () {
+    no_preemption_scope()
+    {
         vm_free(&kernel_address_space, thread_get_kernel_stack(thread));
 
         /* initial thread is statically allocated so we can't kfree() it. */
@@ -648,7 +655,8 @@ static void thread_kill_locked(thread_t *thread)
 
 void thread_kill(thread_t *thread)
 {
-    locked_scope (&thread->process->lock) {
+    locked_scope(&thread->process->lock)
+    {
         thread_kill_locked(thread);
     }
 
@@ -731,7 +739,8 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
         return (void *)new_process;
 
     /* Duplicate the current process' state. */
-    locked_scope (&current->process->lock) {
+    locked_scope(&current->process->lock)
+    {
         process_set_name(new_process, current->process->name,
                          PROCESS_NAME_MAX_LEN);
         address_space_copy_current(new_process->as);
@@ -745,7 +754,8 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
     }
 
     /* Duplicate the current process' open files. */
-    locked_scope (&current->process->files_lock) {
+    locked_scope(&current->process->files_lock)
+    {
         for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
             if (current->process->files[i])
                 new_process->files[i] = file_get(current->process->files[i]);
@@ -759,10 +769,10 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
     }
 
     new_process->parent = current->process;
-    locked_scope (&current->process->lock)
+    locked_scope(&current->process->lock)
         llist_add(&current->process->children, &new_process->this);
 
-    locked_scope (&processes_list_lock)
+    locked_scope(&processes_list_lock)
         llist_add(&processes_list, &new_process->this_global);
 
     /*
@@ -851,7 +861,7 @@ pid_t sys_waitpid(pid_t pid, int *stat_loc, int options)
     while (true) {
         spinlock_acquire(&process->lock);
         found = false;
-        FOREACH_LLIST_ENTRY(child, &process->children, this) {
+        FOREACH_LLIST_ENTRY (child, &process->children, this) {
             if (child->pid == pid)
                 exists = true;
             if (READ_ONCE(child->state) != SCHED_ZOMBIE)
@@ -890,9 +900,9 @@ struct process *process_find_by_pid(pid_t pid)
 {
     struct process *process;
 
-    locked_scope (&processes_list_lock)
+    locked_scope(&processes_list_lock)
     {
-        FOREACH_LLIST_ENTRY(process, &processes_list, this_global) {
+        FOREACH_LLIST_ENTRY (process, &processes_list, this_global) {
             if (process->pid == pid)
                 return process;
         }
@@ -908,9 +918,9 @@ struct thread *thread_find_by_tid(pid_t tid)
 {
     struct thread *thread;
 
-    locked_scope (&threads_list_lock)
+    locked_scope(&threads_list_lock)
     {
-        FOREACH_LLIST_ENTRY(thread, &threads_list, this_global) {
+        FOREACH_LLIST_ENTRY (thread, &threads_list, this_global) {
             if (thread->tid == tid)
                 return thread;
         }

@@ -192,8 +192,10 @@ ssize_t sys_read(int fd, char *buf, size_t nbyte)
     if (nbyte == 0)
         goto out;
 
-    locked_scope (&file->lock) {
-        locked_scope (&file->vnode->lock) {
+    locked_scope(&file->lock)
+    {
+        locked_scope(&file->vnode->lock)
+        {
             count = file_read(file, buf, nbyte);
             file_accessed(file);
         }
@@ -227,7 +229,8 @@ ssize_t sys_write(int fd, const char *buf, size_t nbyte)
     if (nbyte == 0)
         goto out;
 
-    locked_scope (&file->lock) {
+    locked_scope(&file->lock)
+    {
         /*
          * If O_APPEND, the file offset shall be set to the end of the file
          * prior to each write and no intervening file modification operation
@@ -236,7 +239,8 @@ ssize_t sys_write(int fd, const char *buf, size_t nbyte)
         if (file->flags & FD_APPEND)
             file->pos = file_size(file);
 
-        locked_scope (&file->vnode->lock) {
+        locked_scope(&file->vnode->lock)
+        {
             count = file_write(file, buf, nbyte);
             file_modified(file);
         }

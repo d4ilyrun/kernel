@@ -22,7 +22,8 @@ void waitqueue_enqueue_locked(struct waitqueue *queue, struct thread *thread)
      * it has been enqueued, the thread will never be rescheduled again and
      * it will be forever lost.
      */
-    no_preemption_scope () {
+    no_preemption_scope()
+    {
         thread->state = SCHED_WAITING;
         queue_enqueue(&queue->queue, &thread->this_sched);
         /* Release the lock held by the caller BEFORE rescheduling */
@@ -38,7 +39,8 @@ const struct thread *waitqueue_peek(struct waitqueue *queue)
     const struct thread *thread = NULL;
     const node_t *node;
 
-    locked_scope (&queue->lock) {
+    locked_scope(&queue->lock)
+    {
         if (!queue_is_empty(&queue->queue)) {
             node = queue_peek(&queue->queue);
             thread = container_of(node, struct thread, this_sched);
@@ -53,7 +55,8 @@ struct thread *waitqueue_dequeue(struct waitqueue *queue)
     struct thread *thread = NULL;
     node_t *node;
 
-    locked_scope (&queue->lock) {
+    locked_scope(&queue->lock)
+    {
         if (!queue_is_empty(&queue->queue)) {
             node = queue_dequeue(&queue->queue);
             thread = container_of(node, struct thread, this_sched);
@@ -73,7 +76,8 @@ size_t waitqueue_dequeue_all(struct waitqueue *queue)
     size_t count = 0;
     node_t *node;
 
-    locked_scope (&queue->lock) {
+    locked_scope(&queue->lock)
+    {
         while (!queue_is_empty(&queue->queue)) {
             node = queue_dequeue(&queue->queue);
             thread = container_of(node, struct thread, this_sched);

@@ -380,7 +380,8 @@ static struct file *vfs_open_at(struct vnode *vnode, int oflags)
 
     creds = creds_get(current->process->creds);
 
-    locked_scope (&vnode->lock) {
+    locked_scope(&vnode->lock)
+    {
 
         file = PTR_ERR(E_NOT_DIRECTORY);
         if (vnode->type != VNODE_DIRECTORY) {

@@ -191,19 +191,19 @@ static void signal_queue_push(struct signal_queue *queue,
 /*
  * Pop and return the first deliverable signal inside the queue.
  */
-struct signal_context *signal_queue_pop(struct signal_queue *queue,
-                                        sigset_t blocked)
+struct signal_context *
+signal_queue_pop(struct signal_queue *queue, sigset_t blocked)
 {
     struct signal_context *sig_ctx = NULL;
 
-    locked_scope (&queue->lock)
+    locked_scope(&queue->lock)
     {
         struct signal_context *entry = NULL;
 
         if (llist_is_empty(&queue->signals))
             return NULL;
 
-        FOREACH_LLIST_ENTRY(entry, &queue->signals, this) {
+        FOREACH_LLIST_ENTRY (entry, &queue->signals, this) {
             /*
              * Blocked signals whose associated action is to ignore the signal
              * are left inside the queue until they can be 'delivered'.
@@ -222,7 +222,7 @@ struct signal_context *signal_queue_pop(struct signal_queue *queue,
          * Check if the queue still contains other pending signals with
          * the same signal number to keep the mask of pending signals updated.
          */
-        FOREACH_LLIST_ENTRY_REVERSE(entry, &queue->signals, this) {
+        FOREACH_LLIST_ENTRY_REVERSE (entry, &queue->signals, this) {
             if (entry->si_signo == sig_ctx->si_signo) {
                 if (entry == sig_ctx)
                     sigdelset(&queue->pending, sig_ctx->si_signo);
@@ -249,7 +249,7 @@ static size_t signal_queue_flush_signals(struct signal_queue *queue,
     size_t count = 0;
 
     spinlock_acquire(&queue->lock);
-    FOREACH_LLIST_ENTRY_SAFE(cur, next, &queue->signals, this) {
+    FOREACH_LLIST_ENTRY_SAFE (cur, next, &queue->signals, this) {
         if (sigismember(&to_remove, cur->si_signo)) {
             signal_context_destroy(cur);
             count += 1;
@@ -273,7 +273,7 @@ size_t signal_queue_flush(struct signal_queue *queue)
     size_t count = 0;
 
     spinlock_acquire(&queue->lock);
-    FOREACH_LLIST_ENTRY_SAFE(cur, next, &queue->signals, this) {
+    FOREACH_LLIST_ENTRY_SAFE (cur, next, &queue->signals, this) {
         signal_context_destroy(cur);
         count += 1;
     }
@@ -508,7 +508,7 @@ error_t signal_generate(struct thread *thread, const siginfo_t *sig_info,
      *
      * Let's simply hold the process' lock for now as a best effort...
      */
-    spinlock_acquire (&process->lock);
+    spinlock_acquire(&process->lock);
 
     /*
      * When any stop signal is generated, all pending SIGCONT signals
@@ -538,7 +538,7 @@ error_t signal_generate(struct thread *thread, const siginfo_t *sig_info,
 
     if (to_remove) {
         signal_queue_flush_signals(&process->sig_pending, to_remove);
-        FOREACH_LLIST_ENTRY(child, &process->children, this_proc)
+        FOREACH_LLIST_ENTRY (child, &process->children, this_proc)
             signal_queue_flush_signals(&child->sig_pending, to_remove);
     }
 
@@ -582,7 +582,7 @@ static error_t signal_brodcast(pid_t pid, siginfo_t *sig_info)
 
     spinlock_acquire(&processes_list_lock);
 
-    FOREACH_LLIST_ENTRY(process, &processes_list, this_global) {
+    FOREACH_LLIST_ENTRY (process, &processes_list, this_global) {
         if (pid == 0 && process->pid == pid)
             signal_process(process, sig_info);
     }
@@ -590,7 +590,6 @@ static error_t signal_brodcast(pid_t pid, siginfo_t *sig_info)
     spinlock_release(&processes_list_lock);
 
     return E_SUCCESS;
-
 }
 
 /*
@@ -648,7 +647,7 @@ static error_t signal_action_configure(struct signal_set *set, int signo,
      */
     sa_action->sa_mask = signal_compute_mask(sa_action->sa_mask);
 
-    locked_scope (&set->lock)
+    locked_scope(&set->lock)
     {
         struct signal_action *orig;
 

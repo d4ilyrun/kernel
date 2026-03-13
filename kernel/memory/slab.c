@@ -103,7 +103,8 @@ static void kmem_slab_destroy(struct kmem_slab *slab)
     next = slab->free;
     while ((bufctl = next) != NULL) {
         next = bufctl->next;
-        locked_scope (&kmem_bufctl_hashmap_lock) {
+        locked_scope(&kmem_bufctl_hashmap_lock)
+        {
             hashtable_remove(&kmem_bufctl_hashmap, &bufctl->hash.key);
         }
         if (cache->destructor)
@@ -158,7 +159,8 @@ static void kmem_slab_init_objects(struct kmem_slab *slab)
         next_bufctl = &bufctl->next;
         bufctl->obj = obj;
 
-        locked_scope (&kmem_bufctl_hashmap_lock) {
+        locked_scope(&kmem_bufctl_hashmap_lock)
+        {
             bufctl->hash.key = bufctl->obj;
             hashtable_insert(&kmem_bufctl_hashmap, &bufctl->hash);
         }
@@ -200,7 +202,8 @@ static error_t kmem_slab_init_large_objects(struct kmem_slab *slab)
         next_bufctl = &bufctl->next;
         bufctl->obj = obj;
 
-        locked_scope (&kmem_bufctl_hashmap_lock) {
+        locked_scope(&kmem_bufctl_hashmap_lock)
+        {
             bufctl->hash.key = bufctl->obj;
             hashtable_insert(&kmem_bufctl_hashmap, &bufctl->hash);
         }
@@ -386,7 +389,8 @@ void kmem_cache_free(struct kmem_cache *cache, void *obj)
         return;
     }
 
-    locked_scope (&kmem_bufctl_hashmap_lock) {
+    locked_scope(&kmem_bufctl_hashmap_lock)
+    {
         obj = align_down_ptr(obj, cache->obj_align);
         hash_entry = hashtable_find(&kmem_bufctl_hashmap, obj);
         if (WARN_ON_MSG(!hash_entry, "free: no bufctl found for %p", obj))

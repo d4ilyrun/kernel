@@ -176,7 +176,8 @@ error_t address_space_clear(struct address_space *as)
     WARN_ON(as == &kernel_address_space);
     WARN_ON(as == kernel_process.as);
 
-    locked_scope (&as->lock) {
+    locked_scope(&as->lock)
+    {
 
         FOREACH_LLIST_SAFE (this, node, as->segments) {
             segment = to_segment(this);
@@ -213,7 +214,8 @@ error_t address_space_destroy(struct address_space *as)
         return E_INVAL;
     }
 
-    locked_scope (&as->lock) {
+    locked_scope(&as->lock)
+    {
         vmm_destroy(as->vmm);
         mmu_destroy(as->mmu);
     }
@@ -223,7 +225,8 @@ error_t address_space_destroy(struct address_space *as)
 
 error_t address_space_load(struct address_space *as)
 {
-    no_preemption_scope () {
+    no_preemption_scope()
+    {
         current->process->as = as;
         mmu_load(as->mmu);
         thread_set_mmu(current, as->mmu);
@@ -243,8 +246,10 @@ error_t address_space_copy_current(struct address_space *dst)
     if (dst->segments)
         return E_BUSY;
 
-    locked_scope (&dst->lock) {
-        no_preemption_scope () {
+    locked_scope(&dst->lock)
+    {
+        no_preemption_scope()
+        {
             mmu_clone(dst->mmu); /* Clone current MMU into the destination AS */
             vmm_copy(dst->vmm, src->vmm);
         }
@@ -321,7 +326,8 @@ void *vm_alloc_start(struct address_space *as, void *addr, size_t size,
     if (!driver)
         return NULL;
 
-    locked_scope (&as->lock) {
+    locked_scope(&as->lock)
+    {
         segment = driver->vm_alloc(as, (vaddr_t)addr, size, flags);
         if (IS_ERR(segment))
             return NULL;
@@ -358,7 +364,8 @@ void *vm_alloc_at(struct address_space *as, paddr_t phys, size_t size,
     if (!driver)
         return NULL;
 
-    locked_scope (&as->lock) {
+    locked_scope(&as->lock)
+    {
         segment = driver->vm_alloc_at(as, phys, size, flags);
         if (IS_ERR(segment))
             return NULL;
@@ -383,7 +390,8 @@ void vm_free(struct address_space *as, void *addr)
         return;
     }
 
-    locked_scope (&as->lock) {
+    locked_scope(&as->lock)
+    {
         segment = vm_find(as, addr);
         if (!segment) {
             log_dbg("free: no backing segment for %p", addr);
@@ -413,7 +421,8 @@ error_t vm_map(struct address_space *as, void *addr)
         return E_INVAL;
     }
 
-    locked_scope (&as->lock) {
+    locked_scope(&as->lock)
+    {
         segment = vm_find(as, addr);
         if (!segment) {
             log_dbg("map: no backing segment for %p", addr);
@@ -455,7 +464,8 @@ error_t vm_resize_segment(struct address_space *as, struct vm_segment *segment,
     if (new_size == segment->size)
         return E_SUCCESS;
 
-    locked_scope(&as->lock) {
+    locked_scope(&as->lock)
+    {
         if (new_size == 0) {
             segment->driver->vm_free(as, segment);
             return E_SUCCESS;
@@ -543,7 +553,8 @@ error_t vm_set_policy(struct address_space *as, void *addr, vm_flags_t policy)
     if (!vm_flags_validate(as, &policy))
         return E_INVAL;
 
-    locked_scope (&as->lock) {
+    locked_scope(&as->lock)
+    {
         segment = vm_find(as, addr);
         if (!segment)
             return E_NOENT;

@@ -27,7 +27,8 @@ void semaphore_release(struct semaphore *semaphore)
 {
     unsigned int count;
 
-    locked_scope (&semaphore->lock) {
+    locked_scope(&semaphore->lock)
+    {
         count = semaphore->count++;
         if (count == 0)
             waitqueue_dequeue(&semaphore->waitqueue);
