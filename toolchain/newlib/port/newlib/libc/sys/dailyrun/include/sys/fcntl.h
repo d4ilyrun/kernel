@@ -1,13 +1,7 @@
-#ifndef _FCNTL_H
-#define _FCNTL_H
+#ifndef _SYS_FCNTL_H
+#define _SYS_FCNTL_H
 
-#ifndef O_EXEC
-#define O_EXEC 0
-#endif
-
-#ifndef O_SEARCH
-#define O_SEARCH O_EXEC
-#endif
+#include <sys/_default_fcntl.h>
 
 #define O_READABLE(_flags) ((_flags & O_ACCMODE) != O_WRONLY)
 #define O_WRITABLE(_flags) ((_flags & O_ACCMODE) != O_RDONLY)
@@ -16,6 +10,4 @@
 #define S_IRWG (S_IRGRP | S_IWGRP)
 #define S_IRWO (S_IROTH | S_IWOTH)
 
-#include_next <fcntl.h>
-
-#endif /* _FCNTL_H */
+#endif /* _SYS_FCNTL_H */
