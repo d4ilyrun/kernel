@@ -1,15 +1,5 @@
 #include <dailyrun/arch/i686/syscalls.h>
 
-/*
- * NOTE: I'm not able to access our definition of standard headers inside
- *       /usr/lib/dailyrun/include even when inserting it in first place
- *       inside in FLAGS_FOR_TARGET.
- *
- *       Use this small trick to be able to access them until we come up
- *       with a proper fix (if possible).
- */
-#include <dailyrun/../sys/signal.h>
-
 #include <stdint.h>
 #include <sys/errno.h>
 #include <sys/fcntl.h>

@@ -22,7 +22,6 @@ $(NEWLIB_BUILD_DIR): $(NEWLIB_TAR)
 	$(SILENT)cp -rf $(TOOLCHAIN_NEWLIB_DIR)/port/* $@
 	$(call LOG,RECONF,$@)
 	$(SILENT)cd $@/newlib && autoreconf -vfi $(SILENT_OUTPUT)
-	$(SILENT)cd $@        && autoreconf -vfi $(SILENT_OUTPUT)
 	$(SILENT)cp -rf $(TOOLCHAIN_NEWLIB_DIR)/port/* $@
 
 newlib/configure: $(NEWLIB_BUILD_DIR)/config.status
@@ -36,7 +35,6 @@ $(NEWLIB_BUILD_DIR)/config.status: $(NEWLIB_BUILD_DIR)
 			--prefix="$(SYSROOT)/usr" \
 			--with-tooldir="$(SYSROOT)/usr" \
 			--with-build-sysroot="$(SYSROOT)" \
-			--with-flags-for-target="-isystem $(SYSROOT)/usr/lib/dailyrun/include" \
 			$(NEWLIB_CONFIGURE_FLAGS) \
 		>  configure.log \
 		2> configure.err
