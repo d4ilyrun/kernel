@@ -613,8 +613,8 @@ case "${host}" in
 	syscall_dir=syscalls
 	;;
   *-*-dailyrun*)
-    syscall_dir=syscalls
-	newlib_cflags="${newlib_cflags} -DSIGNAL_PROVIDED"
+	syscall_dir=syscalls
+	newlib_cflags="${newlib_cflags} -DSIGNAL_PROVIDED -DHAVE_OPENDIR"
     ;;
 # RTEMS supplies its own versions of some routines:
 #       malloc()            (reentrant version)
