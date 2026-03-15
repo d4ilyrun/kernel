@@ -6,9 +6,9 @@ on:
       cache-key-gcc:
         description: "GCC cache key"
         value: ${{ jobs.cache-gcc.outputs.cache-key }}
-      cache-key-libc:
-        description: "Libc cache key"
-        value: ${{ jobs.cache-libc.outputs.cache-key }}
+      cache-key-toolchain:
+        description: "Toolchain cache key"
+        value: ${{ jobs.cache-toolchain.outputs.cache-key }}
 
 jobs:
 
@@ -36,10 +36,10 @@ jobs:
         with:
           lookup-only: true
           key: ${{ steps.cache-key.outputs.key }}
-          path: /opt/toolchains/i686-dailyrun
+          path: build/root
 
-  cache-libc:
-    name: Find cached Libc version
+  cache-toolchain:
+    name: Find cached toolchain
     runs-on: ubuntu-latest
     outputs:
       cache-key: ${{ steps.cache-key.outputs.key }}
@@ -50,7 +50,7 @@ jobs:
       - name: Generate cache key
         id: cache-key
         run: |
-          echo "key=libc-${{ runner.os }}-${{ hashFiles('toolchain/newlib/**', 'root/usr/lib/dailyrun/**') }}" >> $GITHUB_OUTPUT
+          echo "key=libc-${{ runner.os }}-${{ hashFiles('toolchain/newlib/**') }}" >> $GITHUB_OUTPUT
 
       - name: Find cached version
         id: cache-fetch
@@ -128,14 +128,14 @@ jobs:
         uses: actions/cache/save@v4
         with:
           key: ${{ needs.cache-gcc.outputs.cache-key }}
-          path: /opt/toolchains/i686-dailyrun
+          path: build/root
 
   build-libc:
-    name: "Build Libc"
-    needs: [ cache-gcc, cache-libc, build-gcc ]
+    name: "Build toolchain"
+    needs: [ cache-gcc, cache-toolchain, build-gcc ]
     if: |
         always() &&
-        needs.cache-libc.outputs.cache-hit != 'true' &&
+        needs.cache-toolchain.outputs.cache-hit != 'true' &&
         (needs.cache-gcc.outputs.cache-hit == 'true' || needs.build-gcc.result == 'success')
     runs-on: ubuntu-latest
     steps:
@@ -145,7 +145,7 @@ jobs:
         uses: actions/cache@v4
         with:
           key: ${{ needs.cache-gcc.outputs.cache-key }}
-          path: /opt/toolchains/i686-dailyrun
+          path: build/root
 
       - name: Install dependencies
         run: |
@@ -195,11 +195,11 @@ jobs:
             build/newlib/i686-dailyrun-4.5.0/make.err
             build/newlib/i686-dailyrun-4.5.0/make.log
 
-      - name: Save libc to cache
+      - name: Save full toolchain to cache
         if: steps.build-libc.outcome == 'success'
         uses: actions/cache/save@v4
         with:
-          key: ${{ needs.cache-libc.outputs.cache-key }}
+          key: ${{ needs.cache-toolchain.outputs.cache-key }}
           path: build/root
 
       - name: Exit if build failed

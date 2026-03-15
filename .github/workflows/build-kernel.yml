@@ -22,13 +22,7 @@ jobs:
       - name: Install toolchain
         uses: actions/cache@v4
         with:
-          key: ${{ needs.toolchain.outputs.cache-key-gcc }}
-          path: /opt/toolchains/i686-dailyrun
-
-      - name: Install libc
-        uses: actions/cache@v4
-        with:
-          key: ${{ needs.toolchain.outputs.cache-key-libc }}
+          key: ${{ needs.toolchain.outputs.cache-key-toolchain }}
           path: build/root
 
       - name: Install Nix
