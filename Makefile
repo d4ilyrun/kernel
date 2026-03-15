@@ -175,8 +175,8 @@ clangd:
 	  Add:\n\
 	    - --sysroot=$(SYSROOT)\n\
 	    - --target=$(TARGET)\n\
-	    - -isystem$(SYSROOT)/usr/lib/dailyrun/include\n\
-	    - -isystem$(SYSROOT)/usr/lib/include\
+	    - -isystem$(PREFIX)/lib/dailyrun/include\n\
+	    - -isystem$(PREFIX)/include\
 "
 
 #
