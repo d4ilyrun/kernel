@@ -24,8 +24,13 @@ $(NEWLIB_BUILD_DIR): $(NEWLIB_TAR)
 	$(SILENT)cd $@/newlib && autoreconf -vfi $(SILENT_OUTPUT)
 	$(SILENT)cp -rf $(TOOLCHAIN_NEWLIB_DIR)/port/* $@
 
+newlib/install_headers: $(SYSROOT)/usr/include/newlib.h
+$(SYSROOT)/usr/include/newlib.h: newlib/prepare
+	$(call INSTALL, $(NEWLIB_BUILD_DIR)/newlib/libc/include/, $(SYSROOT)/usr/include)
+	$(call INSTALL, $(NEWLIB_BUILD_DIR)/newlib/libc/sys/dailyrun/include/, $(SYSROOT)/usr/include)
+
 newlib/configure: $(NEWLIB_BUILD_DIR)/config.status
-$(NEWLIB_BUILD_DIR)/config.status: $(NEWLIB_BUILD_DIR)
+$(NEWLIB_BUILD_DIR)/config.status: $(NEWLIB_BUILD_DIR) $(SYSROOT)
 	$(call COMPILE,CONFIGURE,$@)
 	$(SILENT)\
 		cd $(dir $@) && \
@@ -39,12 +44,16 @@ $(NEWLIB_BUILD_DIR)/config.status: $(NEWLIB_BUILD_DIR)
 		>  configure.log \
 		2> configure.err
 
-libc: newlib
-newlib: newlib/configure
+newlib: newlib/install_headers newlib/configure
 	$(call LOG,MAKE,newlib)
 	$(call MAKE_RECURSIVE,$(NEWLIB_BUILD_DIR),all,newlib/)
 	$(call MAKE_RECURSIVE,$(NEWLIB_BUILD_DIR),install,newlib/)
 
-.PHONY: libc newlib newlib/configure newlib/prepare newlib/tar
+.PHONY: newlib newlib/configure newlib/prepare newlib/tar newlib/install_headers
+
+libc: newlib
+libc/install_headers: newlib/install_headers
+
+.PHONY: libc libc/install_headers
 
 TO_CLEAN += $(NEWLIB_BUILD_DIR)

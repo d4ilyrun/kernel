@@ -183,8 +183,8 @@ clangd:
 # Build user directory
 #
 .PHONY: root
-root:
-	$(call INSTALL, $(ROOT_DIR)/, $(BUILD_DIR)/$(ROOT_DIR))
+root: $(SYSROOT)
+$(SYSROOT): libc/install_headers
 
 TO_CLEAN += $(BUILD_DIR)/$(ROOT_DIR)
 
