@@ -24,10 +24,10 @@ $(NEWLIB_BUILD_DIR): $(NEWLIB_TAR)
 	$(SILENT)cd $@/newlib && autoreconf -vfi $(SILENT_OUTPUT)
 	$(SILENT)cp -rf $(TOOLCHAIN_NEWLIB_DIR)/port/* $@
 
-newlib/install_headers: $(SYSROOT)/usr/include/newlib.h
-$(SYSROOT)/usr/include/newlib.h: newlib/prepare
-	$(call INSTALL, $(NEWLIB_BUILD_DIR)/newlib/libc/include/, $(SYSROOT)/usr/include)
-	$(call INSTALL, $(NEWLIB_BUILD_DIR)/newlib/libc/sys/dailyrun/include/, $(SYSROOT)/usr/include)
+newlib/install_headers: $(PREFIX)/include/newlib.h
+$(PREFIX)/include/newlib.h: newlib/prepare
+	$(call INSTALL, $(NEWLIB_BUILD_DIR)/newlib/libc/include/, $(PREFIX)/include)
+	$(call INSTALL, $(NEWLIB_BUILD_DIR)/newlib/libc/sys/dailyrun/include/, $(PREFIX)/include)
 
 newlib/configure: $(NEWLIB_BUILD_DIR)/config.status
 $(NEWLIB_BUILD_DIR)/config.status: $(NEWLIB_BUILD_DIR) $(SYSROOT)
@@ -37,8 +37,8 @@ $(NEWLIB_BUILD_DIR)/config.status: $(NEWLIB_BUILD_DIR) $(SYSROOT)
 		$(PWD)/$(NEWLIB_BUILD_DIR)/configure \
 			--host="$(HOST)" \
 			--target="$(TARGET)" \
-			--prefix="$(SYSROOT)/usr" \
-			--with-tooldir="$(SYSROOT)/usr" \
+			--prefix="$(PREFIX)" \
+			--with-tooldir="$(PREFIX)" \
 			--with-build-sysroot="$(SYSROOT)" \
 			$(NEWLIB_CONFIGURE_FLAGS) \
 		>  configure.log \
