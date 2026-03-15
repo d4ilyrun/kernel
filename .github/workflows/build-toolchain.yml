@@ -93,9 +93,28 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt install build-essential pkg-config automake autoconf autoconf-archive autogen
+          sudo apt install build-essential pkg-config autoconf-archive autogen
           sudo apt install libisl-dev libgmp-dev libmpfr-dev libmpc-dev
           sudo apt install flex bison
+
+          # Install automake 1.15.1 (specific version required by newlib)
+          cd /tmp
+          wget https://ftp.gnu.org/gnu/automake/automake-1.15.1.tar.gz
+          tar -xzf automake-1.15.1.tar.gz
+          cd automake-1.15.1
+          ./configure --prefix=/usr/local
+          make
+          sudo make install
+
+          # Install autoconf 2.69 (specific version required by newlib)
+          cd /tmp
+          wget https://ftp.gnu.org/gnu/autoconf/autoconf-2.69.tar.gz
+          tar -xzf autoconf-2.69.tar.gz
+          cd autoconf-2.69
+          ./configure --prefix=/usr/local
+          make
+          sudo make install
+
 
       - name: Configure (i686)
         run: |
