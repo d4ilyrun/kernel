@@ -18,7 +18,7 @@ $(GCC_DIR): $(GCC_TAR)
 	$(call LOG,PATCH,$@)
 	$(SILENT)cp -rf $(TOOLCHAIN_GCC_DIR)/target/* $@
 
-gcc/configure: $(GCC_BUILD_DIR)/config.status
+gcc/configure: $(GCC_BUILD_DIR)/config.status $(SYSROOT)
 $(GCC_BUILD_DIR)/config.status: binutils $(GCC_DIR)
 	$(call COMPILE,CONFIGURE,$@)
 	$(SILENT)\
