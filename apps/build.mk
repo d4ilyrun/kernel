@@ -1,4 +1,4 @@
-APPS := hello
+APPS := $(foreach dir,$(shell find $(APPS_DIR) -mindepth 1 -maxdepth 1 -type d),$(notdir $(dir)))
 
 define DEFINE_USER_APP_TARGET
 .PHONY: apps/$(1)/$(2)
