@@ -1,4 +1,4 @@
-#include <lib/path.h>
+#include <libpath/path.h>
 #include <utils/macro.h>
 
 #include <criterion/criterion.h>

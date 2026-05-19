@@ -1,9 +1,6 @@
-[submodule "lib/libtest/criterion"]
-	path = lib/libtest/criterion
-	url = git@github.com:Snaipe/Criterion.git
 [submodule "docs/doxygen/doxygen-awesome-css"]
 	path = docs/doxygen/doxygen-awesome-css
 	url = https://github.com/jothepro/doxygen-awesome-css.git
-[submodule "lib/uacpi/uACPI"]
-	path = lib/uacpi/uACPI
+[submodule "lib/libuacpi/uACPI"]
+	path = lib/libuacpi/uACPI
 	url = git@github.com:UltraOS/uACPI.git

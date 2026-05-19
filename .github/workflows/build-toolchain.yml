@@ -36,7 +36,7 @@ jobs:
         with:
           lookup-only: true
           key: ${{ steps.cache-key.outputs.key }}
-          path: build/root
+          path: build/toolchain/i686-dailyrun
 
   cache-toolchain:
     name: Find cached toolchain
@@ -58,7 +58,7 @@ jobs:
         with:
           lookup-only: true
           key: ${{ steps.cache-key.outputs.key }}
-          path: build/root
+          path: build/toolchain/i686-dailyrun
 
   build-gcc:
     name: "Build GCC"
@@ -128,7 +128,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           key: ${{ needs.cache-gcc.outputs.cache-key }}
-          path: build/root
+          path: build/toolchain/i686-dailyrun
 
   build-libc:
     name: "Build toolchain"
@@ -145,7 +145,7 @@ jobs:
         uses: actions/cache@v4
         with:
           key: ${{ needs.cache-gcc.outputs.cache-key }}
-          path: build/root
+          path: build/toolchain/i686-dailyrun
 
       - name: Install dependencies
         run: |
@@ -197,7 +197,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           key: ${{ needs.cache-toolchain.outputs.cache-key }}
-          path: build/root
+          path: build/toolchain/i686-dailyrun
 
       - name: Exit if build failed
         if: steps.build-libc.outcome == 'failure'

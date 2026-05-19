@@ -24,7 +24,7 @@
 #include <kernel/logger.h>
 #include <kernel/vfs.h>
 
-#include <lib/path.h>
+#include <libpath/path.h>
 #include <libalgo/tree.h>
 #include <utils/compiler.h>
 #include <utils/container_of.h>

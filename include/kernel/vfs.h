@@ -41,8 +41,8 @@
 #include <kernel/types.h>
 #include <kernel/user.h>
 
-#include <lib/path.h>
 #include <libalgo/linked_list.h>
+#include <libpath/path.h>
 #include <utils/compiler.h>
 #include <utils/stringify.h>
 

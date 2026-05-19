@@ -1,4 +1,4 @@
-ARCH = i686
+ARCH          = i686
 CROSS_COMPILE = i686-dailyrun-
 
 CC  = gcc

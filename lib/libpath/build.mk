@@ -1,4 +1,7 @@
-$(eval $(call DEFINE_STATIC_LIBRARY,libpath,path.c))
+LIB_NAME        := libpath
+LIB_TARGET      := both
+LIB_INCLUDE_DIR := $(LIB_DIR)/libpath/include
+LIB_SRC_DIR     := $(LIB_DIR)/libpath/src
+LIB_SOURCES     := path.c
 
-libpath_TESTS_LDFLAGS := -lpath
-$(eval $(call DEFINE_CRITERION_TESTSUITE,libpath,path))
+include $(REPO_ROOT)/lib/lib.mk

@@ -1,9 +1,12 @@
-$(eval $(call DEFINE_STATIC_LIBRARY,libalgo, \
+LIB_NAME        := libalgo
+LIB_TARGET      := both
+LIB_SRC_DIR     := $(LIB_DIR)/libalgo/src
+LIB_INCLUDE_DIR := $(LIB_DIR)/libalgo/include
+
+LIB_SOURCES := \
 	tree/avl.c  \
 	tree/tree.c \
 	hashtable.c \
 	ringbuffer.c \
-))
 
-libalgo_TESTS_LDFLAGS = -lalgo
-$(eval $(call DEFINE_CRITERION_TESTSUITE,libalgo,tree/avl))
+include $(REPO_ROOT)/lib/lib.mk
