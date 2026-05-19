@@ -3,12 +3,21 @@ APPS := $(foreach dir,$(shell find $(APPS_DIR) -mindepth 1 -maxdepth 1 -type d),
 define DEFINE_USER_APP_TARGET
 .PHONY: apps/$(1)/$(2)
 apps/$(1)/$(2):
-	$$(call MAKE_RECURSIVE, $$(APPS_DIR)/$(1),$(2),apps/$(1)/, \
-		CC="$(CC)" \
+	$(call LOG,MAKE,$(APPS_DIR)/$(1) $(2))
+	$(SILENT) \
+		REPO_ROOT="$(PWD)" \
+		INSTALL_DIR="$(BUILD_ROOT_DIR)" \
 		SRC_DIR="$(PWD)/$(APPS_DIR)/$(1)" \
 		BUILD_DIR="$(PWD)/$(BUILD_DIR)/$(APPS_DIR)/$(1)" \
-		INSTALL_DIR="$(BUILD_ROOT_DIR)" \
-	)
+		$(MAKE) -C $(APPS_DIR)/$(1) $(2) \
+			TARGET="$(TARGET)" \
+			HOST="$(HOST)" \
+			CC="$(CC)" \
+			CXX="$(CXX)" \
+			CPP="$(CPP)" \
+			LD="$(LD)" \
+			AR="$(AR)" \
+			VERBOSE="$(VERBOSE)" V="$(V)"
 endef
 
 define ADD_USER_APP

@@ -7,8 +7,12 @@ SILENT := @
 SILENT_OUTPUT := 1> /dev/null 2> /dev/null
 endif
 
+define LOG_RAW
+	printf "[%s]\t%s\n" "$(1)" "$(2)"
+endef
+
 define LOG
-	@printf "[%s]\t%s\n" "$(1)" "$(2)"
+	@$(LOG_RAW)
 endef
 
 # No other way to print a newline character ...
@@ -47,3 +51,7 @@ define MAKE_RECURSIVE
   $(SILENT)$(MAKE) -C $(1) $(2) $(4) 1> $(1)/make.log 2> $(1)/make.err
 endef
 endif
+
+define ASSERT_DEFINED
+$(if $($(1)),,$(error $(1) is not defined))
+endef

@@ -2,9 +2,7 @@
 # This file should be included to generate the necessary targets for user applications.
 #
 
-define ASSERT_DEFINED
-$(if $($(1)),,$(error $(1) is not defined))
-endef
+include $(REPO_ROOT)/functions.mk
 
 $(call ASSERT_DEFINED,SRC_DIR)
 $(call ASSERT_DEFINED,BUILD_DIR)
