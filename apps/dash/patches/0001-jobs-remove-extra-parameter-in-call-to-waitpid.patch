@@ -1,0 +1,25 @@
+From 20c134e7589ddf0175527f78d91980ef7b102b01 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?L=C3=A9o=20DUBOIN?= <leo@duboin.com>
+Date: Thu, 21 May 2026 00:30:02 +0200
+Subject: [PATCH 1/2] jobs: remove extra parameter in call to waitpid()
+
+---
+ src/jobs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/jobs.c b/src/jobs.c
+index 6622bdd..ed6d87c 100644
+--- a/src/jobs.c
++++ b/src/jobs.c
+@@ -1205,7 +1205,7 @@ waitproc(int block, int *status)
+ #ifdef HAVE_WAIT3
+ 			err = wait3(status, flags, NULL);
+ #else
+-			err = waitpid((pid_t)-1, status, flags, NULL);
++			err = waitpid((pid_t)-1, status, flags);
+ #endif
+ 		while (err < 0 && errno == EINTR);
+ 
+-- 
+2.54.0
+

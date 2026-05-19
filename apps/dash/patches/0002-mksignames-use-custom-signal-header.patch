@@ -1,0 +1,167 @@
+From 6d874f5ec91934d8b7805c8e9a546d28f6f06269 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?L=C3=A9o=20DUBOIN?= <leo@duboin.com>
+Date: Thu, 21 May 2026 00:46:13 +0200
+Subject: [PATCH 2/2] mksignames: use custom signal header
+
+---
+ src/mksignames.c          | 71 ++----------------------------------------------
+ src/dailyrun_signal.h     | 40 +++++++++++++++++++++++++++
+ 2 files changed, 42 insertions(+), 69 deletions(-)
+ create mode 100644 src/dailyrun_signal.h
+
+diff --git a/src/mksignames.c b/src/mksignames.c
+index 192728b..d3f34b6 100644
+--- a/src/mksignames.c
++++ b/src/mksignames.c
+@@ -21,12 +21,9 @@
+ 
+ #include <stdio.h>
+ #include <sys/types.h>
+-#include <signal.h>
+ #include <stdlib.h>
+ 
+-#if !defined (NSIG)
+-#  define NSIG 64
+-#endif
++#include "dailyrun_signal.h"
+ 
+ /*
+  * Special traps:
+@@ -34,33 +31,16 @@
+  */
+ #define LASTSIG NSIG-1
+ 
+-char *signal_names[2 * NSIG + 3];
++char *signal_names[NSIG + 2];
+ 
+ #define signal_names_size (sizeof(signal_names)/sizeof(signal_names[0]))
+ 
+ char *progname;
+ 
+-/* AIX 4.3 defines SIGRTMIN and SIGRTMAX as 888 and 999 respectively.
+-   I don't want to allocate so much unused space for the intervening signal
+-   numbers, so we just punt if SIGRTMAX is past the bounds of the
+-   signal_names array (handled in configure). */
+-#if defined (SIGRTMAX) && defined (UNUSABLE_RT_SIGNALS)
+-#  undef SIGRTMAX
+-#  undef SIGRTMIN
+-#endif
+-
+-#if defined (SIGRTMAX) || defined (SIGRTMIN)
+-#  define RTLEN 14
+-#  define RTLIM 256
+-#endif
+-
+ void
+ initialize_signames ()
+ {
+   register int i;
+-#if defined (SIGRTMAX) || defined (SIGRTMIN)
+-  int rtmin, rtmax, rtcnt;
+-#endif
+ 
+   for (i = 1; i < signal_names_size; i++)
+     signal_names[i] = (char *)NULL;
+@@ -77,53 +57,6 @@ initialize_signames ()
+      SIGRTMAX, and the difference must be at least 7, that is, there
+      must be at least eight distinct real time signals. */
+ 
+-  /* The generated signal names are SIGRTMIN, SIGRTMIN+1, ...,
+-     SIGRTMIN+x, SIGRTMAX-x, ..., SIGRTMAX-1, SIGRTMAX. If the number
+-     of RT signals is odd, there is an extra SIGRTMIN+(x+1).
+-     These names are the ones used by ksh and /usr/xpg4/bin/sh on SunOS5. */
+-
+-#if defined (SIGRTMIN)
+-  rtmin = SIGRTMIN;
+-  signal_names[rtmin] = "RTMIN";
+-#endif
+-
+-#if defined (SIGRTMAX)
+-  rtmax = SIGRTMAX;
+-  signal_names[rtmax] = "RTMAX";
+-#endif
+-
+-#if defined (SIGRTMAX) && defined (SIGRTMIN)
+-  if (rtmax > rtmin)
+-    {
+-      rtcnt = (rtmax - rtmin - 1) / 2;
+-      /* croak if there are too many RT signals */
+-      if (rtcnt >= RTLIM/2)
+-	{
+-	  rtcnt = RTLIM/2-1;
+-	  fprintf(stderr, "%s: error: more than %i real time signals, fix `%s'\n",
+-		  progname, RTLIM, progname);
+-	}
+-
+-      for (i = 1; i <= rtcnt; i++)
+-	{
+-	  signal_names[rtmin+i] = (char *)malloc(RTLEN);
+-	  if (signal_names[rtmin+i])
+-	    sprintf (signal_names[rtmin+i], "RTMIN+%d", i);
+-	  signal_names[rtmax-i] = (char *)malloc(RTLEN);
+-	  if (signal_names[rtmax-i])
+-	    sprintf (signal_names[rtmax-i], "RTMAX-%d", i);
+-	}
+-
+-      if (rtcnt < RTLIM/2-1 && rtcnt != (rtmax-rtmin)/2)
+-	{
+-	  /* Need an extra RTMIN signal */
+-	  signal_names[rtmin+rtcnt+1] = (char *)malloc(RTLEN);
+-	  if (signal_names[rtmin+rtcnt+1])
+-	    sprintf (signal_names[rtmin+rtcnt+1], "RTMIN+%d", rtcnt+1);
+-	}
+-    }
+-#endif /* SIGRTMIN && SIGRTMAX */
+-
+ /* AIX */
+ #if defined (SIGLOST)	/* resource lost (eg, record-lock lost) */
+   signal_names[SIGLOST] = "LOST";
+diff --git a/src/dailyrun_signal.h b/src/dailyrun_signal.h
+new file mode 100644
+index 0000000..31b3f2e
+--- /dev/null
++++ b/src/dailyrun_signal.h
+@@ -0,0 +1,40 @@
++#ifndef _DAILYRUN_SIGNAL_H
++#define _DAILYRUN_SIGNAL_H
++
++#define SIGHUP 1      /* hangup */
++#define SIGINT 2      /* interrupt */
++#define SIGQUIT 3     /* quit */
++#define SIGILL 4      /* illegal instruction (not reset when caught) */
++#define SIGTRAP 5     /* trace trap (not reset when caught) */
++#define SIGIOT 6      /* IOT instruction */
++#define SIGABRT 6     /* used by abort, replace SIGIOT in the future */
++#define SIGEMT 7      /* EMT instruction */
++#define SIGFPE 8      /* floating point exception */
++#define SIGKILL 9     /* kill (cannot be caught or ignored) */
++#define SIGBUS 10     /* bus error */
++#define SIGSEGV 11    /* segmentation violation */
++#define SIGSYS 12     /* bad argument to system call */
++#define SIGPIPE 13    /* write on a pipe with no one to read it */
++#define SIGALRM 14    /* alarm clock */
++#define SIGTERM 15    /* software termination signal from kill */
++#define SIGURG 16     /* urgent condition on IO channel */
++#define SIGSTOP 17    /* sendable stop signal not from tty */
++#define SIGTSTP 18    /* stop signal from tty */
++#define SIGCONT 19    /* continue a stopped process */
++#define SIGCHLD 20    /* to parent on child stop or exit */
++#define SIGCLD 20     /* System V name for SIGCHLD */
++#define SIGTTIN 21    /* to readers pgrp upon background tty read */
++#define SIGTTOU 22    /* like TTIN for output if (tp->t_local&LTOSTOP) */
++#define SIGIO 23      /* input/output possible signal */
++#define SIGPOLL SIGIO /* System V name for SIGIO */
++#define SIGXCPU 24    /* exceeded CPU time limit */
++#define SIGXFSZ 25    /* exceeded file size limit */
++#define SIGVTALRM 26  /* virtual time alarm */
++#define SIGPROF 27    /* profiling time alarm */
++#define SIGWINCH 28   /* window changed */
++#define SIGLOST 29    /* resource lost (eg, record-lock lost) */
++#define SIGUSR1 30    /* user defined signal 1 */
++#define SIGUSR2 31    /* user defined signal 2 */
++#define NSIG 32       /* signal 0 implied */
++
++#endif /* _DAILYRUN_SIGNAL_H */
+-- 
+2.54.0
+
