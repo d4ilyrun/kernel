@@ -1,22 +1,26 @@
-KERNEL_BIN := $(BUILD_DIR)/$(KERNEL_DIR)/kernel.bin
-KERNEL_ISO := $(BUILD_DIR)/$(KERNEL_DIR)/kernel.iso
+KERNEL_BUILD_DIR := $(BUILD_DIR)/$(KERNEL_DIR)
+KERNEL_BIN       := $(KERNEL_BUILD_DIR)/kernel.bin
 
-INITRAMFS ?= initramfs.tar
+KERNEL_CPPFLAGS := -I$(KERNEL_BUILD_DIR)/$(INC_DIR)
+KERNEL_CPPFLAGS += -DARCH=$(ARCH) -DKERNEL -DUACPI_FORMATTED_LOGGING
+KERNEL_CFLAGS   :=
+KERNEL_LDFLAGS  := -L$(KERNEL_BUILD_DIR)/$(LIB_DIR)
+KERNEL_LDFLAGS  += -lk -lalgo -lpath -luacpi -lgcc
 
-CPPFLAGS += -DARCH=$(ARCH)
+KERNEL_LDSCRIPT := $(BUILD_DIR)/kernel/linker.ld
+KERNEL_LDFLAGS  += -T $(KERNEL_LDSCRIPT)
+
+KERNEL_CFLAGS   += $(FREESTANDING_CFLAGS)
+KERNEL_CPPFLAGS += $(FREESTANDING_CPPFLAGS)
+KERNEL_LDFLAGS  += $(FREESTANDING_LDFLAGS)
 
 ifneq ($(ARCH),)
-  KERNEL_ARCH_DIR := $(KERNEL_DIR)/arch/$(ARCH)
-  include $(KERNEL_ARCH_DIR)/build.mk
+  include $(KERNEL_DIR)/arch/$(ARCH)/build.mk
   ifeq ($(QEMU),)
     $(error Undefined environment variable: QEMU)
     $(error The arch specific 'build.mk' file must define the qemu executable to use for the target)
   endif
 endif
-
-export CONFIG_GRAPHICS_WIDTH  ?= 1280
-export CONFIG_GRAPHICS_HEIGHT ?= 720
-export CONFIG_GRAPHICS_DEPTH  ?= 32
 
 KERNEL_SRCS := 	\
 	main.c \
@@ -32,7 +36,6 @@ KERNEL_SRCS := 	\
 	sys/process.c \
 	sys/pci.c \
 	sys/signal.c \
-	sys/interrupts.c \
 	sys/timer.c \
 	sys/interrupts.c \
 	misc/printk.c \
@@ -75,29 +78,60 @@ KERNEL_SRCS := 	\
 	devices/ramdisk.c \
 	devices/framebuffer.c
 
-KERNEL_OBJS += $(addsuffix .o, $(addprefix $(BUILD_DIR)/$(KERNEL_DIR)/,$(KERNEL_SRCS)))
-KERNEL_OBJS += $(addsuffix .o, $(addprefix $(BUILD_DIR)/$(KERNEL_ARCH_DIR)/,$(KERNEL_ARCH_SRCS)))
+KERNEL_OBJS += $(addsuffix .o, $(addprefix $(KERNEL_BUILD_DIR)/,$(KERNEL_SRCS)))
+KERNEL_OBJS += $(addsuffix .o, $(addprefix $(KERNEL_BUILD_DIR)/arch/$(ARCH)/,$(KERNEL_ARCH_SRCS)))
 DEPS += $(KERNEL_OBJS:.o=.d)
 
-KERNEL_LDSCRIPT := $(BUILD_DIR)/kernel/linker.ld
+#
+# Kernel build targets
+#
 
-KERNEL_LIBS := k algo path uacpi
+KERNEL_CONFIG_HEADER := $(KERNEL_BUILD_DIR)/$(INC_DIR)/config.h
+KERNEL_CPPFLAGS      += -include $(KERNEL_CONFIG_HEADER)
 
-$(KERNEL_BIN): CPPFLAGS += -DKERNEL -DUACPI_FORMATTED_LOGGING
-$(KERNEL_BIN): | $(KERNEL_LDSCRIPT)
-$(KERNEL_BIN): | $(foreach lib,$(KERNEL_LIBS),lib$(lib))
-$(KERNEL_BIN): $(KERNEL_OBJS)
+$(KERNEL_BIN): $(KERNEL_LDSCRIPT) $(KERNEL_OBJS)
 	$(call COMPILE,LD,$@)
-	$(SILENT)$(CC) $^ -o "$@" -T $(KERNEL_LDSCRIPT) $(foreach lib,$(KERNEL_LIBS),-l$(lib)) $(LDFLAGS) -lgcc
+	$(SILENT)$(CC) $(KERNEL_OBJS) -o "$@" $(KERNEL_LDFLAGS) $(LDFLAGS)
 
-$(KERNEL_ISO): $(KERNEL_BIN)
-	$(call COMPILE,ISO,$@)
-	$(call ASSERT_EXE_EXISTS,grub-mkrescue mformat)
-	$(SILENT)$(SCRIPTS_DIR)/generate_iso.sh $@ $< $(INITRAMFS)
+$(KERNEL_BUILD_DIR)/%.c.o: $(KERNEL_DIR)/%.c $(KERNEL_CONFIG_HEADER) | libs
+	$(call COMPILE,CC,$@)
+	$(SILENT)$(CC) $(KERNEL_CPPFLAGS) $(CPPFLAGS) $(KERNEL_ASFLAGS) $(ASFLAGS) $(KERNEL_CFLAGS) $(CFLAGS) -c "$<" -o "$@"
 
-.PHONY: kernel iso
+$(KERNEL_BUILD_DIR)/%.S.o: $(KERNEL_DIR)/%.S $(KERNEL_CONFIG_HEADER) | libs
+	$(call COMPILE,AS,$@)
+	$(SILENT)$(CC) $(KERNEL_CPPFLAGS) $(CPPFLAGS) $(KERNEL_ASFLAGS) $(ASFLAGS) $(KERNEL_CFLAGS) $(CFLAGS) -c "$<" -o "$@"
+
+$(KERNEL_BUILD_DIR)/%.asm.o: $(KERNEL_DIR)/%.asm
+	$(call COMPILE,NASM,$@)
+	$(SILENT)$(NASM) $(KERNEL_NASMFLAGS) $(NASMFLAGS) -o "$@" "$<"
+
+$(KERNEL_BUILD_DIR)/%.ld: $(KERNEL_DIR)/%.ld $(KERNEL_CONFIG_HEADER)
+	$(call COMPILE,CPP,$@)
+	$(SILENT)$(CPP) $(CPPFLAGS) "$<" -o "$@"
+
+.PHONY: kernel
 kernel: $(KERNEL_BIN)
-iso: $(KERNEL_ISO) $(INITRAMFS)
+
+.PHONY: config
+config: $(KERNEL_CONFIG_HEADER)
+$(KERNEL_CONFIG_HEADER): $(REPO_ROOT)/.config
+	$(call COMPILE,GEN,$@)
+	@echo "/* Automatically generated, do not edit */" > $@
+	@$(foreach v,$(filter CONFIG_%,$(.VARIABLES)), \
+		if [ -n "$($(v))" ]; then \
+			if [ "$($(v))" = "y" ]; then \
+				echo "#define $(v) 1" >> $@; \
+			else \
+				echo "#define $(v) $($(v))" >> $@; \
+			fi; \
+		else \
+			echo "/* $(v) is not set */" >> $@; \
+		fi; \
+	)
+
+#
+# Qemu targets
+#
 
 QEMU_TAP_IF ?= tap0
 QEMU_HAS_TAP := $(shell test -d /sys/class/net/$(QEMU_TAP_IF) && echo y)
@@ -112,16 +146,16 @@ else
 $(info Network TAP interface: $(QEMU_TAP_IF) (disabled))
 endif
 
-qemu: $(KERNEL_ISO)
+qemu: $(ISO)
 	$(call LOG,QEMU,$^)
 	$(call ASSERT_EXE_EXISTS,$(QEMU))
-	$(SILENT)$(QEMU) -cdrom $(KERNEL_ISO) -serial stdio $(QEMU_ARGS)
+	$(SILENT)$(QEMU) -cdrom $(ISO) -serial stdio $(QEMU_ARGS)
 
-qemu-server: $(KERNEL_ISO)
+qemu-server: $(ISO)
 	$(call LOG,QEMU,$^)
 	$(call ASSERT_EXE_EXISTS,$(QEMU))
-	$(SILENT)$(QEMU) -cdrom $(KERNEL_ISO) -daemonize -s -S $(QEMU_ARGS)
+	$(SILENT)$(QEMU) -cdrom $(ISO) -daemonize -s -S $(QEMU_ARGS)
 
-TO_CLEAN += $(BUILD_DIR)/$(KERNEL_DIR) $(KERNEL_BIN) $(KERNEL_ISO) $(BUILD_DIR)/kernel.map $(BUILD_DIR)/kernel.sym
+TO_CLEAN += $(BUILD_DIR)/$(KERNEL_DIR)
 
 .PHONY: qemu qemu-server

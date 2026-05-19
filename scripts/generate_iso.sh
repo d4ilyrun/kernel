@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 if [ $# -lt 3 ]; then
     echo "Usage: ./generate_iso.sh <isofile> <kernel> <initramfs>" >&2
     exit 1
@@ -7,7 +9,7 @@ fi
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 
-KERNEL_ISO="$1"
+ISO="$1"
 KERNEL_BIN="$2"
 INITRAMFS="$3"
 
@@ -28,7 +30,7 @@ function generate_iso()
 
     iso_dir="$(mktemp -d)"
 
-    echo "Generating $KERNEL_ISO from $KERNEL_BIN ..."
+    echo "Generating $ISO from $KERNEL_BIN ..."
 
     # Create a minimal boot partition for grub to be able to generate an iso file
     mkdir -p "$iso_dir/boot/grub"
@@ -52,7 +54,7 @@ menuentry "Kernel - ${KERNEL_BIN%.*}" {
 }
 EOF
 
-    grub-mkrescue -o "$KERNEL_ISO" "$iso_dir"
+    grub-mkrescue -o "$ISO" "$iso_dir"
 }
 
 if ! "$SCRIPT_DIR"/extract_kernel_symbols.py "$KERNEL_BIN" 131072; then

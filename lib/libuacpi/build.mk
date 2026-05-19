@@ -1,4 +1,9 @@
-$(eval $(call DEFINE_STATIC_LIBRARY_AT,libuacpi,uacpi/uACPI,include,source,\
+LIB_NAME        := libuacpi
+LIB_TARGET      := kernel
+LIB_SRC_DIR     := $(LIB_DIR)/libuacpi/uACPI/source
+LIB_INCLUDE_DIR := $(LIB_DIR)/libuacpi/uACPI/include
+
+LIB_SOURCES := \
     tables.c \
     types.c \
     uacpi.c \
@@ -18,4 +23,5 @@ $(eval $(call DEFINE_STATIC_LIBRARY_AT,libuacpi,uacpi/uACPI,include,source,\
     event.c \
     mutex.c \
     osi.c \
-))
+
+include $(REPO_ROOT)/lib/lib.mk
