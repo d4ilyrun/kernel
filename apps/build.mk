@@ -7,7 +7,7 @@ apps/$(1)/$(2):
 		CC="$(CC)" \
 		SRC_DIR="$(PWD)/$(APPS_DIR)/$(1)" \
 		BUILD_DIR="$(PWD)/$(BUILD_DIR)/$(APPS_DIR)/$(1)" \
-		INSTALL_DIR="$(SYSROOT)" \
+		INSTALL_DIR="$(BUILD_ROOT_DIR)" \
 	)
 endef
 

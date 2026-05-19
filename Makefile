@@ -44,6 +44,9 @@ TOOLCHAIN_DIR	:= toolchain
 ROOT_DIR		:= root
 APPS_DIR		:= apps
 
+BUILD_ROOT_DIR ?= $(PWD)/$(BUILD_DIR)/$(ROOT_DIR)
+TO_CLEAN += $(BUILD_DIR)/$(ROOT_DIR)
+
 DEBUG ?= y
 
 CFLAGS   := -std=gnu11 -Werror -Wall -Wextra -MMD -MP
@@ -173,20 +176,10 @@ clangd:
 	$(SILENT)echo -e > .clangd "\
 	CompileFlags:\n\
 	  Add:\n\
-	    - --sysroot=$(SYSROOT)\n\
+	    - --sysroot=$(PREFIX)\n\
 	    - --target=$(TARGET)\n\
-	    - -isystem$(PREFIX)/lib/dailyrun/include\n\
-	    - -isystem$(PREFIX)/include\
+	    - -isystem$(PREFIX)/usr/include\
 "
-
-#
-# Build user directory
-#
-.PHONY: root
-root: $(SYSROOT)
-$(SYSROOT): libc/install_headers
-
-TO_CLEAN += $(BUILD_DIR)/$(ROOT_DIR)
 
 #
 # Remove build artifacts

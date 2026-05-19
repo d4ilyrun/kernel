@@ -18,7 +18,7 @@ $(GCC_DIR): $(GCC_TAR)
 	$(call LOG,PATCH,$@)
 	$(SILENT)cp -rf $(TOOLCHAIN_GCC_DIR)/target/* $@
 
-gcc/configure: $(GCC_BUILD_DIR)/config.status $(SYSROOT)
+gcc/configure: $(GCC_BUILD_DIR)/config.status libc/install_headers
 $(GCC_BUILD_DIR)/config.status: binutils $(GCC_DIR)
 	$(call COMPILE,CONFIGURE,$@)
 	$(SILENT)\
@@ -26,7 +26,8 @@ $(GCC_BUILD_DIR)/config.status: binutils $(GCC_DIR)
 		$(PWD)/$(GCC_DIR)/configure \
 			--disable-nls --disable-gcov \
 			--enable-languages=c \
-			--with-sysroot=$(SYSROOT) \
+			--with-sysroot=$(PREFIX) \
+			--with-build-sysroot="$(PREFIX)/usr" \
 			--host="$(HOST)" \
 			--target="$(TARGET)" \
 			--prefix="$(PREFIX)" \

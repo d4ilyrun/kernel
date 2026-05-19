@@ -174,9 +174,6 @@ jobs:
         run: |
           cp defconfigs/config.i686 .config
 
-      - name: Install headers
-        run: make root
-
       - name: Build libc
         id: build-libc
         continue-on-error: true

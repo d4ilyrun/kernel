@@ -1,7 +1,6 @@
 TARGET  ?= $(ARCH)-dailyrun
 HOST    ?= $(shell uname -m)-linux
-SYSROOT ?= $(PWD)/$(BUILD_DIR)/$(ROOT_DIR)
-PREFIX  ?= $(SYSROOT)/usr
+PREFIX  ?= $(PWD)/$(BUILD_DIR)/$(ROOT_DIR)
 
 # Add manually built compiler to the path
 export PATH := $(PREFIX)/bin:$(PATH)

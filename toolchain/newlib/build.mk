@@ -24,22 +24,22 @@ $(NEWLIB_BUILD_DIR): $(NEWLIB_TAR)
 	$(SILENT)cd $@/newlib && autoreconf -vfi $(SILENT_OUTPUT)
 	$(SILENT)cp -rf $(TOOLCHAIN_NEWLIB_DIR)/port/* $@
 
-newlib/install_headers: $(PREFIX)/include/newlib.h
-$(PREFIX)/include/newlib.h: newlib/prepare
-	$(call INSTALL, $(NEWLIB_BUILD_DIR)/newlib/libc/include/, $(PREFIX)/include)
-	$(call INSTALL, $(NEWLIB_BUILD_DIR)/newlib/libc/sys/dailyrun/include/, $(PREFIX)/include)
+newlib/install_headers: $(PREFIX)/usr/include/newlib.h
+$(PREFIX)/usr/include/newlib.h: newlib/prepare
+	$(call INSTALL, $(NEWLIB_BUILD_DIR)/newlib/libc/include/, $(PREFIX)/usr/include)
+	$(call INSTALL, $(NEWLIB_BUILD_DIR)/newlib/libc/sys/dailyrun/include/, $(PREFIX)/usr/include)
 
 newlib/configure: $(NEWLIB_BUILD_DIR)/config.status
-$(NEWLIB_BUILD_DIR)/config.status: $(NEWLIB_BUILD_DIR) $(SYSROOT)
+$(NEWLIB_BUILD_DIR)/config.status: $(NEWLIB_BUILD_DIR) libc/install_headers
 	$(call COMPILE,CONFIGURE,$@)
 	$(SILENT)\
 		cd $(dir $@) && \
 		$(PWD)/$(NEWLIB_BUILD_DIR)/configure \
 			--host="$(HOST)" \
 			--target="$(TARGET)" \
-			--prefix="$(PREFIX)" \
+			--prefix="$(PREFIX)/usr" \
 			--with-tooldir="$(PREFIX)" \
-			--with-build-sysroot="$(SYSROOT)" \
+			--with-build-sysroot="$(PREFIX)" \
 			$(NEWLIB_CONFIGURE_FLAGS) \
 		>  configure.log \
 		2> configure.err

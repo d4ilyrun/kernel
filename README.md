@@ -40,7 +40,6 @@ is available for you to build inside the `toolchain` directory. Note that using 
 building userland executables destined to be used with this kernel.
 
 ```bash
-$ make root
 $ make gcc TARGET=i686-dailyrun ARCH= CROSS_COMPILE= GCC_CONFIGURE_FLAGS='--with-newlib'
 $ make libc
 ```
