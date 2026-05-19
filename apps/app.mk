@@ -23,20 +23,22 @@ build:   $(BUILD_DIR)/$(APP_EXECUTABLE)
 install: $(INSTALL_DIR)/$(APP_EXECUTABLE)
 
 prepare:
-	mkdir -p $(dir $(BUILD_DIR)/$(APP_EXECUTABLE))
+	$(SILENT)mkdir -p $(dir $(BUILD_DIR)/$(APP_EXECUTABLE))
 
 $(INSTALL_DIR)/$(APP_EXECUTABLE): prepare build
-	install -D -m 755 $(BUILD_DIR)/$(APP_EXECUTABLE) $(INSTALL_DIR)/$(APP_EXECUTABLE)
+	$(SILENT)install -D -m 755 $(BUILD_DIR)/$(APP_EXECUTABLE) $(INSTALL_DIR)/$(APP_EXECUTABLE)
 
 $(BUILD_DIR)/$(APP_EXECUTABLE): prepare $(APP_OBJS)
-	$(CC) $(APP_OBJS) -o $@ $(APP_LDFLAGS) $(LDFLAGS)
+	$(call LOG,LD,$(notdir $@))
+	$(SILENT)$(CC) $(APP_OBJS) -o $@ $(APP_LDFLAGS) $(LDFLAGS)
 
 $(BUILD_DIR)/%.c.o: $(SRC_DIR)/%.c
-	$(CC) $(APP_CPPFLAGS) $(CPPFLAGS) $(APP_CFLAGS) $(CFLAGS) -c $< -o $@
+	$(call LOG,CC,$(notdir $@))
+	$(SILENT)$(CC) $(APP_CPPFLAGS) $(CPPFLAGS) $(APP_CFLAGS) $(CFLAGS) -c $< -o $@
 
 clean:
-	$(RM) -r $(BUILD_DIR)
-	$(RM)    $(INSTALL_DIR)/bin/$(APP_NAME)
+	$(SILENT)$(RM) -r $(BUILD_DIR)
+	$(SILENT)$(RM)    $(INSTALL_DIR)/bin/$(APP_NAME)
 
 .PHONY: all prepare build install
 
