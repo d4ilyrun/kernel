@@ -1,7 +1,8 @@
 -include .config
 
-CC   := $(CROSS_COMPILE)gcc
-CPP  := $(CROSS_COMPILE)cpp
+CC   := $(CROSS_COMPILE)$(CC)
+CXX  := $(CROSS_COMPILE)$(CXX)
+CPP  := $(CROSS_COMPILE)$(CPP)
 LD   := $(CROSS_COMPILE)ld
 AR   := $(CROSS_COMPILE)ar
 NASM := nasm

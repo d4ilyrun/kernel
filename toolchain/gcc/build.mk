@@ -23,6 +23,11 @@ $(GCC_BUILD_DIR)/config.status: binutils $(GCC_DIR)
 	$(call COMPILE,CONFIGURE,$@)
 	$(SILENT)\
 		cd $(dir $@) && \
+		CC="$(CC)" \
+		CXX="$(CXX)" \
+		CPP="$(CPP)" \
+		LD="$(LD)" \
+		AR="$(AR)" \
 		$(PWD)/$(GCC_DIR)/configure \
 			--disable-nls --disable-gcov \
 			--enable-languages=c \

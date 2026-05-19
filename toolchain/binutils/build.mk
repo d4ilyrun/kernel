@@ -23,6 +23,11 @@ $(BINUTILS_BUILD_DIR)/config.status: $(BINUTILS_DIR)
 	$(call COMPILE,CONFIGURE,$@)
 	$(SILENT)\
 		cd $(dir $@) && \
+		CC="$(CC)" \
+		CXX="$(CXX)" \
+		CPP="$(CPP)" \
+		LD="$(LD)" \
+		AR="$(AR)" \
 		$(PWD)/$(BINUTILS_DIR)/configure \
 			--disable-nls --disable-werror \
 			--with-sysroot=$(PREFIX) \
