@@ -140,18 +140,21 @@ clangd:
 # Remove build artifacts
 #
 clean/%:
-	$(RM) -rf $(shell echo "$@" | sed "s/clean/$(BUILD_DIR)/")
+	$(call LOG,CLEAN,$(@:clean/%=%))
+	$(SILENT)$(RM) -rf $(shell echo "$@" | sed "s/clean/$(BUILD_DIR)/")
 
 .PHONY: clean
 clean: apps/clean
-	$(foreach to_clean,$(TO_CLEAN),$(RM) -rf $(to_clean) $(newline))
+	$(call LOG,CLEAN,all)
+	$(foreach to_clean,$(TO_CLEAN),$(SILENT)$(RM) -rf $(to_clean) $(newline))
 
 #
 # Remove build artifacts and more
 #
 .PHONY: distclean
 distclean: clean
-	$(foreach to_clean,$(TO_DISTCLEAN),$(RM) -rf $(to_clean) $(newline))
+	$(call LOG,DISTCLEAN,all)
+	$(foreach to_clean,$(TO_DISTCLEAN),$(SILENT)$(RM) -rf $(to_clean) $(newline))
 
 
 -include $(DEPS)

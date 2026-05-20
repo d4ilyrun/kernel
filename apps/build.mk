@@ -26,5 +26,7 @@ apps: apps/build apps/install
 apps/build:    $(foreach app, $(APPS), apps/$(app)/build)
 apps/install:  $(foreach app, $(APPS), apps/$(app)/install)
 apps/clean:    $(foreach app, $(APPS), apps/$(app)/clean)
+	$(call LOG,CLEAN,apps)
+	$(SILENT)$(RM) -r $(PWD)/$(BUILD_DIR)/$(APPS_DIR)
 
 .PHONY: apps apps/install apps/clean apps/build
