@@ -2,7 +2,7 @@ APPS := $(foreach dir,$(shell find $(APPS_DIR) -mindepth 1 -maxdepth 1 -type d),
 
 define DEFINE_USER_APP_TARGET
 .PHONY: apps/$(1)/$(2)
-apps/$(1)/$(2):
+apps/$(1)/$(2): $(3)
 	$(call LOG,MAKE,$(APPS_DIR)/$(1) $(2))
 	$(SILENT) \
 		REPO_ROOT="$(PWD)" \
@@ -25,7 +25,7 @@ define ADD_USER_APP
 apps/$(1): apps/$(1)/build apps/$(1)/install
 
 $(call DEFINE_USER_APP_TARGET,$(1),build)
-$(call DEFINE_USER_APP_TARGET,$(1),install)
+$(call DEFINE_USER_APP_TARGET,$(1),install, apps/$(1)/build)
 $(call DEFINE_USER_APP_TARGET,$(1),clean)
 endef
 
