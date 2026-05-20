@@ -41,12 +41,12 @@ static error_t icmp_handle_echo_request(struct packet *packet)
 
     /* Manually create out packet's routing table entry */
     route.netdev = packet->netdev;
-    route.src.ip.sin_addr = packet->l3.ipv4->daddr;
+    route.src.ip.sin_addr.s_addr = packet->l3.ipv4->daddr;
     memcpy(route.src.mac.mac_addr, packet->l2.ethernet->dst,
            sizeof(mac_address_t));
     memcpy(route.dst.mac.mac_addr, packet->l2.ethernet->src,
            sizeof(mac_address_t));
-    route.dst.ip.sin_addr = packet->l3.ipv4->saddr;
+    route.dst.ip.sin_addr.s_addr = packet->l3.ipv4->saddr;
 
     /* Copy the request's content with a 'reply' type */
     icmphdr->type = ICMP_ECHO_REPLY;
@@ -132,7 +132,7 @@ static error_t af_inet_ping_bind(struct socket *socket,
     if (len != sizeof(struct sockaddr_in))
         return E_INVAL;
 
-    iface = net_interface_find(src->sin_addr);
+    iface = net_interface_find(src->sin_addr.s_addr);
     if (iface == NULL)
         return E_ADDR_NOT_AVAILABLE;
 

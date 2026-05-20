@@ -21,7 +21,7 @@
 struct af_inet_sock {
     struct socket *socket;
     struct net_route route; /** Routing configuration */
-    enum ip_protocol proto; /** Protocol number */
+    uint8_t proto;          /** Protocol number */
     node_t this;            /** Used to list currently active sockets */
 };
 
@@ -109,9 +109,9 @@ error_t ipv4_receive_packet(struct packet *packet)
         socket_lock(isock->socket);
         if (isock->proto != iphdr->protocol ||
             (isock->route.src.ip.sin_family != AF_UNSPEC &&
-             isock->route.src.ip.sin_addr != iphdr->daddr) ||
+             isock->route.src.ip.sin_addr.s_addr != iphdr->daddr) ||
             (isock->route.dst.ip.sin_family != AF_UNSPEC &&
-             isock->route.dst.ip.sin_addr != iphdr->saddr)) {
+             isock->route.dst.ip.sin_addr.s_addr != iphdr->saddr)) {
             socket_unlock(isock->socket);
             continue;
         }
@@ -161,8 +161,8 @@ struct packet *ipv4_build_packet(const struct net_route *route, u8 proto,
     packet->netdev = route->netdev;
     ethernet_fill_packet(packet, ETH_PROTO_IP, route->dst.mac.mac_addr);
 
-    iphdr.saddr = route->src.ip.sin_addr;
-    iphdr.daddr = route->dst.ip.sin_addr;
+    iphdr.saddr = route->src.ip.sin_addr.s_addr;
+    iphdr.daddr = route->dst.ip.sin_addr.s_addr;
     iphdr.protocol = proto;
     iphdr.tot_len = ntohs(size + sizeof(struct ipv4_header));
     iphdr.version = IPV4_VERSION;
@@ -206,7 +206,7 @@ static error_t af_inet_raw_bind(struct socket *socket,
     if (len != sizeof(struct sockaddr_in))
         return E_INVAL;
 
-    iface = net_interface_find(src->sin_addr);
+    iface = net_interface_find(src->sin_addr.s_addr);
     if (iface == NULL)
         return E_ADDR_NOT_AVAILABLE;
 

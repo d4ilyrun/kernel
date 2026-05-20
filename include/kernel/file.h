@@ -13,6 +13,7 @@
 #include <kernel/spinlock.h>
 
 #include <sys/fcntl.h>
+#include <sys/socket.h>
 
 struct vnode;
 struct sockaddr;
@@ -84,9 +85,9 @@ struct file_operations {
     /** Compute the file's total size in memory */
     size_t (*size)(struct file *);
     /** Associate a socket with a local address */
-    error_t (*bind)(struct file *, struct sockaddr *addr, size_t len);
+    error_t (*bind)(struct file *, struct sockaddr *addr, socklen_t len);
     /** Connect to a remote host */
-    error_t (*connect)(struct file *, struct sockaddr *addr, size_t len);
+    error_t (*connect)(struct file *, struct sockaddr *addr, socklen_t len);
     /** Send a message through an endpoint (socket) */
     ssize_t (*sendmsg)(struct file *, const struct msghdr *, int flags);
     /** Send a message through an endpoint (socket) */
@@ -146,7 +147,7 @@ void file_changed(struct file *file);
 #define file_sendmsg(file, msg, flags) file_ops(file, sendmsg, msg, flags)
 ssize_t file_send(struct file *file, const char *data, size_t len, int flags);
 ssize_t file_sendto(struct file *file, const char *data, size_t len, int flags,
-                    struct sockaddr *addr, size_t addrlen);
+                    struct sockaddr *addr, socklen_t addrlen);
 
 #define file_recvmsg(file, msg, flags) file_ops(file, recvmsg, msg, flags)
 ssize_t file_recv(struct file *file, const char *data, size_t len, int flags);

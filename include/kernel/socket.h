@@ -37,7 +37,7 @@ struct socket {
 };
 
 /** Check whether the socket is connection oriented (TCP, ...) */
-static inline bool socket_mode_is_connection(enum socket_type socket_type)
+static inline bool socket_mode_is_connection(socket_type_t socket_type)
 {
     return socket_type == SOCK_STREAM;
 }
@@ -111,7 +111,7 @@ struct packet *socket_dequeue_packet(struct socket *socket);
  * @ref communication domain
  */
 struct socket_domain {
-    enum communication_domain domain; /*!< Domain identifier */
+    sa_family_t domain;               /*!< Domain identifier */
     node_t this;                      /*!< Used to list all domains */
     /** Match socket with its protocol, and initialize necessary
      *  per-domain data.
@@ -140,7 +140,7 @@ struct socket_protocol_ops {
 /** */
 struct socket_protocol {
     int proto;                             /*!< Protocol number */
-    enum socket_type type;                 /*!< Protocol type */
+    socket_type_t type;                    /*!< Protocol type */
     const struct socket_protocol_ops *ops; /*!< Protocol operations **/
 };
 

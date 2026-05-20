@@ -60,11 +60,6 @@ struct sockaddr_mac {
     uint8_t mac_addr[6];
 };
 
-#define htons htobe16
-#define ntohs be16toh
-#define htonl htobe32
-#define ntohl be32toh
-
 /** Convert an interger to its network representation (big endian) */
 #define hton(_x)                     \
     _Generic((_x), uint16_t          \
