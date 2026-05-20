@@ -143,16 +143,29 @@ sig_sa_handler_t signal(int signo, sig_sa_handler_t handler)
     return sigaction.sa_handler;
 }
 
-#define alias(f) __attribute__((__alias__(f)))
-
-int sigreturn(ucontext_t *ucontext) alias("_sigreturn");
-int sigsethandler(sig_sa_sigaction_t handler) alias("_sigsethandler");
-
 /*
- * Unimplemented syscalls
+ * Simple syscall wrappers that are not defined by newlib.
  */
 
-int link(char *old, char *new);
-clock_t times(struct tms *buf);
-int unlink(char *name);
-int gettimeofday(struct timeval *p, void *z);
+#define alias(f) __attribute__((__alias__(f)))
+#define weak_alias(f) __attribute__((__alias__(f))) __attribute__((__weak__))
+
+#define stringify(x) __stringify(x)
+#define __stringify(x) #x
+
+#define DEFINE_SYSCALL_ALIAS(ret_type, sc, ...) \
+    ret_type sc(__VA_ARGS__) weak_alias(stringify(_##sc))
+
+
+DEFINE_SYSCALL_ALIAS(int, lstat, const char *, struct stat *);
+
+DEFINE_SYSCALL_ALIAS(uid_t, getuid, void);
+DEFINE_SYSCALL_ALIAS(uid_t, geteuid);
+DEFINE_SYSCALL_ALIAS(gid_t, getgid, void);
+DEFINE_SYSCALL_ALIAS(gid_t, getegid);
+DEFINE_SYSCALL_ALIAS(int,   waitpid, pid_t, int *, int);
+
+DEFINE_SYSCALL_ALIAS(int, sigprocmask, int, const sigset_t *, sigset_t *);
+DEFINE_SYSCALL_ALIAS(int, sigaction, int, const struct sigaction *, struct sigaction *);
+DEFINE_SYSCALL_ALIAS(int, sigreturn, ucontext_t *);
+DEFINE_SYSCALL_ALIAS(int, sigsethandler, sig_sa_sigaction_t);
