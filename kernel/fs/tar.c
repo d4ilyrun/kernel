@@ -364,7 +364,7 @@ static vnode_t *tar_get_vnode(tar_node_t *node, vfs_t *fs)
     struct stat *stat;
     bool new;
 
-    node->vnode = vfs_vnode_acquire(node->vnode, &new);
+    node->vnode = vnode_acquire(node->vnode, &new);
     node->size = tar_read_number(header->size);
 
     if (!new)

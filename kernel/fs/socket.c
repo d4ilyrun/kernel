@@ -44,7 +44,7 @@ struct socket *socket_alloc(void)
         return PTR_ERR(E_NOMEM);
 
     /* Increase refcount */
-    vnode = vfs_vnode_acquire(&node->vnode, NULL);
+    vnode = vnode_acquire(&node->vnode, NULL);
     socket = &node->socket;
 
     /* No real filesystem, just standalone vnodes */
@@ -61,7 +61,7 @@ struct socket *socket_alloc(void)
     file = file_open(vnode, &socket_fops);
     if (IS_ERR(file)) {
         log_err("Failed to open socket file: %pE", file);
-        vfs_vnode_release(vnode);
+        vnode_release(vnode);
         return (void *)file;
     }
 

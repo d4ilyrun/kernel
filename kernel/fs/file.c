@@ -21,7 +21,7 @@ struct file *file_open(struct vnode *vnode, const struct file_operations *fops)
         return PTR_ERR(E_NOMEM);
 
     file->ops = fops;
-    file->vnode = vfs_vnode_acquire(vnode, NULL);
+    file->vnode = vnode_acquire(vnode, NULL);
 
     INIT_SPINLOCK(file->lock);
 
@@ -51,7 +51,7 @@ void __file_put(struct file *file)
      *       by the file shall be freed and the file shall no longer
      *       be accessible.
      */
-    vfs_vnode_release(vnode);
+    vnode_release(vnode);
 
     kfree(file);
 }

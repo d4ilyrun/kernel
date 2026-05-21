@@ -64,7 +64,7 @@ static error_t vfs_mount_at(vnode_t *mountpoint, const char *fs_type,
         return ERR_FROM_PTR(new);
 
     if (mountpoint) {
-        new->node = vfs_vnode_acquire(mountpoint, NULL);
+        new->node = vnode_acquire(mountpoint, NULL);
         mountpoint->mounted_here = new;
     } else {
         new->node = NULL; /* root filesystem. */
@@ -96,7 +96,7 @@ error_t vfs_mount(const char *mount_path, const char *fs_type,
     err = vfs_mount_at(mountpoint, fs_type, blkdev);
 
     /* Release the reference acuired by vfs_find_by_path(). */
-    vfs_vnode_release(mountpoint);
+    vnode_release(mountpoint);
 
     return err;
 }
@@ -107,8 +107,8 @@ static error_t vfs_unmount_at(struct vnode *vnode)
     vnode->mounted_here->operations->delete(vnode->mounted_here);
 
     /* A mounted FS keeps a reference to the vnode it is mounted on */
-    vfs_vnode_release(vnode->mounted_here->node);
-    vfs_vnode_release(vnode);
+    vnode_release(vnode->mounted_here->node);
+    vnode_release(vnode);
 
     return E_SUCCESS;
 }
@@ -120,14 +120,14 @@ error_t vfs_unmount(const char *path)
         return ERR_FROM_PTR(vnode);
 
     if (vnode->mounted_here == NULL) {
-        vfs_vnode_release(vnode);
+        vnode_release(vnode);
         return E_INVAL;
     }
 
     vfs_unmount_at(vnode);
 
     /* Release the reference acquired by vfs_find_by_path(). */
-    vfs_vnode_release(vnode);
+    vnode_release(vnode);
 
     return E_SUCCESS;
 }
@@ -158,7 +158,7 @@ vfs_find_child_at(struct vnode **parent, const path_segment_t *segment)
 
         /* free the original parent vnode, replace it with the mounted root. */
         spinlock_acquire(&node->lock);
-        vfs_vnode_release(*parent);
+        vnode_release(*parent);
         *parent = node;
     }
 
@@ -170,7 +170,7 @@ vfs_find_child_at(struct vnode **parent, const path_segment_t *segment)
 
     /* Make sure that the user can search for files inside this directory. */
     child = PTR_ERR(E_ACCESS);
-    if (!vfs_vnode_check_creds(node, creds, O_SEARCH))
+    if (!vnode_check_creds(node, creds, O_SEARCH))
         goto out;
 
     child = node->operations->lookup(node, segment);
@@ -185,7 +185,7 @@ out:
  * Find the vnode pointed at by a path.
  *
  * NOTE: This function increases the vnode's reference count. The reference must
- *       be released by the caller using vfs_vnode_release().
+ *       be released by the caller using vnode_release().
  */
 vnode_t *vfs_find_by_path(const char *raw_path)
 {
@@ -202,11 +202,11 @@ vnode_t *vfs_find_by_path(const char *raw_path)
         vnode_t *parent = node;
         node = vfs_find_child_at(&parent, &segment);
 
-        // NOTE: vfs_vnode_acquire() is called inside the `lookup` and `root`
+        // NOTE: vnode_acquire() is called inside the `lookup` and `root`
         //       operations, this is why we must release the vnode.
         //       This looks a bit weird, or 'hidden', and should
         //       maybe be refactored.
-        vfs_vnode_release(parent);
+        vnode_release(parent);
 
         if (IS_ERR(node))
             break;
@@ -216,7 +216,7 @@ vnode_t *vfs_find_by_path(const char *raw_path)
 }
 
 /*
- * NOTE: Caller must call vfs_vnode_release() on the returned node.
+ * NOTE: Caller must call vnode_release() on the returned node.
  */
 static vnode_t *vfs_find_parent(path_t *path)
 {
@@ -294,7 +294,7 @@ vnode_t *vfs_create(const char *raw_path, vnode_type type)
     *((char *)file.end) = end_char;
 
     /* Release reference taken by vfs_find_parent(). */
-    vfs_vnode_release(parent);
+    vnode_release(parent);
 
     return vnode;
 }
@@ -333,7 +333,7 @@ error_t vfs_remove(const char *raw_path)
     *((char *)file.end) = end_char;
 
     /* Release reference taken by vfs_find_parent(). */
-    vfs_vnode_release(parent);
+    vnode_release(parent);
 
     return ret;
 }
@@ -395,7 +395,7 @@ static struct file *vfs_open_at(struct vnode *vnode, int oflags)
             goto out;
 
         file = PTR_ERR(E_PERM);
-        if (!vfs_vnode_check_creds(vnode, creds, flags))
+        if (!vnode_check_creds(vnode, creds, flags))
             goto out;
 
         file = vnode->operations->open(vnode);
@@ -424,7 +424,7 @@ struct file *vfs_open(const char *raw_path, int oflags)
     file = vfs_open_at(vnode, oflags);
 
     /* Release reference taken by vfs_find_by_path(). */
-    vfs_vnode_release(vnode);
+    vnode_release(vnode);
 
     return file;
 }
@@ -432,7 +432,7 @@ struct file *vfs_open(const char *raw_path, int oflags)
 /*
  *
  */
-static void vfs_vnode_free(struct vnode *vnode)
+static void vnode_free(struct vnode *vnode)
 {
     kmem_cache_free(kmem_cache_vnode, vnode);
 }
@@ -440,7 +440,7 @@ static void vfs_vnode_free(struct vnode *vnode)
 /*
  *
  */
-static struct vnode *vfs_vnode_alloc(vm_flags_t vm_flags)
+static struct vnode *vnode_alloc(vm_flags_t vm_flags)
 {
     return kmem_cache_alloc(kmem_cache_vnode, vm_flags);
 }
@@ -448,10 +448,10 @@ static struct vnode *vfs_vnode_alloc(vm_flags_t vm_flags)
 /*
  *
  */
-vnode_t *vfs_vnode_acquire(vnode_t *node, bool *new)
+vnode_t *vnode_acquire(vnode_t *node, bool *new)
 {
     if (node == NULL) {
-        node = vfs_vnode_alloc(VM_KERNEL_RW);
+        node = vnode_alloc(VM_KERNEL_RW);
         if (node == NULL)
             return PTR_ERR(E_NOMEM);
         if (new)
@@ -469,7 +469,7 @@ vnode_t *vfs_vnode_acquire(vnode_t *node, bool *new)
 /*
  *
  */
-vnode_t *vfs_vnode_release(vnode_t *node)
+vnode_t *vnode_release(vnode_t *node)
 {
     if (!node)
         return NULL;
@@ -477,7 +477,7 @@ vnode_t *vfs_vnode_release(vnode_t *node)
     if (node->refcount <= 1) {
         if (node->operations->release)
             node->operations->release(node);
-        vfs_vnode_free(node);
+        vnode_free(node);
         return NULL;
     }
 
@@ -488,7 +488,7 @@ vnode_t *vfs_vnode_release(vnode_t *node)
 /*
  *
  */
-bool vfs_vnode_check_creds(const struct vnode *vnode,
+bool vnode_check_creds(const struct vnode *vnode,
                            const struct user_creds *creds, int oflags)
 {
     const struct stat *stat;
@@ -572,7 +572,7 @@ int sys_open(const char *path, int oflags)
         file_put(file);
 
 error_release_node:
-    vfs_vnode_release(vnode);
+    vnode_release(vnode);
     return fd;
 }
 
@@ -589,7 +589,7 @@ int sys_lstat(const char *path, struct stat *buf)
 
     *buf = vnode->stat;
 
-    vfs_vnode_release(vnode);
+    vnode_release(vnode);
 
     return E_SUCCESS;
 }
@@ -610,7 +610,7 @@ int sys_stat(const char *path, struct stat *buf)
 /*
  * Used by the cache to intialize newly allocated vnodes.
  */
-static void vfs_vnode_constructor(void *obj)
+static void vnode_constructor(void *obj)
 {
     struct vnode *vnode = obj;
 
@@ -623,7 +623,7 @@ static void vfs_vnode_constructor(void *obj)
 error_t vfs_init(void)
 {
     kmem_cache_vnode = kmem_cache_create("vnode", sizeof(struct vnode), 64,
-                                         vfs_vnode_constructor, NULL);
+                                         vnode_constructor, NULL);
     if (!kmem_cache_vnode)
         return E_NOMEM;
 

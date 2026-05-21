@@ -34,7 +34,7 @@ static inline struct vnode *device_acquire_vnode(struct device *dev)
     bool new;
     struct stat *stat;
 
-    dev->vnode = vfs_vnode_acquire(dev->vnode, &new);
+    dev->vnode = vnode_acquire(dev->vnode, &new);
     if (!new)
         return dev->vnode;
 
@@ -59,7 +59,7 @@ struct file *device_open(device_t *dev)
 {
     struct vnode *vnode = device_acquire_vnode(dev);
     struct file *file = file_open(vnode, dev->fops);
-    vfs_vnode_release(vnode);
+    vnode_release(vnode);
     return file;
 }
 
@@ -139,7 +139,7 @@ static vnode_ops_t devtmpfs_vnode_ops = {
 static vnode_t *devtmpfs_root(vfs_t *vfs)
 {
     struct devtmpfs *devtmpfs = vfs->pdata;
-    return vfs_vnode_acquire(&devtmpfs->root, NULL);
+    return vnode_acquire(&devtmpfs->root, NULL);
 }
 
 static void devtmpfs_delete(vfs_t *vfs)

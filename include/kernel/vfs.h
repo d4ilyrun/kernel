@@ -120,7 +120,7 @@ error_t vfs_unmount(const char *path);
 /** Retreive the vnode corresponding to a path
  *
  *  @warning The vnode returned by this function **must** be released using
- *           \ref vfs_vnode_release once done with it
+ *           \ref vnode_release once done with it
  *
  *  @return The vnode, or a pointer containing the error number:
  *      * E_NOENT - Path does not exist
@@ -179,7 +179,7 @@ typedef struct vnode_operations {
 
     /** Find a child node (by name) inside a directory node.
      *  @warning The node returned by this function MUST be released afterwards
-     *           using \ref vfs_vnode_release (subject to change in the future).
+     *           using \ref vnode_release (subject to change in the future).
      */
     vnode_t *(*lookup)(vnode_t *, const path_segment_t *);
 
@@ -217,14 +217,14 @@ struct vnode {
 /** Increment the refcount of a vnode
  *
  * Similarily to any other synchronization mechanism, you must call
- * \ref vfs_vnode_release once you are done using this node
+ * \ref vnode_release once you are done using this node
  *
  * @param vnode The referenced vnode
  * @param[out] new Set to true if a new vnode was created (optional)
  *
  * @return The original vnode, or a newly allocated one if NULL
  */
-vnode_t *vfs_vnode_acquire(vnode_t *, bool *);
+vnode_t *vnode_acquire(vnode_t *, bool *);
 
 /** Decrease the refcount of a vnode
  *
@@ -232,7 +232,7 @@ vnode_t *vfs_vnode_acquire(vnode_t *, bool *);
  *
  * @return The original vnode, NULL if the new refcount is 0
  */
-vnode_t *vfs_vnode_release(vnode_t *);
+vnode_t *vnode_release(vnode_t *);
 
 /** Check if a process has the right to access a vnode based on its credentials.
  *
@@ -245,8 +245,8 @@ vnode_t *vfs_vnode_release(vnode_t *);
  *
  *  @return \c true if the vnode can be accessed.
  */
-bool vfs_vnode_check_creds(const struct vnode *, const struct user_creds *,
-                           int oflags);
+bool vnode_check_creds(const struct vnode *, const struct user_creds *,
+                       int oflags);
 
 /** @} */
 
@@ -256,7 +256,7 @@ static inline bool vfs_exist(const char *path)
     struct vnode *vnode = vfs_find_by_path(path);
     if (IS_ERR(vnode))
         return false;
-    vfs_vnode_release(vnode);
+    vnode_release(vnode);
     return true;
 }
 
