@@ -446,7 +446,7 @@ struct file *vfs_open(const char *raw_path, int oflags)
 /*
  *
  */
-static void vnode_free(struct vnode *vnode)
+void vnode_free(struct vnode *vnode)
 {
     kmem_cache_free(kmem_cache_vnode, vnode);
 }

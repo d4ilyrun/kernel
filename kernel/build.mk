@@ -21,6 +21,7 @@ KERNEL_SRCS := 	\
 	fs/tar.c \
 	fs/devtmpfs.c \
 	fs/socket.c \
+	fs/pipe.c \
 	sys/sched.c \
 	sys/syscalls.c \
 	sys/process.c \

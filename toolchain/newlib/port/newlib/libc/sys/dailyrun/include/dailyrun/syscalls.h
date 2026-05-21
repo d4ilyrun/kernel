@@ -39,6 +39,7 @@
     F(sigsethandler,		31, 	1,		default,		int,		sig_sa_sigaction_t)                                                          \
     F(sigreturn,			32, 	1,		default,		int,		ucontext_t *)                                                                \
     F(getdents,				33, 	4,		default,		ssize_t,	int, void *, size_t, int)                                                    \
+    F(pipe,					34, 	1,		default,		int,		int *)                                                                       \
 
 /*
  * The list of available syscall vectors.
