@@ -20,6 +20,7 @@ KERNEL_SRCS := 	\
 	fs/file.c \
 	fs/tar.c \
 	fs/socket.c \
+	fs/pipe.c \
 	sys/device.c \
 	sys/sched.c \
 	sys/syscalls.c \

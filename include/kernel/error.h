@@ -34,6 +34,7 @@ typedef enum error {
     E_TOO_BIG = 7,               ///< Arg list too long
     E_CHILD = 10,                ///< No children
     E_WOULD_BLOCK = 11,          ///< Resource temporarily unavailable
+    E_AGAIN = E_WOULD_BLOCK,     ///< Resource temporarily unavailable
     E_NOMEM = 12,                ///< Out of memory
     E_ACCESS = 13,               ///< Permisison denied of memory
     E_BUSY = 16,                 ///< Device or resource busy
@@ -46,6 +47,7 @@ typedef enum error {
     E_MFILE = 24,                ///< Too many opened files
     E_SEEK_PIPE = 29,            ///< Illegal seek
     E_READ_ONLY_FS = 30,         ///< Read-only file system
+    E_PIPE = 32,                 ///< Broken pipe
     E_NAME_TOO_LONG = 36,        ///< File name too long
     E_NOT_IMPLEMENTED = 38,      ///< Function not implemented
     E_BAD_FD = 81,               ///< File descriptor in bad state
