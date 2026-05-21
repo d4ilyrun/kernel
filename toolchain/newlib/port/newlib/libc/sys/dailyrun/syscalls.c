@@ -169,3 +169,5 @@ DEFINE_SYSCALL_ALIAS(int, sigprocmask, int, const sigset_t *, sigset_t *);
 DEFINE_SYSCALL_ALIAS(int, sigaction, int, const struct sigaction *, struct sigaction *);
 DEFINE_SYSCALL_ALIAS(int, sigreturn, ucontext_t *);
 DEFINE_SYSCALL_ALIAS(int, sigsethandler, sig_sa_sigaction_t);
+
+pid_t vfork(void) alias("fork");
