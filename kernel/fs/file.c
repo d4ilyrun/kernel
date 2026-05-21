@@ -66,6 +66,11 @@ void file_modified(struct file *file)
     clock_get_time(&file->vnode->stat.st_mtim);
 }
 
+void file_changed(struct file *file)
+{
+    clock_get_time(&file->vnode->stat.st_ctim);
+}
+
 off_t default_file_seek(struct file *file, off_t off, int whence)
 {
     enum vnode_type type = file->vnode->type;
