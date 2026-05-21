@@ -156,9 +156,9 @@ sig_sa_handler_t signal(int signo, sig_sa_handler_t handler)
 #define DEFINE_SYSCALL_ALIAS(ret_type, sc, ...) \
     ret_type sc(__VA_ARGS__) weak_alias(stringify(_##sc))
 
-
 DEFINE_SYSCALL_ALIAS(int, lstat, const char *, struct stat *);
 
+DEFINE_SYSCALL_ALIAS(pid_t, getppid, void);
 DEFINE_SYSCALL_ALIAS(uid_t, getuid, void);
 DEFINE_SYSCALL_ALIAS(uid_t, geteuid);
 DEFINE_SYSCALL_ALIAS(gid_t, getgid, void);

@@ -1,6 +1,8 @@
 #ifndef _DAILYRUN_SYSCALLS_H
 #define _DAILYRUN_SYSCALLS_H
 
+/* clang-format off */
+
 /*
  *    name,					vec,	argc,	sys_type,		ret_type,	args...
  */
@@ -39,6 +41,7 @@
     F(sigsethandler,		31, 	1,		default,		int,		sig_sa_sigaction_t)                                                          \
     F(sigreturn,			32, 	1,		default,		int,		ucontext_t *)                                                                \
     F(getdents,				33, 	4,		default,		ssize_t,	int, void *, size_t, int)                                                    \
+    F(getppid,				13,		0,		default,		pid_t,		void)                                                                        \
 
 /*
  * The list of available syscall vectors.

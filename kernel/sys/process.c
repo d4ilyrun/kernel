@@ -823,6 +823,11 @@ pid_t sys_getpid(void)
     return current->process->pid;
 }
 
+pid_t sys_getppid(void)
+{
+    return current->process->parent->pid;
+}
+
 /*
  *
  */
