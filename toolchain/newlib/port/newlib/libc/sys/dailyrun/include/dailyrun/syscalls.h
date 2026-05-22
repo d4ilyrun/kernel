@@ -39,6 +39,8 @@
     F(sigsethandler,		31, 	1,		default,		int,		sig_sa_sigaction_t)                                                          \
     F(sigreturn,			32, 	1,		default,		int,		ucontext_t *)                                                                \
     F(pipe,					33, 	1,		default,		int,		int *)                                                                       \
+    F(dup,					34, 	1,		default,		int,		int)                                                                         \
+    F(dup2,					35, 	1,		default,		int,		int, int)                                                                    \
 
 /*
  * The list of available syscall vectors.

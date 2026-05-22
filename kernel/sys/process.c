@@ -1005,3 +1005,61 @@ void thread_deliver_pending_signal(struct thread *thread)
 
     signal_deliver(thread, sig_ctx);
 }
+
+/*
+ *
+ */
+int sys_dup(int fd)
+{
+    struct process *process = current->process;
+    struct fd *fdp;
+
+    fdp = process_fd_get(process, fd);
+    if (!fdp)
+        return -E_BAD_FD;
+
+    locked_scope (&process->fds_lock) {
+        for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
+            if (process->fds[i] == NULL) {
+                process->fds[i] = fdp; /* reference already acquired */
+                return i;
+            }
+        }
+    }
+
+    return -E_MFILE;
+}
+
+/*
+ *
+ */
+int sys_dup2(int old, int new)
+{
+    struct process *process = current->process;
+    struct fd *fdp;
+
+    if (new < 0 || new >= PROCESS_FD_COUNT)
+        return -E_BAD_FD;
+
+    fdp = process_fd_get(process, old);
+    if (!fdp)
+        return -E_BAD_FD;
+
+    if (new == old) {
+        process_fd_put(process, fdp);
+        return new;
+    }
+
+    locked_scope (&process->fds_lock) {
+        if (process->fds[new])
+            process_fd_put(process, process->fds[new]);
+        process->fds[new] = fdp;
+
+        /* Clear FD_CLOEXEC while holding the lock to avoid leaking the file
+         * descriptor if a fork/exec were to happen in the meantime.
+         */
+        fdp->flags &= ~FD_NOINHERIT;
+    }
+
+    return new;
+}
