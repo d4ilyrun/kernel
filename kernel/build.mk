@@ -31,6 +31,7 @@ KERNEL_SRCS := 	\
 	fs/socket.c \
 	fs/pipe.c \
 	fs/shm.c \
+	fs/pts.c \
 	sys/sched.c \
 	sys/syscalls.c \
 	sys/process.c \

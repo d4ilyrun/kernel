@@ -312,7 +312,7 @@ void vfs_vnode_put_page(struct page *page);
  *  This function should be called on new vnodes when the stat structure's
  *  content cannot be retreived from a backing store (e.g. pseudo filesystem).
  */
-void vnode_fill_stats(struct vnode *vnode, mode_t mode, struct user_creds *creds);
+void vnode_fill_stats(struct vnode *vnode, mode_t mode, const struct user_creds *creds);
 
 /** @} */
 

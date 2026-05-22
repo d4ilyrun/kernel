@@ -541,7 +541,7 @@ bool vnode_check_creds(const struct vnode *vnode, const struct user_creds *creds
 /*
  *
  */
-void vnode_fill_stats(struct vnode *vnode, mode_t mode, struct user_creds *creds)
+void vnode_fill_stats(struct vnode *vnode, mode_t mode, const struct user_creds *creds)
 {
 	struct stat *stat = &vnode->stat;
 

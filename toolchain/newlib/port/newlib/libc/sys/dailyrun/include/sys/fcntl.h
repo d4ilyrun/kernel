@@ -9,5 +9,6 @@
 #define S_IRWU (S_IRUSR | S_IWUSR)
 #define S_IRWG (S_IRGRP | S_IWGRP)
 #define S_IRWO (S_IROTH | S_IWOTH)
+#define S_IRWA (S_IRWU | S_IRWG | S_IRWO)
 
 #endif /* _SYS_FCNTL_H */
