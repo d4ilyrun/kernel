@@ -29,10 +29,14 @@ struct user_creds {
 };
 
 #define UID_ROOT 0
+#define GID_ROOT 0
+
+/* Statis root creds structure that can be used for comparisons. */
+extern const struct user_creds root_creds;
 
 static inline bool creds_is_root(const struct user_creds *creds)
 {
-	return creds->ruid == UID_ROOT;
+	return creds->euid == UID_ROOT;
 }
 
 struct user_creds *creds_new(void);

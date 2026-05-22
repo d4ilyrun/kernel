@@ -10,6 +10,13 @@
 
 static struct kmem_cache *user_creds_cache;
 
+const struct user_creds root_creds = {
+	.ref = REFCNT_INIT_STATIC(),
+	.ruid = UID_ROOT,
+	.euid = UID_ROOT,
+	.suid = UID_ROOT,
+};
+
 /*
  *
  */
