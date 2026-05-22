@@ -81,11 +81,13 @@ static error_t console_device_init(void)
 
     console = vfs_open("/dev/console", O_RDWR);
     if (IS_ERR(console))
-        return ERR_FROM_PTR(console);
+        PANIC("failed to open /dev/console: %pe", console);
 
-    kernel_process.files[FD_STDIN] = console;
-    kernel_process.files[FD_STDOUT] = file_get(kernel_process.files[FD_STDIN]);
-    kernel_process.files[FD_STDERR] = file_get(kernel_process.files[FD_STDOUT]);
+    ASSERT(process_set_fd(&kernel_process, FD_STDIN,  file_get(console), FD_READ) >= 0);
+    ASSERT(process_set_fd(&kernel_process, FD_STDOUT, file_get(console), FD_WRITE) >= 0);
+    ASSERT(process_set_fd(&kernel_process, FD_STDERR, file_get(console), FD_WRITE) >= 0);
+
+    file_put(console);
 
     return E_SUCCESS;
 }

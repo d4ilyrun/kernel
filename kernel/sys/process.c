@@ -215,10 +215,10 @@ static void process_make_zombie(struct process *process)
      * open file descriptions, ...).
      */
 
-    locked_scope (&process->files_lock) {
+    locked_scope (&process->fds_lock) {
         for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
-            if (process->files[i])
-                file_put(process->files[i]);
+            if (process->fds[i])
+                fd_put(process->fds[i]);
         }
     }
 
@@ -316,7 +316,7 @@ static struct process *process_new(void)
     process->pid = process_next_pid();
     process->state = SCHED_RUNNING;
 
-    INIT_SPINLOCK(process->files_lock);
+    INIT_SPINLOCK(process->fds_lock);
     INIT_SPINLOCK(process->lock);
     INIT_LLIST(process->threads);
     INIT_LLIST(process->children);
@@ -378,7 +378,7 @@ void process_init_kernel_process(void)
     INIT_LLIST(kernel_process.threads);
     INIT_LLIST(kernel_process.children);
     INIT_SPINLOCK(kernel_process.lock);
-    INIT_SPINLOCK(kernel_process.files_lock);
+    INIT_SPINLOCK(kernel_process.fds_lock);
 
     llist_add(&kernel_process.threads,
               &kernel_process_initial_thread.this_proc);
@@ -432,59 +432,121 @@ void process_init_kernel_process(void)
     llist_add(&threads_list, &kernel_process_initial_thread.this_global);
 }
 
-int process_register_file(struct process *process, struct file *file)
+/*
+ *
+ */
+static struct fd *fd_alloc(void)
 {
-    int fd = -E_MFILE;
+    return kmalloc(sizeof(struct fd), KMALLOC_KERNEL);
+}
+
+/*
+ *
+ */
+static void fd_free(struct fd *fd)
+{
+    kfree(fd);
+}
+
+/*
+ * Release a file description.
+ *
+ * The caller should make sure that no reference to this file description
+ * remains.
+ */
+void __fd_put(struct fd *fd)
+{
+    file_put(fd->file);
+    fd_free(fd);
+}
+
+int process_add_fd(struct process *process, struct file *file, int flags)
+{
+    struct fd *fd;
+
+    fd = fd_alloc();
+    if (!fd)
+        return -E_NOMEM;
+
+    fd->file = file;
+    fd->flags = flags;
 
     /*
-     * Find the first available file descriptor index.
+     * Find the first available file descriptor.
      */
-    locked_scope (&process->files_lock) {
+    locked_scope (&process->fds_lock) {
         for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
-            if (process->files[i] == NULL)
+            if (process->fds[i] == NULL)
                 continue;
-            fd = i;
-            process->files[i] = file;
-            break;
+            process->fds[i] = fd;
+            return i;
         }
     }
 
-    return fd;
+    fd_free(fd);
+    return -E_MFILE;
 }
 
-error_t process_unregister_file(struct process *process, int fd)
+error_t process_remove_fd(struct process *process, int idx)
 {
-    struct file *file;
+    struct fd *fd;
 
-    if (fd >= PROCESS_FD_COUNT)
+    if (idx < 0 || idx >= PROCESS_FD_COUNT)
         return E_BAD_FD;
 
-    locked_scope (&process->files_lock) {
-        file = process->files[fd];
-        if (!file)
+    locked_scope (&process->fds_lock) {
+        fd = process->fds[idx];
+        if (!fd)
             return E_BAD_FD;
-        file_put(file);
-        process->files[fd] = NULL;
+        process->fds[idx] = NULL;
     }
+
+    fd_put(fd);
 
     return E_SUCCESS;
 }
 
-struct file *process_file_get(struct process *process, int fd)
+int process_set_fd(struct process *proc, int fd, struct file *file, int flags)
 {
-    struct file *file;
+    struct fd *fdp;
+    int ret;
 
-    if (fd >= PROCESS_FD_COUNT)
-        return NULL;
+    fdp = fd_alloc();
+    if (!fdp)
+        return -E_NOMEM;
 
-    locked_scope (&process->files_lock) {
-        file = process->files[fd];
-        if (file)
-            file_get(file);
+    fdp->file = file;
+    fdp->flags = flags;
 
+    /*
+     * Find the first available file descriptor.
+     */
+    locked_scope (&proc->fds_lock) {
+        if (proc->fds[fd] != NULL) {
+            ret = -E_EXIST;
+            goto fail;
+        }
+        proc->fds[fd] = fdp;
     }
 
-    return file;
+    return fd;
+
+fail:
+    fd_free(fdp);
+    return ret;
+}
+
+struct fd *process_fd_get(struct process *process, int fd)
+{
+    if (fd < 0 || fd >= PROCESS_FD_COUNT)
+        return NULL;
+
+    locked_scope (&process->fds_lock) {
+        return fd_get(process->fds[fd]);
+    }
+
+    // shut up compiler
+    assert_not_reached();
 }
 
 thread_t *thread_spawn(struct process *process, thread_entry_t entrypoint,
@@ -745,10 +807,10 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
     }
 
     /* Duplicate the current process' open files. */
-    locked_scope (&current->process->files_lock) {
+    locked_scope (&current->process->fds_lock) {
         for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
-            if (current->process->files[i])
-                new_process->files[i] = file_get(current->process->files[i]);
+            if (current->process->fds[i])
+                new_process->fds[i] = fd_get(current->process->fds[i]);
         }
     }
 

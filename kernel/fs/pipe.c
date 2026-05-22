@@ -242,7 +242,7 @@ int sys_pipe(int *fds)
         goto exit_error;
     }
 
-    fds[PIPE_READ] = process_register_file(current->process, read_file);
+    fds[PIPE_READ] = process_add_fd(current->process, read_file, FD_RW);
     if (fds[PIPE_READ] < 0) {
         ret = fds[PIPE_READ];
         goto exit_error;
@@ -258,10 +258,10 @@ int sys_pipe(int *fds)
         goto exit_error;
     }
 
-    fds[PIPE_WRITE] = process_register_file(current->process, write_file);
+    fds[PIPE_WRITE] = process_add_fd(current->process, write_file, FD_RW);
     if (fds[PIPE_WRITE] < 0) {
         ret = fds[PIPE_WRITE];
-        process_unregister_file(current->process, fds[PIPE_READ]);
+        process_remove_fd(current->process, fds[PIPE_READ]);
         read_file = NULL; /* file_put() called by process_unregister_file(). */
         goto exit_error;
     }

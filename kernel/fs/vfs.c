@@ -339,29 +339,6 @@ error_t vfs_remove(const char *raw_path)
 }
 
 /*
- *
- */
-static inline error_t file_compute_flags(int oflags, int *flags)
-{
-    *flags = 0;
-
-    if (oflags & (O_TRUNC | O_SYNC | O_NONBLOCK | O_NOCTTY | O_NOFOLLOW))
-        return -E_INVAL;
-
-    if (O_READABLE(oflags))
-        *flags |= FD_READ;
-    if (O_READABLE(oflags))
-        *flags |= FD_WRITE;
-
-    if (oflags & O_APPEND)
-        *flags |= FD_APPEND;
-    if (oflags & O_CLOEXEC)
-        *flags |= FD_NOINHERIT;
-
-    return E_SUCCESS;
-}
-
-/*
  * Open a file description refering to a vnode.
  *
  * NOTE: This function does not release the vnode when an error occurs, so the
@@ -371,12 +348,6 @@ static struct file *vfs_open_at(struct vnode *vnode, int oflags)
 {
     struct file *file;
     struct user_creds *creds;
-    error_t err;
-    int flags;
-
-    err = file_compute_flags(oflags, &flags);
-    if (err)
-        return PTR_ERR(err);
 
     creds = creds_get(current->process->creds);
 
@@ -395,17 +366,13 @@ static struct file *vfs_open_at(struct vnode *vnode, int oflags)
             goto out;
 
         file = PTR_ERR(E_PERM);
-        if (!vnode_check_creds(vnode, creds, flags))
+        if (!vnode_check_creds(vnode, creds, oflags))
             goto out;
 
         file = vnode->operations->open(vnode);
         if (IS_ERR(file))
             goto out;
     }
-
-    file->flags = flags;
-    if (flags & FD_APPEND)
-        file_seek(file, 0, SEEK_END);
 
 out:
     creds_put(creds);
@@ -527,15 +494,44 @@ bool vnode_check_creds(const struct vnode *vnode,
 }
 
 /*
+ *
+ */
+static inline error_t compute_fd_flags(int oflags, int *flags)
+{
+    *flags = 0;
+
+    if (oflags & (O_TRUNC | O_SYNC | O_NONBLOCK | O_NOCTTY | O_NOFOLLOW))
+        return -E_INVAL;
+
+    if (O_READABLE(oflags))
+        *flags |= FD_READ;
+    if (O_READABLE(oflags))
+        *flags |= FD_WRITE;
+
+    if (oflags & O_APPEND)
+        *flags |= FD_APPEND;
+    if (oflags & O_CLOEXEC)
+        *flags |= FD_NOINHERIT;
+
+    return E_SUCCESS;
+}
+
+/*
  * https://pubs.opengroup.org/onlinepubs/9699919799/functions/open.html
+ *
+ * TODO: open(): EROFS
  */
 int sys_open(const char *path, int oflags)
 {
     vnode_t *vnode;
     struct file *file;
+    error_t err;
+    int flags;
     int fd;
 
-    // TODO: open(): EROFS
+    err = compute_fd_flags(oflags, &flags);
+    if (err)
+        return -err;
 
     vnode = vfs_find_by_path(path);
 
@@ -567,9 +563,12 @@ int sys_open(const char *path, int oflags)
         goto error_release_node;
     }
 
-    fd = process_register_file(current->process, file);
+    fd = process_add_fd(current->process, file, flags);
     if (fd < 0)
         file_put(file);
+
+    if (flags & FD_APPEND)
+        file_seek(file, 0, SEEK_END);
 
 error_release_node:
     vnode_release(vnode);

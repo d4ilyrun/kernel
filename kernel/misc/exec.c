@@ -66,11 +66,11 @@ static NO_RETURN void execfmt_execute_executable(struct executable *executable,
     /*
      * Close all files marked as CLOEXEC.
      */
-    locked_scope(&current->process->files_lock) {
+    locked_scope(&current->process->fds_lock) {
         for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
-            if (process->files[i] && process->files[i]->flags & FD_NOINHERIT) {
-                file_put(process->files[i]);
-                process->files[i] = NULL;
+            if (process->fds[i] && process->fds[i]->flags & FD_NOINHERIT) {
+                fd_put(process->fds[i]);
+                process->fds[i] = NULL;
             }
         }
     }
