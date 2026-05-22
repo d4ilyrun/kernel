@@ -222,6 +222,8 @@ struct vnode {
  * @param vnode The referenced vnode
  * @param[out] new Set to true if a new vnode was created (optional)
  *
+ * If vnode is NULL a new vnode is allocated.
+ *
  * @return The original vnode, or a newly allocated one if NULL
  */
 vnode_t *vnode_acquire(vnode_t *, bool *);
@@ -233,6 +235,12 @@ vnode_t *vnode_acquire(vnode_t *, bool *);
  * @return The original vnode, NULL if the new refcount is 0
  */
 vnode_t *vnode_release(vnode_t *);
+
+/** Allocate a new vnode and increment its reference count. */
+static inline vnode_t *vnode_new(void)
+{
+    return vnode_acquire(NULL, NULL);
+}
 
 /** Check if a process has the right to access a vnode based on its credentials.
  *
