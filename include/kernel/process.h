@@ -41,6 +41,7 @@
 #include <utils/compiler.h>
 
 #include <string.h>
+#include <limits.h>
 
 #if ARCH == i686
 #include <kernel/arch/i686/process.h>
@@ -51,8 +52,8 @@
 /** The max length of a process's name */
 #define PROCESS_NAME_MAX_LEN 32U
 
-/** Maximum number of files that one process can have open at any one time. */
-#define PROCESS_FD_COUNT 32
+/** Maximum number of files that one process can have open at any given time. */
+#define PROCESS_FD_COUNT OPEN_MAX
 
 struct address_space;
 
@@ -78,7 +79,7 @@ typedef enum thread_state {
  * @brief A single process
  *
  * The struct contains information about the process, including its name,
- * unique ID and resources context (address space, file descriptors, ...).
+ * unique ID and resources context (address space, file descriptions, ...).
  * It also contains a list of all the process's active threads.
  *
  * @struct process
@@ -101,13 +102,13 @@ struct process {
                          We only kill a process once all of its threads have
                          been released. */
 
-    /** Open file descriptors table.
+    /* Open file descriptions table.
      *
-     * This table is lock protected by @ref files_lock, one must **always**
+     * This table is lock protected by @ref fds_lock, one must **always**
      * take this lock when accessing a process' open files (read AND write).
      */
-    struct file *files[PROCESS_FD_COUNT];
-    spinlock_t files_lock; /*!< Lock for @ref open_files */
+    struct fd  *fds[PROCESS_FD_COUNT];
+    spinlock_t  fds_lock;
 
     /*
      * Signal handling.
@@ -337,27 +338,6 @@ void process_init_kernel_process(void);
 /** Kill a process. */
 void process_kill(struct process *process, uint16_t status);
 
-/** Register an open file inside the process's open file descriptor table.
- *  @return The registered file's index inside the open file descriptor table.
- */
-int process_register_file(struct process *, struct file *);
-
-/** Remove an open file from the process's open file descriptor table. */
-error_t process_unregister_file(struct process *, int fd);
-
-/**
- * @return A reference to the file description at index @ref fd
- * inside @ref process 's file descriptor table.
- */
-struct file *process_file_get(struct process *, int fd);
-
-/** Release a file description retreived using @ref process_file_get(). */
-static inline void process_file_put(struct process *process, struct file *file)
-{
-    UNUSED(process);
-    file_put(file);
-}
-
 /** Run an executable.
  *
  *  As the kernel should never run external executables, this function instead
@@ -457,5 +437,102 @@ void thread_deliver_pending_signal(struct thread *thread);
 
 /** Find an **alive** thread by its TID. */
 struct thread *thread_find_by_tid(pid_t tid);
+
+#define FD_STDIN 0
+#define FD_STDOUT 1
+#define FD_STDERR 2
+
+/*
+ * File description flag.
+ *
+ * These are set when opening a file description (open, socket, ...) or by
+ * using other syscalls (e.g. fcntl).
+ */
+enum file_flags {
+    FD_READ = _FREAD,
+    FD_WRITE = _FWRITE,
+    FD_RW = FD_READ | FD_WRITE,
+    FD_APPEND = _FAPPEND,
+    FD_NOINHERIT = _FNOINHERIT, /* FD_CLOEXEC is already defined by fcntl(). */
+};
+
+/** @struct fd
+ *
+ * Opened file description.
+ *
+ * This is the structure that is placed inside a process' file description
+ * table, and that is referenced by the file descriptor.
+ */
+struct fd {
+    struct file *file;
+    atomic_t     refcount;
+    int          flags;    ///< Parameter flags (@see POSIX.1-2024 open)
+};
+
+void __fd_put(struct fd *fd);
+
+/** Increment an open file description's reference count.
+ *  @return The open file description.
+ */
+static inline struct fd *fd_get(struct fd *fd)
+{
+    if (!fd)
+        return NULL;
+
+    atomic_inc(&fd->refcount);
+    return fd;
+}
+
+/** Decrement an open file description's reference count.
+ *
+ * If this was the last reference to this open file description,
+ * the underlying structure is released.
+ */
+static inline void fd_put(struct fd *fd)
+{
+    int count;
+
+    count = atomic_dec(&fd->refcount);
+    if (count > 1)
+        return;
+
+    __fd_put(fd);
+}
+
+/**
+ * @return A reference to the file description at index @ref fd
+ * inside @ref process 's file description table.
+ */
+struct fd *process_fd_get(struct process *, int fd);
+
+/** Release a file description retreived using @ref process_file_get(). */
+static inline void process_fd_put(struct process *process, struct fd *fd)
+{
+    UNUSED(process);
+    fd_put(fd);
+}
+
+/** Add an entry inside the process's open file description table.
+ *
+ * This function does not take an additional reference onto the file. The caller
+ * must be sure to calle file_get() on the given file, and must not call
+ * file_put() after registering the file.
+ *
+ * @return The registered file's index inside the open file descriptor table.
+ */
+int process_add_fd(struct process *, struct file *, int flags);
+
+/** Remove an open file from the process's open file description tabl. */
+error_t process_remove_fd(struct process *, int fd);
+
+/** Add an entry inside the process's open file description table.
+ *
+ * Same as @ref process_add_fd() but the index at which the description is
+ * inserted is specfied. If another description is already installed at this
+ * index this function returns -E_EXISTS.
+ *
+ * @see process_add_fd()
+ */
+int process_set_fd(struct process *, int fd, struct file *, int flags);
 
 /** @} */

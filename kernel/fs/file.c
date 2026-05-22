@@ -155,14 +155,14 @@ ssize_t file_recv(struct file *file, const char *data, size_t len, int flags)
  */
 off_t sys_lseek(int fd, off_t off, int whence)
 {
-    struct file *file;
+    struct fd *fdp;
 
-    file = process_file_get(current->process, fd);
-    if (!file)
+    fdp = process_fd_get(current->process, fd);
+    if (!fdp)
         return -E_BAD_FD;
 
-    off = file_seek(file, off, whence);
-    process_file_put(current->process, file);
+    off = file_seek(fdp->file, off, whence);
+    process_fd_put(current->process, fdp);
 
     return off;
 }
@@ -175,17 +175,20 @@ off_t sys_lseek(int fd, off_t off, int whence)
  */
 ssize_t sys_read(int fd, char *buf, size_t nbyte)
 {
+    struct fd *fdp;
     struct file *file;
     ssize_t count = 0;
 
-    file = process_file_get(current->process, fd);
-    if (!file)
+    fdp = process_fd_get(current->process, fd);
+    if (!fdp)
         return -E_BAD_FD;
+
+    file = fdp->file;
 
     /*
      * File was not opened for reading.
      */
-    if (!(file->flags & FD_READ)) {
+    if (!(fdp->flags & FD_READ)) {
         count = -E_BAD_FD;
         goto out;
     }
@@ -206,7 +209,7 @@ ssize_t sys_read(int fd, char *buf, size_t nbyte)
     }
 
 out:
-    process_file_put(current->process, file);
+    process_fd_put(current->process, fdp);
     return count;
 }
 
@@ -215,17 +218,20 @@ out:
  */
 ssize_t sys_write(int fd, const char *buf, size_t nbyte)
 {
+    struct fd *fdp;
     struct file *file;
     ssize_t count = 0;
 
-    file = process_file_get(current->process, fd);
-    if (!file)
+    fdp = process_fd_get(current->process, fd);
+    if (!fdp)
         return -E_BAD_FD;
+
+    file = fdp->file;
 
     /*
      * File was not opened for writing.
      */
-    if (!(file->flags & FD_WRITE)) {
+    if (!(fdp->flags & FD_WRITE)) {
         count = -E_BAD_FD;
         goto out;
     }
@@ -239,7 +245,7 @@ ssize_t sys_write(int fd, const char *buf, size_t nbyte)
          * prior to each write and no intervening file modification operation
          * shall occur between changing the file offset and the write operation.
          */
-        if (file->flags & FD_APPEND)
+        if (fdp->flags & FD_APPEND)
             file->pos = file_size(file);
 
         locked_scope (&file->vnode->lock) {
@@ -249,7 +255,7 @@ ssize_t sys_write(int fd, const char *buf, size_t nbyte)
     }
 
 out:
-    process_file_put(current->process, file);
+    process_fd_put(current->process, fdp);
     return count;
 }
 
@@ -258,20 +264,20 @@ out:
  */
 int sys_close(int fd)
 {
-    return process_unregister_file(current->process, fd);
+    return process_remove_fd(current->process, fd);
 }
 
 int sys_fstat(int fd, struct stat *buf)
 {
-    struct file *file;
+    struct fd *fdp;
 
-    file = process_file_get(current->process, fd);
-    if (!file)
+    fdp = process_fd_get(current->process, fd);
+    if (!fdp)
         return -E_BAD_FD;
 
-    *buf = file->vnode->stat;
+    *buf = fdp->file->vnode->stat;
 
-    process_file_put(current->process, file);
+    process_fd_put(current->process, fdp);
 
     return 0;
 }
@@ -283,14 +289,16 @@ ssize_t sys_getdents(int fd, void *buf, size_t size, int flags)
 {
     struct process *process = current->process;
     struct vnode *vnode;
+    struct fd *fdp;
     struct file *file;
     error_t err;
 
     UNUSED(flags);
 
-    file = process_file_get(process, fd);
-    if (!file || !(file->flags & FD_READ))
+    fdp = process_fd_get(process, fd);
+    if (!fdp || !(fdp->flags & FD_READ))
         return -E_BAD_FD;
+    file = fdp->file;
     vnode = file->vnode;
 
     err = E_NOT_DIRECTORY;
@@ -313,11 +321,11 @@ ssize_t sys_getdents(int fd, void *buf, size_t size, int flags)
         }
     }
 
-    process_file_put(process, file);
+    process_fd_put(process, fdp);
 
     return size;
 
 err:
-    process_file_put(process, file);
+    process_fd_put(process, fdp);
     return -err;
 }

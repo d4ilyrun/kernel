@@ -18,25 +18,7 @@ struct vnode;
 struct sockaddr;
 struct msghdr;
 
-#define FD_STDIN 0
-#define FD_STDOUT 1
-#define FD_STDERR 2
-
-/*
- * File description flag.
- *
- * These are set when opening a file description (open, socket, ...) or by
- * using other syscalls (e.g. fcntl).
- */
-enum file_flags {
-    FD_READ = _FREAD,
-    FD_WRITE = _FWRITE,
-    FD_RW = FD_READ | FD_WRITE,
-    FD_APPEND = _FAPPEND,
-    FD_NOINHERIT = _FNOINHERIT, /* FD_CLOEXEC is already defined by fcntl(). */
-};
-
-/** Opened file description.
+/** Opened file.
  *
  * @note This struct is also used by pseudo-filesystems, such as the
  * sockfs, to allocated sockets or other objects. According to the UNIX
@@ -49,13 +31,12 @@ struct file {
     const struct file_operations *ops; ///< @see file_operations
     atomic_t refcount;                 ///< Number of references to this file
     spinlock_t lock;                   ///< Synchronization lock
-    int flags;                         ///< Parameter flags (@see man 2 open)
 };
 
 void __file_put(struct file *file);
 
-/** Increment an open file description's reference count.
- *  @return The open file description.
+/** Increment an file's reference count.
+ *  @return the file.
  */
 static inline struct file *file_get(struct file *file)
 {
@@ -63,10 +44,9 @@ static inline struct file *file_get(struct file *file)
     return file;
 }
 
-/** Decrement an open file description's reference count.
+/** Decrement an file's reference count.
  *
- * If this was the last reference to this open file description,
- * the underlying structure is released.
+ * If this was the last reference to this file, the file is released.
  */
 static inline void file_put(struct file *file)
 {

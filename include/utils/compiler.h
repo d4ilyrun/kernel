@@ -16,6 +16,7 @@
 #include "stringify.h"
 
 /** @brief Compile-time assertion */
+#undef static_assert
 #define static_assert(cond, ...) \
     _Static_assert(cond, stringify(cond) __VA_OPT__(": ") __VA_ARGS__)
 
