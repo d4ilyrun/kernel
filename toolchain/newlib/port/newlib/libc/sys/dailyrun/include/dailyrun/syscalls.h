@@ -40,6 +40,8 @@
     F(sigreturn,			32, 	1,		default,		int,		ucontext_t *)                                                                \
     F(getdents,				33, 	4,		default,		ssize_t,	int, void *, size_t, int)                                                    \
     F(pipe,					34, 	1,		default,		int,		int *)                                                                       \
+    F(dup,					35, 	1,		default,		int,		int)                                                                         \
+    F(dup2,					36, 	2,		default,		int,		int, int)                                                                    \
 
 /*
  * The list of available syscall vectors.

@@ -145,6 +145,8 @@ sig_sa_handler_t signal(int signo, sig_sa_handler_t handler)
 
 #define alias(f) __attribute__((__alias__(f)))
 
+int dup2(int old, int new) alias("_dup2");
+int dup(int old) alias("_dup");
 int pipe(int fds[2]) alias("_pipe");
 int sigreturn(ucontext_t *ucontext) alias("_sigreturn");
 int sigsethandler(sig_sa_sigaction_t handler) alias("_sigsethandler");
