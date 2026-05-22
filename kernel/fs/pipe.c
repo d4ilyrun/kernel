@@ -128,8 +128,8 @@ static error_t pipe_end_init(struct pipe *pipe, struct pipe_end *end, int which)
 	struct user_creds *creds = NULL;
 
 	vnode = vnode_alloc();
-	if (IS_ERR(vnode))
-		return ERR_FROM_PTR(vnode);
+	if (!vnode)
+		return E_NOMEM;
 
 	end->vnode = vnode;
 	end->pipe = pipe;
