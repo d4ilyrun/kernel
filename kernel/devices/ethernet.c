@@ -1,6 +1,7 @@
 #define LOG_DOMAIN "ethdev"
 
 #include <kernel/devices/ethernet.h>
+#include <kernel/atomic.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/net/interface.h>
@@ -13,6 +14,8 @@
 #include <string.h>
 
 DECLARE_LLIST(ethernet_registered_devices);
+
+static atomic_t ethernet_device_index = { 0 };
 
 struct ethernet_device *ethernet_device_alloc(size_t priv_size)
 {
@@ -36,11 +39,12 @@ void ethernet_device_free(struct ethernet_device *device)
 
 error_t ethernet_device_register(struct ethernet_device *device)
 {
-    /* TODO: kasprintf("eth%d", registered_devices++) */
     struct net_interface *interface;
-    const char *name = "eth0";
     struct worker *worker;
+    char name[NAME_MAX];
     error_t ret;
+
+    snprintk(name, sizeof(name), "eth%u", atomic_inc(&ethernet_device_index));
 
     if (!ethernet_device_name(device))
         ethernet_device_set_name(device, name);
