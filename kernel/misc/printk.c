@@ -143,7 +143,7 @@ static void
 printk_puts(register const char *str, printk_ctx_t *ctx, int *written)
 {
     if (str == NULL) {
-        printk_puts("(null)", NULL, written);
+        printk_puts("(null)", ctx, written);
         return;
     }
 
@@ -157,7 +157,7 @@ printk_puts(register const char *str, printk_ctx_t *ctx, int *written)
 
 static void printk_utoa_base(register unsigned long long x,
                              register unsigned int base,
-                             const printk_ctx_t *ctx, int *written)
+                             printk_ctx_t *ctx, int *written)
 {
     static const char *digits[2] = {
         "0123456789abcdef",
@@ -201,9 +201,9 @@ static void printk_utoa_base(register unsigned long long x,
             break;
         case 16:
             if (ctx->capitalize)
-                printk_puts("0X", NULL, written);
+                printk_puts("0X", ctx, written);
             else
-                printk_puts("0x", NULL, written);
+                printk_puts("0x", ctx, written);
             break;
         default:
             break;
@@ -232,7 +232,7 @@ static void printk_utoa_base(register unsigned long long x,
     }
 }
 
-static void printk_itoa(register int x, const printk_ctx_t *ctx, int *written)
+static void printk_itoa(register int x, printk_ctx_t *ctx, int *written)
 {
     if (x < 0) {
         printk_char('-', written);
@@ -428,7 +428,7 @@ static length_modifier_t printk_length_modifiers(const char *format, int *index)
 }
 
 static void printk_unsigned(register int base, va_list *parameters,
-                            const printk_ctx_t *ctx, int *written)
+                            printk_ctx_t *ctx, int *written)
 {
     // Here we know that sizeof(int) == sizeof(long) anyway and skip the
     // case were we only have a single 'l' modifier (cf. static_assert)
