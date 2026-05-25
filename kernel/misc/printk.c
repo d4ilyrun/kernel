@@ -9,6 +9,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <string.h>
 
 static_assert(sizeof(int) == sizeof(long), "Unsupported architecture: "
                                            "sizeof(long) != sizeof(int)");
@@ -54,6 +55,14 @@ static size_t printk_buffer_index = 0;
 
 #define MAXBUF (sizeof(long) * 8) // 32B max (times 8 bits)
 
+struct printk_params {
+    char       *buffer;
+    size_t      buffer_size;
+    const char *format;
+    va_list    *parameters;
+    void (*putchar)(struct printk_params *, char c, int *written);
+};
+
 /// man 3 printf: Flag characters
 typedef struct {
     bool invalid;
@@ -91,10 +100,11 @@ typedef struct {
 } length_modifier_t;
 
 typedef struct {
+    struct printk_params *params;
     bool invalid;
     flags_t flags;
     length_modifier_t length;
-    unsigned int field_with; ///< man 3 printf: Field width
+    unsigned int field_width; ///< man 3 printf: Field width
     precision_t precision;
     bool capitalize; ///< For %X conversions
 } printk_ctx_t;
@@ -112,11 +122,38 @@ static void printk_buffer_flush(void)
 
 static void printk_buffer_put(char c)
 {
-    if (printk_buffer_index == BUFFER_SIZE - 1) {
+    if (printk_buffer_index == BUFFER_SIZE - 1)
         printk_buffer_flush();
-    }
 
     printk_buffer[printk_buffer_index++] = c;
+}
+
+/*
+ * Used by the default printk/vprintk functions.
+ */
+static void printk_default_putchar(struct printk_params *params,
+                                   char c, int *written)
+{
+    (void)params; // shush
+
+    printk_buffer_put(c);
+    if (c == '\n' || c == '\r')
+        printk_buffer_flush();
+
+    *written += 1;
+}
+
+/*
+ * Used by snprintk.
+ */
+static void printk_buffer_putchar(struct printk_params *params,
+                                  char c, int *written)
+{
+    if ((size_t)*written == params->buffer_size)
+        return;
+
+    params->buffer[*written] = c;
+    *written += 1;
 }
 
 /// PRINTERS
@@ -128,14 +165,9 @@ static void printk_buffer_put(char c)
 /// after we are done with the PARSERS functions.
 
 static inline void __attribute__((always_inline))
-printk_char(register char c, int *written)
+printk_char(register char c, const printk_ctx_t *ctx, int *written)
 {
-    printk_buffer_put(c);
-
-    if (c == '\n' || c == '\r')
-        printk_buffer_flush();
-
-    *written += 1;
+    ctx->params->putchar(ctx->params, c, written);
 }
 
 // NOLINTNEXTLINE(misc-no-recursion)
@@ -151,7 +183,7 @@ printk_puts(register const char *str, printk_ctx_t *ctx, int *written)
         // precision: the maximum number of character to be printed
         if (ctx && ctx->precision.present && ctx->precision.precision-- == 0)
             break;
-        printk_char(*str++, written);
+        printk_char(*str++, ctx, written);
     }
 }
 
@@ -186,7 +218,7 @@ static void printk_utoa_base(register unsigned long long x,
     if (ctx->flags.alternate_form) {
         switch (base) {
         case 2:
-            printk_char('b', written);
+            printk_char('b', ctx, written);
             break;
         case 8:
             // For o conversions, the first character of the output string
@@ -195,9 +227,9 @@ static void printk_utoa_base(register unsigned long long x,
                 break;
             if (ctx->flags.pad_side == PADDING_LEFT &&
                 ctx->flags.pad_char == PADDING_ZERO &&
-                total_length < ctx->field_with)
+                total_length < ctx->field_width)
                 break;
-            printk_char('0', written);
+            printk_char('0', ctx, written);
             break;
         case 16:
             if (ctx->capitalize)
@@ -213,33 +245,33 @@ static void printk_utoa_base(register unsigned long long x,
     if (ctx->flags.pad_side == PADDING_RIGHT) {
         // prepend enough '0' to match minimum precision
         while (length++ < total_length)
-            printk_char('0', written);
+            printk_char('0', ctx, written);
         while (++c != &buf[MAXBUF])
-            printk_char(*c, written);
+            printk_char(*c, ctx, written);
     }
 
-    if (total_length < ctx->field_with) {
-        for (unsigned int i = total_length; i < ctx->field_with; ++i)
-            printk_char(ctx->flags.pad_char, written);
+    if (total_length < ctx->field_width) {
+        for (unsigned int i = total_length; i < ctx->field_width; ++i)
+            printk_char(ctx->flags.pad_char, ctx, written);
     }
 
     if (ctx->flags.pad_side == PADDING_LEFT) {
         // prepend enough '0' to match minimum precision
         while (length++ < total_length)
-            printk_char('0', written);
+            printk_char('0', ctx, written);
         while (++c != &buf[MAXBUF])
-            printk_char(*c, written);
+            printk_char(*c, ctx, written);
     }
 }
 
 static void printk_itoa(register int x, printk_ctx_t *ctx, int *written)
 {
     if (x < 0) {
-        printk_char('-', written);
+        printk_char('-', ctx, written);
         printk_utoa_base(-x, 10, ctx, written);
     } else {
         if (ctx->flags.sign_character != SIGN_MINUS_ONLY)
-            printk_char(ctx->flags.sign_character, written);
+            printk_char(ctx->flags.sign_character, ctx, written);
         printk_utoa_base(x, 10, ctx, written);
     }
 }
@@ -255,7 +287,7 @@ static void printk_kernel_symbol(vaddr_t addr, bool print_offset,
 
     if (print_offset) {
         ctx->flags.alternate_form = true;
-        printk_char('+', written);
+        printk_char('+', ctx, written);
         printk_utoa_base(offset, 16, ctx, written);
     }
 }
@@ -525,11 +557,11 @@ printk_step(const char *c, int *written, va_list *parameters, printk_ctx_t *ctx)
         break;
 
     case TOK_ASCII:
-        printk_char(va_arg(*parameters, int), written);
+        printk_char(va_arg(*parameters, int), ctx, written);
         break;
 
     case TOK_ESCAPE:
-        printk_char(TOK_DELIMITER, written);
+        printk_char(TOK_DELIMITER, ctx, written);
         break;
 
     default:
@@ -546,50 +578,49 @@ printk_step(const char *c, int *written, va_list *parameters, printk_ctx_t *ctx)
 /// They use both the PARSERS and the PRINTERS to print the final
 /// result.
 
-int vprintk(const char *format, va_list parameters)
+static int do_vprintk(struct printk_params *params)
 {
+    const char *format = params->format;
+    printk_ctx_t ctx = { 0 };
     int written = 0;
     int error = 0;
     int i = 0;
 
-    while (format[i] != '\0') {
+    ctx.params = params;
 
+    while (format[i] != '\0') {
         char c = format[i++];
 
         // Also print in case we reached the end of the format string
         if (c != TOK_DELIMITER) {
-            printk_char(c, &written);
+            printk_char(c, &ctx, &written);
             continue;
         }
 
         // After the delimiter, the argument is of the following format:
         //
-        // %[flag_characters][field_with][.precision][length_modifier]conversion_specifier
+        // %[flag_characters][field_width][.precision][length_modifier]conversion_specifier
         //
         // Refer to man 3 printf and the corresponding parsers for more
         // detailed explanations.
 
-        const flags_t flags = printk_flags_characters(format, &i);
-        const unsigned int width = printk_field_width(format, &i);
-        const precision_t precision = printk_precision(format, &i);
-        const length_modifier_t length = printk_length_modifiers(format, &i);
-
-        printk_ctx_t ctx = (printk_ctx_t){
-            .invalid = flags.invalid || length.invalid || precision.invalid,
-            .flags = flags,
-            .length = length,
-            .field_with = width,
-            .precision = precision,
-        };
+        ctx.flags = printk_flags_characters(format, &i);
+        ctx.field_width = printk_field_width(format, &i);
+        ctx.precision = printk_precision(format, &i);
+        ctx.length = printk_length_modifiers(format, &i);
+        ctx.invalid = ctx.flags.invalid ||
+                      ctx.length.invalid ||
+                      ctx.precision.invalid;
 
         if (ctx.invalid) {
             error = 1;
             continue;
         }
 
-        int step_size = printk_step(&format[i], &written, &parameters, &ctx);
+        int step_size = printk_step(&format[i], &written, params->parameters,
+                                    &ctx);
         if (step_size < 0) {
-            printk_char(format[i], &written);
+            printk_char(format[i], &ctx, &written);
             step_size = 1;
             error = 1;
             continue;
@@ -601,11 +632,54 @@ int vprintk(const char *format, va_list parameters)
     return error ? -1 : written;
 }
 
+int vprintk(const char *format, va_list parameters)
+{
+    struct printk_params params;
+
+    params.format = format;
+    params.parameters = &parameters;
+    params.putchar = printk_default_putchar;
+
+    return do_vprintk(&params);
+}
+
 int printk(const char *format, ...)
 {
+    struct printk_params params;
     va_list parameters;
+    int res;
+
     va_start(parameters, format);
-    int res = vprintk(format, parameters);
+
+    params.format = format;
+    params.parameters = &parameters;
+    params.putchar = printk_default_putchar;
+
+    res = do_vprintk(&params);
     va_end(parameters);
+
+    return res;
+}
+
+int snprintk(char *buffer, size_t buffsize, const char *format, ...)
+{
+    struct printk_params params;
+    va_list parameters;
+    int res;
+
+    va_start(parameters, format);
+
+    params.format = format;
+    params.parameters = &parameters;
+    params.putchar = printk_buffer_putchar;
+    params.buffer = buffer;
+    params.buffer_size = buffsize - 1;
+
+    res = do_vprintk(&params);
+    va_end(parameters);
+
+    // null terminate string
+    buffer[res] = '\0';
+
     return res;
 }
