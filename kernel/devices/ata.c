@@ -37,6 +37,7 @@ struct ata_bus {
 };
 
 struct ata_drive {
+    char name[NAME_MAX];
     struct block_device blkdev;
     struct ata_bus *bus;
 };
@@ -45,6 +46,9 @@ static inline struct ata_drive *to_ata(struct block_device *blkdev)
 {
     return container_of(blkdev, struct ata_drive, blkdev);
 }
+
+// used to generate the device's name
+static atomic_t ata_device_index = { 0 };
 
 /*
  * Register offsets into drive->io range.
@@ -299,22 +303,6 @@ static const struct block_device_ops ata_block_device_ops = {
 };
 
 /*
- * Generate a unique name for an ATA device.
- */
-static const char *ata_drive_next_name(void)
-{
-    static const char *ata_drive_names[] = {"hd0", "hd1", "hd2", "hd3"};
-    static size_t index = 0;
-
-    if (index >= ARRAY_SIZE(ata_drive_names)) {
-        log_warn("too many ATA drives, using generic name");
-        return "hd";
-    }
-
-    return ata_drive_names[index++];
-}
-
-/*
  * Identify the currently selected ATA drive.
  */
 static struct ata_drive *ata_drive_identify(struct ata_bus *bus)
@@ -404,7 +392,9 @@ static struct ata_drive *ata_drive_identify(struct ata_bus *bus)
     drive->blkdev.block_size = ATA_SECTOR_SIZE;
     drive->blkdev.block_count = sector_count;
     drive->blkdev.ops = &ata_block_device_ops;
-    device_set_name(&drive->blkdev.dev, ata_drive_next_name());
+
+    snprintk(drive->name, NAME_MAX, "hd%u", atomic_inc(&ata_device_index));
+    device_set_name(&drive->blkdev.dev, drive->name);
 
     err = block_device_register(&drive->blkdev);
     if (err) {
