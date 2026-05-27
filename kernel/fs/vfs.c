@@ -209,8 +209,22 @@ vnode_t *vfs_find_by_path(const char *raw_path)
         vnode_release(parent);
 
         if (IS_ERR(node))
-            break;
+            return node;
     });
+
+    /* If path resolves to the directoy onto which a filesystem is mounted
+     * we return the root of the mounted filesystem.
+     *
+     * FIXME: Use a refcount for mounted filesystems to avoid TOCTOU.
+     */
+    fs = node->mounted_here;
+    if (fs) {
+        vnode_t *old = node;
+        node = fs->operations->root(fs);
+        if (IS_ERR(node))
+            return node;
+        vnode_release(old);
+    }
 
     return node;
 }
