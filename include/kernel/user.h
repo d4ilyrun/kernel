@@ -29,6 +29,7 @@ struct user_creds {
 };
 
 #define UID_ROOT 0
+#define GID_ROOT 0
 
 static inline bool creds_is_root(const struct user_creds *creds)
 {

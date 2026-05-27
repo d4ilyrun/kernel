@@ -26,6 +26,10 @@
 
 #include <string.h>
 #include <limits.h>
+#include <sys/errno.h>
+#include <sys/types.h>
+#include "kernel/error.h"
+#include "kernel/logger.h"
 
 #define PTY_BUFFER_SIZE PAGE_SIZE
 #define PTS_FORMAT "pts%d"
@@ -77,15 +81,14 @@ static error_t pty_end_init(struct pty_end *end,
         return ERR_FROM_PTR(vnode);
     }
 
-    /* This is the a vnode for a pseudo-file. It is different from the one
-     * returned when opening a file inside a pts filesystem, and will never
-     * be accessible through the vfs. As such we do not need to fill the stat
-     * structure, or specify the vnode's `fs` field.
-     */
     end->vnode = vnode;
-    vnode->type = VNODE_CHARDEVICE;
     vnode->operations = vnops;
     vnode->pdata = end;
+
+    vnode->type = VNODE_CHARDEVICE;
+    vnode->stat.st_nlink = 1;
+    vnode->stat.st_uid = UID_ROOT;
+    vnode->stat.st_gid = GID_ROOT;
 
     ringbuffer_init(&end->buffer, buffer, PTY_BUFFER_SIZE);
 
@@ -122,31 +125,91 @@ static void pty_release(struct pty *pty)
     kfree(pty);
 }
 
-// # line control API
-// line_write(dst):
-//   foreach char do
-//     char = process(char)
-//     write(char, dst)
-//
-// write():
-//   if (master)
-//     lock(slave)
-//     line_write(slave->buffer)
-//   elif (slave)
-//     lock(master)
-//     line_write(master->buffer)
-//
-// read():
-//   lock(self)
-//   read(self.buffer)
-//
-// close_master():
-//   sighup(controlling process)
-//
-//
+/*
+ * Apply the TTY's current line discipline rul
+ */
+static void tty_process_and_write(struct pty_end *dst, char c)
+{
+    WARN_ON(!spinlock_is_held(&dst->buffer_lock));
+
+    if (ringbuffer_available(&dst->buffer) == 0) {
+        // TODO: Blocking I/O
+        log_warn("ringbuffer full, skipping character");
+        return;
+    }
+
+    /* no actual line control performed for the time being */
+    ringbuffer_push(&dst->buffer, (void *)&c, sizeof(c));
+}
+
+/*
+ *
+ */
+static ssize_t tty_write(struct file *file, const char *buffer, size_t size)
+{
+    struct vnode *vnode = file->vnode;
+    struct pty_end *end = vnode->pdata;
+    struct pty *pty = end->pty;
+    struct pty_end *other;
+
+    pty = end->pty;
+    other = pty_end_is_master(end) ? &pty->slave : &pty->master;
+
+    spinlock_acquire(&other->buffer_lock);
+    for (size_t i = 0; i < size; ++i)
+        tty_process_and_write(other, buffer[i]);
+    spinlock_release(&other->buffer_lock);
+
+    return size;
+}
+
+/*
+ *
+ */
+static ssize_t tty_read(struct file *file, char *buffer, size_t size)
+{
+    struct vnode *vnode = file->vnode;
+    struct pty_end *end = vnode->pdata;
+    size_t remaining;
+    ssize_t ret;
+
+    spinlock_acquire(&end->buffer_lock);
+
+    remaining = ringbuffer_remaining(&end->buffer);
+    if (remaining < size) {
+        ret = -EWOULDBLOCK; // FIXME: PTY does not allow non-blocking reads
+        goto out;
+    }
+
+    if (remaining > size)
+        remaining = size;
+
+    ret = ringbuffer_pop(&end->buffer, (u8 *)buffer, remaining);
+
+out:
+    spinlock_release(&end->buffer_lock);
+    return ret;
+}
 
 static struct file_operations tty_fops = {
+    .read = tty_read,
+    .write = tty_write,
+    .seek = default_file_seek,
 };
+
+/*
+ *
+ */
+static struct file *tty_open(struct vnode *vnode)
+{
+    struct pty_end *end = vnode->pdata;
+
+    /* master should not be accessible through the VFS */
+    if (WARN_ON_MSG(pty_end_is_master(end), "trying to open master end of pty"))
+        return PTR_ERR(E_NOT_SUPPORTED);
+
+    return file_open(vnode, &tty_fops);
+}
 
 /*
  * Close the end of a pseudo terminal pair.
@@ -209,10 +272,10 @@ static struct vnode *tty_lookup(struct vnode *root, const path_segment_t *name)
 }
 
 static struct vnode_operations tty_vnops = {
+    .open = tty_open,
     .release = tty_release,
 };
 
-// lookup
 static struct vnode_operations tty_root_vnops = {
     .lookup = tty_lookup,
 };
