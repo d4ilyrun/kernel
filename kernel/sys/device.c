@@ -11,6 +11,7 @@
 #include <utils/macro.h>
 
 #include <string.h>
+#include <dirent.h>
 
 /** Global list of currently registered devices */
 static DECLARE_LLIST(registered_devices);
@@ -66,6 +67,9 @@ struct file *device_open(device_t *dev)
     return file;
 }
 
+/*
+ *
+ */
 struct device *device_find(const char *name)
 {
     struct device *dev;
@@ -87,32 +91,75 @@ struct device *device_find(const char *name)
     return dev;
 }
 
-static vnode_t *
-devtmpfs_vnode_create(vnode_t *node, const char *name, vnode_type type)
+/*
+ * Forward open call to the device's driver's fops.
+ */
+static struct file *devtmpfs_vnode_open(struct vnode *vnode)
 {
-    /* This fs only lists existing devices, cannot remove them */
+    struct device *dev = vnode->pdata;
+    return file_open(vnode, dev->fops);
+}
+
+/*
+ *
+ */
+static void devtmpfs_vnode_release(struct vnode *vnode)
+{
+    struct device *dev = vnode->pdata;
+    dev->vnode = NULL;
+}
+
+/*
+ * Operations on device vnodes.
+ */
+static vnode_ops_t devtmpfs_vnode_ops = {
+    .open = devtmpfs_vnode_open,
+    .release = devtmpfs_vnode_release,
+};
+
+/*
+ * Placeholder fops structure used by the root of the devtmpfs.
+ */
+static struct file_operations devtmpfs_root_fops = {
+};
+
+/*
+ * Remove a child inside a directory.
+ *
+ * This fs only lists existing devices, cannot add new ones.
+ */
+static vnode_t *
+devtmpfs_root_vnode_create(vnode_t *node, const char *name, vnode_type type)
+{
     UNUSED(node);
     UNUSED(name);
     UNUSED(type);
+
     return PTR_ERR(E_NOT_SUPPORTED);
 }
 
-static error_t devtmpfs_vnode_remove(vnode_t *node, const char *child)
+/*
+ * Add new child inside a directory.
+ *
+ * This fs only lists existing devices, cannot remove them.
+ */
+static error_t devtmpfs_root_vnode_remove(vnode_t *node, const char *child)
 {
-    /* This fs only lists existing devices, cannot remove them */
     UNUSED(node);
     UNUSED(child);
+
     return E_NOT_SUPPORTED;
 }
 
+/*
+ *
+ */
 static vnode_t *
-devtmpfs_vnode_lookup(vnode_t *node, const path_segment_t *child)
+devtmpfs_root_vnode_lookup(vnode_t *node, const path_segment_t *child)
 {
-    vnode_t *root = node->fs->operations->root(node->fs);
     device_t *dev;
 
-    if (node != root)
-        return PTR_ERR(E_INVAL);
+    UNUSED(node);
 
     locked_scope (&registered_devices_lock) {
         FOREACH_LLIST (node, &registered_devices) {
@@ -129,24 +176,22 @@ devtmpfs_vnode_lookup(vnode_t *node, const path_segment_t *child)
     return device_acquire_vnode(dev);
 }
 
-static struct file *devtmpfs_vnode_open(struct vnode *vnode)
+/*
+ *
+ */
+static struct file *devtmpfs_root_vnode_open(struct vnode *vnode)
 {
-    struct device *dev = vnode->pdata;
-    return file_open(vnode, dev->fops);
+    return file_open(vnode, &devtmpfs_root_fops);
 }
 
-static void devtmpfs_vnode_release(struct vnode *vnode)
-{
-    struct device *dev = vnode->pdata;
-    dev->vnode = NULL;
-}
-
-static vnode_ops_t devtmpfs_vnode_ops = {
-    .create = devtmpfs_vnode_create,
-    .remove = devtmpfs_vnode_remove,
-    .lookup = devtmpfs_vnode_lookup,
-    .open = devtmpfs_vnode_open,
-    .release = devtmpfs_vnode_release,
+/*
+ *
+ */
+static vnode_ops_t devtmpfs_root_vnode_ops = {
+    .open = devtmpfs_root_vnode_open,
+    .create = devtmpfs_root_vnode_create,
+    .remove = devtmpfs_root_vnode_remove,
+    .lookup = devtmpfs_root_vnode_lookup,
 };
 
 static vnode_t *devtmpfs_root(vfs_t *vfs)
@@ -186,8 +231,9 @@ static vfs_t *devtmpfs_new(struct block_device *blkdev)
 
     devtmpfs->root.fs = vfs;
     devtmpfs->root.type = VNODE_DIRECTORY;
-    devtmpfs->root.operations = &devtmpfs_vnode_ops;
+    devtmpfs->root.operations = &devtmpfs_root_vnode_ops;
     devtmpfs->root.refcount = 1; // Do not release it
+    devtmpfs->root.pdata = devtmpfs;
 
     devtmpfs->root.stat.st_mode = S_IRWXU;
     devtmpfs->root.stat.st_mode |= S_IRGRP | S_IXGRP;
