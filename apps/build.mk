@@ -1,4 +1,5 @@
-APPS := hello
+APPS := hello \
+		ls
 
 define DEFINE_USER_APP_TARGET
 .PHONY: apps/$(1)/$(2)
