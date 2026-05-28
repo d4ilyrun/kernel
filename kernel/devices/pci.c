@@ -280,10 +280,10 @@ static error_t pci_device_probe(struct pci_device *device, pci_header_type type)
 
     case PCI_HEADER_TYPE_GENERAL:
         driver = driver_find_match(&device->device);
-        if (driver != NULL) {
-            pci_device_setup_bars(device);
-            driver_probe(driver, &device->device);
-        }
+        if (!driver)
+                return E_NODEV;
+        pci_device_setup_bars(device);
+        driver_probe(driver, &device->device);
         break;
 
     case PCI_HEADER_TYPE_CARDBUS_BRIDGE:
@@ -326,11 +326,16 @@ static error_t pci_bus_probe(struct pci_bus *bus)
 
         ret = pci_device_probe(device, header_type);
         if (ret)
-            return ret;
+            goto device_probe_failed;
 
         ret = pci_device_register(device);
-        if (ret)
-            return ret;
+        if (ret) // TODO: un-init device (i.e. drv.exit())
+            goto device_probe_failed;
+
+        continue;
+
+device_probe_failed:
+        kfree(device);
     }
 
     return E_SUCCESS;
