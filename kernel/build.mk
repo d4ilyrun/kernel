@@ -19,6 +19,7 @@ KERNEL_SRCS := 	\
 	fs/vfs.c \
 	fs/file.c \
 	fs/tar.c \
+	fs/devtmpfs.c \
 	fs/socket.c \
 	sys/device.c \
 	sys/sched.c \
