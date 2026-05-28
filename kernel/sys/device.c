@@ -7,9 +7,12 @@
 #include <kernel/timer.h>
 
 #include <libalgo/linked_list.h>
+#include <utils/compiler.h>
 #include <utils/container_of.h>
 #include <utils/macro.h>
+#include <utils/math.h>
 
+#include <stdalign.h>
 #include <string.h>
 #include <dirent.h>
 
@@ -154,6 +157,56 @@ static error_t devtmpfs_root_vnode_remove(vnode_t *node, const char *child)
 /*
  *
  */
+static error_t devtmpfs_root_vnode_getdents(vnode_t *vnode, off_t *offp,
+                                            void *buf, size_t *sizep)
+{
+    struct posix_dent *dent = buf;
+    struct device *dev;
+    size_t size = 0;
+    off_t off = 0;
+
+    UNUSED(vnode);
+
+    spinlock_acquire(&registered_devices_lock);
+
+    FOREACH_LLIST_ENTRY(dev, &registered_devices, this)
+    {
+        reclen_t reclen;
+        size_t name_size;
+
+        /* log(n) ... */
+        if (off < *offp) {
+            off += 1;
+            continue;
+        }
+
+        name_size = strlen(dev->name);
+        reclen = sizeof(*dent) + name_size;
+        reclen = align_up(reclen, alignof(struct posix_dent));
+        if (size + reclen > *sizep)
+            break;
+
+        dent->d_ino = 0;
+        dent->d_type = (char)VNODE_CHARDEVICE; // TODO: is_block_device()
+        dent->d_reclen = reclen;
+        memcpy(dent->d_name, dev->name, name_size);
+
+        dent = (void *)dent + reclen;
+        size += reclen;
+        off += 1;
+    }
+
+    spinlock_release(&registered_devices_lock);
+
+    *sizep = size;
+    *offp = off;
+
+    return 0;
+}
+
+/*
+ *
+ */
 static vnode_t *
 devtmpfs_root_vnode_lookup(vnode_t *node, const path_segment_t *child)
 {
@@ -192,6 +245,7 @@ static vnode_ops_t devtmpfs_root_vnode_ops = {
     .create = devtmpfs_root_vnode_create,
     .remove = devtmpfs_root_vnode_remove,
     .lookup = devtmpfs_root_vnode_lookup,
+    .getdents = devtmpfs_root_vnode_getdents,
 };
 
 static vnode_t *devtmpfs_root(vfs_t *vfs)
