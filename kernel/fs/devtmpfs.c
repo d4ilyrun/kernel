@@ -20,7 +20,7 @@ struct devtmpfs {
 static vfs_ops_t devtmpfs_vfs_ops;
 static vnode_ops_t devtmpfs_vnode_ops;
 
-/* shared with sys/device.c */
+/* shared with devices/device.c */
 extern llist_t registered_devices;
 extern spinlock_t registered_devices_lock;
 

@@ -21,7 +21,6 @@ KERNEL_SRCS := 	\
 	fs/tar.c \
 	fs/devtmpfs.c \
 	fs/socket.c \
-	sys/device.c \
 	sys/sched.c \
 	sys/syscalls.c \
 	sys/process.c \
@@ -58,6 +57,7 @@ KERNEL_SRCS := 	\
 	net/interface.c \
 	net/route.c \
 	memory/kmalloc.c \
+	devices/device.c \
 	devices/driver.c \
 	devices/acpi.c \
 	devices/pci.c \
