@@ -1,8 +1,11 @@
+#define LOG_PREFIX "dev"
+
 #include <kernel/device.h>
 #include <kernel/error.h>
 #include <kernel/file.h>
 #include <kernel/init.h>
 #include <kernel/kmalloc.h>
+#include <kernel/logger.h>
 #include <kernel/vfs.h>
 #include <kernel/timer.h>
 
@@ -27,15 +30,52 @@ struct devtmpfs {
 static vfs_ops_t devtmpfs_vfs_ops;
 static vnode_ops_t devtmpfs_vnode_ops;
 
-error_t device_register(device_t *dev)
+/*
+ * Make sure that a device's name is valid before registering it.
+ */
+static error_t device_check_name(const struct device *new)
 {
-    dev->vnode = NULL;
-    locked_scope(&registered_devices_lock)
-        llist_add(&registered_devices, &dev->this);
+    struct device *existing;
+
+    ASSERT(spinlock_is_held(&registered_devices_lock));
+
+    if (!new->name)
+        return E_INVAL;
+
+    FOREACH_LLIST_ENTRY(existing, &registered_devices, this) {
+        if (!strcmp(existing->name, new->name)) {
+            return E_EXIST;
+        }
+    }
 
     return E_SUCCESS;
 }
 
+/*
+ * Add new device to the list of existing devices.
+ */
+error_t device_register(device_t *dev)
+{
+    error_t err;
+
+    spinlock_acquire(&registered_devices_lock);
+
+    err = device_check_name(dev);
+    if (err)
+        goto out;
+
+    dev->vnode = NULL;
+    llist_add(&registered_devices, &dev->this);
+    err = E_SUCCESS;
+
+out:
+    spinlock_release(&registered_devices_lock);
+    return err;
+}
+
+/*
+ *
+ */
 static inline struct vnode *device_acquire_vnode(struct device *dev)
 {
     bool new;
