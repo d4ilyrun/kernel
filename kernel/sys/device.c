@@ -13,7 +13,8 @@
 #include <string.h>
 
 /** Global list of currently registered devices */
-DECLARE_LLIST(registered_devices);
+static DECLARE_LLIST(registered_devices);
+static DECLARE_SPINLOCK(registered_devices_lock); // TODO: Use RW-lock
 
 struct devtmpfs {
     vnode_t root;
@@ -25,7 +26,9 @@ static vnode_ops_t devtmpfs_vnode_ops;
 error_t device_register(device_t *dev)
 {
     dev->vnode = NULL;
-    llist_add(&registered_devices, &dev->this);
+    locked_scope(&registered_devices_lock)
+        llist_add(&registered_devices, &dev->this);
+
     return E_SUCCESS;
 }
 
@@ -66,14 +69,22 @@ struct file *device_open(device_t *dev)
 struct device *device_find(const char *name)
 {
     struct device *dev;
+    bool found = false;
 
-    FOREACH_LLIST (node, &registered_devices) {
-        dev = container_of(node, device_t, this);
-        if (!strcmp(dev->name, name))
-            return dev;
+    locked_scope (&registered_devices_lock) {
+        FOREACH_LLIST (node, &registered_devices) {
+            dev = container_of(node, device_t, this);
+            if (!strcmp(dev->name, name)) {
+                found = true;
+                break;
+            }
+        }
     }
 
-    return NULL;
+    if (!found)
+        return NULL;
+
+    return dev;
 }
 
 static vnode_t *
@@ -103,11 +114,13 @@ devtmpfs_vnode_lookup(vnode_t *node, const path_segment_t *child)
     if (node != root)
         return PTR_ERR(E_INVAL);
 
-    FOREACH_LLIST (node, &registered_devices) {
-        dev = container_of(node, device_t, this);
-        if (path_segment_is(device_name(dev), child))
-            break;
-        dev = NULL;
+    locked_scope (&registered_devices_lock) {
+        FOREACH_LLIST (node, &registered_devices) {
+            dev = container_of(node, device_t, this);
+            if (path_segment_is(device_name(dev), child))
+                break;
+            dev = NULL;
+        }
     }
 
     if (dev == NULL)
