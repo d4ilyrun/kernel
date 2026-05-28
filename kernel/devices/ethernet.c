@@ -14,7 +14,8 @@
 #include <string.h>
 #include <limits.h>
 
-DECLARE_LLIST(ethernet_registered_devices);
+static DECLARE_LLIST(ethernet_devices);
+static DECLARE_SPINLOCK(ethernet_devices_lock); // TODO: Use RW lock
 
 static atomic_t ethernet_device_index = { 0 };
 
@@ -74,7 +75,9 @@ error_t ethernet_device_register(struct ethernet_device *device)
     device->interface = interface;
     device->worker = worker;
 
-    llist_add(&ethernet_registered_devices, &device->this);
+    spinlock_acquire(&ethernet_devices_lock);
+    llist_add(&ethernet_devices, &device->this);
+    spinlock_release(&ethernet_devices_lock);
     device_register(&device->device);
 
     log_info("registered new device: %s", ethernet_device_name(device));
@@ -86,6 +89,28 @@ register_failed_free_worker:
     return ret;
 }
 
+/*
+ *
+ */
+static inline struct ethernet_device *
+ethernet_device_find_by(int (*match)(const void *dev_node, const void *data),
+                        const void *data)
+{
+    node_t *dev_node;
+
+    spinlock_acquire(&ethernet_devices_lock);
+    dev_node = llist_find_first(&ethernet_devices, data, match);
+    spinlock_release(&ethernet_devices_lock);
+
+    if (!dev_node)
+        return NULL;
+
+    return container_of(dev_node, struct ethernet_device, this);
+}
+
+/*
+ * Find an ethernet device based on its name.
+ */
 static int __ethernet_device_match_name(const void *dev_node, const void *data)
 {
     struct ethernet_device *dev;
@@ -93,6 +118,14 @@ static int __ethernet_device_match_name(const void *dev_node, const void *data)
     return strcmp(ethernet_device_name(dev), data);
 }
 
+struct ethernet_device *ethernet_device_find_by_name(const char *name)
+{
+    return ethernet_device_find_by(__ethernet_device_match_name, name);
+}
+
+/*
+ * Find an ethernet device based on its mac address.
+ */
 static int __ethernet_device_match_mac(const void *dev_node, const void *data)
 {
     struct ethernet_device *dev;
@@ -100,26 +133,14 @@ static int __ethernet_device_match_mac(const void *dev_node, const void *data)
     return memcmp(dev->mac, data, sizeof(mac_address_t));
 }
 
-struct ethernet_device *ethernet_device_find_by_name(const char *name)
-{
-    node_t *dev_node = llist_find_first(&ethernet_registered_devices, name,
-                                        __ethernet_device_match_name);
-    if (!dev_node)
-        return NULL;
-
-    return container_of(dev_node, struct ethernet_device, this);
-}
-
 struct ethernet_device *ethernet_device_find_by_mac(mac_address_t mac)
 {
-    node_t *dev_node = llist_find_first(&ethernet_registered_devices, mac,
-                                        __ethernet_device_match_mac);
-    if (!dev_node)
-        return NULL;
-
-    return container_of(dev_node, struct ethernet_device, this);
+    return ethernet_device_find_by(__ethernet_device_match_mac, mac);
 }
 
+/*
+ *
+ */
 static void __ethernet_device_receive_packet(void *cookie)
 {
     struct ethernet_device *netdev = cookie;
