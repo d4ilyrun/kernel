@@ -803,7 +803,8 @@ static INTERRUPT_HANDLER_FUNCTION(page_fault)
 
 page_fault_error:
 
-    if (!thread_is_kernel(current)) {
+    if (!thread_is_kernel(current) &&
+        !IS_KERNEL_ADDRESS(frame->frame.eip)) {
         siginfo_t sig_info = {
             .si_signo = SIGSEGV,
             .si_code = 0,
