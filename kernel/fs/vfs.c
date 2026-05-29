@@ -535,7 +535,7 @@ static inline error_t compute_fd_flags(int oflags, int *flags)
  *
  * TODO: open(): EROFS
  */
-int sys_open(const char *path, int oflags)
+int sys_open(const char *path, int oflags, mode_t mode)
 {
     vnode_t *vnode;
     struct file *file;

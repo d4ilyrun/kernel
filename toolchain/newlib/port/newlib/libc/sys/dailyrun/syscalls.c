@@ -1,6 +1,6 @@
 #include <dailyrun/arch/i686/syscalls.h>
 
-#include <stdint.h>
+#include <stdarg.h>
 #include <sys/errno.h>
 #include <sys/fcntl.h>
 #include <sys/signal.h>
@@ -105,6 +105,16 @@ char **environ; /* pointer to array of char * strings that define the current
     }
 
 /*
+ * Manual syscalls must not be generated automatically
+ */
+
+#define DEFINE_SYSCALL_0_manual(...)
+#define DEFINE_SYSCALL_1_manual(...)
+#define DEFINE_SYSCALL_2_manual(...)
+#define DEFINE_SYSCALL_3_manual(...)
+#define DEFINE_SYSCALL_4_manual(...)
+
+/*
  * Userland syscall wrappers
  */
 
@@ -113,13 +123,34 @@ char **environ; /* pointer to array of char * strings that define the current
 
 DEFINE_SYSCALLS(DEFINE_SYSCALL)
 
-/*
- * Syscalls that are wrapper around other syscalls.
- */
-
 pid_t _wait(int *status)
 {
     return _waitpid(-1, status, 0);
+}
+
+/*
+ * open() must be defined manually because it uses variadic args.
+ */
+int _open(const char *path, int oflags, ...)
+{
+    va_list args;
+    mode_t mode;
+    int ret;
+
+    va_start(args, oflags);
+    mode = va_arg(args, mode_t);
+    va_end(args);
+
+    __asm__ volatile("int $0x80"
+                     : "=a"(ret)
+                     : "a"(SYS_open), "b"(path), "c"(oflags), "d"(mode)
+                     : "memory");
+    if (ret < 0) {
+        errno = ret;
+        ret = -1;
+    }
+
+    return ret;
 }
 
 /*

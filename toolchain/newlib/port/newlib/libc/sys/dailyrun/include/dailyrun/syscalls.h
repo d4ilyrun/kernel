@@ -10,7 +10,7 @@
     F(execve,				2,		3,		default,		int,		char *, char *const *, char *const *)                                        \
     F(read,					3,		3,		default,		int,		int, char *, int)                                                            \
     F(write,				4,		3,		default,		int,		int, const char *, int)                                                      \
-    F(open,					5,		2,		default,		int,		const char *, int, ...)                                                      \
+    F(open,					5,		3,		manual,			int,		const char *, int, mode_t)                                                   \
     F(close,				6,		1,		default,		int,		int)                                                                         \
     F(stat,					7,		2,		default,		int,		const char *, struct stat *)                                                 \
     F(lstat,				8,		2,		default,		int,		const char *, struct stat *)                                                 \
