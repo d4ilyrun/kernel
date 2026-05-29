@@ -49,7 +49,7 @@ typedef enum error {
     E_NAME_TOO_LONG = 36,        ///< File name too long
     E_NOT_IMPLEMENTED = 38,      ///< Function not implemented
     E_OVERFLOW = 75,             ///< Value too large for defined data type
-    E_BAD_FD = 81,               ///< File descriptor in bad state
+    E_BAD_FD = 77,               ///< File descriptor in bad state
     E_NOT_SOCKET = 88,           ///< Socket operation on non-socket
     E_DEST_ADDR_REQUIRED = 89,   ///< Destination address required
     E_MSG_SIZE = 90,             ///< Message too long
