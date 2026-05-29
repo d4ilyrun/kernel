@@ -379,7 +379,7 @@ void vm_free(struct address_space *as, void *addr)
         return;
 
     if ((vaddr_t)addr % PAGE_SIZE) {
-        log_warn("freeing unaligned virtual address: %p (skipping)", addr);
+        WARN("freeing unaligned virtual address: %p (skipping)", addr);
         return;
     }
 
