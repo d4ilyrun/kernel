@@ -431,11 +431,12 @@ static vnode_t *tar_get_vnode(tar_node_t *node, vfs_t *fs)
 }
 
 static vnode_t *
-tar_vnode_create(vnode_t *vnode, const char *name, vnode_type type)
+tar_vnode_create(vnode_t *vnode, const char *name, vnode_type type, mode_t mode)
 {
     UNUSED(vnode);
     UNUSED(name);
     UNUSED(type);
+    UNUSED(mode);
 
     return PTR_ERR(E_READ_ONLY_FS);
 }

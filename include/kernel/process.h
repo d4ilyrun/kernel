@@ -122,6 +122,8 @@ struct process {
 
     struct user_creds *creds; /** Process credentials. */
 
+    mode_t cmask; /* file mode creation mask */
+
     spinlock_t lock;
 };
 

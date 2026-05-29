@@ -98,12 +98,13 @@ static struct file_operations devtmpfs_root_fops = {
  *
  * This fs only lists existing devices, cannot add new ones.
  */
-static vnode_t *
-devtmpfs_root_vnode_create(vnode_t *node, const char *name, vnode_type type)
+static vnode_t *devtmpfs_root_vnode_create(vnode_t *node, const char *name,
+                                           vnode_type type, mode_t mode)
 {
     UNUSED(node);
     UNUSED(name);
     UNUSED(type);
+    UNUSED(mode);
 
     return PTR_ERR(E_NOT_SUPPORTED);
 }

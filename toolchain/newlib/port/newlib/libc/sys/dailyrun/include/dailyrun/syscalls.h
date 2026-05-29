@@ -42,6 +42,7 @@
     F(pipe,					34, 	1,		default,		int,		int *)                                                                       \
     F(dup,					35, 	1,		default,		int,		int)                                                                         \
     F(dup2,					36, 	2,		default,		int,		int, int)                                                                    \
+    F(umask,				37, 	1,		default,		mode_t,		mode_t)                                                                      \
 
 /*
  * The list of available syscall vectors.

@@ -255,8 +255,8 @@ out:
     return parent;
 }
 
-static vnode_t *
-vfs_create_at(struct vnode *parent, const char *name, vnode_type type)
+static vnode_t *vfs_create_at(struct vnode *parent, const char *name,
+                              vnode_type type, mode_t mode)
 {
     struct vnode *vnode;
     struct user_creds *creds;
@@ -264,7 +264,7 @@ vfs_create_at(struct vnode *parent, const char *name, vnode_type type)
     if (parent->operations->create == NULL)
         return PTR_ERR(E_NOT_SUPPORTED);
 
-    vnode = parent->operations->create(parent, name, type);
+    vnode = parent->operations->create(parent, name, type, mode);
     if (IS_ERR(vnode))
         return vnode;
 
@@ -280,7 +280,7 @@ vfs_create_at(struct vnode *parent, const char *name, vnode_type type)
     return vnode;
 }
 
-vnode_t *vfs_create(const char *raw_path, vnode_type type)
+vnode_t *vfs_create(const char *raw_path, vnode_type type, mode_t mode)
 {
     path_t path = NEW_DYNAMIC_PATH(raw_path);
     vnode_t *parent;
@@ -302,7 +302,7 @@ vnode_t *vfs_create(const char *raw_path, vnode_type type)
     end_char = *file.end;
     *((char *)file.end) = '\0';
 
-    vnode = vfs_create_at(parent, file.start, type);
+    vnode = vfs_create_at(parent, file.start, type, mode);
 
     /* Undo path normalization. */
     *((char *)file.end) = end_char;
@@ -543,6 +543,7 @@ int sys_open(const char *path, int oflags, mode_t mode)
     int flags;
     int fd;
 
+    mode &= ~current->process->cmask;
     err = compute_fd_flags(oflags, &flags);
     if (err)
         return -err;
@@ -557,7 +558,7 @@ int sys_open(const char *path, int oflags, mode_t mode)
 
         /* Create file if it does not exist. */
         if (IS_ERR(vnode) && ERR_FROM_PTR(vnode) == E_NOENT) {
-            vnode = vfs_create(path, VNODE_FILE);
+            vnode = vfs_create(path, VNODE_FILE, mode);
         }
     }
 

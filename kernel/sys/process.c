@@ -101,6 +101,7 @@ struct process kernel_process = {
     .refcount = 1, /* static initial thread */
     .pid = PROCESS_KERNEL_PID,
     .creds = &kernel_creds,
+    .cmask = 0, /* default umask value */
 };
 
 thread_t *current = &kernel_process_initial_thread;
@@ -801,6 +802,7 @@ thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
         new_process->creds = creds_get(current->process->creds);
         new_process->flags = current->process->flags & PROC_FLAGS_INHERITED;
         new_process->sig_set = signal_set_clone(current->process->sig_set);
+        new_process->cmask = current->process->cmask;
         if (new_process->sig_set == NULL) {
             err = E_NOMEM;
             goto process_destroy;
@@ -1063,4 +1065,17 @@ int sys_dup2(int old, int new)
     }
 
     return new;
+}
+
+/*
+ *
+ */
+mode_t sys_umask(mode_t cmask)
+{
+    struct process *process = current->process;
+
+    /* only the file permission bits of cmask shall be used */
+    cmask &= S_ISUID | S_ISGID | S_IRWXU | S_IRWXG | S_IRWXO;
+
+    return atomic_exchange(atomic_cast(&process->cmask), cmask);
 }
