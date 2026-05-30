@@ -570,8 +570,10 @@ error_t mmu_copy_on_write(vaddr_t addr)
         if (page->refcount > 1) {
             duplicated = __duplicate_cow_page(
                 MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde));
-            if (duplicated == PMM_INVALID_PAGEFRAME)
-                return E_NOMEM;
+            if (duplicated == PMM_INVALID_PAGEFRAME) {
+                ret = E_NOMEM;
+                goto release_lock;
+            }
             // Update pagetable's address & release old reference
             pde->page_table = TO_PFN(duplicated);
             page_put(page);
@@ -599,8 +601,10 @@ error_t mmu_copy_on_write(vaddr_t addr)
     // Same as for the pagetable, duplicate it if shared
     if (page->refcount > 1) {
         duplicated = __duplicate_cow_page((void *)align_down(addr, PAGE_SIZE));
-        if (duplicated == PMM_INVALID_PAGEFRAME)
-            return E_NOMEM;
+        if (duplicated == PMM_INVALID_PAGEFRAME) {
+            ret = E_NOMEM;
+            goto release_lock;
+        }
         // Update page's address & release old reference
         pte->page_frame = TO_PFN(duplicated);
         page_put(page);
