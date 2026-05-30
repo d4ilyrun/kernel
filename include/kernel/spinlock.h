@@ -9,7 +9,7 @@
 #include <kernel/cpu.h>
 #include <kernel/types.h>
 
-#ifdef CONFIG_SPINLOCK_DEBUG
+#ifdef CONFIG_DEBUG_SPINLOCK
 #include <kernel/logger.h>
 #include <kernel/timer.h>
 #endif
@@ -28,7 +28,7 @@
  */
 typedef struct spinlock {
     bool locked;
-#ifdef CONFIG_SPINLOCK_DEBUG
+#ifdef CONFIG_DEBUG_SPINLOCK
     /** Instruction pointer where this lock was last acquired. */
     vaddr_t owner;
 #endif
@@ -48,7 +48,7 @@ typedef struct spinlock {
 /** Declare a spinlock and initialize it */
 #define DECLARE_SPINLOCK(_lock) spinlock_t _lock = SPINLOCK_INIT
 
-#ifdef CONFIG_SPINLOCK_DEBUG
+#ifdef CONFIG_DEBUG_SPINLOCK
 
 /** @brief Try to acquire a spinlock, or wait until it is free */
 static ALWAYS_INLINE spinlock_t *

@@ -5,6 +5,8 @@ CC  = gcc
 CXX = g++
 CPP = cpp
 
+# CONFIG_DEBUG_SPINLOCK is not definded
+
 # CONFIG_TRACE_SYSCALLS is not defined
 
 # vi: ft=make
