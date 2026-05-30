@@ -176,6 +176,8 @@ typedef struct vmm {
 
     spinlock_t lock; /*!< Used restrict access to the VMM when modifying it */
 
+    bool debug; /*!< Enable debug logs for this VMM */
+
     /** Bitmap of the available virtual addreses inside the reserved area
      *
      *  TODO: Using a bitmap for this takes 2KiB of memory per VMM (so per
@@ -279,6 +281,10 @@ void vmm_clear(vmm_t *vmm);
  *        this function
  */
 void vmm_destroy(vmm_t *vmm);
+
+/** Print the content of a VMM to the console.
+ */
+void vmm_dump(const vmm_t *vmm);
 
 /**
  * Map a file into kernel memory

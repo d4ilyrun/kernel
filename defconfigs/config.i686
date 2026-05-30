@@ -6,6 +6,7 @@ CXX = g++
 CPP = cpp
 
 # CONFIG_DEBUG_SPINLOCK is not definded
+# CONFIG_DEBUG_VMM is not definded
 
 # CONFIG_TRACE_SYSCALLS is not defined
 

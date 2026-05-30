@@ -7,6 +7,7 @@
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
 #include <kernel/vmm.h>
+#include <kernel/process.h>
 
 #include <libalgo/avl.h>
 #include <libalgo/bitmap.h>
@@ -16,6 +17,25 @@
 #include <utils/math.h>
 
 #include <string.h>
+
+#define vma_fmt "{start=%#08x, size=%#lx}"
+#define vma_fmt_args(_vma) vma_start((_vma)), vma_size((_vma))
+
+#ifdef CONFIG_DEBUG_VMM
+#define vmm_debug(vmm, fmt, ...)                                              \
+    do {                                                                      \
+        if (unlikely(vmm->debug)) {                                           \
+            log_dbg(                                                          \
+                "%s %s (%d) " fmt,                                             \
+                current->process->as->vmm == vmm ? "[owned]" : "[not owned]", \
+                current->process->name, current->process->pid, ##__VA_ARGS__);  \
+        }                                                                     \
+    } while (0)
+#else
+#define vmm_debug(vmm, ...) \
+    do {                    \
+    } while (0)
+#endif
 
 /* For simplicity, we will allocate 64B for each VMA structure */
 #define VMA_SIZE (64)
@@ -63,6 +83,9 @@ static void vmm_unlock(struct vmm *vmm)
     ({                                                                      \
         avl_t *__avl;                                                       \
                                                                             \
+        vmm_debug(_vmm, "  vma_remove_%s(" vma_fmt ",  %s)", #_by,          \
+                  vma_fmt_args(_vma), #_function);                          \
+                                                                            \
         __avl = avl_remove(&(_vmm)->vmas._by, &(_vma)->avl._by, _function); \
         __avl ? container_of(__avl, vma_t, avl._by) : NULL;                 \
     })
@@ -73,6 +96,9 @@ static void vmm_unlock(struct vmm *vmm)
 #define vma_insert(_vmm, _vma, _by, _function)                                \
     ({                                                                        \
         avl_t *__avl;                                                         \
+                                                                              \
+        vmm_debug(_vmm, "  vma_insert_%s(" vma_fmt ",  %s)", #_by,          \
+                  vma_fmt_args(_vma), #_function);                          \
                                                                               \
         __avl = avl_insert(&(_vmm)->vmas._by, &(_vma)->avl._by, _function);   \
         IS_ERR(__avl) ? (vma_t *)__avl : container_of(__avl, vma_t, avl._by); \
@@ -214,22 +240,25 @@ bool vmm_init(vmm_t *vmm, vaddr_t start, vaddr_t end)
 static void vmm_print_node_by_size(const struct avl *node)
 {
     struct vma *vma = to_vma_by_size(node);
-    printk("[%x - %x] %s\n", vma_start(vma), vma_end(vma),
+    printk("  [%#08x - %#08x] %s\n", vma_start(vma), vma_end(vma),
            vma->allocated ? "allocated" : "free");
 }
 
 static void vmm_print_node_by_address(const struct avl *node)
 {
     struct vma *vma = to_vma_by_address(node);
-    printk("%ld %s bytes @ %x\n", vma_size(vma),
-           vma->allocated ? "used" : "free", vma_start(vma));
+    printk("  [%#08x - %#08x] %s\n", vma_start(vma), vma_end(vma),
+           vma->allocated ? "allocated" : "free");
 }
 
-MAYBE_UNUSED static void vmm_dump(vmm_t *vmm)
+/*
+ * Print the content of the VMM
+ */
+void vmm_dump(const vmm_t *vmm)
 {
     log_dbg("%p@by_size", vmm);
     avl_print(vmm->vmas.by_size, vmm_print_node_by_size);
-    log_dbg("%p@by_size", vmm);
+    log_dbg("%p@by_address", vmm);
     avl_print(vmm->vmas.by_address, vmm_print_node_by_address);
 }
 
@@ -400,6 +429,9 @@ static void vma_try_merge(vmm_t *vmm, vma_t *dst, vaddr_t src_start)
 
     area = vma_remove(vmm, &value, by_address, vma_search_free_by_address);
     if (area != NULL) {
+        vmm_debug(vmm, "merging " vma_fmt " into " vma_fmt,
+                  vma_fmt_args(area), vma_fmt_args(dst));
+
         // Remove the equivalent inside the by_size tree
         value.segment.size = vma_size(area);
         vma_remove(vmm, &value, by_size, vma_compare_address_inside_size);
@@ -422,6 +454,8 @@ vmm_allocate_locked(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
         addr = align_up(addr, PAGE_SIZE);
 
     requested = (vma_t){.segment = {.size = size, .start = addr}};
+    vmm_debug(vmm, "allocate %#lx bytes at %#08x%s", size, addr,
+              flags & VM_FIXED ? " (fixed)" : "");
 
     // Look for a large enough free area. If specified a starting address,
     // the area's starting address must be superior or equal to it.
@@ -432,10 +466,11 @@ vmm_allocate_locked(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
          * When using VM_FIXED the exact requested sart address must
          * be contained inside the allocated area. This is not a hint anymore.
          */
-        if (allocated &&
-            flags & VM_FIXED &&
+        if (allocated && flags & VM_FIXED &&
             !IN_RANGE(vma_start(&requested), vma_start(allocated),
                       vma_end(allocated))) {
+            vmm_debug(vmm, "fixed address does not match: %#08x",
+                      vma_start(allocated));
             vma_insert(vmm, allocated, by_address, vma_compare_address);
             return PTR_ERR(E_NOMEM);
         }
@@ -448,6 +483,8 @@ vmm_allocate_locked(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
         vmm_unlock(vmm);
         return PTR_ERR(E_INVAL);
     }
+
+    vmm_debug(vmm, "found suitable area: " vma_fmt, vma_fmt_args(allocated));
 
     // We also need to remove the newly found area from the other tree than
     // the one used to find it
@@ -484,7 +521,6 @@ vmm_allocate_locked(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
     // note: we do not keep track of the allocated areas inside by_size
     allocated->avl.by_address = AVL_EMPTY_NODE;
     inserted = vma_insert(vmm, allocated, by_address, vma_compare_address);
-
     if (IS_ERR(inserted)) {
         log_err("failed to insert new VMA inside the AVL: %pE", inserted);
         vmm_unlock(vmm);
@@ -519,12 +555,18 @@ static void vmm_free_locked(vmm_t *vmm, vaddr_t addr, size_t length)
     addr = align_down(addr, PAGE_SIZE);
     length = align_up(length, PAGE_SIZE);
 
+    vmm_debug(vmm, "free %#lx bytes at %#08x", length, addr);
+
     // 1. Remove the corresponding area
     requested.segment.start = addr;
     requested.segment.size = length;
     area = vma_remove(vmm, &requested, by_address, vma_compare_address);
-    if (area == NULL)
+    if (area == NULL) {
+        vmm_debug(vmm, "area does not exist ?");
         return;
+    }
+
+    vmm_debug(vmm, "found existing area: " vma_fmt, vma_fmt_args(area));
 
     // If only freeing part of the area, extract the part of interest
     if (vma_size(area) != length) {
@@ -556,6 +598,7 @@ static void vmm_free_locked(vmm_t *vmm, vaddr_t addr, size_t length)
 
     // It is possible that the requested length spans over multiple areas
     if (addr + length > vma_end(area) && vma_end(area) < vmm->end) {
+        vmm_debug(vmm, "freeing over multiple-vmas");
         length -= vma_end(area) - addr;
         vmm_free_locked(vmm, vma_end(area), length);
     }
@@ -589,25 +632,24 @@ static error_t vmm_merge_vmas(vmm_t *vmm, vma_t *first, vma_t *second)
 error_t vmm_resize(vmm_t *vmm, vma_t *vma, size_t new_size)
 {
     struct vm_segment *segment;
-    ssize_t size_difference;
+    ssize_t diff;
 
     new_size = align_up(new_size, PAGE_SIZE);
-    size_difference = new_size - vma_size(vma);
+    diff = new_size - vma_size(vma);
 
-    if (!size_difference)
+    if (!diff)
         return E_SUCCESS;
+    vmm_debug(vmm, "resizing " vma_fmt " to %#lx bytes",
+              vma_fmt_args(vma), new_size);
 
     vmm_lock(vmm);
-
-    if (size_difference > 0) {
-        segment = vmm_allocate_locked(vmm, vma_end(vma), size_difference,
-                                      vma_flags(vma));
+    if (diff > 0) {
+        segment = vmm_allocate_locked(vmm, vma_end(vma), diff, vma_flags(vma));
         if (vmm_merge_vmas(vmm, vma, to_vma(segment)))
             log_warn("resize: failed to merge VMAs");
     } else {
-        vmm_free_locked(vmm, vma_end(vma) + size_difference, -size_difference);
+        vmm_free_locked(vmm, vma_end(vma) + diff, -diff);
     }
-
     vmm_unlock(vmm);
 
     return E_SUCCESS;
