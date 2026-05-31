@@ -739,7 +739,7 @@ void *map_file(struct file *file, int prot)
     size_t to_read;
 
     length = align_up(file_size(file), PAGE_SIZE);
-    memory = vm_alloc(&kernel_address_space, length, prot);
+    memory = vm_alloc(&kernel_address_space, length, VM_WRITE);
     if (IS_ERR(memory))
         return MMAP_INVALID;
 
@@ -753,6 +753,8 @@ void *map_file(struct file *file, int prot)
         offset += read;
         to_read -= read;
     }
+
+    vm_modify_flags(&kernel_address_space, memory, prot, VM_PROT_MASK);
 
     return memory;
 }
