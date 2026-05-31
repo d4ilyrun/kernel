@@ -259,11 +259,8 @@ error_t address_space_copy_current(struct address_space *dst)
 
 error_t address_space_fault(struct address_space *as, void *addr, bool is_cow)
 {
-    struct vm_segment *segment = vm_find(as, addr);
+    struct vm_segment *segment;
     error_t err;
-
-    if (!segment)
-        return -E_NOENT;
 
     /*
      * Copy-on-Write pages
@@ -274,6 +271,10 @@ error_t address_space_fault(struct address_space *as, void *addr, bool is_cow)
             log_warn("cow @ %p failed: %pe", addr, &err);
         return err;
     }
+
+    segment = vm_find(as, addr);
+    if (!segment)
+        return -E_NOENT;
 
     return segment->driver->vm_fault(as, segment);
 }
