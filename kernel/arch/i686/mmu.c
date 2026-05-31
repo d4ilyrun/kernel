@@ -172,6 +172,43 @@ ALIGNED(PAGE_SIZE) mmu_pde_t kernel_startup_page_directory[MMU_PDE_COUNT];
 // This doesn't count temporarily enabling it to jump into higher half.
 static bool paging_enabled = false;
 
+/*
+ *
+ */
+static inline mmu_pde_t *mmu_get_active_page_directory(void)
+{
+    if (unlikely(!paging_enabled))
+        return kernel_startup_page_directory;
+
+    return MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS;
+}
+
+/*
+ *
+ */
+static inline mmu_pde_t *pde_get(vaddr_t addr)
+{
+        mmu_decode_t decode = { .raw = addr };
+        return &mmu_get_active_page_directory()[decode.pde];
+}
+
+/*
+ *
+ */
+static inline mmu_pte_t *pte_get(vaddr_t addr)
+{
+        mmu_decode_t decode = { .raw = addr };
+        page_table_t page_table;
+
+        if (unlikely(!paging_enabled)) {
+                /* reference physical address when paging is disabled */
+                page_table = (mmu_pte_t *)FROM_PFN(pde_get(addr)->page_table);
+                return &page_table[decode.pte];
+        }
+
+        return &MMU_RECURSIVE_PAGE_TABLE_ADDRESS(decode.pde)[decode.pte];
+}
+
 /**
  * @brief Flush the translation buffer
  * @function mmu_flush_tlb
@@ -235,24 +272,12 @@ void mmu_destroy(paddr_t mmu)
 }
 
 /*
- *
- */
-static inline mmu_pde_t *mmu_get_active_page_directory(void)
-{
-    if (unlikely(!paging_enabled))
-        return kernel_startup_page_directory;
-
-    return MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS;
-}
-
-/*
  * Configure the caching policy on a page level. The caller must invalidate
  * the address' TLB entry after calling this function.
  */
 static error_t
-__mmu_set_policy(mmu_pde_t *page_directory, vaddr_t vaddr, int policy)
+__mmu_set_policy(vaddr_t vaddr, int policy)
 {
-    mmu_decode_t address = {.raw = vaddr};
     mmu_pte_t *pte;
     bool pat = false;
     bool pwt = false;
@@ -263,10 +288,10 @@ __mmu_set_policy(mmu_pde_t *page_directory, vaddr_t vaddr, int policy)
     if (!policy)
         policy = POLICY_WB; /* Enable caching by default. */
 
-    if (!page_directory[address.pde].present)
+    if (!pte_get(vaddr)->present)
         return E_NOENT;
 
-    pte = &MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde)[address.pte];
+    pte = pte_get(vaddr);
     switch (policy) {
     case POLICY_WB:
         break;
@@ -302,11 +327,9 @@ __mmu_set_policy(mmu_pde_t *page_directory, vaddr_t vaddr, int policy)
  */
 error_t mmu_set_policy(vaddr_t vaddr, mmu_policy_t policy)
 {
-    mmu_pde_t *page_directory;
     error_t err;
 
-    page_directory = mmu_get_active_page_directory();
-    err = __mmu_set_policy(page_directory, vaddr, policy);
+    err = __mmu_set_policy(vaddr, policy);
     if (err)
         return err;
 
@@ -380,17 +403,17 @@ void mmu_clone(paddr_t destination)
 
 bool mmu_map(vaddr_t virtual, paddr_t pageframe, int flags)
 {
-    mmu_decode_t address = {.raw = virtual};
-    page_directory_t page_directory = mmu_get_active_page_directory();
-    page_table_t page_table;
+    mmu_pde_t *pde;
+    mmu_pte_t *pte;
     bool new_page_table = false;
 
     if (virtual % PAGE_SIZE)
         return false;
 
-    if (!page_directory[address.pde].present) {
+    pde = pde_get(virtual);
+    if (!pde->present) {
         u32 page_table = pmm_allocate();
-        page_directory[address.pde] = (mmu_pde_t){
+        *pde = (mmu_pde_t){
             .present = 1,
             .page_table = TO_PFN(page_table),
             .writable = 1,
@@ -399,26 +422,18 @@ bool mmu_map(vaddr_t virtual, paddr_t pageframe, int flags)
         new_page_table = true;
     }
 
-    // Virtual address of the corresponding page table (physical if CR0.PG=0)
-    if (paging_enabled) {
-        page_table = MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde);
-    } else {
-        page_table = (page_table_t)FROM_PFN(
-            page_directory[address.pde].page_table);
-    }
-
-    // clear the page table to avoid having residual values corrupt our mappings
+    pte = pte_get(virtual);
     if (new_page_table)
-        memset((void *)page_table, 0, PAGE_SIZE);
+        memset(PAGE_ALIGN_DOWN(pte), 0, PAGE_SIZE);
 
-    if (page_table[address.pte].present) {
+    if (pte->present) {
         log_err("Allocating already allocated virtual address: " FMT32,
                 virtual);
         return false;
     }
 
     // Link the page table entry (virtual address) to the pageframe
-    page_table[address.pte] = (mmu_pte_t){
+    *pte = (mmu_pte_t){
         .present = 1,
         .page_frame = TO_PFN(pageframe),
         .writable = boolean(flags & PROT_WRITE),
@@ -426,7 +441,7 @@ bool mmu_map(vaddr_t virtual, paddr_t pageframe, int flags)
     };
 
     /* No need to flush since the entry has not been cached yet. */
-    __mmu_set_policy(page_directory, virtual, flags);
+    __mmu_set_policy(virtual, flags);
 
     return true;
 }
@@ -469,7 +484,7 @@ static paddr_t __duplicate_cow_page(void *orig)
         return PMM_INVALID_PAGEFRAME;
     }
 
-    memcpy(new, orig, PAGE_SIZE);
+    memcpy(new, PAGE_ALIGN_DOWN(orig), PAGE_SIZE);
     vm_free(&kernel_address_space, new);
 
     return phys_new;
@@ -477,23 +492,22 @@ static paddr_t __duplicate_cow_page(void *orig)
 
 paddr_t mmu_unmap(vaddr_t virtual)
 {
-    mmu_decode_t address = {.raw = virtual};
-    page_table_t page_table;
     paddr_t physical;
     struct page *page;
     mmu_pde_t *pde;
     mmu_pte_t *pte;
 
-    pde = &MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS[address.pde];
-    page_table = MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde);
-    pte = &page_table[address.pte];
+    pde = pde_get(virtual);
+    if (!pde->present)
+        return PMM_INVALID_PAGEFRAME;
 
-    if (!pde->present || !pte->present)
+    pte = pte_get(virtual);
+    if (!pte->present)
         return PMM_INVALID_PAGEFRAME;
 
     page = pfn_to_page(pde->page_table);
     if (page_is_cow(page)) {
-        physical = __duplicate_cow_page(page_table);
+        physical = __duplicate_cow_page(pte);
         page_put(page);
         pde->page_table = TO_PFN(physical);
         pde->writable = true;
@@ -530,30 +544,35 @@ void mmu_identity_map(paddr_t start, paddr_t end, int flags)
 
 paddr_t mmu_find_physical(vaddr_t virtual)
 {
-    mmu_decode_t address = {.raw = virtual};
+    off_t offset = virtual & PAGE_OFFSET_MASK;
 
-    if (!MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS[address.pde].present)
-        return -E_INVAL;
+    if (!pde_get(virtual)->present)
+        return -E_NOENT;
 
-    page_table_t page_table = MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde);
-    if (!page_table[address.pte].present)
-        return -E_INVAL;
+    if (!pte_get(virtual)->present)
+        return -E_NOENT;
 
-    return FROM_PFN(page_table[address.pte].page_frame) + address.offset;
+    return FROM_PFN(pte_get(virtual)->page_frame) + offset;
 }
 
 error_t mmu_copy_on_write(vaddr_t addr)
 {
-    mmu_decode_t address = {.raw = addr};
-    mmu_pde_t *pde = &MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS[address.pde];
-    mmu_pte_t *pte = &MMU_RECURSIVE_PAGE_TABLE_ADDRESS(address.pde)[address.pte];
+    mmu_pde_t *pde;
+    mmu_pte_t *pte;
     struct page *page;
     paddr_t duplicated;
     error_t ret = E_SUCCESS;
 
     spinlock_acquire(&mmu_lock);
 
-    if (!pde->present || !pte->present) {
+    pde = pde_get(addr);
+    if (!pde->present) {
+        ret = E_NOENT;
+        goto release_lock;
+    }
+
+    pte = pte_get(addr);
+    if (!pte->present) {
         ret = E_NOENT;
         goto release_lock;
     }
@@ -562,7 +581,7 @@ error_t mmu_copy_on_write(vaddr_t addr)
     if (page->flags & PAGE_COW) {
         if (page->refcount > 1) {
             /* Duplicate shared pagetable */
-            duplicated = __duplicate_cow_page(PAGE_ALIGN_DOWN(pte));
+            duplicated = __duplicate_cow_page(pte);
             if (duplicated == PMM_INVALID_PAGEFRAME) {
                 ret = E_NOMEM;
                 goto release_lock;
@@ -586,7 +605,7 @@ error_t mmu_copy_on_write(vaddr_t addr)
 
     // Same as for the pagetable, duplicate it if shared
     if (page->refcount > 1) {
-        duplicated = __duplicate_cow_page(PAGE_ALIGN_DOWN(addr));
+        duplicated = __duplicate_cow_page((void *)addr);
         if (duplicated == PMM_INVALID_PAGEFRAME) {
             ret = E_NOMEM;
             goto release_lock;

@@ -21,6 +21,8 @@
 #define PAGE_SHIFT 12
 /** The size of a single page */
 #define PAGE_SIZE (1 << PAGE_SHIFT)
+#define PAGE_MASK (~(PAGE_SIZE - 1))
+#define PAGE_OFFSET_MASK (PAGE_SIZE - 1)
 
 /** First usable physical address
  *
