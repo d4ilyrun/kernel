@@ -724,19 +724,15 @@ bool mmu_init(void)
     kernel_address_space.mmu = page_directory;
 
     mmu_init_page_directory(page_directory);
-
-    /*
-     * Enable 32b mode paging.
-     */
-
     mmu_load(page_directory);
 
+    /* Enable 32b mode paging. */
     val = read_cr4();
     val &= ~CR4_PAE;
     write_cr4(val);
 
     val = read_cr0();
-    val |= CR0_PG;
+    val |= CR0_PG | CR0_WP;
     write_cr0(val);
 
     paging_enabled = true;

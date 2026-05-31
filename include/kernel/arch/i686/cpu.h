@@ -57,6 +57,7 @@ MAP(WRITE_REGISTER_OPS, CPU_32BIT_REGISTERS)
 #define CR0_PG BIT(31) /* Paging enable */
 #define CR0_CD BIT(30) /* Cache disable */
 #define CR0_NW BIT(29) /* Not write-through */
+#define CR0_WP BIT(16) /* Write Protect */
 
 #define CR4_PAE BIT(5) /* PAE paging enable */
 
