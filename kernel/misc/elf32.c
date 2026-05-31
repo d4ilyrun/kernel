@@ -126,7 +126,6 @@ static error_t elf32_load_segment(const struct elf32_ehdr *elf,
     void *allocated;
     void *in_file;
     size_t size;
-    vm_flags_t prot = 0;
 
     if (segment->p_type != PT_LOAD)
         return E_SUCCESS;
@@ -148,13 +147,6 @@ static error_t elf32_load_segment(const struct elf32_ehdr *elf,
         return E_INVAL;
     }
 
-    if (segment->p_pflags & PF_R)
-        prot |= VM_READ;
-    if (segment->p_pflags & PF_W)
-        prot |= VM_WRITE;
-    if (segment->p_pflags & PF_X)
-        prot |= VM_EXEC;
-
     /* NOTE: We also alocate the start of the containing page when vaddr is not
      * aligned. This is necessary because mmap will automatically align up the
      * start address to the next page. We do not verify, though, whether another
@@ -167,13 +159,17 @@ static error_t elf32_load_segment(const struct elf32_ehdr *elf,
     size = segment->p_memsz + (segment->p_vaddr % PAGE_SIZE);
     size = align_up(size, PAGE_SIZE);
 
+    /*
+     * The segments are first mapped as writable since we need to be able
+     * to write into them when loading the executable. The actual protection
+     * flags are applied later by elf32_apply_segment_protection().
+     */
     allocated = vm_alloc_start(current->process->as, in_memory, size,
-                               prot | VM_FIXED);
+                               VM_KERNEL_RW | VM_FIXED);
     if (!allocated) {
         log_warn("failed ot allocate segment @ %p "
-                 "(size=%#04x, start=%p, alloc_size=%#04lx, flags=%x)",
-                 (void *)segment->p_vaddr, segment->p_memsz, in_memory, size,
-                 prot);
+                 "(size=%#04x, start=%p, alloc_size=%#04lx)",
+                 (void *)segment->p_vaddr, segment->p_memsz, in_memory, size);
         return E_NOMEM;
     }
 
@@ -185,6 +181,36 @@ static error_t elf32_load_segment(const struct elf32_ehdr *elf,
 
     in_file = elf32_at_offset(elf, segment->p_offset);
     memcpy((void *)segment->p_vaddr, in_file, segment->p_filesz);
+
+    return E_SUCCESS;
+}
+
+/*
+ *
+ */
+static error_t elf32_apply_segment_protection(const struct elf32_ehdr *elf,
+                                              const struct elf32_phdr *segment)
+{
+    vm_flags_t prot = 0;
+    error_t err;
+    void *start;
+
+    UNUSED(elf);
+
+    if (segment->p_pflags & PF_R)
+        prot |= VM_READ;
+    if (segment->p_pflags & PF_W)
+        prot |= VM_WRITE;
+    if (segment->p_pflags & PF_X)
+        prot |= VM_EXEC;
+
+    start = (void *)align_down(segment->p_vaddr, PAGE_SIZE);
+    err = vm_modify_flags(current->process->as, start, prot, VM_PROT_MASK);
+    if (err) {
+        log_err("failed to apply segment protection (start: %#08x flags: %#x): "
+                "%pE", segment->p_vaddr, prot, &err);
+        return err;
+    }
 
     return E_SUCCESS;
 }
@@ -281,9 +307,7 @@ static error_t elf32_load(struct executable *executable, void *data)
         }
     }
 
-    /*
-     * Set the brk segment's size to 0.
-     */
+    /* Set the brk segment's size to 0. */
     current->process->as->brk_end = current->process->as->data_end;
 
     for (size_t i = 0; i < elf->e_shnum; ++i) {
@@ -291,6 +315,15 @@ static error_t elf32_load(struct executable *executable, void *data)
         if (err) {
             log_info("failed to load section '%s': %pe",
                      elf32_section_name(elf, &shdr_table[i]), &err);
+            return err;
+        }
+    }
+
+    /* c.f. comment in elf32_load_segment() */
+    for (size_t i = 0; i < elf->e_phnum; ++i) {
+        err = elf32_apply_segment_protection(elf, &phdr[i]);
+        if (err) {
+            log_info("failed to set segment protection %ld: %pe", i, &err);
             return err;
         }
     }
