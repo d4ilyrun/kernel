@@ -767,6 +767,7 @@ static INTERRUPT_HANDLER_FUNCTION(page_fault)
     page_fault_error error = *(page_fault_error *)&frame->error;
     bool is_cow = error.present && error.write;
     struct address_space *as;
+    error_t err;
 
     UNUSED(data);
 
@@ -784,7 +785,8 @@ static INTERRUPT_HANDLER_FUNCTION(page_fault)
             goto page_fault_error;
         }
 
-        if (!address_space_fault(as, faulty_address, is_cow))
+        err = address_space_fault(as, faulty_address, is_cow);
+        if (!err)
             return INTERRUPT_HANDLED;
     }
 
