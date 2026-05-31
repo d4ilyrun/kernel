@@ -372,7 +372,7 @@ void mmu_clone(paddr_t destination)
             page = page_get(pfn_to_page(page_table[j].page_frame));
             if (page_table[j].writable) {
                 page->flags |= PAGE_COW;
-                page_table->writable = false;
+                page_table[j].writable = false;
                 mmu_flush_tlb(addr.raw);
             }
         }
