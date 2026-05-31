@@ -532,34 +532,100 @@ void *sys_sbrk(intptr_t increment)
 /*
  *
  */
-error_t vm_set_policy(struct address_space *as, void *addr, vm_flags_t policy)
+static inline error_t vm_set_protection(struct address_space *as,
+                                        struct vm_segment *segment,
+                                        vm_flags_t prot, vm_flags_t mask)
+{
+        error_t err;
+
+        prot &= VM_PROT_MASK;
+        mask &= VM_PROT_MASK;
+
+        if (!mask)
+            return E_SUCCESS; /* bits not modified */
+
+        err = segment->driver->vm_set_protection(as, segment, prot);
+        if (err) {
+                log_warn("failed to set protection for [%p-%p]: %pe",
+                         (void *)segment->start, (void *)segment_end(segment),
+                         &err);
+                return -err;
+        }
+
+        segment->flags &= ~mask;
+        segment->flags |= prot;
+
+        return E_SUCCESS;
+}
+
+/*
+ *
+ */
+static inline error_t vm_set_policy(struct address_space *as,
+                                    struct vm_segment *segment,
+                                    vm_flags_t policy, vm_flags_t mask)
+{
+    error_t err;
+
+    policy &= VM_CACHE_MASK;
+    mask &= VM_CACHE_MASK;
+
+    if (!mask)
+        return E_SUCCESS; /* bits not modified */
+
+    /* The config for cache policy only makes as a whole, don't allow
+     * configuring specific bits inside it. */
+    if (mask != VM_CACHE_MASK) {
+        log_err("set_policy(): partial cache mask not allowed: %#x", mask);
+        return -E_INVAL;
+    }
+
+    err = segment->driver->vm_set_policy(as, segment, policy);
+    if (err) {
+        log_warn("failed to set caching policy for [%p-%p]: %pe",
+                 (void *)segment->start, (void *)segment_end(segment), &err);
+        return -err;
+    }
+
+    segment->flags &= ~VM_CACHE_MASK;
+    segment->flags |= policy;
+
+    return E_SUCCESS;
+}
+
+/*
+ *
+ */
+error_t vm_modify_flags(struct address_space *as, void *addr,
+                        vm_flags_t flags, vm_flags_t mask)
 {
     struct vm_segment *segment;
-    error_t ret;
+    error_t err;
 
     AS_ASSERT_OWNED(as);
 
-    policy &= VM_CACHE_MASK;
-    if (!vm_flags_validate(as, &policy))
-        return E_INVAL;
+    if (!vm_flags_validate(as, &flags))
+        return -E_INVAL;
+    flags &= mask;
 
+    /* NOTE: We should be adding a size parameter if we ever want to change
+     *       the flags for only part of a segment.
+     */
     locked_scope (&as->lock) {
         segment = vm_find(as, addr);
         if (!segment)
             return E_NOENT;
+        flags = (segment->flags & ~mask) | flags;
 
-        /* NOTE: We should be adding a size parameter if we ever want to change
-         *       the policy for part of a segment only.
-         */
-        ret = segment->driver->vm_set_policy(as, segment, policy);
-        if (ret) {
-            log_warn("failed to set caching policy for [%p-%p]: %pe",
-                     (void *)segment->start, (void *)segment_end(segment),
-                     &ret);
-        }
+        err = vm_set_policy(as, segment, flags, mask);
+        if (err)
+            return err;
 
-        segment->flags &= ~VM_CACHE_MASK;
-        segment->flags |= policy;
+        err = vm_set_protection(as, segment, flags, mask);
+        if (err)
+            return err;
+
+        segment->flags = flags;
     }
 
     return E_SUCCESS;

@@ -356,6 +356,43 @@ error_t mmu_set_policy_range(vaddr_t range_start, size_t range_size,
     return ret;
 }
 
+/*
+ *
+ */
+static void __mmu_set_protection(vaddr_t addr, mmu_prot_t prot)
+{
+    mmu_pte_t *pte = pte_get(addr);
+
+    pte->writable = boolean(prot & PROT_WRITE);
+    pte->user = !(prot & PROT_KERNEL);
+}
+
+/*
+ *
+ */
+error_t mmu_set_protection(vaddr_t addr, mmu_prot_t prot)
+{
+    __mmu_set_protection(addr, prot);
+    mmu_flush_tlb(addr);
+
+    return E_SUCCESS;
+}
+
+/*
+ *
+ */
+error_t mmu_set_protection_range(vaddr_t range_start, size_t range_size,
+                                 mmu_prot_t prot)
+{
+    range_size = align_down(range_size, PAGE_SIZE);
+    for (size_t off = 0; off < range_size; off += PAGE_SIZE) {
+        __mmu_set_protection(range_start + off, prot);
+        mmu_flush_tlb(range_start + off);
+    }
+
+    return E_SUCCESS;
+}
+
 // TODO: We do not have a way to quickly map and access an arbitrary physical
 // address.
 //       This prevents us from cloning an arbitrary MMU instance. This is the
@@ -432,15 +469,11 @@ bool mmu_map(vaddr_t virtual, paddr_t pageframe, int flags)
         return false;
     }
 
-    // Link the page table entry (virtual address) to the pageframe
-    *pte = (mmu_pte_t){
-        .present = 1,
-        .page_frame = TO_PFN(pageframe),
-        .writable = boolean(flags & PROT_WRITE),
-        .user = !(flags & PROT_KERNEL),
-    };
+    pte->present = 1;
+    pte->page_frame = TO_PFN(pageframe);
 
     /* No need to flush since the entry has not been cached yet. */
+    __mmu_set_protection(virtual, flags);
     __mmu_set_policy(virtual, flags);
 
     return true;

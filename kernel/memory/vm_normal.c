@@ -180,6 +180,17 @@ static error_t vm_normal_set_policy(struct address_space *as,
     return mmu_set_policy_range(segment->start, segment->size, (int)policy);
 }
 
+/*
+ *
+ */
+static error_t vm_normal_set_protection(struct address_space *as,
+                                        struct vm_segment *segment,
+                                        vm_flags_t prot)
+{
+    AS_ASSERT_OWNED(as);
+    return mmu_set_protection_range(segment->start, segment->size, (int)prot);
+}
+
 const struct vm_segment_driver vm_normal = {
     .vm_alloc = vm_normal_alloc,
     .vm_alloc_at = vm_normal_alloc_at,
@@ -188,4 +199,5 @@ const struct vm_segment_driver vm_normal = {
     .vm_resize = vm_normal_resize,
     .vm_map = vm_normal_map,
     .vm_set_policy = vm_normal_set_policy,
+    .vm_set_protection = vm_normal_set_protection,
 };

@@ -84,6 +84,7 @@ typedef enum vm_flags {
  */
 #define VM_IOMEM (VM_KERNEL_RW | VM_CACHE_UC)
 
+#define VM_PROT_MASK (VM_READ | VM_WRITE | VM_EXEC | VM_KERNEL)
 #define VM_CACHE_MASK (VM_CACHE_UC | VM_CACHE_WT | VM_CACHE_WB | VM_CACHE_WC)
 
 /** Segment driver
@@ -154,6 +155,9 @@ struct vm_segment_driver {
     /** Configure the effective caching policy for a segment. */
     error_t (*vm_set_policy)(struct address_space *, struct vm_segment *,
                              vm_flags_t policy);
+
+    error_t (*vm_set_protection)(struct address_space *, struct vm_segment *,
+                                 vm_flags_t protection);
 };
 
 /** Kernel-only address-space.
@@ -251,7 +255,21 @@ struct vm_segment *vm_find(const struct address_space *, void *);
  */
 error_t vm_map(struct address_space *, void *);
 
-/** Change the effective caching policy for address inside a segment. */
-error_t vm_set_policy(struct address_space *, void *, vm_flags_t policy);
+/** Modify the flags applied to the segment containing a virtual address.
+ *
+ * Updates the protection and caching attributes of the segment containing
+ * @p addr. Only the bits selected by @p mask are modified; all other segment
+ * flags remain unchanged.
+ *
+ * @param as     Address space containing the target segment.
+ * @param addr   Virtual address identifying the segment to update.
+ * @param flags  New flag values to apply.
+ * @param mask   Mask selecting which flag bits are updated.
+ *
+ * @note Currently, flags are updated for the entire segment containing
+ *       @p addr. Partial segment updates are not supported.
+ */
+error_t vm_modify_flags(struct address_space *as, void *addr,
+                        vm_flags_t flags, vm_flags_t mask);
 
 #endif /* KERNEL_VM_H */

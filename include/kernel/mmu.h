@@ -44,7 +44,7 @@ typedef enum mmu_prot {
     // TODO: NX bit for PROT_EXEC
     PROT_WRITE = 0x4,  /*!< Pages may be written */
     PROT_KERNEL = 0x8, /*!< Pages should be accessible only from the kernel */
-} mmu_prot;
+} mmu_prot_t;
 
 /** @enum mmu_caching_policy
  *  @brief Caching policies.
@@ -180,5 +180,23 @@ error_t mmu_set_policy(vaddr_t, mmu_policy_t policy);
  */
 error_t mmu_set_policy_range(vaddr_t range_start, size_t range_size,
                              mmu_policy_t policy);
+
+/** Configure the memory protection applied when accessing a page.
+ *
+ * @param vaddr  The page's virtual address.
+ * @param prot   Protection flags applied to this page.
+ *               A combination of @ref mmu_protection flags.
+ */
+error_t mmu_set_protection(vaddr_t vaddr, mmu_prot_t prot);
+
+/** Configure the memory protection applied when accessing a range of pages.
+ *
+ * @param range_start  The virtual address of the first page in the range.
+ * @param range_size   The size of the address range.
+ * @param prot         Protection flags applied to all pages in the range.
+ *                     A combination of @ref mmu_prot flags.
+ */
+error_t mmu_set_protection_range(vaddr_t range_start, size_t range_size,
+                                 mmu_prot_t prot);
 
 #endif /* KERNEL_MMU_H */
