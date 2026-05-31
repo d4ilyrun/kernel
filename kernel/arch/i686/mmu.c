@@ -693,13 +693,10 @@ static void mmu_init_page_directory(paddr_t page_directory)
     // The addresses over 0xC0000000 will point to our kernel's code (0x00000000
     // in physical)
     //
-    // FIXME: The kernel code is currently accessible from userland.
-    //        This MUST be changed back to add PROT_KERNEL, but for now
-    //        we keep it as is, since it is the only way for us to test
-    //        our userland implementation until we port our first programs
-    //        (soon hopefully)
+    // TODO: Only the kernel's data area should be marked writable
     mmu_offset_map(0, KERNEL_HIGHER_HALF_PHYSICAL(KERNEL_CODE_END),
-                   KERNEL_HIGHER_HALF_OFFSET, PROT_EXEC | PROT_READ);
+                   KERNEL_HIGHER_HALF_OFFSET,
+                   PROT_EXEC | PROT_READ | PROT_WRITE | PROT_KERNEL);
 }
 
 bool mmu_init(void)
