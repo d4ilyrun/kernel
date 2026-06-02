@@ -240,11 +240,11 @@ vnode_t *vnode_acquire(vnode_t *, bool *);
  */
 vnode_t *vnode_release(vnode_t *);
 
-/** Allocate a new vnode and increment its reference count. */
-static inline vnode_t *vnode_new(void)
-{
-    return vnode_acquire(NULL, NULL);
-}
+/** Allocate a new vnode.
+ *
+ *  @note The vnode's refcount is set to 0 when exiting this function.
+ */
+struct vnode *vnode_alloc(void);
 
 /* Free a vnode.
  *

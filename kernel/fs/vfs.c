@@ -421,9 +421,9 @@ void vnode_free(struct vnode *vnode)
 /*
  *
  */
-static struct vnode *vnode_alloc(vm_flags_t vm_flags)
+struct vnode *vnode_alloc(void)
 {
-    return kmem_cache_alloc(kmem_cache_vnode, vm_flags);
+    return kmem_cache_alloc(kmem_cache_vnode, 0);
 }
 
 /*
@@ -432,7 +432,7 @@ static struct vnode *vnode_alloc(vm_flags_t vm_flags)
 vnode_t *vnode_acquire(vnode_t *node, bool *new)
 {
     if (node == NULL) {
-        node = vnode_alloc(VM_KERNEL_RW);
+        node = vnode_alloc();
         if (node == NULL)
             return PTR_ERR(E_NOMEM);
         if (new)

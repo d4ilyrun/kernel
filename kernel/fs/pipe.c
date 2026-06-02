@@ -30,6 +30,7 @@ struct pipe_end {
 struct pipe {
     struct pipe_end ends[2];
     struct ringbuffer buffer; /* protected by the vnode's lock */
+    bool initialized;
 };
 
 #define PIPE_BUFFER_SIZE PAGE_SIZE
@@ -108,7 +109,8 @@ static void pipe_vnode_release(struct vnode *vnode)
     end->vnode = NULL;
 
     /* no users left for this pipe, we can release it */
-    if (pipe->ends[PIPE_WRITE].closed &&
+    if (pipe->initialized &&
+        pipe->ends[PIPE_WRITE].closed &&
         pipe->ends[PIPE_READ].closed)
         pipe_free(pipe);
 }
@@ -127,7 +129,7 @@ static error_t pipe_end_init(struct pipe *pipe, struct pipe_end *end,
     struct stat *stats;
     struct user_creds *creds = NULL;
 
-    vnode = vnode_new();
+    vnode = vnode_alloc();
     if (IS_ERR(vnode))
         return ERR_FROM_PTR(vnode);
 
@@ -175,10 +177,8 @@ static error_t pipe_init(struct pipe *pipe)
     }
 
     buffer = kmalloc(PIPE_BUFFER_SIZE, KMALLOC_KERNEL);
-    if (!buffer) {
-        kmem_cache_free(pipe_cache, pipe);
+    if (!buffer)
         return E_NOMEM;
-    }
 
     ringbuffer_init(&pipe->buffer, buffer, PIPE_BUFFER_SIZE);
 
@@ -285,6 +285,12 @@ int sys_pipe(int *fds)
     if (!pipe)
         return -E_NOMEM;
 
+    /* Don't free the pipe structure in vnode_release() during initialization
+     * as this should be done by vnode_destroy() in the cleanup path. This is
+     * required to cleanly handle the case where we need to close one of the
+     * vnodes before it was linked with a file.
+     */
+    pipe->initialized = false;
     ret = -pipe_init(pipe);
     if (ret)
         goto exit_error;
@@ -314,6 +320,8 @@ int sys_pipe(int *fds)
         read_file = NULL; /* file_put() called by process_unregister_file(). */
         goto exit_error;
     }
+
+    pipe->initialized = true;
 
     return 0;
 
