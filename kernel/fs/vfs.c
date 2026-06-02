@@ -3,9 +3,10 @@
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/memory/slab.h>
-#include <kernel/process.h>
-#include <kernel/vfs.h>
 #include <kernel/pmm.h>
+#include <kernel/process.h>
+#include <kernel/timer.h>
+#include <kernel/vfs.h>
 
 #include <utils/container_of.h>
 
@@ -549,7 +550,26 @@ bool vnode_check_creds(const struct vnode *vnode,
 /*
  *
  */
-static inline error_t compute_fd_flags(int oflags, int *flags)
+void vnode_fill_stats(struct vnode *vnode, mode_t mode, struct user_creds *creds)
+{
+    struct stat *stat = &vnode->stat;
+
+    stat->st_mode = mode;
+    stat->st_uid = creds->euid;
+    stat->st_gid = creds->egid;
+    stat->st_size = 0;
+    stat->st_blksize = PAGE_SIZE;
+    stat->st_blocks = 0;
+    stat->st_nlink = 1;
+    clock_get_time(&stat->st_atim);
+    clock_get_time(&stat->st_mtim);
+    clock_get_time(&stat->st_ctim);
+}
+
+/*
+ *
+ */
+error_t compute_fd_flags(int oflags, int *flags)
 {
     *flags = 0;
 

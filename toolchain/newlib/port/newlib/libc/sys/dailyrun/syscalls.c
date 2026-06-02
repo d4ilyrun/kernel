@@ -216,6 +216,8 @@ sig_sa_handler_t signal(int signo, sig_sa_handler_t handler)
 
 #define alias(f) __attribute__((__alias__(f)))
 
+int shm_open(const char *name, int oflags, mode_t mode) alias("_shm_open");
+int shm_unlink(const char *name) alias("_shm_unlink");
 void *mmap(void *addr, size_t size, int prot, int flag, int fd, off_t off) alias("_mmap");
 void munmap(void *addr, size_t size) alias("_munmap");
 mode_t umask(mode_t cmask) alias("_umask");

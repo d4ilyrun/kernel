@@ -501,6 +501,12 @@ static inline void fd_put(struct fd *fd)
     __fd_put(fd);
 }
 
+/** Compute the fd flags when opening.
+ *
+ *  Used by the 'open' type syscalls (i.e. sys_open, sys_shm_open, ...)
+ */
+error_t compute_fd_flags(int oflags, int *flags);
+
 /**
  * @return A reference to the file description at index @ref fd
  * inside @ref process 's file description table.

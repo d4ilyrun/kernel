@@ -26,6 +26,8 @@
 #ifndef KERNEL
 void *mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off);
 void *munmap(void *addr, size_t len);
+int shm_open(const char *name, int oflag, mode_t mode);
+int shm_unlink(const char *name);
 #endif
 
 #endif /* _SYS_MMAN_H */

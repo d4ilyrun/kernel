@@ -308,6 +308,14 @@ struct page *vfs_vnode_get_page(struct vnode *vnode, off_t offset);
  */
 void vfs_vnode_put_page(struct page *page);
 
+/** Fill a new vnode's stat structure
+ *
+ *  This function should be called on new vnodes when the stat structure's
+ *  content cannot be retreived from a backing store (e.g. pseudo filesystem).
+ */
+void vnode_fill_stats(struct vnode *vnode, mode_t mode,
+                      struct user_creds *creds);
+
 /** @} */
 
 /** @return Whether a path exists in the current VFS. */

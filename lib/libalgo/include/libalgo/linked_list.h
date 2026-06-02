@@ -59,9 +59,15 @@ typedef struct linked_list_head {
 
 /** Declare empty linked list head */
 #define DECLARE_LLIST(_name) llist_t INIT_LLIST(_name)
+#define LLIST_HEAD(_name) llist_t _name
 
 /** Declare an intrusive list node. Should be put inside a struct definition. */
 #define LLIST_NODE(_name) node_t _name
+#define INIT_LLIST_NODE(_node)   \
+    do {                         \
+        (_node).next = &(_node); \
+        (_node).prev = &(_node); \
+    } while (0);
 
 /** Loop over each element inside a linked list
  *

@@ -43,6 +43,8 @@
     F(umask,				37, 	1,		default,		mode_t,		mode_t)                                                                      \
     F(mmap,					38, 	6,		default,		void *,		void *, size_t, int, int, int, off_t)                                        \
     F(munmap,				39, 	2,		default,		int,		void *, size_t)                                                              \
+    F(shm_open,				40, 	3,		default,		int,		const char *, int, mode_t)                                                   \
+    F(shm_unlink,			41, 	1,		default,		int,		const char *)                                                                \
 
 /*
  * The list of available syscall vectors.
