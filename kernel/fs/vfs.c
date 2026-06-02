@@ -494,7 +494,7 @@ bool vnode_check_creds(const struct vnode *vnode,
     if (!creds_is_root(creds)) {
         if (O_READABLE(oflags))
             check_creds_type(stat, S_IR);
-        if (O_WRITABLE(oflags))
+        if (O_WRITABLE(oflags) || (oflags & O_TRUNC))
             check_creds_type(stat, S_IW);
     }
 
