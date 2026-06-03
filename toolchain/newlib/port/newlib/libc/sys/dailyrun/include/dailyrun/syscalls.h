@@ -43,6 +43,8 @@
     F(dup,					35, 	1,		default,		int,		int)                                                                         \
     F(dup2,					36, 	2,		default,		int,		int, int)                                                                    \
     F(umask,				37, 	1,		default,		mode_t,		mode_t)                                                                      \
+    F(mmap,					38, 	6,		default,		void *,		void *, size_t, int, int, int, off_t)                                        \
+    F(munmap,				39, 	2,		default,		int,		void *, size_t)                                                              \
 
 /*
  * The list of available syscall vectors.

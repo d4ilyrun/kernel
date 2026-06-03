@@ -472,7 +472,7 @@ vmm_allocate_locked(vmm_t *vmm, vaddr_t addr, size_t size, int flags)
             vmm_debug(vmm, "fixed address does not match: %#08x",
                       vma_start(allocated));
             vma_insert(vmm, allocated, by_address, vma_compare_address);
-            return PTR_ERR(E_NOMEM);
+            return PTR_ERR(E_EXIST);
         }
     } else
         allocated = vma_remove(vmm, &requested, by_size,

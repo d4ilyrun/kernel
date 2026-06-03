@@ -6,8 +6,10 @@
 #include <kernel/pmm.h>
 #include <kernel/process.h>
 #include <kernel/sched.h>
+#include <kernel/vfs.h>
 #include <kernel/vm.h>
 #include <kernel/vmm.h>
+#include <kernel/syscalls.h>
 
 #include <utils/container_of.h>
 #include <utils/macro.h>
@@ -308,40 +310,64 @@ vm_flags_validate(struct address_space *as, vm_flags_t *flags)
     return true;
 }
 
-void *vm_alloc_start(struct address_space *as, void *addr, size_t size,
-                     vm_flags_t flags)
+/*
+ *
+ */
+static struct vm_segment *__vm_alloc(struct address_space *as, void *addr,
+                                     size_t size, vm_flags_t flags, void *data)
 {
     const struct vm_segment_driver *driver;
     struct vm_segment *segment;
 
-    if (size % PAGE_SIZE)
-        return NULL;
+    if (size == 0 || size % PAGE_SIZE)
+        return PTR_ERR(E_INVAL);
 
     if (!vm_flags_validate(as, &flags))
-        return NULL;
+        return PTR_ERR(E_INVAL);
 
     driver = vm_find_driver(flags);
     if (!driver)
-        return NULL;
+        return PTR_ERR(E_NOENT);
 
     locked_scope (&as->lock) {
-        segment = driver->vm_alloc(as, (vaddr_t)addr, size, flags, NULL);
+        segment = driver->vm_alloc(as, (vaddr_t)addr, size, flags, data);
         if (IS_ERR(segment))
-            return NULL;
+            return segment;
+
+        segment->flags = flags;
+        segment->driver = driver;
         vm_segment_insert(as, segment);
     }
 
-    segment->flags = flags;
-    segment->driver = driver;
+    return segment;
+}
+
+/*
+ * Allocate virtual memory located after a given address.
+ */
+void *vm_alloc_start(struct address_space *as, void *addr, size_t size,
+                     vm_flags_t flags)
+{
+    struct vm_segment *segment;
+
+    segment = __vm_alloc(as, addr, size, flags, NULL);
+    if (IS_ERR(segment))
+        return NULL;
 
     return (void *)segment->start;
 }
 
+/*
+ * Allocate virtual memory.
+ */
 void *vm_alloc(struct address_space *as, size_t size, vm_flags_t flags)
 {
     return vm_alloc_start(as, 0, size, flags);
 }
 
+/*
+ * Allocate virtual memory and map it to the given physical address.
+ */
 void *vm_alloc_at(struct address_space *as, paddr_t phys, size_t size,
                   vm_flags_t flags)
 {
@@ -374,6 +400,9 @@ void *vm_alloc_at(struct address_space *as, paddr_t phys, size_t size,
     return (void *)segment->start;
 }
 
+/*
+ *
+ */
 void vm_free(struct address_space *as, void *addr)
 {
     struct vm_segment *segment;
@@ -519,7 +548,7 @@ static void *vm_brk(struct address_space *as, vaddr_t new_end)
     return curr_brk_end;
 }
 
-error_t sys_brk(void *addr)
+int sys_brk(void *addr)
 {
     void *old_end = vm_brk(current->process->as, (vaddr_t)addr);
     return IS_ERR(old_end) ? ERR_FROM_PTR(old_end) : E_SUCCESS;
@@ -631,4 +660,77 @@ error_t vm_modify_flags(struct address_space *as, void *addr,
     }
 
     return E_SUCCESS;
+}
+
+/*
+ *
+ */
+static inline error_t compute_mmap_vmflags(int prot, int flags,
+					   vm_flags_t *vmflags)
+{
+    if (!(flags & MAP_PRIVATE))
+        return E_INVAL;
+
+    *vmflags &= ~PROT_MASK;
+    *vmflags |= prot & PROT_MASK;
+
+    if (flags & MAP_FIXED)
+        *vmflags |= VM_FIXED;
+
+    return E_SUCCESS;
+}
+
+/* mmap() syscall
+ *
+ * Map the content of a memory object into the address space.
+ *
+ * TODO: MAP_ANON | MAP_SHARED  pages are shared across fork
+ */
+void *sys_mmap(void *addr, size_t size, int prot, int flags, int fd, off_t off)
+{
+    struct vm_segment *segment;
+    struct vm_vnode_mapping *data = NULL;
+    vm_flags_t vmflags = 0;
+    error_t err;
+
+    err = compute_mmap_vmflags(prot, flags, &vmflags);
+    if (err)
+        return PTR_ERR(err);
+
+    /* file-backed memory */
+    if (!(flags & MAP_ANONYMOUS)) {
+        struct fd *fdp;
+
+        fdp = process_fd_get(current->process, fd);
+        if (fdp == NULL)
+            return PTR_ERR(E_BAD_FD);
+
+        data = vm_vnode_new_mapping(fdp->file->vnode, off);
+        process_fd_put(current->process, fdp);
+        if (IS_ERR(data))
+            return data;
+    }
+
+    size = align_up(size, PAGE_SIZE);
+    segment = __vm_alloc(current->process->as, addr, size, vmflags, data);
+    if (IS_ERR(segment)) {
+        kfree(data);
+        return segment;
+    }
+
+    return (void *)segment->start;
+}
+
+/*
+ *
+ */
+int sys_munmap(void *addr, size_t size)
+{
+    UNUSED(addr);
+    UNUSED(size);
+
+    /* TODO: unmap only part of a segment */
+    not_implemented("munmap(%p, %zu)", addr, size);
+
+    return -E_NOT_IMPLEMENTED;
 }
