@@ -1,10 +1,12 @@
 #define PFX_DOMAIN "pmm"
 
 #include <kernel/cpu.h>
+#include <kernel/devices/block.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
 #include <kernel/pmm.h>
 #include <kernel/types.h>
+#include <kernel/vfs.h>
 
 #include <utils/bits.h>
 #include <utils/compiler.h>
@@ -217,10 +219,13 @@ void page_put(struct page *page)
     if (page->refcount == 0)
         return;
 
-    page->refcount -= 1;
-
-    if (page->refcount == 0)
-        pmm_allocator_free_at(&g_pmm_allocator, page_address(page));
+    if (page->flags & PAGE_VNODE) {
+        vfs_vnode_put_page(page);
+    } else {
+        page->refcount -= 1;
+        if (page->refcount == 0)
+            pmm_allocator_free_at(&g_pmm_allocator, page_address(page));
+    }
 }
 
 bool pmm_init(struct multiboot_info *mbt)

@@ -140,7 +140,8 @@ error_t address_space_init(struct address_space *as)
      * all next/prev pointers accordingly.
      */
 
-    segment = vm_vnode.vm_alloc(as, 0, sizeof(*list_head), VM_READ | VM_WRITE);
+    segment = vm_vnode.vm_alloc(as, 0, sizeof(*list_head), VM_READ | VM_WRITE,
+                                NULL);
     if (IS_ERR(segment))
         return ERR_FROM_PTR(segment);
 
@@ -324,7 +325,7 @@ void *vm_alloc_start(struct address_space *as, void *addr, size_t size,
         return NULL;
 
     locked_scope (&as->lock) {
-        segment = driver->vm_alloc(as, (vaddr_t)addr, size, flags);
+        segment = driver->vm_alloc(as, (vaddr_t)addr, size, flags, NULL);
         if (IS_ERR(segment))
             return NULL;
         vm_segment_insert(as, segment);
@@ -361,7 +362,7 @@ void *vm_alloc_at(struct address_space *as, paddr_t phys, size_t size,
         return NULL;
 
     locked_scope (&as->lock) {
-        segment = driver->vm_alloc_at(as, phys, size, flags);
+        segment = driver->vm_alloc_at(as, phys, size, flags, NULL);
         if (IS_ERR(segment))
             return NULL;
         vm_segment_insert(as, segment);

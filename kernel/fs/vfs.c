@@ -5,6 +5,7 @@
 #include <kernel/memory/slab.h>
 #include <kernel/process.h>
 #include <kernel/vfs.h>
+#include <kernel/pmm.h>
 
 #include <utils/container_of.h>
 
@@ -464,6 +465,44 @@ vnode_t *vnode_release(vnode_t *node)
 
     node->refcount -= 1;
     return node;
+}
+
+/*
+ *
+ */
+struct page *vfs_vnode_get_page(struct vnode *vnode, off_t offset)
+{
+    struct page *page;
+
+    if (!vnode->operations->get_page)
+        return PTR_ERR(E_NODEV);
+
+    page = vnode->operations->get_page(vnode, offset);
+    if (IS_ERR(page))
+        return page;
+
+    return page;
+}
+
+/* Release a file-backed page.
+ *
+ * @note: This function should not be called directly. It is meant to be called
+ *        by put_page() for pages with flags->PAGE_VNODE set.
+ */
+void vfs_vnode_put_page(struct page *page)
+{
+    struct vnode *vnode;
+
+    if (IS_ERR(page))
+        return;
+
+    WARN_ON(!(page->flags & PAGE_VNODE));
+
+    vnode = page->vn_vnode;
+    if (WARN_ON(!vnode->operations->put_page))
+        return;
+
+    vnode->operations->put_page(vnode, page);
 }
 
 /*

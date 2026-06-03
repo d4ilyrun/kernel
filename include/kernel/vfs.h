@@ -202,6 +202,23 @@ typedef struct vnode_operations {
     /** Fill a buffer with directory entries. */
     error_t (*getdents)(vnode_t *node, off_t *offp, void *buf, size_t *sizep);
 
+    /** Retrieve a page backing a vnode at the given file offset.
+     *
+     * The vnode implementation is responsible for allocating, loading and
+     * retaining the page. The returned page must have its reference count
+     * incremented and remain valid until released with put_page().
+     *
+     * @return A referenced page on success, or an error pointer on failure.
+     */
+    struct page *(*get_page)(vnode_t *vnode, off_t offset);
+
+    /** Release a page previously obtained through get_page().
+     *
+     * The vnode implementation is responsible for decrementing the page
+     * reference count.
+     */
+    void (*put_page)(vnode_t *vnode, struct page *page);
+
 } vnode_ops_t;
 
 /** @struct vnode
@@ -271,6 +288,25 @@ void vnode_free(struct vnode *vnode);
  */
 bool vnode_check_creds(const struct vnode *, const struct user_creds *,
                        int oflags);
+
+/** Get a page for vnode-backed memory.
+ *
+ *  The returned page holds a reference to the given vnode.
+ *
+ *  @return A referenced page on success, or an error pointer on failure.
+ */
+struct page *vfs_vnode_get_page(struct vnode *vnode, off_t offset);
+
+/** Release a vnode-backed page.
+ *
+ * This helper dispatches the request to the owning vnode's put_page()
+ * operation. It is intended to be used internally by the page allocator
+ * when releasing pages marked with PAGE_VNODE.
+ *
+ * If this causes the page's reference count to go down to 0 the reference
+ * held to the vnode acquired by vfs_vnode_get_page() is released.
+ */
+void vfs_vnode_put_page(struct page *page);
 
 /** @} */
 

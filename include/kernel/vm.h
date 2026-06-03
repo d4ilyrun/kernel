@@ -107,7 +107,7 @@ struct vm_segment_driver {
      *  @see vm_alloc
      */
     struct vm_segment *(*vm_alloc)(struct address_space *, vaddr_t, size_t,
-                                   vm_flags_t);
+                                   vm_flags_t, void *data);
 
     /** Allocate a segment of virtual memory mapped to a physical address.
      *
@@ -123,7 +123,7 @@ struct vm_segment_driver {
      *  @see vm_alloc_at
      */
     struct vm_segment *(*vm_alloc_at)(struct address_space *, paddr_t, size_t,
-                                      vm_flags_t);
+                                      vm_flags_t, void *data);
 
     /** Free a contiguous virtual memory segment.
      *
@@ -158,6 +158,7 @@ struct vm_segment_driver {
     error_t (*vm_set_policy)(struct address_space *, struct vm_segment *,
                              vm_flags_t policy);
 
+    /** Configure the protection flags for a segment. */
     error_t (*vm_set_protection)(struct address_space *, struct vm_segment *,
                                  vm_flags_t protection);
 };
@@ -183,6 +184,7 @@ struct vm_segment {
     u32 flags;     /*!< A combination of @ref vm_flags */
     const struct vm_segment_driver *driver; /*!< Driver used to manipulate this
                                                  segment */
+    void *data; /*! Private data used by the driver (vnode, ...). */
 };
 
 /** @return The end address of a contiguous virtual memory segment */
@@ -273,5 +275,31 @@ error_t vm_map(struct address_space *, void *);
  */
 error_t vm_modify_flags(struct address_space *as, void *addr,
                         vm_flags_t flags, vm_flags_t mask);
+
+/** Private data format used by the vm_vnode segment driver.
+ *
+ * @see vm_set_data
+ */
+struct vm_vnode_mapping {
+    /** Vnode of the file is mapped by this memory segment.
+     *
+     *  The vnode must have been acquired using vfs_vnode_acquire(). It will be
+     *  released by the vm_vnode driver when freeing the segment or if an error
+     *  occurs.
+     */
+    struct vnode *vnode;
+    off_t offset; /*!< Offset into @c vnode at which the segment starts. */
+};
+
+/** Allocate and initialize a private data structure for vm_vnode.
+ *
+ *  @note The returned structure holds a reference to the given vnode.
+ */
+struct vm_vnode_mapping *vm_vnode_new_mapping(struct vnode *vnode, off_t offset);
+
+/**
+ *  Release a vm_vnode private data structure.
+ */
+void vm_vnode_free_mapping(struct vm_vnode_mapping *mapping);
 
 #endif /* KERNEL_VM_H */

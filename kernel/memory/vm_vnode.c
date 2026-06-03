@@ -1,20 +1,70 @@
+#include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/mmu.h>
 #include <kernel/pmm.h>
 #include <kernel/process.h>
+#include <kernel/vfs.h>
 #include <kernel/vm.h>
 #include <kernel/vmm.h>
 
 #include <string.h>
 
-static struct vm_segment *vm_vnode_alloc(struct address_space *as, vaddr_t addr,
-                                         size_t size, vm_flags_t flags)
+/* Anonymous mappings don't require a vnode. */
+#define ANON_VNODE NULL
+
+/** @return whether a vm_vnode segment maps anonymous memory. */
+static inline bool vm_vnode_is_anon(struct vm_segment *segment)
 {
-    return vmm_allocate(as->vmm, addr, size, flags);
+    return segment->data == ANON_VNODE;
+}
+
+/*
+ *
+ */
+struct vm_vnode_mapping *vm_vnode_new_mapping(struct vnode *vnode, off_t offset)
+{
+    struct vm_vnode_mapping *mapping;
+
+    mapping = kmalloc(sizeof(*mapping), KMALLOC_KERNEL);
+    if (!mapping)
+        return PTR_ERR(E_NOMEM);
+
+    mapping->vnode = vnode_acquire(vnode, NULL);
+    mapping->offset = offset;
+
+    return mapping;
+}
+
+/*
+ *
+ */
+void vm_vnode_free_mapping(struct vm_vnode_mapping *mapping)
+{
+    if (!mapping)
+        return;
+
+    vnode_release(mapping->vnode);
+    kfree(mapping);
+}
+
+static struct vm_segment *vm_vnode_alloc(struct address_space *as, vaddr_t addr,
+                                         size_t size, vm_flags_t flags,
+                                         void *data)
+{
+    static struct vm_segment *segment;
+
+    segment = vmm_allocate(as->vmm, addr, size, flags);
+    if (IS_ERR(segment))
+        return segment;
+
+    segment->data = data;
+
+    return segment;
 }
 
 static error_t vm_vnode_map(struct address_space *as,
-                            struct vm_segment *segment, vm_flags_t flags)
+                            struct vm_segment *segment,
+                            vm_flags_t flags)
 {
     size_t size = segment->size;
     paddr_t phys;
@@ -44,15 +94,16 @@ exit_error:
     return err;
 }
 
-struct vm_segment *vm_vnode_alloc_at(struct address_space *as, paddr_t phys,
-                                     size_t size, vm_flags_t flags)
+static struct vm_segment *vm_vnode_alloc_at(struct address_space *as,
+                                            paddr_t phys, size_t size,
+                                            vm_flags_t flags, void *data)
 {
     struct vm_segment *segment;
     error_t err;
 
     AS_ASSERT_OWNED(as);
 
-    segment = vmm_allocate(as->vmm, 0, size, flags);
+    segment = vm_vnode_alloc(as, 0, size, flags, data);
     if (IS_ERR(segment))
         return segment;
 
@@ -70,6 +121,7 @@ struct vm_segment *vm_vnode_alloc_at(struct address_space *as, paddr_t phys,
 vm_allocate_release:
     for (size_t off = 0; off < size; off += PAGE_SIZE)
         page_put(address_to_page(phys + off));
+    vm_vnode_free_mapping(segment->data);
     vmm_free(as->vmm, segment->start, segment->size);
     return PTR_ERR(err);
 }
@@ -88,20 +140,23 @@ static void vm_vnode_free(struct address_space *as, struct vm_segment *segment)
             pmm_free(phys);
     }
 
+    vm_vnode_free_mapping(segment->data);
     vmm_free(as->vmm, segment->start, size);
 }
 
 static error_t
 vm_vnode_fault(struct address_space *as, struct vm_segment *segment)
 {
-    paddr_t phys;
+    struct vm_vnode_mapping *mapping = segment->data;
+    paddr_t phys = PMM_INVALID_PAGEFRAME;
+    struct page *page;
     size_t off;
     error_t err;
 
     AS_ASSERT_OWNED(as);
 
     /*
-     * Perform lazy allocation of physical pages.
+     * Perform lazy allocation of physical pages for anonymous memory.
      */
     err = E_NOMEM;
     for (off = 0; off < segment->size; off += PAGE_SIZE) {
@@ -111,9 +166,26 @@ vm_vnode_fault(struct address_space *as, struct vm_segment *segment)
          */
         if (mmu_is_mapped(segment->start + off))
             continue;
-        phys = pmm_allocate();
-        if (phys == PMM_INVALID_PAGEFRAME)
-            goto err_release_allocated;
+
+        if (vm_vnode_is_anon(segment)) {
+            phys = pmm_allocate();
+            if (phys == PMM_INVALID_PAGEFRAME)
+                goto err_release_allocated;
+        } else {
+            /*
+             * For vnode-backed pages the allocation of physical pages
+             * is handled by the vnode layer so we can make use of the
+             * page cache (TODO).
+             */
+            page = vfs_vnode_get_page(mapping->vnode, mapping->offset);
+            if (IS_ERR(page)) {
+                log_err("thread %d: vnode_get_page() @ %p failed: %pE",
+                        current->tid, (void *)segment->start + off, page);
+                goto err_release_allocated;
+            }
+            phys = page_address(page);
+        }
+
         if (!mmu_map(segment->start + off, phys, segment->flags)) {
             pmm_free(phys);
             goto err_release_allocated;

@@ -65,6 +65,7 @@ enum page_flags {
     PAGE_COW = BIT(1),         ///< Currently used in a CoW mapping
     PAGE_SLAB = BIT(2),        ///< Page allocated by the slab allocator
     PAGE_LARGE_ALLOC = BIT(3), ///< Page allocated by kmalloc_large()
+    PAGE_VNODE = BIT(4),       ///< Page is mapped to a vnode
 };
 
 /** Represents a physical pageframe
@@ -75,12 +76,16 @@ struct page {
     uint16_t refcount; ///< How many processes reference that page
 
     union {
-        /*
-         * Data for pages allocated by the slab allocator (flags & PAGE_SLAB).
-         */
+        /* Used by pages allocated by the slab allocator (PAGE_SLAB) */
         struct {
             struct kmem_cache *cache;
         } slab;
+
+        /* Used by vnode backed pages (PAGE_VNODE) */
+        struct {
+            struct vnode *vn_vnode;
+            off_t         vn_offset;
+        };
     };
 };
 
