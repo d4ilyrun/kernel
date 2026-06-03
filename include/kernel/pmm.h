@@ -71,8 +71,8 @@ enum page_flags {
  *  @struct page
  */
 struct page {
-    uint8_t flags;    ///< Combination of @ref page_flags
-    uint8_t refcount; ///< How many processes reference that page
+    uint16_t flags;    ///< Combination of @ref page_flags
+    uint16_t refcount; ///< How many processes reference that page
 
     union {
         /*
