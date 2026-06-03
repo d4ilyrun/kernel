@@ -740,7 +740,7 @@ void *map_file(struct file *file, int prot)
 
     length = align_up(file_size(file), PAGE_SIZE);
     memory = vm_alloc(&kernel_address_space, length, VM_WRITE);
-    if (IS_ERR(memory))
+    if (!memory)
         return MMAP_INVALID;
 
     offset = 0;

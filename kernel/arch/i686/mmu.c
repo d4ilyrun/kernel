@@ -243,10 +243,11 @@ mmu_offset_map(paddr_t start, paddr_t end, int64_t offset, int flags);
 paddr_t mmu_new(void)
 {
     page_directory_t page_directory = MMU_RECURSIVE_PAGE_DIRECTORY_ADDRESS;
-    page_directory_t new = vm_alloc(&kernel_address_space, PAGE_SIZE,
-                                    VM_READ | VM_WRITE | VM_CLEAR);
-    if (IS_ERR(new)) {
-        log_err("Failed to allocate page for the new page directory");
+    page_directory_t new;
+
+    new = vm_alloc(&kernel_address_space, PAGE_SIZE, VM_KERNEL_RW | VM_CLEAR);
+    if (!new) {
+        log_err("Failed to allocate page for the new page directory\n");
         return -E_NOMEM;
     }
 
