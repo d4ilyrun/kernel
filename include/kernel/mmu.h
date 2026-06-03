@@ -32,19 +32,10 @@
 #include <utils/bits.h>
 
 #include <stdbool.h>
+#include <sys/mman.h>
 
-/**
- * @enum mmu_prot
- * @brief Protection flags passed to the mmu's functions
- */
-typedef enum mmu_prot {
-    PROT_NONE = 0x0, /*!< Pages may not be accessed */
-    PROT_EXEC = 0x1, /*!< Pages may be executed */
-    PROT_READ = 0x2, /*!< Pages may be read */
-    // TODO: NX bit for PROT_EXEC
-    PROT_WRITE = 0x4,  /*!< Pages may be written */
-    PROT_KERNEL = 0x8, /*!< Pages should be accessible only from the kernel */
-} mmu_prot_t;
+/* Type representing the PROT_* macros defined by sys/mman.h. */
+typedef unsigned int mmu_prot_t;
 
 /** @enum mmu_caching_policy
  *  @brief Caching policies.

@@ -35,6 +35,8 @@
 #include <libalgo/linked_list.h>
 #include <utils/bits.h>
 
+#include <sys/mman.h>
+
 struct vmm;
 
 /* We should not be modifying another process's address_space */
@@ -56,10 +58,10 @@ struct address_space {
 /** @enum vm_flags */
 typedef enum vm_flags {
     VM_NONE = 0,
-    VM_EXEC = BIT(0),   /*!< Pages inside the area are executable */
-    VM_READ = BIT(1),   /*!< Pages inside the area are readable */
-    VM_WRITE = BIT(2),  /*!< Pages inside the area are writable */
-    VM_KERNEL = BIT(3), /*!< Pages should only be accessible from kernel */
+    VM_EXEC = PROT_EXEC,   /*!< Pages inside the area are executable */
+    VM_READ = PROT_READ,   /*!< Pages inside the area are readable */
+    VM_WRITE = PROT_WRITE,  /*!< Pages inside the area are writable */
+    VM_KERNEL = PROT_KERNEL, /*!< Pages should only be accessible from kernel */
     VM_CLEAR = BIT(4),  /*!< Page content should be reset when allocating */
     VM_FIXED = BIT(5),  /*!< Start address in vm_alloc_at() is not a hint */
 

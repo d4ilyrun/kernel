@@ -12,6 +12,7 @@
 #include <utils/container_of.h>
 #include <utils/macro.h>
 
+#include <sys/mman.h>
 #include <string.h>
 
 /*
