@@ -113,6 +113,9 @@ static inline struct page *pfn_to_page(unsigned int pfn)
 /** @return The page struct corresponding to a physical address's pageframe */
 static inline struct page *address_to_page(paddr_t addr)
 {
+    if (addr == PMM_INVALID_PAGEFRAME)
+        return NULL;
+
     return pfn_to_page(TO_PFN(addr));
 }
 
