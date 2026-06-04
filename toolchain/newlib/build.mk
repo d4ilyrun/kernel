@@ -27,7 +27,7 @@ $(NEWLIB_BUILD_DIR): $(NEWLIB_TAR)
 newlib/install_headers: $(PREFIX)/usr/include/newlib.h
 $(PREFIX)/usr/include/newlib.h: newlib/prepare
 	$(call INSTALL, $(NEWLIB_BUILD_DIR)/newlib/libc/include/, $(PREFIX)/usr/include)
-	$(call INSTALL, $(NEWLIB_BUILD_DIR)/newlib/libc/sys/dailyrun/include/, $(PREFIX)/usr/include)
+	$(call INSTALL, $(TOOLCHAIN_NEWLIB_DIR)/port/newlib/libc/sys/dailyrun/include/, $(PREFIX)/usr/include)
 
 newlib/configure: $(NEWLIB_BUILD_DIR)/config.status
 $(NEWLIB_BUILD_DIR)/config.status: $(NEWLIB_BUILD_DIR) libc/install_headers
