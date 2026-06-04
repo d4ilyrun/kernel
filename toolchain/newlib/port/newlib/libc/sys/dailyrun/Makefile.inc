@@ -8,3 +8,6 @@ libc_a_SOURCES += %D%/opendir.c
 libc_a_SOURCES += %D%/readdir.c
 libc_a_SOURCES += %D%/seekdir.c
 libc_a_SOURCES += %D%/closedir.c
+
+libc_a_SOURCES += %D%/liballoc.c
+libc_a_SOURCES += %D%/malloc.c
