@@ -22,7 +22,7 @@ char **environ; /* pointer to array of char * strings that define the current
         _ret_type ret;                                                   \
         __asm__ volatile("int $0x80" : "=a"(ret) : "a"(_nr) : "memory"); \
         if (ret < 0) {                                                   \
-            errno = (int)ret;                                            \
+            errno = -(int)ret;                                           \
             ret = (_ret_type) - 1;                                       \
         }                                                                \
         return ret;                                                      \
@@ -37,7 +37,7 @@ char **environ; /* pointer to array of char * strings that define the current
                          : "a"(_nr), "b"(arg1)                          \
                          : "memory");                                   \
         if (ret < 0) {                                                  \
-            errno = (int)ret;                                           \
+            errno = -(int)ret;                                          \
             ret = (_ret_type) - 1;                                      \
         }                                                               \
         return ret;                                                     \
@@ -53,7 +53,7 @@ char **environ; /* pointer to array of char * strings that define the current
                          : "a"(_nr), "b"(arg1), "c"(arg2)                      \
                          : "memory");                                          \
         if (ret < 0) {                                                         \
-            errno = (int)ret;                                                  \
+            errno = -(int)ret;                                                 \
             ret = (_ret_type) - 1;                                             \
         }                                                                      \
         return ret;                                                            \
@@ -70,7 +70,7 @@ char **environ; /* pointer to array of char * strings that define the current
                          : "a"(_nr), "b"(arg1), "c"(arg2), "d"(arg3)       \
                          : "memory");                                      \
         if (ret < 0) {                                                     \
-            errno = (int)ret;                                              \
+            errno = -(int)ret;                                             \
             ret = (_ret_type) - 1;                                         \
         }                                                                  \
         return ret;                                                        \
@@ -88,7 +88,7 @@ char **environ; /* pointer to array of char * strings that define the current
                            "S"(arg4)                                          \
                          : "memory");                                         \
         if (ret < 0) {                                                        \
-            errno = (int)ret;                                                 \
+            errno = -(int)ret;                                                \
             ret = (_ret_type) - 1;                                            \
         }                                                                     \
         return ret;                                                           \
@@ -106,7 +106,7 @@ char **environ; /* pointer to array of char * strings that define the current
                            "S"(arg4), "D"(arg5)                               \
                          : "memory");                                         \
         if (ret < 0) {                                                        \
-            errno = (int)ret;                                                 \
+            errno = -(int)ret;                                                \
             ret = (_ret_type) - 1;                                            \
         }                                                                     \
         return ret;                                                           \
@@ -128,7 +128,7 @@ char **environ; /* pointer to array of char * strings that define the current
                            "S"(arg4), "D"(arg5), [a6] "rm"(arg6)              \
                          : "memory");                                         \
         if (ret < 0) {                                                        \
-            errno = (int)ret;                                                 \
+            errno = -(int)ret;                                                \
             ret = (_ret_type) - 1;                                            \
         }                                                                     \
         return ret;                                                           \
@@ -186,7 +186,7 @@ int _open(const char *path, int oflags, ...)
                      : "a"(SYS_open), "b"(path), "c"(oflags), "d"(mode)
                      : "memory");
     if (ret < 0) {
-        errno = ret;
+        errno = -ret;
         ret = -1;
     }
 
