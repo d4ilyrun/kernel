@@ -38,6 +38,7 @@ error_t socket_init(struct socket *socket, int domain, int type, int proto)
 
     INIT_QUEUE(socket->rx_packets);
     INIT_SPINLOCK(socket->rx_lock);
+    INIT_SPINLOCK(socket->lock);
 
     socket_domain = container_of(node, struct socket_domain, this);
     return socket_domain->socket_init(socket, type, proto);
