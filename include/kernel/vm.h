@@ -52,7 +52,6 @@ struct address_space {
     paddr_t mmu;       /*!< Used to map virtual addresses to physical memory */
     llist_t *segments; /*!< List of currently allocated segments */
     vaddr_t data_end;  /*!< End of the process's data segment */
-    vaddr_t brk_end;   /*!< End of the process's brk segment */
 };
 
 /** @enum vm_flags */

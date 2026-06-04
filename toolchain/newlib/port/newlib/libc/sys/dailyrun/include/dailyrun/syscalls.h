@@ -18,8 +18,6 @@
     F(lseek,				10,		3,		default,		int,		int, int, int)                                                               \
     F(waitpid,				11,		3,		default,		pid_t,		pid_t, int *, int)                                                           \
     F(getpid,				12,		0,		default,		int,		void)                                                                        \
-    F(brk,					13,		1,		default,		int,		void *)                                                                      \
-    F(sbrk,					14,		1,		default,		void *,		intptr_t)                                                                    \
     F(setuid,				15,		1,		default,		int,		uid_t)                                                                       \
     F(seteuid,				16,		1,		default,		int,		uid_t)                                                                       \
     F(setreuid,				17,		2,		default,		int,		uid_t, uid_t)                                                                \
