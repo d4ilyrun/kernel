@@ -28,6 +28,7 @@ enum socket_state {
 /** A BSD socket */
 struct socket {
     struct file *file;                   /*!< The socket's backing file */
+    const struct socket_domain *domain;  /*!< The socket's domain */
     const struct socket_protocol *proto; /*!< Socket protocol type */
     enum socket_state state;             /*!< Socket connection state*/
     spinlock_t lock;    /*!< Socket wide synchronisation lock */
@@ -113,10 +114,8 @@ struct packet *socket_dequeue_packet(struct socket *socket);
 struct socket_domain {
     sa_family_t domain;               /*!< Domain identifier */
     node_t this;                      /*!< Used to list all domains */
-    /** Match socket with its protocol, and initialize necessary
-     *  per-domain data.
-     */
     error_t (*socket_init)(struct socket *, int type, int proto);
+    error_t (*verify_addr)(const struct sockaddr *addr, socklen_t addr_len);
 };
 
 /** Register a new domain of sockets */
@@ -143,6 +142,37 @@ struct socket_protocol {
     socket_type_t type;                    /*!< Protocol type */
     const struct socket_protocol_ops *ops; /*!< Protocol operations **/
 };
+
+/** Common sendmsg() logic for datagram sockets.
+ *
+ * @param socket    Socket to send data through.
+ * @param msg       Message containing the data buffers to transmit.
+ * @param flags     Send operation flags.
+ * @param send_one  Protocol-specific callback used to transmit a single
+ *                  I/O vector.
+ *
+ * @return Total number of bytes sent on success, or a negative error code
+ *         on failure.
+ */
+ssize_t
+socket_dgram_sendmsg(struct socket *, const struct msghdr *, int flags,
+                     ssize_t (*send_one)(struct socket *, const struct iovec *,
+                                         int flags));
+
+/** Common recvmsg() logic for datagram sockets.
+ *
+ * Currently only connected sockets are supported. If no packet is available,
+ * the function returns -E_WOULD_BLOCK.
+ *
+ * @param socket  Socket to receive data from.
+ * @param msg     Message describing the destination buffers.
+ * @param flags   Receive operation flags.
+ *
+ * @return Number of bytes received on success, or a negative error code
+ *         on failure.
+ */
+ssize_t
+socket_dgram_recvmsg(struct socket *socket, struct msghdr *msg, int flags);
 
 #endif /* KERNEL_SOCKET_H */
 

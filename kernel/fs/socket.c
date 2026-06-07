@@ -72,25 +72,35 @@ struct socket *socket_alloc(void)
 }
 
 static error_t
-socket_bind(struct file *file, struct sockaddr *addr, socklen_t len)
+socket_bind(struct file *file, struct sockaddr *addr, socklen_t addr_len)
 {
     struct socket *socket = file->priv;
+    error_t err;
 
     if (socket->file->vnode->type != VNODE_SOCKET)
         return E_NOT_SOCKET;
 
-    return socket->proto->ops->bind(socket, addr, len);
+    err = socket->domain->verify_addr(addr, addr_len);
+    if (err)
+        return -err;
+
+    return socket->proto->ops->bind(socket, addr, addr_len);
 }
 
 static error_t
-socket_connect(struct file *file, struct sockaddr *addr, socklen_t len)
+socket_connect(struct file *file, struct sockaddr *addr, socklen_t addr_len)
 {
     struct socket *socket = file->priv;
+    error_t err;
 
     if (socket->file->vnode->type != VNODE_SOCKET)
         return E_NOT_SOCKET;
 
-    return socket->proto->ops->connect(socket, addr, len);
+    err = socket->domain->verify_addr(addr, addr_len);
+    if (err)
+        return -err;
+
+    return socket->proto->ops->connect(socket, addr, addr_len);
 }
 
 /*
@@ -100,6 +110,7 @@ static ssize_t
 socket_sendmsg(struct file *file, const struct msghdr *msg, int flags)
 {
     struct socket *socket = file->priv;
+    error_t err;
 
     if (file->vnode->type != VNODE_SOCKET)
         return -E_NOT_SOCKET;
@@ -115,8 +126,14 @@ socket_sendmsg(struct file *file, const struct msghdr *msg, int flags)
         if (socket->state != SOCKET_CONNECTED)
             return -E_NOT_CONNECTED;
     } else {
-        if (!msg->msg_name && socket->state != SOCKET_CONNECTED)
-            return -E_DEST_ADDR_REQUIRED;
+        if (socket->state != SOCKET_CONNECTED) {
+            if (!msg->msg_name)
+                return -E_DEST_ADDR_REQUIRED;
+
+            err =socket->domain->verify_addr(msg->msg_name, msg->msg_namelen);
+            if (err)
+                return -err;
+        }
     }
 
     return socket->proto->ops->sendmsg(socket, msg, flags);
@@ -139,9 +156,6 @@ static ssize_t socket_recvmsg(struct file *file, struct msghdr *msg, int flags)
         if (socket->state != SOCKET_CONNECTED)
             return -E_NOT_CONNECTED;
     }
-
-    if (socket->state != SOCKET_CONNECTED && !msg->msg_name)
-        return -E_NOT_CONNECTED;
 
     return socket->proto->ops->recvmsg(socket, msg, flags);
 }
