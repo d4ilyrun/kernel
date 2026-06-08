@@ -55,7 +55,7 @@ typedef enum error {
     E_NOT_SOCKET = 88,           ///< Socket operation on non-socket
     E_DEST_ADDR_REQUIRED = 89,   ///< Destination address required
     E_MSG_SIZE = 90,             ///< Message too long
-    E_PROTOTYPE = 91,            ///< Protocol wrong type for socket
+    E_PROTO_TYPE = 91,           ///< Protocol wrong type for socket
     E_NO_PROTO_OPT = 92,         ///< Protocol not available
     E_PROTO_NOT_SUPPORTED = 93,  ///< Protocol not supported
     E_SOCK_T_NOT_SUPPORTED = 94, ///< Socket type not supported

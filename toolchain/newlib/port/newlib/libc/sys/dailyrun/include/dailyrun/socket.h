@@ -3,6 +3,7 @@
 
 /* Socket communication domains */
 #define AF_UNSPEC 0 // Unspecified
+#define AF_UNIX   1 // Unix sockets
 #define AF_INET   2 // IPv4
 
 /* Socket types */

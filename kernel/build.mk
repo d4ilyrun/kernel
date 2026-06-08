@@ -58,6 +58,7 @@ KERNEL_SRCS := 	\
 	net/arp.c \
 	net/interface.c \
 	net/route.c \
+	net/unix.c \
 	memory/kmalloc.c \
 	devices/device.c \
 	devices/driver.c \
