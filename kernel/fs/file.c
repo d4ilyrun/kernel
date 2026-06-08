@@ -100,56 +100,6 @@ off_t default_file_seek(struct file *file, off_t off, int whence)
     return file->pos;
 }
 
-ssize_t file_sendto(struct file *file, const char *data, size_t len, int flags,
-                    struct sockaddr *addr, socklen_t addrlen)
-{
-    struct iovec iov = {
-        .iov_base = (char *)data,
-        .iov_len = len,
-    };
-    struct msghdr msg = {
-        .msg_name = addr,
-        .msg_namelen = addrlen,
-        .msg_iov = &iov,
-        .msg_iovlen = 1,
-    };
-
-    return file_sendmsg(file, &msg, flags);
-}
-
-ssize_t file_send(struct file *file, const char *data, size_t len, int flags)
-{
-    return file_sendto(file, data, len, flags, NULL, 0);
-}
-
-ssize_t file_recvfrom(struct file *file, const char *data, size_t len,
-                      int flags, struct sockaddr *addr, size_t *addrlen)
-{
-    error_t ret;
-    struct iovec iov = {
-        .iov_base = (char *)data,
-        .iov_len = len,
-    };
-    struct msghdr msg = {
-        .msg_name = addr,
-        .msg_namelen = addrlen ? *addrlen : 0,
-        .msg_iov = &iov,
-        .msg_iovlen = 1,
-    };
-
-    ret = file_recvmsg(file, &msg, flags);
-
-    if (addrlen)
-        *addrlen = msg.msg_namelen;
-
-    return ret;
-}
-
-ssize_t file_recv(struct file *file, const char *data, size_t len, int flags)
-{
-    return file_recvfrom(file, data, len, flags, NULL, NULL);
-}
-
 /*
  * https://pubs.opengroup.org/onlinepubs/9699919799/functions/lseek.html
  */

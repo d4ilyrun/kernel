@@ -45,6 +45,11 @@
     F(munmap,				39, 	2,		default,		int,		void *, size_t)                                                              \
     F(shm_open,				40, 	3,		default,		int,		const char *, int, mode_t)                                                   \
     F(shm_unlink,			41, 	1,		default,		int,		const char *)                                                                \
+    F(socket,				42, 	3,		default,		int,		int, int, int)                                                               \
+    F(sendmsg,				43, 	3,		default,		ssize_t,	int, const struct msghdr *, int)                                             \
+    F(recvmsg,				44, 	3,		default,		ssize_t,	int, struct msghdr *, int)                                                   \
+    F(connect,				45, 	3,		default,		int,		int, const struct sockaddr *, socklen_t)                                     \
+    F(bind,					46, 	3,		default,		int,		int, const struct sockaddr *, socklen_t)                                     \
 
 /*
  * The list of available syscall vectors.

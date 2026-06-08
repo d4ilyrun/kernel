@@ -119,7 +119,7 @@ invalid_packet:
 }
 
 static error_t af_inet_ping_bind(struct socket *socket,
-                                 struct sockaddr *sockaddr, socklen_t len)
+                                 const struct sockaddr *sockaddr, socklen_t len)
 {
     struct icmp_sock *isock = socket->data;
     struct sockaddr_in *src = (struct sockaddr_in *)sockaddr;
@@ -139,7 +139,8 @@ static error_t af_inet_ping_bind(struct socket *socket,
 }
 
 static error_t af_inet_ping_connect(struct socket *socket,
-                                    struct sockaddr *sockaddr, socklen_t len)
+                                    const struct sockaddr *sockaddr,
+                                    socklen_t len)
 {
     struct icmp_sock *isock = socket->data;
     struct sockaddr_in *dst = (struct sockaddr_in *)sockaddr;

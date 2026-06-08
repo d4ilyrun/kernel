@@ -8,6 +8,7 @@
 #include <sys/time.h>
 #include <sys/times.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 
 char **environ; /* pointer to array of char * strings that define the current
                    environment variables */
@@ -223,4 +224,65 @@ sig_sa_handler_t signal(int signo, sig_sa_handler_t handler)
         return SIG_ERR;
 
     return sigaction.sa_handler;
+}
+
+/*
+ *
+ */
+ssize_t sendto(int fd, const void *buffer, size_t length, int flags,
+               const struct sockaddr *addr, socklen_t addr_len)
+{
+    struct iovec iov = {
+        .iov_base = (void *)buffer,
+        .iov_len = length,
+    };
+    struct msghdr msg = {
+        .msg_iov = &iov,
+        .msg_iovlen = 1,
+        .msg_name = (void *)addr,
+        .msg_namelen = addr_len,
+    };
+
+    return sendmsg(fd, &msg, flags);
+}
+
+/*
+ *
+ */
+ssize_t send(int fd, const void *buffer, size_t length, int flags)
+{
+    return sendto(fd, buffer, length, flags, NULL, 0);
+}
+
+/*
+ *
+ */
+ssize_t recvfrom(int fd, void *data, size_t len,
+                 int flags, struct sockaddr *addr, socklen_t *addrlen)
+{
+    struct iovec iov = {
+        .iov_base = data,
+        .iov_len = len,
+    };
+    struct msghdr msg = {
+        .msg_name = addr,
+        .msg_namelen = addrlen ? *addrlen : 0,
+        .msg_iov = &iov,
+        .msg_iovlen = 1,
+    };
+    int ret;
+
+    ret = recvmsg(fd, &msg, flags);
+    if (addrlen)
+        *addrlen = msg.msg_namelen;
+
+    return ret;
+}
+
+/*
+ *
+ */
+ssize_t recv(int fd, void *data, size_t len, int flags)
+{
+    return recvfrom(fd, data, len, flags, NULL, NULL);
 }

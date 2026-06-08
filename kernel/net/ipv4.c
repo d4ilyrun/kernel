@@ -193,7 +193,7 @@ release_packet:
 }
 
 static error_t af_inet_raw_bind(struct socket *socket,
-                                struct sockaddr *sockaddr, socklen_t len)
+                                const struct sockaddr *sockaddr, socklen_t len)
 {
     struct af_inet_sock *isock = socket->data;
     struct sockaddr_in *src = (struct sockaddr_in *)sockaddr;
@@ -213,7 +213,8 @@ static error_t af_inet_raw_bind(struct socket *socket,
 }
 
 static error_t af_inet_raw_connect(struct socket *socket,
-                                   struct sockaddr *sockaddr, socklen_t len)
+                                   const struct sockaddr *sockaddr,
+                                   socklen_t len)
 {
     struct af_inet_sock *isock = socket->data;
     struct sockaddr_in *dst = (struct sockaddr_in *)sockaddr;

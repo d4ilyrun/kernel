@@ -85,13 +85,10 @@ struct file_operations {
     /** Compute the file's total size in memory */
     size_t (*size)(struct file *);
     /** Associate a socket with a local address */
-    error_t (*bind)(struct file *, struct sockaddr *addr, socklen_t len);
+    error_t (*bind)(struct file *, const struct sockaddr *addr, socklen_t len);
     /** Connect to a remote host */
-    error_t (*connect)(struct file *, struct sockaddr *addr, socklen_t len);
-    /** Send a message through an endpoint (socket) */
-    ssize_t (*sendmsg)(struct file *, const struct msghdr *, int flags);
-    /** Send a message through an endpoint (socket) */
-    ssize_t (*recvmsg)(struct file *, struct msghdr *, int flags);
+    error_t (*connect)(struct file *, const struct sockaddr *addr,
+                       socklen_t len);
     /** Reposition the open file description offset.
      *
      * @note It is possible for a description's offset to go beyond the
@@ -140,19 +137,6 @@ void file_changed(struct file *file);
 #define file_write(file, buf, len) file_ops(file, write, buf, len)
 #define file_read(file, buf, len) file_ops(file, read, buf, len)
 #define file_seek(file, off, whence) file_ops(file, seek, off, whence)
-
-#define file_bind(file, addr, len) file_ops(file, bind, addr, len)
-#define file_connect(file, addr, len) file_ops(file, connect, addr, len)
-
-#define file_sendmsg(file, msg, flags) file_ops(file, sendmsg, msg, flags)
-ssize_t file_send(struct file *file, const char *data, size_t len, int flags);
-ssize_t file_sendto(struct file *file, const char *data, size_t len, int flags,
-                    struct sockaddr *addr, socklen_t addrlen);
-
-#define file_recvmsg(file, msg, flags) file_ops(file, recvmsg, msg, flags)
-ssize_t file_recv(struct file *file, const char *data, size_t len, int flags);
-ssize_t file_recvfrom(struct file *file, const char *data, size_t len,
-                      int flags, struct sockaddr *addr, size_t *addrlen);
 
 #endif /* KERNEL_FILE_H */
 

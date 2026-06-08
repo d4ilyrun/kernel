@@ -25,6 +25,7 @@
 #include <kernel/socket.h>
 #include <kernel/timer.h>
 #include <kernel/vfs.h>
+#include <kernel/syscalls.h>
 
 #include <limits.h>
 
@@ -122,7 +123,7 @@ static void socket_close(struct file *file)
  *
  */
 static error_t
-socket_bind(struct file *file, struct sockaddr *addr, socklen_t addr_len)
+socket_bind(struct file *file, const struct sockaddr *addr, socklen_t addr_len)
 {
     struct socket *socket = file->priv;
     error_t err;
@@ -138,7 +139,8 @@ socket_bind(struct file *file, struct sockaddr *addr, socklen_t addr_len)
 }
 
 static error_t
-socket_connect(struct file *file, struct sockaddr *addr, socklen_t addr_len)
+socket_connect(struct file *file, const struct sockaddr *addr,
+               socklen_t addr_len)
 {
     struct socket *socket = file->priv;
     error_t err;
@@ -212,20 +214,150 @@ static ssize_t socket_recvmsg(struct file *file, struct msghdr *msg, int flags)
 
 static ssize_t socket_write(struct file *file, const char *data, size_t len)
 {
-    return file_send(file, data, len, 0);
+    struct iovec iov = {
+        .iov_base = (void *)data,
+        .iov_len = len,
+    };
+    struct msghdr msg = {
+        .msg_iov = &iov,
+        .msg_iovlen = 1,
+    };
+
+    return socket_sendmsg(file, &msg, 0);
 }
 
 static ssize_t socket_read(struct file *file, char *data, size_t len)
 {
-    return file_recv(file, data, len, 0);
+    struct iovec iov = {
+        .iov_base = data,
+        .iov_len = len,
+    };
+    struct msghdr msg = {
+        .msg_iov = &iov,
+        .msg_iovlen = 1,
+    };
+
+    return socket_recvmsg(file, &msg, 0);
 }
 
 static struct file_operations socket_fops = {
     .bind = socket_bind,
     .connect = socket_connect,
-    .sendmsg = socket_sendmsg,
-    .recvmsg = socket_recvmsg,
     .write = socket_write,
     .read = socket_read,
     .close = socket_close,
 };
+
+/*
+ *
+ */
+int sys_socket(int domain, int type, int proto)
+{
+    struct socket *socket;
+    error_t err;
+    int fd;
+
+    socket = socket_alloc();
+    if (!socket)
+        return -E_NOMEM;
+
+    err = socket_init(socket, domain, type, proto);
+    if (err)
+        goto fail;
+
+    fd = process_add_fd(current->process, socket->file, FD_RW);
+    if (fd < 0) {
+        err = fd;
+        goto fail;
+    }
+
+    return fd;
+
+fail:
+    socket_put(socket);
+    return -err;
+}
+
+/*
+ *
+ */
+int sys_connect(int fd, const struct sockaddr *addr, socklen_t addr_len)
+{
+    struct fd *fdp;
+    ssize_t count;
+
+    fdp = process_fd_get(current->process, fd);
+    if (!fdp)
+        return -E_BAD_FD;
+
+    count = socket_connect(fdp->file, addr, addr_len);
+    process_fd_put(current->process, fdp);
+
+    return count;
+}
+
+/*
+ *
+ */
+int sys_bind(int fd, const struct sockaddr *addr, socklen_t addr_len)
+{
+    struct fd *fdp;
+    ssize_t count;
+
+    fdp = process_fd_get(current->process, fd);
+    if (!fdp)
+        return -E_BAD_FD;
+
+    count = socket_bind(fdp->file, addr, addr_len);
+    process_fd_put(current->process, fdp);
+
+    return count;
+}
+
+/*
+ *
+ */
+ssize_t sys_sendmsg(int fd, const struct msghdr *msg_in, int flags)
+{
+    struct msghdr msg;
+    struct fd *fdp;
+    ssize_t count;
+
+    fdp = process_fd_get(current->process, fd);
+    if (!fdp)
+        return -E_BAD_FD;
+
+    memcpy(&msg, &msg_in, sizeof(msg));
+    msg.msg_flags = flags;
+    flags = fdp->flags;
+
+    count = socket_sendmsg(fdp->file, &msg, flags);
+    process_fd_put(current->process, fdp);
+
+    return count;
+}
+
+/*
+ *
+ */
+ssize_t sys_recvmsg(int fd, struct msghdr *msg_in, int flags)
+{
+    struct msghdr msg;
+    struct fd *fdp;
+    ssize_t count;
+
+    fdp = process_fd_get(current->process, fd);
+    if (!fdp)
+        return -E_BAD_FD;
+
+    memcpy(&msg, &msg_in, sizeof(msg));
+    msg.msg_flags = flags;
+    flags = fdp->flags;
+
+    count = socket_recvmsg(fdp->file, &msg, flags);
+    process_fd_put(current->process, fdp);
+
+    msg_in->msg_flags = msg.msg_flags;
+
+    return count;
+}

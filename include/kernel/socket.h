@@ -151,9 +151,10 @@ struct socket_protocol_ops {
     /** Release per-protocol data. */
     void (*release)(struct socket *);
     /** Associate socket with a local address */
-    error_t (*bind)(struct socket *, struct sockaddr *addr, socklen_t addrlen);
+    error_t (*bind)(struct socket *, const struct sockaddr *addr,
+                    socklen_t addrlen);
     /** Connect socket to a partner */
-    error_t (*connect)(struct socket *, struct sockaddr *addr,
+    error_t (*connect)(struct socket *, const struct sockaddr *addr,
                        socklen_t addrlen);
     /** Send a message through the socket */
     ssize_t (*sendmsg)(struct socket *, const struct msghdr *, int flags);
