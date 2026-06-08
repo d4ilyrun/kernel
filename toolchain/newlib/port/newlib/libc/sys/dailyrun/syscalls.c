@@ -12,9 +12,15 @@
 char **environ; /* pointer to array of char * strings that define the current
                    environment variables */
 
+#define alias(f)      __attribute__((__alias__(f)))
+#define weak_alias(f) __attribute__((__weak__)) alias(f)
+
 /*
  * Regular syscalls
  */
+
+#define DEFINE_SYSCALL_ALIAS_default(_ret_type, _syscall) \
+    _ret_type _syscall() weak_alias("_"#_syscall);
 
 #define DEFINE_SYSCALL_0_default(_ret_type, _syscall, _nr, ...)          \
     _ret_type _##_syscall(void)                                          \
@@ -138,6 +144,9 @@ char **environ; /* pointer to array of char * strings that define the current
  * Noreturn syscalls (exit)
  */
 
+#define DEFINE_SYSCALL_ALIAS_noreturn(_ret_type, _syscall) \
+    _ret_type _syscall() weak_alias("_"#_syscall);
+
 #define DEFINE_SYSCALL_1_noreturn(_ret_type, _syscall, _nr, ...) \
     _ret_type _##_syscall(void)                                  \
     {                                                            \
@@ -148,6 +157,7 @@ char **environ; /* pointer to array of char * strings that define the current
  * Manual syscalls must not be generated automatically
  */
 
+#define DEFINE_SYSCALL_ALIAS_manual(...)
 #define DEFINE_SYSCALL_0_manual(...)
 #define DEFINE_SYSCALL_1_manual(...)
 #define DEFINE_SYSCALL_2_manual(...)
@@ -159,6 +169,7 @@ char **environ; /* pointer to array of char * strings that define the current
  */
 
 #define DEFINE_SYSCALL(name, nr, argc, syscall_type, ret_type, ...) \
+    DEFINE_SYSCALL_ALIAS_##syscall_type(ret_type, name)                            \
     DEFINE_SYSCALL_##argc##_##syscall_type(ret_type, name, nr, __VA_ARGS__)
 
 DEFINE_SYSCALLS(DEFINE_SYSCALL)
@@ -213,25 +224,3 @@ sig_sa_handler_t signal(int signo, sig_sa_handler_t handler)
 
     return sigaction.sa_handler;
 }
-
-#define alias(f) __attribute__((__alias__(f)))
-
-int shm_open(const char *name, int oflags, mode_t mode) alias("_shm_open");
-int shm_unlink(const char *name) alias("_shm_unlink");
-void *mmap(void *addr, size_t size, int prot, int flag, int fd, off_t off) alias("_mmap");
-int munmap(void *addr, size_t size) alias("_munmap");
-mode_t umask(mode_t cmask) alias("_umask");
-int dup2(int old, int new) alias("_dup2");
-int dup(int old) alias("_dup");
-int pipe(int fds[2]) alias("_pipe");
-int sigreturn(ucontext_t *ucontext) alias("_sigreturn");
-int sigsethandler(sig_sa_sigaction_t handler) alias("_sigsethandler");
-
-/*
- * Unimplemented syscalls
- */
-
-int link(char *old, char *new);
-clock_t times(struct tms *buf);
-int unlink(char *name);
-int gettimeofday(struct timeval *p, void *z);
