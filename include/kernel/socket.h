@@ -13,6 +13,7 @@
 #include <kernel/net.h>
 #include <kernel/spinlock.h>
 #include <kernel/vfs.h>
+#include <kernel/waitqueue.h>
 
 #include <libalgo/queue.h>
 #include <utils/container_of.h>
@@ -33,8 +34,10 @@ struct socket {
     enum socket_state state;             /*!< Socket connection state*/
     spinlock_t lock;    /*!< Socket wide synchronisation lock */
     void *data;         /*!< Domain-specific socket data */
-    queue_t rx_packets; /*!< Packets received */
-    spinlock_t rx_lock; /*!< Synchronisation lock for rx_packets */
+
+    queue_t          rx_packets;         /*!< Packets received */
+    spinlock_t       rx_lock;            /*!< Synchronisation lock for rx_packets */
+    struct waitqueue rx_blocked;         /*!< Blocked processes waiting for new packets. */
 };
 
 /** Check whether the socket is connection oriented (TCP, ...) */
@@ -122,7 +125,7 @@ error_t socket_enqueue_packet(struct socket *socket, struct packet *packet);
 /** Retreive one packet from the socket's receive queue.
  *  If the queue is empty, return NULL.
  */
-struct packet *socket_dequeue_packet(struct socket *socket);
+struct packet *socket_dequeue_packet(struct socket *socket, bool block);
 
 /** Socket communication domain.
  *

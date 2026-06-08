@@ -34,6 +34,8 @@ struct msghdr {
     int msg_flags;         /* flags on received message */
 };
 
+#define MSG_TRUNC 0x1
+
 struct cmsghdr {
     socklen_t cmsg_len;
     int cmsg_level;

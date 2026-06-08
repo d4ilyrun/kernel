@@ -39,31 +39,48 @@ error_t socket_init(struct socket *socket, int domain, int type, int proto)
     INIT_QUEUE(socket->rx_packets);
     INIT_SPINLOCK(socket->rx_lock);
     INIT_SPINLOCK(socket->lock);
+    INIT_WAITQUEUE(socket->rx_blocked);
 
     return socket->domain->socket_init(socket, type, proto);
 }
 
+/*
+ * FIXME: We MUST limit the number of packets/bytes inside the RX queue.
+ *        We should use a pre-allocated per-socket ringbuffer and make
+ *        struct packet point to an external buffer (socket_buffer API).
+ */
 error_t socket_enqueue_packet(struct socket *socket, struct packet *packet)
 {
     spinlock_acquire(&socket->rx_lock);
     queue_enqueue(&socket->rx_packets, &packet->rx_this);
     spinlock_release(&socket->rx_lock);
+    waitqueue_dequeue(&socket->rx_blocked);
 
     return E_SUCCESS;
 }
 
-struct packet *socket_dequeue_packet(struct socket *socket)
+/*
+ *
+ */
+struct packet *socket_dequeue_packet(struct socket *socket, bool nonblock)
 {
     struct packet *packet = NULL;
     node_t *node;
 
+retry:
     spinlock_acquire(&socket->rx_lock);
     if (!queue_is_empty(&socket->rx_packets)) {
         node = queue_dequeue(&socket->rx_packets);
         packet = container_of(node, struct packet, rx_this);
-    }
-    spinlock_release(&socket->rx_lock);
+    } else if (!nonblock) {
+        spinlock_acquire(&socket->rx_blocked.lock);
+        spinlock_release(&socket->rx_lock);
+        waitqueue_enqueue_locked(&socket->rx_blocked, current);
+        goto retry;
+    } else
+        packet = PTR_ERR(E_WOULD_BLOCK);
 
+    spinlock_release(&socket->rx_lock);
     return packet;
 }
 
@@ -104,11 +121,12 @@ ssize_t
 socket_dgram_recvmsg(struct socket *socket, struct msghdr *msg, int flags)
 {
     struct packet *packet;
-    struct iovec *iov;
     ssize_t received = 0;
 
-    if (flags) {
-        not_implemented("recvmsg: flags");
+    msg->msg_flags = 0;
+
+    if (flags & ~O_NONBLOCK) {
+        not_implemented("recvmsg: flags (%x)", flags & ~O_NONBLOCK);
         return -E_NOT_SUPPORTED;
     }
 
@@ -117,26 +135,23 @@ socket_dgram_recvmsg(struct socket *socket, struct msghdr *msg, int flags)
         return -E_NOT_IMPLEMENTED;
     }
 
-    // TODO: Block until packets are received (check flags/options for NOBLOCK)
-    packet = socket_dequeue_packet(socket);
-    if (!packet)
-        return -E_WOULD_BLOCK;
+    packet = socket_dequeue_packet(socket, flags & O_NONBLOCK);
+    if (IS_ERR(packet))
+        return -ERR_FROM_PTR(packet);
 
     packet_pop(packet, NULL, packet_header_size(packet));
-
     for (size_t i = 0; i < msg->msg_iovlen; ++i) {
+        struct iovec *iov = &msg->msg_iov[i];
         size_t popped;
-
-        iov = &msg->msg_iov[i];
-        if (iov->iov_len > packet_read_size(packet)) {
-            // TODO: Block until enough data
-        }
 
         popped = packet_pop(packet, iov->iov_base, iov->iov_len);
         received += popped;
         if (popped < iov->iov_len)
             break;
     }
+
+    if (packet_read_size(packet))
+        msg->msg_flags |= MSG_TRUNC;
 
     packet_free(packet);
 
