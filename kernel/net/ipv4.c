@@ -292,8 +292,24 @@ static error_t af_inet_raw_init(struct socket *socket)
     return E_SUCCESS;
 }
 
+static void af_inet_raw_close(struct socket *socket)
+{
+    struct af_inet_sock *isock = socket->data;
+
+    spinlock_acquire(&af_inet_raw_sockets_lock);
+    llist_add(&af_inet_raw_sockets, &isock->this);
+    spinlock_release(&af_inet_raw_sockets_lock);
+}
+
+static void af_inet_raw_release(struct socket *socket)
+{
+    kfree(socket->data);
+}
+
 static const struct socket_protocol_ops af_inet_raw_ops = {
     .init = af_inet_raw_init,
+    .close = af_inet_raw_close,
+    .release = af_inet_raw_release,
     .bind = af_inet_raw_bind,
     .connect = af_inet_raw_connect,
     .sendmsg = af_inet_raw_sendmsg,

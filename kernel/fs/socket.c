@@ -8,12 +8,20 @@
  * A pseudo filesystem isn't a real filesystem. We just need to
  * allocate vnodes with the required operations to create and
  * interact with the socket.
+ *
+ * ## Reference count
+ *
+ * Individual sockets are reference counted via their vnode's reference count.
+ * This reference count must be updated via socket_get/put() when accessing
+ * a socket (locally, or when storing a reference for later (e.g. connected
+ * sockets)).
  */
 
 #define LOG_DOMAIN "socket"
 
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
+#include <kernel/net/packet.h>
 #include <kernel/socket.h>
 #include <kernel/timer.h>
 #include <kernel/vfs.h>
@@ -24,6 +32,11 @@ static struct file_operations socket_fops;
 
 static void socket_vnode_release(struct vnode *vnode)
 {
+    struct socket *socket = socket_from_vnode(vnode);
+
+    if (socket->proto && socket->proto->ops->release)
+        socket->proto->ops->release(socket);
+
     kfree(container_of(vnode, struct socket_node, vnode));
 }
 
@@ -71,6 +84,43 @@ struct socket *socket_alloc(void)
     return socket;
 }
 
+/* Close a socket.
+ *
+ * Once a socket has been closed it must no be reachable by other sockets
+ * inside the same domain (i.e. bind(), connect(), ...).
+ *
+ * For connection-mode sockets closing the file descriptor causes the ongoing
+ * connection to be closed. The actual socket is released once its reference
+ * count reaches zero. If the protocol's close() operation isn't atomic, it
+ * must hold an additional reference to the socket for the duration of the
+ * close operation.
+ */
+static void socket_close(struct file *file)
+{
+    struct socket *socket = file->priv;
+
+    /*
+     * Discard all previously received packets.
+     */
+    spinlock_acquire(&socket->rx_lock);
+    while (!queue_is_empty(&socket->rx_packets)) {
+        struct packet *pkt;
+
+        pkt = queue_dequeue_entry(&socket->rx_packets, struct packet, rx_this);
+        packet_free(pkt);
+    }
+    spinlock_release(&socket->rx_lock);
+
+    /*
+     * Close connection and make socket unreachable.
+     */
+    if (socket->proto->ops->close)
+        socket->proto->ops->close(socket);
+}
+
+/*
+ *
+ */
 static error_t
 socket_bind(struct file *file, struct sockaddr *addr, socklen_t addr_len)
 {
@@ -177,4 +227,5 @@ static struct file_operations socket_fops = {
     .recvmsg = socket_recvmsg,
     .write = socket_write,
     .read = socket_read,
+    .close = socket_close,
 };

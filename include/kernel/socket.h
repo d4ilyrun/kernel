@@ -75,15 +75,36 @@ static inline struct socket *socket_from_vnode(struct vnode *vnode)
 }
 
 /** @return The socket's vnode */
-static inline struct vnode *socket_node(struct socket *socket)
+static inline struct vnode *socket_vnode(struct socket *socket)
 {
     struct socket_node *socket_node = container_of(socket, struct socket_node,
                                                    socket);
     return &socket_node->vnode;
 }
 
-/** Allocate and initialize a new socket */
+/** Allocate and initialize a new socket.
+ *
+ *  @note After initialization, the socket's reference count
+ *        is set to 1. To free a socket call @c socket_put().
+ */
 struct socket *socket_alloc(void);
+
+/*
+ *
+ */
+static inline struct socket *socket_get(struct socket *socket)
+{
+    vnode_acquire(socket_vnode(socket), NULL);
+    return socket;
+}
+
+/*
+ *
+ */
+static inline void socket_put(struct socket *socket)
+{
+    vnode_release(socket_vnode(socket));
+}
 
 /** Initialize a socket's underlying protocol.
  *
@@ -125,6 +146,10 @@ error_t socket_domain_register(struct socket_domain *);
 struct socket_protocol_ops {
     /** Initialize per-protocol data */
     error_t (*init)(struct socket *);
+    /** Close connection, remove socket from global lists. */
+    void (*close)(struct socket *);
+    /** Release per-protocol data. */
+    void (*release)(struct socket *);
     /** Associate socket with a local address */
     error_t (*bind)(struct socket *, struct sockaddr *addr, socklen_t addrlen);
     /** Connect socket to a partner */

@@ -228,8 +228,24 @@ static error_t af_inet_ping_init(struct socket *socket)
     return E_SUCCESS;
 }
 
+static void af_inet_ping_close(struct socket *socket)
+{
+    struct icmp_sock *isock = socket->data;
+
+    spinlock_acquire(&af_inet_icmp_sockets_lock);
+    llist_add_tail(&af_inet_icmp_sockets, &isock->this);
+    spinlock_release(&af_inet_icmp_sockets_lock);
+}
+
+static void af_inet_ping_release(struct socket *socket)
+{
+    kfree(socket->data);
+}
+
 struct socket_protocol_ops af_inet_icmp_ops = {
     .init = af_inet_ping_init,
+    .close = af_inet_ping_close,
+    .release = af_inet_ping_release,
     .bind = af_inet_ping_bind,
     .connect = af_inet_ping_connect,
     .sendmsg = af_inet_ping_sendmsg,
