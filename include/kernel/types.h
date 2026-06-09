@@ -2,6 +2,7 @@
 #define KERNEL_TYPES_H
 
 #include <arch.h>
+#include <netinet/in.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
