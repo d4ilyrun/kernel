@@ -23,7 +23,6 @@
 #include <kernel/socket.h>
 #include <kernel/symbols.h>
 #include <kernel/syscalls.h>
-#include <kernel/terminal.h>
 #include <kernel/timer.h>
 #include <kernel/vfs.h>
 #include <kernel/vmm.h>
@@ -141,8 +140,6 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
      */
     uart_init();
     console_set_active("uart");
-
-    tty_init();
 
     if (magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
         PANIC("Invalid magic number recieved from multiboot "

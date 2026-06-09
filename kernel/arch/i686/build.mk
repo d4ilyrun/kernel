@@ -16,7 +16,6 @@ KERNEL_ARCH_SRCS := \
     syscalls.c \
     mmu.c \
     setup.c \
-    terminal.c \
     timer.c \
     panic.c \
     devices/pic.c \

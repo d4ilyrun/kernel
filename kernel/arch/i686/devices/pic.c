@@ -2,7 +2,6 @@
 #include <kernel/error.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
-#include <kernel/terminal.h>
 #include <kernel/timer.h>
 #include <kernel/types.h>
 
@@ -104,8 +103,9 @@ static INTERRUPT_HANDLER_FUNCTION(irq_keyboard)
     const u8 scan_code = inb(0x60);
 
     // If not key release;  write character
-    if (!BIT_READ(scan_code, 7) && ascii[scan_code])
-        tty_putchar(ascii[scan_code]);
+    if (!BIT_READ(scan_code, 7) && ascii[scan_code]) {
+        // TODO: dev input
+    }
 
     pic_eoi(IRQ_KEYBOARD);
 

@@ -2,7 +2,6 @@
 #include <kernel/logger.h>
 #include <kernel/console.h>
 #include <kernel/printk.h>
-#include <kernel/terminal.h>
 
 #include <string.h>
 #include <stdarg.h>
