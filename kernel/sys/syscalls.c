@@ -103,6 +103,9 @@ static interrupt_return_t syscall(void *data)
     syscall = &syscalls[args.nr];
     trace_syscall_entry(syscall);
 
+    /* syscalls are executed in a preemptible context. */
+    interrupts_enable();
+
     switch (syscall->arg_count) {
     case 0:
         ret = DO_SYSCALL_0(syscall->handler);
