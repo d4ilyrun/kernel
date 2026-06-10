@@ -142,28 +142,78 @@ static struct device uart_device = {
     .driver = &uart_driver,
 };
 
-static error_t uart_early_init(void *pdata)
+/*
+ *
+ */
+static ssize_t uart_console_write(const struct console *console,
+                                  const char *buffer, size_t size)
 {
-    UNUSED(pdata);
-    return uart_reset();
-}
+    UNUSED(console);
 
-static error_t uart_early_write(const char *buffer, size_t size, void *pdata)
-{
-    UNUSED(pdata);
     return __uart_write(buffer, size);
 }
 
-static struct early_console uart_early_console = {
-    .init = uart_early_init,
-    .write = uart_early_write,
+/*
+ * Update colors by writing the corresponding ANSI color codes.
+ */
+static void uart_console_set_color(const struct console *console,
+                                   enum console_color fg,
+                                   enum console_color bg)
+{
+    UNUSED(console);
+
+#define UART_WRITE_ANSI(color, s)         \
+    case color:                           \
+        __uart_write((s), sizeof(s) - 1); \
+        break
+
+    switch (fg) {
+    UART_WRITE_ANSI(COLOR_BLACK,        "\033[0;30m");
+    UART_WRITE_ANSI(COLOR_RED,          "\033[0;31m");
+    UART_WRITE_ANSI(COLOR_GREEN,        "\033[0;32m");
+    UART_WRITE_ANSI(COLOR_YELLOW,       "\033[0;33m");
+    UART_WRITE_ANSI(COLOR_BLUE,         "\033[0;34m");
+    UART_WRITE_ANSI(COLOR_MAGENTA,      "\033[0;35m");
+    UART_WRITE_ANSI(COLOR_CYAN,         "\033[0;36m");
+    UART_WRITE_ANSI(COLOR_WHITE,        "\033[0;37m");
+    UART_WRITE_ANSI(COLOR_NONE,         "\033[0;39m");
+    UART_WRITE_ANSI(COLOR_BOLD_RED,     "\033[1;31m");
+    UART_WRITE_ANSI(COLOR_BOLD_GREEN,   "\033[1;32m");
+    UART_WRITE_ANSI(COLOR_BOLD_YELLOW,  "\033[1;33m");
+    UART_WRITE_ANSI(COLOR_BOLD_BLUE,    "\033[1;34m");
+    UART_WRITE_ANSI(COLOR_BOLD_MAGENTA, "\033[1;35m");
+    UART_WRITE_ANSI(COLOR_BOLD_CYAN,    "\033[1;36m");
+    UART_WRITE_ANSI(COLOR_BOLD_WHITE,   "\033[1;37m");
+    default:
+        break;
+    }
+
+    switch (bg) {
+    UART_WRITE_ANSI(COLOR_BLACK,   "\033[40m");
+    UART_WRITE_ANSI(COLOR_RED,     "\033[41m");
+    UART_WRITE_ANSI(COLOR_GREEN,   "\033[42m");
+    UART_WRITE_ANSI(COLOR_YELLOW,  "\033[43m");
+    UART_WRITE_ANSI(COLOR_BLUE,    "\033[44m");
+    UART_WRITE_ANSI(COLOR_MAGENTA, "\033[45m");
+    UART_WRITE_ANSI(COLOR_CYAN,    "\033[46m");
+    UART_WRITE_ANSI(COLOR_WHITE,   "\033[47m");
+    UART_WRITE_ANSI(COLOR_NONE,    "\033[49m");
+    default:
+        break;
+    }
+}
+
+static struct console uart_console = {
+    .name = "uart",
+    .write = uart_console_write,
+    .set_color = uart_console_set_color,
 };
 
 error_t uart_init(void)
 {
     error_t ret;
 
-    ret = console_early_setup(&uart_early_console, NULL);
+    ret = console_register(&uart_console);
     if (ret != E_SUCCESS)
         return ret;
 

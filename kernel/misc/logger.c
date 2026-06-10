@@ -1,23 +1,23 @@
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
+#include <kernel/console.h>
 #include <kernel/printk.h>
 #include <kernel/terminal.h>
 
+#include <string.h>
 #include <stdarg.h>
-
-#define LOG_DOMAIN_SEPARATOR " "
 
 /** Format used for displaying logs of a given level */
 struct log_level_format {
-    const char *color; /** Color used for the level's name */
     const char *name;  /** This log level's name */
+    enum console_color fg_color;
 };
 
 static const struct log_level_format log_level[LOG_LEVEL_COUNT] = {
-    [LOG_LEVEL_ERR] = {"\033[31;1;1m", "ERROR "},
-    [LOG_LEVEL_WARN] = {"\033[33;1m", "WARN  "},
-    [LOG_LEVEL_INFO] = {"\033[39m", "INFO  "},
-    [LOG_LEVEL_DEBUG] = {"\033[36m", "DEBUG "},
+    [LOG_LEVEL_ERR] =   { "ERROR ", COLOR_BOLD_RED },
+    [LOG_LEVEL_WARN] =  { "WARN  ", COLOR_BOLD_YELLOW },
+    [LOG_LEVEL_INFO] =  { "INFO  ", COLOR_WHITE },
+    [LOG_LEVEL_DEBUG] = { "DEBUG ", COLOR_CYAN },
 };
 
 static enum log_level max_log_level = LOG_LEVEL_ALL;
@@ -43,11 +43,13 @@ void log_vlog(enum log_level level, const char *domain, const char *format,
         return;
 
     if (domain) {
-        if (log_level[level].color)
-            printk("[%s%s%s%s]" LOG_DOMAIN_SEPARATOR, ANSI_RESET,
-                   log_level[level].color, domain, ANSI_RESET);
-        else
-            printk("[%s%s]" LOG_DOMAIN_SEPARATOR, ANSI_RESET, domain);
+        console_write_string("[");
+        if (log_level[level].fg_color)
+            console_set_fg_color(log_level[level].fg_color);
+        console_write(domain, strlen(domain));
+        if (log_level[level].fg_color)
+            console_set_fg_color(COLOR_NONE);
+        console_write_string("] ");
     }
 
     vprintk(format, parameters);

@@ -40,6 +40,8 @@
 #define CLEANUP(_dtor) __attribute__((cleanup(_dtor)))
 #define PURE __attribute__((pure))
 
+#define fallthrough __attribute__((fallthrough))
+
 /** Raises a compile time eror if \c _x is 0
  *  @return \c _x so that it can be used as a compile time known value
  */

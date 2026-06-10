@@ -402,8 +402,7 @@ static precision_t printk_precision(const char *format, int *index)
             precision.invalid = true;
             return precision;
         }
-
-        __attribute__((fallthrough));
+        fallthrough;
 
     default:
         precision.precision = printk_field_width(format, index);
@@ -538,7 +537,7 @@ printk_step(const char *c, int *written, va_list *parameters, printk_ctx_t *ctx)
 
     case TOK_HEX_CAPITALIZED:
         ctx->capitalize = true;
-        __attribute__((fallthrough));
+        fallthrough;
 
     case TOK_HEX:
         printk_unsigned(16, parameters, ctx, written);

@@ -8,39 +8,82 @@
 #ifndef KERNEL_CONSOLE_H
 #define KERNEL_CONSOLE_H
 
-#include <kernel/device.h>
+#include <kernel/error.h>
 
-/** @brief Representation of the kernel's console
+#include <libalgo/linked_list.h>
+
+enum console_color {
+    COLOR_NONE,
+    COLOR_BLACK,
+    COLOR_BLUE,
+    COLOR_GREEN,
+    COLOR_CYAN,
+    COLOR_RED,
+    COLOR_MAGENTA,
+    COLOR_YELLOW,
+    COLOR_WHITE,
+    COLOR_BOLD_RED,
+    COLOR_BOLD_GREEN,
+    COLOR_BOLD_YELLOW,
+    COLOR_BOLD_BLUE,
+    COLOR_BOLD_MAGENTA,
+    COLOR_BOLD_CYAN,
+    COLOR_BOLD_WHITE,
+};
+
+/* Kernel console.
  *
- *  All kernel logs are written to the console.
+ * There can be multiple consoles inside the kernel,
+ * but only one can be active at a time. Once a console
+ * has been registered with console_register() it can
+ * be chosen as the active console using console_set_active().
  */
 struct console {
-    struct file *out; /** File representation of the console's output */
+    LLIST_NODE(this);
+    const char *name;
+    ssize_t (*write)(const struct console *, const char *buffer, size_t size);
+    void (*set_color)(const struct console *, enum console_color fg,
+                      enum console_color bg);
 };
 
-/** @brief Console used during kernel initialization
+/** Register a console with the kernel.
  *
- * It is necessary to use a more primitive console structure during the kernel
- * initialization process, as some necessary features for the regular console
- * may not be properly setup yet (e.g. memory allocation and vfs traversing).
- *
- * Keep in mind that the callbacks for this console should not use such features
- * and should keep things to the bare minimum (writing, nothing more).
+ * Registered consoles can later be selected as the active console
+ * using console_set_active().
  */
-struct early_console {
-    void *private;                ///< private data used by the callbacks
-    error_t (*init)(void *pdata); ///< Called during initialization
-    /** Called to write a buffer to the console */
-    error_t (*write)(const char *buffer, size_t size, void *pdata);
-};
+error_t console_register(struct console *console);
 
-/** Set the console to use during kernel initialization */
-error_t console_early_setup(struct early_console *, void *pdata);
+/** Select the active console by name.
+ *
+ * All subsequent calls to console_write() will be routed
+ * to the selected console's write callback.
+ *
+ * @param name Name of the console to activate.
+ */
+error_t console_set_active(const char *name);
 
-/** Set a device as the regular console's output */
-error_t console_open(struct device *device);
-/** Write a buffer to the console */
-ssize_t console_write(const char *buf, size_t size);
+/** Write data to the active console.
+ *
+ * @param buffer Buffer containing the data to write.
+ * @param size Number of bytes to write.
+ *
+ * @return Number of bytes written on success, a negative error
+ *         code on failure.
+ */
+ssize_t console_write(const char *buffer, size_t size);
+
+#define console_write_string(str) console_write(str, strlen(str))
+
+/*
+ *
+ */
+void console_set_color(enum console_color fg, enum console_color bg);
+
+static inline void console_set_fg_color(enum console_color color)
+{
+    return console_set_color(color, COLOR_NONE);
+}
+
 
 #endif /* KERNEL_CONSOLE_H */
 

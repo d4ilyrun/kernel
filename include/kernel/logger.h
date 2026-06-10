@@ -59,8 +59,6 @@ enum log_level {
     LOG_LEVEL_ALL = LOG_LEVEL_COUNT,
 };
 
-#define ANSI_RESET "\033[0m"
-
 /**
  * @brief Print a log message onto the terminal.
  *

@@ -1,56 +1,85 @@
+#include <kernel/atomic.h>
 #include <kernel/console.h>
+#include <kernel/device.h>
 #include <kernel/file.h>
 #include <kernel/init.h>
 #include <kernel/process.h>
 #include <kernel/vfs.h>
 
-static const struct early_console *active_early_console = NULL;
+#include <string.h>
 
-static struct console active_console = {
-    .out = NULL,
-};
+static const struct console *active_console = NULL;
 
-error_t console_early_setup(struct early_console *console, void *pdata)
+static DECLARE_LLIST(consoles);
+static DECLARE_SPINLOCK(consoles_lock);
+
+/*
+ *
+ */
+error_t console_register(struct console *console)
 {
-    error_t ret;
-
-    if (!console->write)
+    if (!console)
         return E_INVAL;
 
-    if (console->init) {
-        ret = console->init(pdata);
-        if (ret != E_SUCCESS)
-            return ret;
+    locked_scope(&consoles_lock)
+        llist_add(&consoles, &console->this);
+
+    return E_SUCCESS;
+}
+
+/*
+ *
+ */
+error_t console_set_active(const char *name)
+{
+    struct console *console;
+    bool found = false;
+
+    locked_scope(&consoles_lock) {
+        FOREACH_LLIST_ENTRY(console, &consoles, this) {
+            if (!strcmp(console->name, name)) {
+                found = true;
+                break;
+            }
+        }
     }
 
-    console->private = pdata;
-    active_early_console = console;
-
-    return E_SUCCESS;
-}
-
-error_t console_open(struct device *dev)
-{
-    struct file *dev_file = device_open(dev);
-    if (IS_ERR(dev_file))
-        return ERR_FROM_PTR(dev_file);
-
-    active_console.out = dev_file;
-
-    return E_SUCCESS;
-}
-
-ssize_t console_write(const char *buf, size_t count)
-{
-    if (!active_console.out && !active_early_console)
+    if (!found)
         return E_NODEV;
 
-    if (!active_console.out) {
-        return active_early_console->write(buf, count,
-                                           active_early_console->private);
-    }
+    WRITE_ONCE(active_console, console);
 
-    return active_console.out->ops->write(active_console.out, buf, count);
+    return E_SUCCESS;
+}
+
+/*
+ *
+ */
+void console_set_color(enum console_color fg, enum console_color bg)
+{
+    const struct console *console;
+
+    console = READ_ONCE(active_console);
+    if (console->set_color)
+        console->set_color(console, fg, bg);
+}
+
+/*
+ *
+ */
+ssize_t console_write(const char *buf, size_t count)
+{
+    const struct console *console;
+
+    /* sync with console_set_active(). */
+    console = READ_ONCE(active_console);
+    if (!console)
+        return -E_NODEV;
+
+    if (!console->write)
+        return count;
+
+    return console->write(console, buf, count);
 }
 
 static ssize_t
@@ -70,6 +99,11 @@ static struct device console_device = {
     .fops = &console_device_fops,
 };
 
+/*
+ * Configure the default standard file descriptors to write to
+ * the kernel's console. This should be called before starting
+ * the init process.
+ */
 static error_t console_device_init(void)
 {
     struct file *console;

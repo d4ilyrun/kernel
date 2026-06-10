@@ -1,3 +1,4 @@
+#include <kernel/console.h>
 #include <kernel/cpu.h>
 #include <kernel/interrupts.h>
 #include <kernel/logger.h>
@@ -113,9 +114,11 @@ void panic(u32 esp, const char *msg, ...)
     va_list parameters;
     va_start(parameters, msg);
 
-    printk("\n\033[31;1;4m!!! KERNEL PANIC !!!" ANSI_RESET "\033[31;1m\n\n");
+    console_set_fg_color(COLOR_BOLD_RED);
+    console_write_string("\n!!! KERNEL PANIC !!!\n\n");
+    console_set_fg_color(COLOR_NONE);
     vprintk(msg, parameters);
-    printk(ANSI_RESET "\n\n");
+    printk("\n\n");
 
     va_end(parameters);
 

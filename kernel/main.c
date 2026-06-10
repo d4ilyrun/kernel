@@ -1,5 +1,6 @@
 #define LOG_DOMAIN "main"
 
+#include <kernel/console.h>
 #include <kernel/cpu.h>
 #include <kernel/device.h>
 #include <kernel/devices/acpi.h>
@@ -136,12 +137,10 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     interrupts_disable();
 
     /*
-     * Try to initialize the system's early console first. This lets us
-     * print debug logs early on.
+     *
      */
-    if (uart_init() != E_SUCCESS) {
-        // TODO: arch_reboot();
-    }
+    uart_init();
+    console_set_active("uart");
 
     tty_init();
 
