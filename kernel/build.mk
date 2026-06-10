@@ -14,6 +14,10 @@ ifneq ($(ARCH),)
   endif
 endif
 
+export CONFIG_GRAPHICS_WIDTH  ?= 1280
+export CONFIG_GRAPHICS_HEIGHT ?= 720
+export CONFIG_GRAPHICS_DEPTH  ?= 32
+
 KERNEL_SRCS := 	\
 	main.c \
 	fs/vfs.c \
@@ -68,7 +72,8 @@ KERNEL_SRCS := 	\
 	devices/ethernet.c \
 	devices/ata.c \
 	devices/rtl8139.c \
-	devices/ramdisk.c
+	devices/ramdisk.c \
+	devices/framebuffer.c
 
 KERNEL_OBJS += $(addsuffix .o, $(addprefix $(BUILD_DIR)/$(KERNEL_DIR)/,$(KERNEL_SRCS)))
 KERNEL_OBJS += $(addsuffix .o, $(addprefix $(BUILD_DIR)/$(KERNEL_ARCH_DIR)/,$(KERNEL_ARCH_SRCS)))
@@ -110,7 +115,7 @@ endif
 qemu: $(KERNEL_ISO)
 	$(call LOG,QEMU,$^)
 	$(call ASSERT_EXE_EXISTS,$(QEMU))
-	$(SILENT)$(QEMU) -cdrom $(KERNEL_ISO) -nographic $(QEMU_ARGS)
+	$(SILENT)$(QEMU) -cdrom $(KERNEL_ISO) -serial stdio $(QEMU_ARGS)
 
 qemu-server: $(KERNEL_ISO)
 	$(call LOG,QEMU,$^)

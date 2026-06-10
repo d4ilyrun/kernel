@@ -44,6 +44,9 @@ function generate_iso()
     cat <<EOF > "$iso_dir/boot/grub/grub.cfg"
 set timeout=0
 menuentry "Kernel - ${KERNEL_BIN%.*}" {
+    insmod all_video
+    set gfxpayload=keep
+    set gfxmode=${CONFIG_GRAPHICS_WIDTH}x${CONFIG_GRAPHICS_HEIGHT}x${CONFIG_GRAPHICS_DEPTH}
     multiboot2 /boot/$(basename "$KERNEL_BIN")
     module2 /boot/initramfs.tar
 }

@@ -8,6 +8,7 @@
 #include <kernel/devices/driver.h>
 #include <kernel/devices/ramdisk.h>
 #include <kernel/devices/uart.h>
+#include <kernel/devices/framebuffer.h>
 #include <kernel/elf32.h>
 #include <kernel/execfmt.h>
 #include <kernel/init.h>
@@ -151,6 +152,18 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     log(LOG_LEVEL_INFO, "kernel", "Size: %d bytes",
         KERNEL_CODE_END - KERNEL_CODE_START);
 
+    FOREACH_MULTIBOOT_TAG (tag, &mbt_tmp) {
+        if (tag->type == MULTIBOOT_TAG_TYPE_BOOT_LOADER_NAME) {
+            struct multiboot_tag_string *btl = (void *)tag;
+            log(LOG_LEVEL_INFO, "bootloader", "%s", btl->string);
+        }
+        if (tag->type == MULTIBOOT_TAG_TYPE_CMDLINE) {
+            struct multiboot_tag_string *cmdline = (void *)tag;
+            if (strnlen(cmdline->string, 0) != 0)
+                log(LOG_LEVEL_INFO, "cmdline", "%s", cmdline->string);
+        }
+    }
+
     /*
      * Called with paging disabled to initialize the very first things
      * that need to be setup in the system.
@@ -194,7 +207,19 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
             err = kernel_mount_initfs((struct multiboot_tag_module *)tag);
             if (err)
                 PANIC("Failed to mount initfs: %pe", &err);
-            break;
+        }
+
+        if (tag->type == MULTIBOOT_TAG_TYPE_FRAMEBUFFER) {
+            struct multiboot_tag_framebuffer_common *t = (void *)tag;
+            struct framebuffer_params fb_params = {
+                .width = t->framebuffer_width,
+                .height = t->framebuffer_height,
+                .pitch = t->framebuffer_pitch,
+                .bpp = t->framebuffer_bpp,
+            };
+
+            framebuffer_register(t->framebuffer_addr, &fb_params);
+            console_set_active("fb0");
         }
     }
 

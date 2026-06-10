@@ -29,6 +29,7 @@ enum console_color {
     COLOR_BOLD_MAGENTA,
     COLOR_BOLD_CYAN,
     COLOR_BOLD_WHITE,
+    COLOR_COUNT
 };
 
 /* Kernel console.
