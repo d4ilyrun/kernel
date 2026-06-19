@@ -13,6 +13,7 @@
 #define UTILS_BITS_H
 
 #include <stdint.h>
+#include <sys/endian.h>
 
 #include "compiler.h"
 
@@ -62,44 +63,6 @@ static inline uint64_t __bswap_64(uint64_t x)
             ((x & 0x000000000000FF00ULL) << 40) |
             ((x) << 56);
 }
-
-// clang-format on
-
-#ifdef ARCH_LITTLE_ENDIAN
-
-#define htobe16(x) __bswap_16(x)
-#define htole16(x) (uint16_t)(x)
-#define be16toh(x) __bswap_16(x)
-#define le16toh(x) (uint16_t)(x)
-
-#define htobe32(x) __bswap_32(x)
-#define htole32(x) (uint32_t)(x)
-#define be32toh(x) __bswap_32(x)
-#define le32toh(x) (uint32_t)(x)
-
-#define htobe64(x) __bswap_64(x)
-#define htole64(x) (uint64_t)(x)
-#define be64toh(x) __bswap_64(x)
-#define le64toh(x) (uint64_t)(x)
-
-#else
-
-#define htobe16(x) (uint16_t)(x)
-#define htole16(x) __bswap_16(x)
-#define be16toh(x) (uint16_t)(x)
-#define le16toh(x) __bswap_16(x)
-
-#define htobe32(x) (uint32_t)(x)
-#define htole32(x) __bswap_32(x)
-#define be32toh(x) (uint32_t)(x)
-#define le32toh(x) __bswap_32(x)
-
-#define htobe64(x) (uint64_t)(x)
-#define htole64(x) __bswap_64(x)
-#define be64toh(x) (uint64_t)(x)
-#define le64toh(x) __bswap_64(x)
-
-#endif
 
 /** @brief Find the index of the first set bit inside @c word */
 static ALWAYS_INLINE unsigned long bit_first_one(unsigned long word)
