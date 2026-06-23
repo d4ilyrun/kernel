@@ -212,4 +212,4 @@ static error_t scheduler_init(void)
 	return E_SUCCESS;
 }
 
-DECLARE_INITCALL(INIT_LATE, scheduler_init);
+DECLARE_INITCALL(INIT_EARLY, scheduler_init);
