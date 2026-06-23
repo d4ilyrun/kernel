@@ -31,6 +31,16 @@ typedef int64_t s64;
 typedef float f32;  //< 32b floating point value
 typedef double f64; //< 64b floating point value
 
+typedef uint8_t be8_t;
+typedef uint16_t be16_t;
+typedef uint32_t be32_t;
+typedef uint64_t be64_t;
+
+typedef uint8_t le8_t;
+typedef uint16_t le16_t;
+typedef uint32_t le32_t;
+typedef uint64_t le64_t;
+
 /** Guaranteed to be the size of a native word, regardless of the architecture
  */
 #ifdef ARCH_IS_32_BITS

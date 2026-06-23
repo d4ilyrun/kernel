@@ -8,6 +8,7 @@ UseTab: Never
 AlignOperands: AlignAfterOperator
 AlignEscapedNewlines: Left
 AlignTrailingComments: true
+AlignConsecutiveMacros: true
 AlwaysBreakBeforeMultilineStrings: false
 BinPackArguments: true
 

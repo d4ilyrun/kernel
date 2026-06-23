@@ -46,6 +46,7 @@ static const char *const ERROR_DESCRIPTIONS[E_TOTAL_COUNT] = {
     [E_NO_BUFFER_SPACE] = "Not enough buffer space",
     [E_IS_CONNECTED] = "Endpoint is already connected",
     [E_NOT_CONNECTED] = "Endpoint is not connected",
+    [E_TIMED_OUT] = "Connection timeout",
 };
 
 const char *err_to_str(error_t err)

@@ -69,6 +69,7 @@ typedef enum error {
     E_NO_BUFFER_SPACE = 105,     ///< Not enough buffer space
     E_IS_CONNECTED = 106,        ///< Transport endpoint is already connected
     E_NOT_CONNECTED = 107,       ///< Transport endpoint is not connected
+    E_TIMED_OUT = 110,           ///< Connection timeout
 
     E_TOTAL_COUNT, ///< Total number of error codes, only used as a
                    ///< reference

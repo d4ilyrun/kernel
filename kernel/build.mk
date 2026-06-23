@@ -71,6 +71,10 @@ KERNEL_SRCS := 	\
 	devices/block.c \
 	devices/ethernet.c \
 	devices/ata.c \
+	devices/usb/hcd.c \
+	devices/usb/uhci.c \
+	devices/usb/device.c \
+	devices/usb/hub.c \
 	devices/rtl8139.c \
 	devices/ramdisk.c \
 	devices/framebuffer.c
@@ -111,6 +115,8 @@ $(info Network TAP interface: $(QEMU_TAP_IF))
 else
 $(info Network TAP interface: $(QEMU_TAP_IF) (disabled))
 endif
+
+QEMU_ARGS += -device piix4-usb-uhci -device usb-mouse,id=usb_mouse
 
 qemu: $(KERNEL_ISO)
 	$(call LOG,QEMU,$^)

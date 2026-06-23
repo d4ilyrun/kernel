@@ -55,6 +55,8 @@ CPPFLAGS := -I$(INC_DIR)
 LDFLAGS  := -L$(BUILD_DIR)/$(LIB_DIR)
 
 CFLAGS += -fdiagnostics-color=always
+CFLAGS += -Wno-unused-parameter
+CFLAGS += -Wno-unused-function
 
 FREESTANDING_CFLAGS    := -ffreestanding
 FREESTANDING_CPPFLAGS  :=
