@@ -46,7 +46,7 @@
 #define   UHCI_SOF_DEFAULT           64
 
 /* UHCI root hub port status & control */
-#define UHCI_PORTSC(n)               (0x10 + (n * 2))
+#define UHCI_PORTSC(n)               (0x10 + ((n - 1) * 2))
 #define   UHCI_PORTSC_CCS            BIT(0)  /* Current Connect Status */
 #define   UHCI_PORTSC_CSC            BIT(1)  /* Connect Status Change */
 #define   UHCI_PORTSC_PED            BIT(2)  /* Port Enable */

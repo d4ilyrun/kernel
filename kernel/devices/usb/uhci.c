@@ -69,7 +69,6 @@ enum uhci_qh_prio {
     UHCI_QH_CONTROL_LOW,  /* Queue-head for low speed control TDs. */
     UHCI_QH_CONTROL_FULL, /* Queue-head for full speed control TDs. */
     UHCI_QH_BULK,         /* Queue-head for bulk TDs. */
-    UHCI_QH_IOC,
     UHCI_QH_COUNT,
 };
 
@@ -79,6 +78,7 @@ struct uhci_controller {
     u32 *frame_list;
     size_t frame_list_size;
     struct uhci_qh *qhs[UHCI_QH_COUNT];
+    bool destroy_pending;
 };
 
 generate_device_io_rw_functions(uhci, struct uhci_controller, io_reg, u16);
@@ -127,6 +127,35 @@ static struct uhci_td *uhci_td_new(struct uhci_qh *qh)
 /*
  *
  */
+static void uhci_td_dump(const struct uhci_td *td)
+{
+    u32 token = td->token;
+    u32 status = td->status;
+    u32 maxlen;
+
+    maxlen = (token & UHCI_TD_TOKEN_MAXLEN_MASK);
+    if (maxlen == (u16)UHCI_TD_TOKEN_MAXLEN_MASK)
+        maxlen = 0;
+    else
+        maxlen = (maxlen >> UHCI_TD_TOKEN_MAXLEN_OFFSET) + 1;
+
+    log_info("token:  %s%s (address=%u endpoint=%#02x length=%u)",
+             usb_pid_field_name(token & UHCI_TD_TOKEN_PID_MASK),
+             (token & UHCI_TD_TOKEN_TOGGLE) ? " TOGGLE" : "",
+             (token & UHCI_TD_TOKEN_ADDR_MASK) >> UHCI_TD_TOKEN_ADDR_OFFSET,
+             (token & UHCI_TD_TOKEN_EP_MASK) >> UHCI_TD_TOKEN_EP_OFFSET,
+             maxlen);
+
+    log_info("status: %s%s%s%s",
+             (status & UHCI_TD_STATUS_ACTIVE) ? "ACTIVE " : "",
+             (status & UHCI_TD_STATUS_STALL) ? "STALL " : "",
+             (status & UHCI_TD_STATUS_NAK) ? "NAK " : "",
+             (status & UHCI_TD_STATUS_SPD) ? "SPD " : "");
+}
+
+/*
+ *
+ */
 static struct uhci_qh *uhci_qh_new(void)
 {
     struct uhci_qh *qh;
@@ -167,6 +196,24 @@ static void uhci_qh_destroy(struct uhci_qh *qh)
 /*
  *
  */
+static void uhci_destroy(struct uhci_controller *uhci)
+{
+    for (int i = 0; i < UHCI_QH_COUNT; ++i) {
+        if (uhci->qhs[i]) {
+            uhci_qh_destroy(uhci->qhs[i]);
+            uhci->qhs[i] = NULL;
+        }
+    }
+
+    if (uhci->frame_list)
+        kfree_dma(uhci->frame_list);
+
+    kfree(uhci);
+}
+
+/*
+ *
+ */
 static inline void uhci_td_fill(const struct usb_device *udev,
                                 struct uhci_td *td, enum usb_pid pid,
                                 struct usb_pipe *pipe, paddr_t dma_addr,
@@ -174,6 +221,7 @@ static inline void uhci_td_fill(const struct usb_device *udev,
 {
     td->buffer_pointer = dma_addr;
     td->status = 3 << UHCI_TD_STATUS_MAXERR_OFFSET;
+    td->status |= UHCI_TD_STATUS_IOC;
 
     if (udev->speed == USB_SPEED_LOW)
         td->status |= UHCI_TD_STATUS_LS;
@@ -256,7 +304,6 @@ uhci_urb_submit_control(struct uhci_controller *uhci, struct usb_device *udev,
         if (size < urb->data_size - off)
             size = urb->data_size - off;
 
-        /* TODO: Detect short packets (8.5.3.2) */
         td = uhci_link_new_td(qh, td);
         uhci_td_fill(udev, td, pid, pipe, data + off, size);
         td->status |= UHCI_TD_STATUS_ACTIVE;
@@ -279,7 +326,7 @@ uhci_urb_submit_control(struct uhci_controller *uhci, struct usb_device *udev,
     td->urb = urb;
 
     /*
-     * Add a new dummy TD and activate this packet.
+     * Add a new inactive TD and activate this packet.
      */
 
     td = uhci_link_new_td(qh, td);
@@ -299,6 +346,9 @@ static error_t uhci_urb_submit(struct usb_device *device, struct urb *urb)
     struct usb_controller *controller = device->controller;
     struct uhci_controller *uhci = controller->priv;
 
+    if (WARN_ON(uhci->destroy_pending))
+        return E_IO;
+
     switch (urb->pipe->type) {
     case USB_XFER_CONTROL:
         return uhci_urb_submit_control(uhci, device, urb);
@@ -313,6 +363,12 @@ static error_t uhci_urb_submit(struct usb_device *device, struct urb *urb)
     return E_NOT_SUPPORTED;
 }
 
+/*
+ * Check whether this TD is the dummy TD placed at the end of the QH
+ * to signify that there are no other "real" TDs left to transfer.
+ *
+ * @see uhci_init_queue_heads
+ */
 static inline bool uhci_td_is_dummy(const struct uhci_qh *qh,
                                     const struct uhci_td *td)
 {
@@ -331,43 +387,51 @@ static void uhci_process_control_urbs(struct uhci_controller *uhci, int qh_idx)
 
     spinlock_acquire(&qh->tds_lock);
     FOREACH_LLIST_ENTRY_SAFE(td, next, &qh->tds, this) {
+        error_t err = E_SUCCESS;
+
         if (uhci_td_is_dummy(qh, td))
             continue;
-
         if (td->status & UHCI_TD_STATUS_ACTIVE)
             continue;
 
-        if (td->urb) {
-            if (td->status & UHCI_TD_STATUS_NAK) {
-                log_info("NAK received");
-                urb_cancel(td->urb, E_IO);
-            } else if (td->status & UHCI_TD_STATUS_CRC) {
-                switch(usb_pid_field(td->token & UHCI_TD_TOKEN_PID_MASK)) {
-                case USB_PID_SETUP:
-                case USB_PID_OUT:
-                    log_info("Timeout error detected");
-                    urb_cancel(td->urb, E_TIMED_OUT);
-                    break;
-                default:
-                    log_info("CRC error detected");
-                    urb_cancel(td->urb, E_IO);
-                    break;
-                }
-            } else if (td->status & UHCI_TD_STATUS_BABBLE) {
-                log_info("Babble detected");
-                urb_cancel(td->urb, E_IO);
-            } else if (td->status & UHCI_TD_STATUS_STALL) {
-                log_info("Bus stall detected");
-                urb_cancel(td->urb, E_IO);
-            } else if (td->status & UHCI_TD_STATUS_BITSTUFF) {
-                log_info("Bit stuffing detected");
-                urb_cancel(td->urb, E_IO);
-            } else if (td->status & UHCI_TD_STATUS_DATABUF) {
-                log_info("Data buffer error detected");
-                urb_cancel(td->urb, E_IO);
-            } else
+        if (td->status & UHCI_TD_STATUS_NAK) {
+            log_info("NAK received");
+            err = E_IO;
+        } else if (td->status & UHCI_TD_STATUS_CRC) {
+            switch(usb_pid_field(td->token & UHCI_TD_TOKEN_PID_MASK)) {
+            case USB_PID_SETUP:
+            case USB_PID_OUT:
+                log_info("Timeout error detected");
+                err = E_TIMED_OUT;
+                break;
+            default:
+                log_info("CRC error detected");
+                err = E_IO;
+                break;
+            }
+        } else if (td->status & UHCI_TD_STATUS_BABBLE) {
+            log_info("Babble detected");
+            err = E_IO;
+        } else if (td->status & UHCI_TD_STATUS_STALL) {
+            log_info("Bus stall detected");
+            err = E_IO;
+        } else if (td->status & UHCI_TD_STATUS_BITSTUFF) {
+            log_info("Bit stuffing detected");
+            err = E_IO;
+        } else if (td->status & UHCI_TD_STATUS_DATABUF) {
+            log_info("Data buffer error detected");
+            err = E_IO;
+        }
+
+        if (err) {
+            uhci_td_dump(td);
+            if (td->urb)
+                urb_cancel(td->urb, err);
+        } else {
+            if (td->urb)
                 urb_complete(td->urb);
         }
+
         uhci_td_destroy(td);
     }
 
@@ -390,9 +454,10 @@ static void uhci_process_control_urbs(struct uhci_controller *uhci, int qh_idx)
  * interrupt transfer since this value is updated by the hardware whenever
  * transfer has been completed.
  */
-static void uhci_process_interrupt_urbs(struct uhci_controller *uhci)
+static void uhci_process_interrupt_urbs(struct uhci_controller *uhci,
+                                        enum uhci_qh_prio qh_idx)
 {
-    struct uhci_qh *qh = uhci->qhs[UHCI_QH_INTERRUPT];
+    struct uhci_qh *qh = uhci->qhs[qh_idx];
     struct uhci_td *td;
     paddr_t paddr;
 
@@ -420,33 +485,9 @@ static void uhci_process_interrupt_urbs(struct uhci_controller *uhci)
 static void uhci_process_urbs(struct uhci_controller *uhci)
 {
     /* FIXME: don't take spinlock inside an interrupt handler ! */
-    uhci_process_interrupt_urbs(uhci);
+    uhci_process_interrupt_urbs(uhci, UHCI_QH_INTERRUPT);
     uhci_process_control_urbs(uhci, UHCI_QH_CONTROL_LOW);
     uhci_process_control_urbs(uhci, UHCI_QH_CONTROL_FULL);
-
-    // TODO: process bulk transfers when implemented
-
-}
-
-/*
- * Start or stop the controller's scheduler.
- *
- * When disabled the controller first completes the current transaction before
- * halting.
- */
-static inline void
-uhci_enable_transfer(struct uhci_controller *uhci, bool enable)
-{
-    u16 val;
-
-    val = uhci_inw(uhci, UHCI_USBCMD);
-    if (enable)
-        val |= UHCI_USBCMD_RUN;
-    else
-        val &= ~UHCI_USBCMD_RUN;
-    uhci_outw(uhci, UHCI_USBCMD, val);
-
-    val = uhci_inw(uhci, UHCI_USBCMD);
 }
 
 /*
@@ -467,9 +508,21 @@ uhci_interrupt_handler(struct usb_controller *controller)
     if (status & UHCI_USBSTS_RESUME_DETECT)
         not_implemented("Resume received from device");
 
-    /* End of frame interrupt generated by the IOC TD inside UHCI_QH_IOC. */
     if (status & UHCI_USBSTS_USBINT)
         uhci_process_urbs(uhci);
+
+    /* Schedule has been paused, we can honor uhci_controller_destroy() */
+    if (uhci->destroy_pending && status & UHCI_USBSTS_HCHALTED) {
+        u32 val;
+
+        /* reset all devices on the */
+        val = uhci_inw(uhci, UHCI_USBCMD);
+        val |= UHCI_USBCMD_GLOBAL_RESET;
+        uhci_outw(uhci, UHCI_USBCMD, val);
+
+        /* FIXME: do not do this inside an interrupt !!! */
+        uhci_destroy(uhci);
+    }
 
     /* Clear interrupt. */
     uhci_outw(uhci, UHCI_USBSTS, status);
@@ -531,13 +584,6 @@ static error_t uhci_init_queue_heads(struct uhci_controller *uhci)
         if (!td)
             goto exit_error;
 
-        /*
-         * The last queue always contains a single TD with the IOC bit set
-         * so that an interrupt is triggered after each frame.
-         */
-        if (i == UHCI_QH_IOC)
-            td->status |= UHCI_TD_STATUS_IOC;
-
         paddr = mmu_find_physical((vaddr_t)td);
         qh->element_pointer = paddr & UHCI_PTR_LINK_MASK;
         qh->element_pointer |= UHCI_PTR_VF;
@@ -582,36 +628,24 @@ static error_t uhci_init_framelist(struct uhci_controller *uhci)
 }
 
 /*
+ * Start or stop the controller's scheduler.
  *
+ * When disabled the controller first completes the current transaction before
+ * halting.
  */
-static void uhci_controller_destroy(struct usb_controller *controller)
+static inline void
+uhci_enable_transfer(struct uhci_controller *uhci, bool enable)
 {
-    struct uhci_controller *uhci = controller->priv;
-    u32 val;
+    u16 val;
 
-    /*
-     * FIXME: This will cause crashes if ran after the controller has
-     *        been initialized since it may still reference the queue-heads
-     *        and TDs during the next frame.
-     */
-    if (uhci_inw(uhci, UHCI_USBCMD) & UHCI_USBCMD_RUN)
-        WARN("freeing UHCI while it is running");
-
-    /* disable controller */
     val = uhci_inw(uhci, UHCI_USBCMD);
-    val |= UHCI_USBCMD_GLOBAL_RESET;
-    val |= UHCI_USBCMD_HC_RESET;
+    if (enable)
+        val |= UHCI_USBCMD_RUN;
+    else
+        val &= ~UHCI_USBCMD_RUN;
     uhci_outw(uhci, UHCI_USBCMD, val);
 
-    for (int i = 0; i < UHCI_QH_COUNT; ++i) {
-        if (uhci->qhs[i]) {
-            uhci_qh_destroy(uhci->qhs[i]);
-            uhci->qhs[i] = NULL;
-        }
-    }
-
-    if (uhci->frame_list)
-        kfree_dma(uhci->frame_list);
+    val = uhci_inw(uhci, UHCI_USBCMD);
 }
 
 /*
@@ -809,19 +843,31 @@ static error_t uhci_controller_init(struct usb_controller *controller)
         goto fail;
     }
 
-    uhci_enable_transfer(uhci, true);
-
     err = uhci_init_root_hub(controller);
     if (err) {
         log_err("failed to initialize the root hub");
         goto fail;
     }
 
+    uhci_enable_transfer(uhci, true);
+
     return E_SUCCESS;
 
 fail:
-    uhci_controller_destroy(controller);
+    uhci_destroy(uhci);
     return err;
+}
+
+/*
+ *
+ */
+static void uhci_controller_destroy(struct usb_controller *controller)
+{
+    struct uhci_controller *uhci = controller->priv;
+
+    /* wait for the traffic to stop before freeing the QHs and TDs */
+    uhci->destroy_pending = true;
+    uhci_enable_transfer(uhci, false);
 }
 
 struct usb_controller_ops uhci_controller_ops = {

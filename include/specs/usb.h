@@ -5,6 +5,13 @@
 
 #include <stdint.h>
 
+/* Address used by a USB device when it is first powered or reset. */
+#define USB_DEFAULT_ADDRESS 0
+
+/* Maximum number of devices on a single bus. */
+#define USB_MAX_DEVICE 127
+#define USB_MAX_ADDRESS 127
+
 /*
  * USB setup packet's format.
  * @see USB 2.0 - 9.3
@@ -21,19 +28,11 @@ struct usb_setup {
 #define USB_SETUP_PACKET_SIZE 8
 static_assert(sizeof(struct usb_setup) == USB_SETUP_PACKET_SIZE);
 
-/* Address used by a USB device when it is first powered or reset. */
-#define USB_DEFAULT_ADDRESS 0
-
-/* Maximum number of devices on a single bus. */
-#define USB_MAX_DEVICE 127
-#define USB_MAX_ADDRESS 127
-
 /*
  * Format of a setup packet's bmRequestType field.
  */
 
 /* Data transfer direction */
-#define USB_SETUP_REQ_TYPE_TO_DEVICE 0
 #define USB_SETUP_REQ_TYPE_TO_HOST   BIT(7)
 /* Request type */
 #define USB_SETUP_REQ_TYPE_STANDARD (0 << 5)
@@ -112,6 +111,92 @@ static inline uint8_t usb_pid_field(enum usb_pid pid)
 #define USB_DESCRIPTOR_DEVICE_QUALIFIER 6
 #define USB_DESCRIPTOR_OTHER_SPEED_CFG  7
 #define USB_DESCRIPTOR_INTERFACE_POWER  8
+#define USB_DESCRIPTOR_HUB              41
+
+/*
+ * Standard USB Device Descriptor.
+ * @see USB 2.0 - table 9-8
+ */
+struct usb_device_descriptor {
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint16_t bcdUSB;
+    uint8_t bDeviceClass;
+    uint8_t bDeviceSubClass;
+    uint8_t bDeviceProtocol;
+    uint8_t bMaxPacketSize;
+    uint16_t idVendor;
+    uint16_t idProduct;
+    uint8_t iManufacturer;
+    uint8_t iProduct;
+    uint8_t iSerialNumber;
+    uint8_t bNumConfigurations;
+};
+
+/*
+ * Standard USB Configuration Descriptor.
+ * @see USB 2.0 - Table 9-10
+ */
+struct usb_configuration_descriptor {
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint16_t wTotalLength;
+    uint8_t bNumInterfaces;
+    uint8_t bConfigurationValue;
+    uint8_t iConfiguration;
+    uint8_t bmAttributes;
+    uint8_t bMaxPower;
+};
+
+/*
+ * Standard USB Endpoint Descriptor.
+ * @see USB 2.0 - Table 9-13
+ */
+struct usb_endpoint_descriptor {
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bEndpointAddress;
+    uint8_t bmAttributes;
+    uint16_t wMaxPacketSize;
+    uint8_t bInterval;
+};
+
+/*
+ * Standard USB Interface Descriptor.
+ * @see USB 2.0 - Table 9-12
+ */
+struct usb_interface_descriptor {
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bInterfaceNumber;
+    uint8_t bAlternateSetting;
+    uint8_t bNumEndpoints;
+    uint8_t bInterfaceClass;
+    uint8_t bInterfaceSubClass;
+    uint8_t bInterfaceProtocol;
+    uint8_t iInterface;
+};
+
+/*
+ * Standard USB String Descriptor.
+ * @see USB 2.0 - Table 9-15
+ *
+ * Variable length descriptor.
+ */
+struct usb_string_descriptor {
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint16_t bString[]; // UTF-16 little-endian characters
+};
+
+struct usb_hub_descriptor {
+    uint8_t  bLength;
+    uint8_t  bDescriptorType;
+    uint8_t  bNbrPorts;
+    uint16_t wHubCharacteristics;
+    uint8_t  bPwrOn2PwrGood;
+    uint8_t  bHubContrCurrent;
+};
 
 /*
  * Standard Feature Selectors
@@ -167,25 +252,6 @@ static inline uint8_t usb_pid_field(enum usb_pid pid)
 #define USB_HUB_STATUS_C_PORT_OVER_CURRENT BIT(3)
 #define USB_HUB_STATUS_C_PORT_RESET        BIT(4)
 
-/*
- * Standard USB Device Descriptor.
- * @see USB 2.0 - table 9-8
- */
-struct usb_device_descriptor {
-    uint8_t bLength;
-    uint8_t bDescriptorType;
-    uint16_t bcdUSB;
-    uint8_t bDeviceClass;
-    uint8_t bDeviceSubClass;
-    uint8_t bDeviceProtocol;
-    uint8_t bMaxPacketSize;
-    uint16_t idVendor;
-    uint16_t idProduct;
-    uint8_t iManufacturer;
-    uint8_t iProduct;
-    uint8_t iSerialNumber;
-    uint8_t bNumConfigurations;
-};
 
 /*
  * @see USB 2.0 - 9.6.6

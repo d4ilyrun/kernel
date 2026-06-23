@@ -50,11 +50,11 @@ void driver_register(driver_t *driver)
 
 error_t driver_probe(driver_t *driver, device_t *device)
 {
-    error_t status = driver->operations.probe(device);
-    if (status) {
-        log_variable_str(driver->name);
+    error_t status;
+
+    status = driver->operations.probe(device);
+    if (status)
         log_warn("Failed to probe '%s': %pe", driver->name, &status);
-    }
 
     return status;
 }

@@ -12,12 +12,6 @@
 #include <specs/usb.h>
 #include <sys/endian.h>
 
-static inline bool is_usb_hub_feature(u16 feature)
-{
-    return feature == USB_HUB_FEAT_C_HUB_LOCAL_POWER ||
-           feature == USB_HUB_FEAT_C_HUB_OVER_CURRENT;
-}
-
 static inline bool is_usb_port_feature(u16 feature)
 {
     switch (feature) {
@@ -42,58 +36,12 @@ static inline bool is_usb_port_feature(u16 feature)
     }
 }
 
-static error_t usb_clear_hub_feature(struct usb_hub *hub, u16 feature)
-{
-    if (!is_usb_hub_feature(feature))
-        return E_INVAL;
-
-    if (hub->clear_hub_feature)
-        return hub->clear_hub_feature(hub, feature);
-
-    return usb_device_request_raw(hub->udev,
-                                  USB_SETUP_REQ_TYPE_CLASS,
-                                  USB_REQUEST_CLEAR_FEATURE,
-                                  feature, 0, NULL, 0);
-}
-
-static error_t usb_clear_port_feature(struct usb_hub *hub, u16 feature,
-                                      u16 port)
-{
-    if (!is_usb_port_feature(feature))
-        return E_INVAL;
-    if (port > hub->max_ports)
-        return E_INVAL;
-
-    if (hub->clear_port_feature)
-        return hub->clear_port_feature(hub, feature, port);
-
-    return usb_device_request_raw(hub->udev,
-                                  USB_SETUP_REQ_TYPE_CLASS |
-                                  USB_SETUP_REQ_TYPE_FOR_PORT,
-                                  USB_REQUEST_CLEAR_FEATURE,
-                                  feature, port, NULL, 0);
-}
-
-static error_t usb_set_hub_feature(struct usb_hub *hub, u16 feature)
-{
-    if (!is_usb_hub_feature(feature))
-        return E_INVAL;
-
-    if (hub->set_hub_feature)
-        return hub->set_hub_feature(hub, feature);
-
-    return usb_device_request_raw(hub->udev,
-                                  USB_SETUP_REQ_TYPE_CLASS,
-                                  USB_REQUEST_SET_FEATURE,
-                                  feature, 0, NULL, 0);
-}
-
 static error_t usb_set_port_feature(struct usb_hub *hub, u16 feature,
                                     u16 port)
 {
     if (!is_usb_port_feature(feature))
         return E_INVAL;
-    if (port > hub->max_ports)
+    if (port <= 0 || port > hub->max_port)
         return E_INVAL;
 
     if (hub->set_port_feature)
@@ -106,15 +54,22 @@ static error_t usb_set_port_feature(struct usb_hub *hub, u16 feature,
                                   feature, port, NULL, 0);
 }
 
-static error_t usb_get_hub_status(struct usb_hub *hub, u32 *status)
+static error_t usb_clear_port_feature(struct usb_hub *hub, u16 feature,
+                                      u16 port)
 {
-    if (hub->get_hub_status)
-        return hub->get_hub_status(hub, status);
+    if (!is_usb_port_feature(feature))
+        return E_INVAL;
+    if (port <= 0 || port > hub->max_port)
+        return E_INVAL;
+
+    if (hub->clear_port_feature)
+        return hub->clear_port_feature(hub, feature, port);
 
     return usb_device_request_raw(hub->udev,
-                                  USB_SETUP_REQ_TYPE_CLASS,
-                                  USB_REQUEST_GET_STATUS,
-                                  0, 0, status, 4);
+                                  USB_SETUP_REQ_TYPE_CLASS |
+                                  USB_SETUP_REQ_TYPE_FOR_PORT,
+                                  USB_REQUEST_CLEAR_FEATURE,
+                                  feature, port, NULL, 0);
 }
 
 static error_t usb_get_port_status(struct usb_hub *hub, u16 port,
@@ -161,8 +116,8 @@ static error_t usb_hub_reset_port(struct usb_hub *hub, unsigned int port)
 
     err = usb_clear_port_feature(hub, USB_HUB_FEAT_PORT_RESET, port);
     if (err) {
-        log_warn("%s: failed to release reset for port %d",
-                 usb_device_name(hub->udev), port);
+        log_err("%s: failed to release reset for port %d",
+                usb_device_name(hub->udev), port);
         return err; /* return err since device is stuck reset */
     }
 
@@ -212,8 +167,7 @@ static error_t usb_hub_init_port_device(struct usb_hub *hub,
     if (err)
         goto fail;
 
-    err = usb_device_get_descriptor(udev, USB_DESCRIPTOR_DEVICE, 0,
-                                    &desc, sizeof(desc));
+    err = usb_device_get_descriptor(udev, USB_DESCRIPTOR_DEVICE, 0, &desc, 8);
     if (err) {
         log_err("failed to get device's descriptor: %pe", &err);
         goto fail;
@@ -221,9 +175,6 @@ static error_t usb_hub_init_port_device(struct usb_hub *hub,
 
     udev->pipes_in[USB_CONTROL_ENDPOINT]->max_packet_size = desc.bMaxPacketSize;
     udev->pipes_out[USB_CONTROL_ENDPOINT]->max_packet_size = desc.bMaxPacketSize;
-
-    // TODO: Find the matching driver (and select the proper configuration) !
-    log_info("Vendor: %04x, Product: %04x", desc.idVendor, desc.idProduct);
 
     return E_SUCCESS;
 
@@ -234,13 +185,13 @@ fail:
 /*
  *
  */
-static error_t usb_hub_connect_device(struct usb_hub *hub, unsigned int port,
-                                      enum usb_speed speed)
+static error_t usb_hub_connect(struct usb_hub *hub, unsigned int port,
+                               enum usb_speed speed)
 {
     struct usb_device *udev;
     error_t err;
 
-    log_info("%s: device connected to port %d",
+    log_info("%s: new device connected on port %d",
              usb_device_name(hub->udev), port);
 
     udev = usb_device_alloc();
@@ -254,11 +205,19 @@ static error_t usb_hub_connect_device(struct usb_hub *hub, unsigned int port,
     udev->speed = speed;
     udev->controller = hub->udev->controller;
 
-    usb_hub_reset_port(hub, port);
+    err = usb_hub_reset_port(hub, port);
+    if (err)
+        goto fail;
 
     err = usb_hub_init_port_device(hub, udev, port);
     if (err)
         goto fail;
+
+    err = usb_device_probe(udev);
+    if (err) {
+        log_err("failed to probe USB device: %pe", &err);
+        goto fail;
+    }
 
     hub->ports[port] = udev;
 
@@ -273,27 +232,32 @@ fail:
 /*
  *
  */
-static void usb_hub_disconnect_device(struct usb_hub *hub, unsigned int port)
+static void usb_hub_disconnect(struct usb_hub *hub, unsigned int port)
 {
-    struct usb_device *udev = hub->ports[port];
+    struct usb_device *udev;
 
     log_info("%s: device disconnected from port %d",
              usb_device_name(hub->udev), port);
+
+    udev = hub->ports[port];
+    if (!udev)
+        return;
 
     usb_device_destroy(udev);
     hub->ports[port] = NULL;
 }
 
 /*
- * Detect USB PnP events (device connect/disconnect) and perform the necessary
- * actions.
+ * Detect USB PnP events (device connect/disconnect) and update the connected
+ * device's state accordingly.
  */
 static void usb_hub_poll_work(void *data)
 {
     struct usb_hub *hub = data;
 
     INFINITE_LOOP() {
-        for (unsigned int port = 0; port < hub->max_ports; ++port) {
+        /* NOTE: A valid port number for a hub is greater than zero. */
+        for (unsigned int port = 1; port <= hub->max_port; ++port) {
             u16 status;
             u16 change;
             enum usb_speed speed;
@@ -306,9 +270,9 @@ static void usb_hub_poll_work(void *data)
 
             if (change & USB_HUB_STATUS_C_PORT_CONNECTION) {
                 if (status & USB_HUB_STATUS_PORT_CONNECTION)
-                    usb_hub_connect_device(hub, port, speed);
+                    usb_hub_connect(hub, port, speed);
                 else
-                    usb_hub_disconnect_device(hub, port);
+                    usb_hub_disconnect(hub, port);
             }
 
             usb_clear_port_feature(hub, USB_HUB_FEAT_C_PORT_ENABLE, port);
@@ -326,10 +290,13 @@ static void usb_hub_destroy(struct usb_device *udev)
 {
     struct usb_hub *hub = udev->priv;
 
+    if (!hub)
+        return;
+
     worker_release(&hub->worker);
 
     if (hub->ports) {
-        for (unsigned int i = 0; i < hub->max_ports; ++i)
+        for (unsigned int i = 0; i <= hub->max_port; ++i)
             usb_device_destroy(hub->ports[i]);
         kfree(hub->ports);
     }
@@ -342,23 +309,76 @@ static void usb_hub_destroy(struct usb_device *udev)
  */
 error_t usb_hub_init(struct usb_hub *hub,
                      struct usb_device *udev,
-                     unsigned int max_ports)
+                     unsigned int max_port)
 {
     struct usb_device **ports;
 
     /* done first so we can call usb_device_destroy() inside the error path */
     hub->udev = udev;
+    udev->priv = hub;
     udev->destroy = usb_hub_destroy;
 
-    ports = kcalloc(max_ports, sizeof(*ports), KMALLOC_KERNEL);
+    if (max_port <= 0)
+        return E_INVAL;
+
+    ports = kcalloc(max_port + 1, sizeof(*ports), KMALLOC_KERNEL);
     if (!ports)
         return E_NOMEM;
 
     hub->ports = ports;
-    hub->max_ports = max_ports;
+    hub->max_port = max_port;
 
     worker_init(&hub->worker);
     worker_start(&hub->worker, usb_hub_poll_work, hub);
 
     return E_SUCCESS;
 }
+
+/*
+ *
+ */
+static error_t usb_hub_probe(struct device *device)
+{
+    struct usb_device *udev = to_usb_device(device);
+    struct usb_hub_descriptor desc;
+    struct usb_hub *hub;
+    error_t err;
+
+    hub = kcalloc(1, sizeof(*hub), KMALLOC_KERNEL);
+    if (!hub)
+        return E_NOMEM;
+
+    err = usb_device_request_raw(udev,
+                                 USB_SETUP_REQ_TYPE_CLASS,
+                                 USB_REQUEST_GET_DESCRIPTOR,
+                                 USB_DESCRIPTOR_HUB, 0, &desc,
+                                 sizeof(desc));
+    if (err) {
+        log_err("failed to get hub descriptor");
+        kfree(hub); /* hub isn't free'd by usb_device_destroy() at this stage */
+        return err;
+    }
+
+    err = usb_hub_init(hub, udev, desc.bNbrPorts);
+    if (err)
+        return err;
+
+    return E_SUCCESS;
+}
+
+static const struct usb_compatible usb_hub_compatible[] = {
+    USB_COMPATIBLE_CLASS(0x9),
+    {},
+};
+
+static struct usb_driver usb_hub_driver = {
+    .compatible = usb_hub_compatible,
+    .driver = {
+        .name = "usb_hub",
+        .operations = {
+            .probe = usb_hub_probe,
+        },
+    },
+};
+
+DECLARE_USB_DRIVER(hub, &usb_hub_driver);

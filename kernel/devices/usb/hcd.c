@@ -121,7 +121,6 @@ static struct usb_controller *hcd_init(struct pci_device *pcidev)
         return PTR_ERR(E_NOT_SUPPORTED);
     }
 
-    INIT_SPINLOCK(hcd->lock);
     hcd->ops = hcd_ops;
     hcd->pcidev = pcidev;
     hcd->bus = atomic_inc(&hcd_bus_count) + 1;

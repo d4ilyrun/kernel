@@ -116,7 +116,10 @@ else
 $(info Network TAP interface: $(QEMU_TAP_IF) (disabled))
 endif
 
-QEMU_ARGS += -device piix4-usb-uhci -device usb-mouse,id=usb_mouse
+QEMU_ARGS += -device piix4-usb-uhci \
+			 -device usb-hub,bus=usb-bus.0,port=2 \
+			 -device usb-mouse,port=2.1 \
+
 
 qemu: $(KERNEL_ISO)
 	$(call LOG,QEMU,$^)
