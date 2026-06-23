@@ -73,6 +73,10 @@ SECTIONS
         *(.data.driver.init)
         _kernel_drivers_end = .;
 
+        _kernel_usb_drivers_start = .;
+        *(.data.driver.usb.init)
+        _kernel_usb_drivers_end = .;
+
 #define INITCALL_SECTION(_section) \
         _kernel_init_ ## _section ## _start = .; \
         *(.data.init._section) \

@@ -55,16 +55,19 @@ DEBUG ?= y
 
 CFLAGS   := -std=gnu11 -Werror -Wall -Wextra -MMD -MP
 CFLAGS   += -fdiagnostics-color=always
-CPPFLAGS += -I$(INC_DIR)
+CFLAGS   += -Wno-unused-parameter
+CFLAGS   += -Wno-unused-function
 
-FREESTANDING_CFLAGS    := -ffreestanding
-FREESTANDING_CPPFLAGS  :=
-FREESTANDING_LDFLAGS   := -nostdlib
+CPPFLAGS += -I$(INC_DIR)
 
 ifneq ($(DEBUG),)
 CFLAGS   += -g3
 CPPFLAGS += -DNDEBUG
 endif
+
+FREESTANDING_CFLAGS    := -ffreestanding
+FREESTANDING_CPPFLAGS  :=
+FREESTANDING_LDFLAGS   := -nostdlib
 
 include $(PWD)/functions.mk
 

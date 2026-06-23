@@ -75,6 +75,10 @@ KERNEL_SRCS := 	\
 	devices/ethernet.c \
 	devices/input.c \
 	devices/ata.c \
+	devices/usb/hcd.c \
+	devices/usb/uhci.c \
+	devices/usb/device.c \
+	devices/usb/hub.c \
 	devices/rtl8139.c \
 	devices/ramdisk.c \
 	devices/framebuffer.c
@@ -136,6 +140,10 @@ $(KERNEL_CONFIG_HEADER): $(REPO_ROOT)/.config
 
 QEMU_TAP_IF ?= tap0
 QEMU_HAS_TAP := $(shell test -d /sys/class/net/$(QEMU_TAP_IF) && echo y)
+
+QEMU_ARGS += -device piix4-usb-uhci \
+			 -device usb-hub,bus=usb-bus.0,port=2 \
+			 -device usb-mouse,port=2.1 \
 
 ifeq ($(QEMU_HAS_TAP),y)
 # - RTL8139 NIC connected to a tap interface for easy dummping (also dumped into file)
