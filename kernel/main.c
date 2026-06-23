@@ -219,7 +219,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
             };
 
             framebuffer_register(t->framebuffer_addr, &fb_params);
-            console_set_active("fb0");
+            // console_set_active("fb0");
         }
     }
 
@@ -229,6 +229,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
     initcall_do_level(INIT_STEP_NORMAL);
     initcall_do_level(INIT_STEP_LATE);
 
+    while (1);
     err = kernel_start_init_process();
     if (err)
         PANIC("failed to find a suitable init process: %pe", &err);

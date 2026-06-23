@@ -121,7 +121,7 @@ QEMU_ARGS += -device piix4-usb-uhci -device usb-mouse,id=usb_mouse
 qemu: $(KERNEL_ISO)
 	$(call LOG,QEMU,$^)
 	$(call ASSERT_EXE_EXISTS,$(QEMU))
-	$(SILENT)$(QEMU) -cdrom $(KERNEL_ISO) -serial stdio $(QEMU_ARGS)
+	$(SILENT)$(QEMU) -cdrom $(KERNEL_ISO) -nographic $(QEMU_ARGS)
 
 qemu-server: $(KERNEL_ISO)
 	$(call LOG,QEMU,$^)
