@@ -187,8 +187,8 @@ static inline pde_t *mmu_get_active_page_directory(void)
  */
 static inline pde_t *pde_get(vaddr_t addr)
 {
-        mmu_decode_t decode = { .raw = addr };
-        return &mmu_get_active_page_directory()[decode.pde];
+    mmu_decode_t decode = {.raw = addr};
+    return &mmu_get_active_page_directory()[decode.pde];
 }
 
 /*
@@ -196,16 +196,16 @@ static inline pde_t *pde_get(vaddr_t addr)
  */
 static inline pte_t *pte_get(vaddr_t addr)
 {
-        mmu_decode_t decode = { .raw = addr };
-        page_table_t page_table;
+    mmu_decode_t decode = {.raw = addr};
+    page_table_t page_table;
 
-        if (unlikely(!paging_enabled)) {
-                /* reference physical address when paging is disabled */
-                page_table = (pte_t *)FROM_PFN(pde_get(addr)->page_table);
-                return &page_table[decode.pte];
-        }
+    if (unlikely(!paging_enabled)) {
+        /* reference physical address when paging is disabled */
+        page_table = (pte_t *)FROM_PFN(pde_get(addr)->page_table);
+        return &page_table[decode.pte];
+    }
 
-        return &RECURSIVE_PAGE_TABLE_ADDRESS(decode.pde)[decode.pte];
+    return &RECURSIVE_PAGE_TABLE_ADDRESS(decode.pde)[decode.pte];
 }
 
 /**
@@ -275,8 +275,7 @@ void mmu_destroy(paddr_t mmu)
  * Configure the caching policy on a page level. The caller must invalidate
  * the address' TLB entry after calling this function.
  */
-static error_t
-__mmu_set_policy(vaddr_t vaddr, int policy)
+static error_t __mmu_set_policy(vaddr_t vaddr, int policy)
 {
     pte_t *pte;
     bool pat = false;
@@ -425,7 +424,7 @@ void mmu_clone(paddr_t destination)
 
         // Setup PTEs for copy-on-write
         for (size_t j = 0; j < PTE_COUNT; ++j) {
-            mmu_decode_t addr = { .pde = i, .pte = j, .offset = 0 };
+            mmu_decode_t addr = {.pde = i, .pte = j, .offset = 0};
             page = page_get(pfn_to_page(page_table[j].page_frame));
             if (page_table[j].writable) {
                 page->flags |= PAGE_COW;
@@ -844,8 +843,7 @@ static INTERRUPT_HANDLER_FUNCTION(page_fault)
 
 page_fault_error:
 
-    if (!thread_is_kernel(current) &&
-        !IS_KERNEL_ADDRESS(frame->frame.eip)) {
+    if (!thread_is_kernel(current) && !IS_KERNEL_ADDRESS(frame->frame.eip)) {
         siginfo_t sig_info = {
             .si_signo = SIGSEGV,
             .si_code = 0,
