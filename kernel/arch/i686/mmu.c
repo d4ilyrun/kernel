@@ -764,9 +764,10 @@ bool mmu_init(void)
     mmu_init_page_directory(page_directory);
     mmu_load(page_directory);
 
-    /* Enable 32b mode paging. */
+    log_warn("Enabling PAE paging");
+
     val = read_cr4();
-    val &= ~CR4_PAE;
+    val |= CR4_PAE;
     write_cr4(val);
 
     val = read_cr0();

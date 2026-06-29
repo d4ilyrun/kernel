@@ -41,9 +41,7 @@ typedef u64 native_t;
 #error Unsuported architecture
 #endif
 
-/// Architecture independent type for physical addresses
-typedef native_t paddr_t;
-/// Architecture independent type for virtual addresses
+typedef uint64_t paddr_t;
 typedef native_t vaddr_t;
 
 /** An IPv4 address */
