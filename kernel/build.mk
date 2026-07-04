@@ -73,6 +73,7 @@ KERNEL_SRCS := 	\
 	devices/pci.c \
 	devices/block.c \
 	devices/ethernet.c \
+	devices/input.c \
 	devices/ata.c \
 	devices/rtl8139.c \
 	devices/ramdisk.c \

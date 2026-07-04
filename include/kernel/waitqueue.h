@@ -67,12 +67,17 @@ bool waitqueue_is_empty(struct waitqueue *);
  */
 void waitqueue_enqueue_locked(struct waitqueue *, struct thread *);
 
+static inline void waitqueue_lock(struct waitqueue *wq)
+{
+    spinlock_acquire(&wq->lock);
+}
+
 /** Mark a thread as waiting for the event to finish */
-#define waitqueue_enqueue(waitqueue, thread)         \
-    ({                                               \
-        spinlock_acquire(&(waitqueue)->lock);        \
-        waitqueue_enqueue_locked(waitqueue, thread); \
-    })
+static inline void waitqueue_enqueue(struct waitqueue *wq, struct thread *t)
+{
+    waitqueue_lock(wq);
+    waitqueue_enqueue_locked(wq, t);
+}
 
 /** @return The first thread inside the waitqueue */
 const struct thread *waitqueue_peek(struct waitqueue *);
