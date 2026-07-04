@@ -23,7 +23,7 @@ static error_t device_check_name(const struct device *new)
 
     ASSERT(spinlock_is_held(&registered_devices_lock));
 
-    if (!new->name)
+    if (!new->name[0])
         return E_INVAL;
 
     FOREACH_LLIST_ENTRY(existing, &registered_devices, this) {

@@ -123,7 +123,7 @@ struct device *ramdisk_create(const char *name, paddr_t start, size_t size)
     blkdev->dev.fops = &ramdisk_device_fops;
     blkdev->block_size = PAGE_SIZE;
     blkdev->block_count = size / PAGE_SIZE;
-    device_set_name(&blkdev->dev, name);
+    device_set_name(&blkdev->dev, "%s", name);
 
     err = block_device_register(&ramdisk->dev);
     if (err) {

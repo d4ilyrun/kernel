@@ -43,13 +43,10 @@ error_t ethernet_device_register(struct ethernet_device *device)
 {
     struct net_interface *interface;
     struct worker *worker;
-    char name[NAME_MAX];
     error_t ret;
 
-    snprintk(name, sizeof(name), "eth%u", atomic_inc(&ethernet_device_index));
-
-    if (!ethernet_device_name(device))
-        ethernet_device_set_name(device, name);
+    device_set_name(&device->device, "eth%u",
+                    atomic_inc(&ethernet_device_index));
 
     worker = kcalloc(1, sizeof(*worker), KMALLOC_KERNEL);
     if (worker == NULL)
