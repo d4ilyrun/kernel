@@ -52,9 +52,11 @@
 
 #include <kernel/error.h>
 #include <kernel/types.h>
+#include <kernel/printk.h>
 
 #include <libalgo/linked_list.h>
 
+#include <limits.h>
 #include <stddef.h>
 
 struct file_operations;
@@ -79,7 +81,7 @@ typedef struct device {
 
     node_t this; ///< Used to list devices, internal use only
 
-    const char *name; ///< The name of the device
+    char name[NAME_MAX]; ///< The name of the device
     driver_t *driver; ///< The driver for this device
 
     /** Operations applied to the device's underlying file
@@ -109,13 +111,11 @@ struct device *device_find(const char *name);
 struct file *device_open(device_t *);
 
 /** Set the name of the device */
-static inline void device_set_name(struct device *dev, const char *name)
-{
-    dev->name = name;
-}
+#define device_set_name(dev, fmt, ...) \
+    snprintk((dev)->name, sizeof((dev)->name), fmt, ##__VA_ARGS__)
 
 /** @return The name of the device */
-static inline const char *device_name(struct device *dev)
+static inline const char *device_name(const struct device *dev)
 {
     return dev->name;
 }
