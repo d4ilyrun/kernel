@@ -20,4 +20,5 @@ KERNEL_ARCH_SRCS := \
     panic.c \
     devices/pic.c \
     devices/pit.c \
-    devices/uart.c
+    devices/uart.c \
+    devices/i8042.c

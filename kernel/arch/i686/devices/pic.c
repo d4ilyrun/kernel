@@ -26,10 +26,6 @@
 
 #define PIC_ICW4_8086 0x01
 
-/** INTERRUPT HANDLERS */
-
-static INTERRUPT_HANDLER_FUNCTION(irq_keyboard);
-
 void pic_reset()
 {
     // ICW1: Start init process
@@ -53,8 +49,6 @@ void pic_reset()
     outb(PIC_DATA(PIC_SLAVE), 0xFF);
 
     pic_unmask_irq(IRQ_CASCADE); /* Allow IRQs on slave to be triggered */
-    interrupts_install_handler(PIC_MASTER_VECTOR + IRQ_KEYBOARD,
-                               INTERRUPT_HANDLER(irq_keyboard), NULL);
 }
 
 void pic_eoi(pic_irq irq)
@@ -82,27 +76,4 @@ void pic_mask_irq(pic_irq irq)
 
     BIT_SET(mask, irq % PIC_SIZE);
     outb(PIC_DATA(pic), mask);
-}
-
-static INTERRUPT_HANDLER_FUNCTION(irq_keyboard)
-{
-    UNUSED(data);
-
-    static const u8 ascii[128] = {
-        0x0,  0x0,  '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-',  '=',
-        0x0,  0x0,  'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[',  ']',
-        '\n', 0x0,  'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`',
-        0x0,  '\\', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 0x0,  '*',
-        0x0,  ' ',  0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,  0x0,
-        0x0,  '7',  '8', '9', '-', '4', '5', '6', '+', '1', '2', '3', '0',  '.',
-    };
-
-    const u8 scan_code = inb(0x60);
-
-    // If not key release;  write character
-    if (!BIT_READ(scan_code, 7) && ascii[scan_code]) {
-        // TODO: dev input
-    }
-
-    return INTERRUPT_HANDLED;
 }
