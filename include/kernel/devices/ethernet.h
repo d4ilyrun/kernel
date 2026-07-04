@@ -97,7 +97,7 @@ static inline void *ethernet_device_priv(struct ethernet_device *dev)
 static inline void
 ethernet_device_set_name(struct ethernet_device *dev, const char *name)
 {
-    device_set_name(&dev->device, name);
+    device_set_name(&dev->device, "%s", name);
 }
 
 /** @return The name of the device */
