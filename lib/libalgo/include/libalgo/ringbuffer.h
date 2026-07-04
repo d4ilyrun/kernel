@@ -1,5 +1,5 @@
 /*
- * @file libalgo/linked_list.h
+ * @file libalgo/ringbuffer.h
  *
  * @defgroup libalgo_ringbuffer Ring buffer
  * @ingroup libalgo
