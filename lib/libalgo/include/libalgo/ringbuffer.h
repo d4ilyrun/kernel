@@ -14,6 +14,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 /** @struct ringbuffer */
 struct ringbuffer {
@@ -55,11 +56,19 @@ static inline size_t ringbuffer_available(const struct ringbuffer *rb)
 }
 
 /**
- * Compute the number of bytes inside a tinringbuffer.
+ * Compute the number of bytes inside a ringbuffer.
  */
 static inline size_t ringbuffer_remaining(const struct ringbuffer *rb)
 {
     return rb->buf_end - rb->buf_start - ringbuffer_available(rb);
+}
+
+/**
+ * @return true if the ringbuffer is empty.
+ */
+static inline bool ringbuffer_is_empty(const struct ringbuffer *rb)
+{
+    return ringbuffer_remaining(rb) == 0;
 }
 
 /**
