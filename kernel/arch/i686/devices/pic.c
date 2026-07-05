@@ -52,10 +52,7 @@ void pic_reset()
     outb(PIC_DATA(PIC_MASTER), 0xFF);
     outb(PIC_DATA(PIC_SLAVE), 0xFF);
 
-    // Set and enable custom interrupts
-    log_info("Setting up custom IRQs handlers");
-    pic_enable_irq(IRQ_CASCADE); /* Allow IRQs on slave to be triggered */
-    pic_enable_irq(IRQ_KEYBOARD);
+    pic_unmask_irq(IRQ_CASCADE); /* Allow IRQs on slave to be triggered */
     interrupts_install_handler(PIC_MASTER_VECTOR + IRQ_KEYBOARD,
                                INTERRUPT_HANDLER(irq_keyboard), NULL);
 }
@@ -69,7 +66,7 @@ void pic_eoi(pic_irq irq)
     outb(PIC_COMMAND(PIC_MASTER), PIC_CMD_EOI);
 }
 
-void pic_enable_irq(pic_irq irq)
+void pic_unmask_irq(pic_irq irq)
 {
     const u16 pic = (irq >= PIC_SIZE) ? PIC_SLAVE : PIC_MASTER;
     u8 mask = inb(PIC_DATA(pic));
@@ -78,7 +75,7 @@ void pic_enable_irq(pic_irq irq)
     outb(PIC_DATA(pic), mask);
 }
 
-void pic_disable_irq(pic_irq irq)
+void pic_mask_irq(pic_irq irq)
 {
     const u16 pic = (irq >= PIC_SIZE) ? PIC_SLAVE : PIC_MASTER;
     u8 mask = inb(PIC_DATA(pic));
@@ -106,8 +103,6 @@ static INTERRUPT_HANDLER_FUNCTION(irq_keyboard)
     if (!BIT_READ(scan_code, 7) && ascii[scan_code]) {
         // TODO: dev input
     }
-
-    pic_eoi(IRQ_KEYBOARD);
 
     return INTERRUPT_HANDLED;
 }

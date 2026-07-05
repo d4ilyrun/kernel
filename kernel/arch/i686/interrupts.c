@@ -6,6 +6,7 @@
 #include <kernel/syscalls.h>
 
 #include <kernel/arch/i686/gdt.h>
+#include <kernel/arch/i686/devices/pic.h>
 
 #include <dailyrun/arch/i686/syscalls.h>
 
@@ -99,6 +100,30 @@ void arch_interrupt_handle(interrupt_frame frame)
     }
 }
 
+static void idt_irq_mask(const struct interrupt_chip *chip, int irq)
+{
+    UNUSED(chip);
+    if (irq >= PIC_MASTER_VECTOR &&
+        irq <= PIC_MASTER_VECTOR + IRQ_ATA_SECONDARY)
+        pic_mask_irq(irq - PIC_MASTER_VECTOR);
+}
+
+static void idt_irq_unmask(const struct interrupt_chip *chip, int irq)
+{
+    UNUSED(chip);
+    if (irq >= PIC_MASTER_VECTOR &&
+        irq <= PIC_MASTER_VECTOR + IRQ_ATA_SECONDARY)
+        pic_unmask_irq(irq - PIC_MASTER_VECTOR);
+}
+
+static void idt_irq_eoi(const struct interrupt_chip *chip, int irq)
+{
+    UNUSED(chip);
+    if (irq >= PIC_MASTER_VECTOR &&
+        irq <= PIC_MASTER_VECTOR + IRQ_ATA_SECONDARY)
+        pic_eoi(irq - PIC_MASTER_VECTOR);
+}
+
 /*
  *
  */
@@ -138,6 +163,11 @@ error_t arch_interrupts_init(struct interrupt_chip *root_chip)
 
     root_chip->interrupts = idt_interrupt_vectors;
     root_chip->interrupt_count = IDT_LENGTH;
+
+    /* TODO: Stop hardcoding this to use the PIC */
+    root_chip->irq_unmask = idt_irq_unmask;
+    root_chip->irq_mask = idt_irq_mask;
+    root_chip->irq_eoi = idt_irq_eoi;
 
     /*
      * Install every stub interrupt handlers (see interrupts.asm) and remove

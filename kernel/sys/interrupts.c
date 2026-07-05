@@ -29,8 +29,11 @@ interrupt_chip_interrupt_handle(const struct interrupt_chip *chip,
         return E_NOENT;
 
     FOREACH_LLIST_ENTRY (handler, &chip->interrupts[nr].handlers, this) {
-        if (handler->handler(handler->data) == INTERRUPT_HANDLED)
+        if (handler->handler(handler->data) == INTERRUPT_HANDLED) {
+            if (chip->irq_eoi)
+                chip->irq_eoi(chip, nr);
             break;
+        }
     }
 
     return E_SUCCESS;
@@ -76,6 +79,8 @@ interrupt_chip_install_handler(struct interrupt_chip *chip, unsigned int nr,
         return -E_INVAL;
 
     llist_add_tail(&chip->interrupts[nr].handlers, &handler->this);
+    if (chip->irq_unmask)
+        chip->irq_unmask(chip, nr);
 
     return E_SUCCESS;
 }

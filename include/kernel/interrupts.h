@@ -63,6 +63,9 @@ struct interrupt_vector {
 struct interrupt_chip {
     struct interrupt_vector *interrupts; /* Array of struct interrupt_vector */
     size_t                  interrupt_count;
+    void (*irq_mask)(const struct interrupt_chip *, int irq);
+    void (*irq_unmask)(const struct interrupt_chip *, int irq);
+    void (*irq_eoi)(const struct interrupt_chip *, int irq);
 };
 
 /** Dynamically set an interrupt handler
