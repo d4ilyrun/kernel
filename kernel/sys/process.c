@@ -438,7 +438,7 @@ void process_init_kernel_process(void)
  */
 static struct fd *fd_alloc(void)
 {
-    return kmalloc(sizeof(struct fd), KMALLOC_KERNEL);
+    return kcalloc(1, sizeof(struct fd), KMALLOC_KERNEL);
 }
 
 /*
@@ -450,6 +450,16 @@ static void fd_free(struct fd *fd)
 }
 
 /*
+ *
+ */
+static void fd_init(struct fd *fdp, struct file *file, int flags)
+{
+    atomic_write(&fdp->refcount, 1);
+    fdp->file = file;
+    fdp->flags = flags;
+}
+
+/*
  * Release a file description.
  *
  * The caller should make sure that no reference to this file description
@@ -457,21 +467,21 @@ static void fd_free(struct fd *fd)
  */
 void __fd_put(struct fd *fd)
 {
+    log_dbg("fd_put(%p)", fd);
+    stack_trace();
+
     file_put(fd->file);
     fd_free(fd);
 }
 
 int process_add_fd(struct process *process, struct file *file, int flags)
 {
-    struct fd *fd;
+    struct fd *fdp;
 
-    fd = fd_alloc();
-    if (!fd)
+    fdp = fd_alloc();
+    if (!fdp)
         return -E_NOMEM;
-
-    atomic_write(&fd->refcount, 1);
-    fd->file = file;
-    fd->flags = flags;
+    fd_init(fdp, file, flags);
 
     /*
      * Find the first available file descriptor.
@@ -480,12 +490,12 @@ int process_add_fd(struct process *process, struct file *file, int flags)
         for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
             if (process->fds[i] != NULL)
                 continue;
-            process->fds[i] = fd;
+            process->fds[i] = fdp;
             return i;
         }
     }
 
-    fd_free(fd);
+    fd_free(fdp);
     return -E_MFILE;
 }
 
@@ -516,9 +526,7 @@ int process_set_fd(struct process *proc, int fd, struct file *file, int flags)
     fdp = fd_alloc();
     if (!fdp)
         return -E_NOMEM;
-
-    fdp->file = file;
-    fdp->flags = flags;
+    fd_init(fdp, file, flags);
 
     /*
      * Find the first available file descriptor.
