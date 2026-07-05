@@ -72,9 +72,9 @@ void pic_reset();
 void pic_eoi(pic_irq);
 
 /** Disable the given IRQ */
-void pic_disable_irq(pic_irq);
+void pic_mask_irq(pic_irq);
 
 /** Enable the given IRQ */
-void pic_enable_irq(pic_irq);
+void pic_unmask_irq(pic_irq);
 
 #endif /* KERNEL_ARCH_I686_DEVICES_PIC_H */

@@ -211,7 +211,6 @@ static void pci_device_setup_bars(struct pci_device *device)
 static interrupt_return_t __pci_device_handle_interrupt(void *device)
 {
     struct pci_device *pdev = device;
-    interrupt_return_t ret;
 
     /*
      * NOTE: What if the interrupt line is shared with a non-pci interrupt?
@@ -221,14 +220,7 @@ static interrupt_return_t __pci_device_handle_interrupt(void *device)
     if (!pdev || !pdev->interrupt_handler)
         return INTERRUPT_IGNORED;
 
-    interrupts_disable();
-
-    ret = pdev->interrupt_handler(pdev->interrupt_data);
-
-    pic_eoi(pdev->interrupt_line);
-    interrupts_enable();
-
-    return ret;
+    return pdev->interrupt_handler(pdev->interrupt_data);
 }
 
 /*
@@ -238,11 +230,7 @@ error_t pci_device_install_interrupt_handler(struct pci_device *pdev,
                                              interrupt_handler_func_t handler,
                                              void *data)
 {
-    uint8_t interrupt;
-
     pdev->interrupt_line = pci_device_read_header(pdev, INTERRUPT_LINE);
-    interrupt = PIC_MASTER_VECTOR + pdev->interrupt_line;
-
     if (!pdev->interrupt_line)
         return E_SUCCESS;
 
@@ -250,8 +238,8 @@ error_t pci_device_install_interrupt_handler(struct pci_device *pdev,
     pdev->interrupt_handler = handler;
 
     /* TODO: Implement MSI + remove dependency on arch-specifi PIC IRQ. */
-    interrupts_install_handler(interrupt, __pci_device_handle_interrupt, pdev);
-    pic_enable_irq(pdev->interrupt_line);
+    interrupts_install_handler(PIC_MASTER_VECTOR + pdev->interrupt_line,
+                               __pci_device_handle_interrupt, pdev);
 
     pci_device_enable_interrupts(pdev, true);
 
