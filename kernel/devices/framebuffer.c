@@ -11,6 +11,7 @@
 #include <kernel/atomic.h>
 #include <kernel/types.h>
 #include <kernel/vm.h>
+#include <kernel/interrupts.h>
 
 #include <fonts/terminal.h>
 
@@ -173,8 +174,11 @@ static ssize_t framebuffer_console_write(const struct console *console,
                                          const char *buffer, size_t bytes)
 {
     struct framebuffer *fb;
+    bool interrupts;
 
     fb = container_of(console, struct framebuffer, console);
+
+    interrupts = interrupts_test_and_disable();
     spinlock_acquire(&fb->console_lock);
 
     for (size_t i = 0; i < bytes; ++i) {
@@ -207,6 +211,9 @@ static ssize_t framebuffer_console_write(const struct console *console,
     }
 
     spinlock_release(&fb->console_lock);
+    if (interrupts)
+            interrupts_enable();
+
     return 0;
 }
 
