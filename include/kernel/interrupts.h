@@ -27,6 +27,7 @@
 
 #include <kernel/error.h>
 #include <kernel/types.h>
+#include <kernel/atomic.h>
 
 #include <libalgo/linked_list.h>
 
@@ -34,8 +35,9 @@
  *  Values returned by an interrupt handler.
  */
 typedef enum interrupt_return {
-    INTERRUPT_HANDLED, /*!< Interrupt was handled by the handler. */
-    INTERRUPT_IGNORED, /*!< Interrupt was for another handler. */
+    INTERRUPT_HANDLED,      /*!< Interrupt was handled by the handler. */
+    INTERRUPT_THREADED,     /*!< Interrupt was handled by the handler. */
+    INTERRUPT_IGNORED,      /*!< Interrupt was for another handler. */
 } interrupt_return_t;
 
 /**
@@ -49,9 +51,16 @@ typedef struct interrupt_frame interrupt_frame;
 typedef interrupt_return_t (*interrupt_handler_func_t)(void *);
 
 struct interrupt_handler {
+    struct interrupt_chip       *chip;
+    unsigned int                irq; /* irq number (relative to the chip's base) */
     interrupt_handler_func_t    handler;
     void                        *data;
-    node_t                      this; /* used by interrupt_vector->handlers */
+    node_t                      this;    /* used by interrupt_vector->handlers */
+
+    /* for threaded interrupts */
+    interrupt_handler_func_t    threaded_handler;
+    struct thread               *thread;
+    atomic_t                    thread_scheduled;
 };
 
 /** A single hardware IRQ vector. */
@@ -70,12 +79,29 @@ struct interrupt_chip {
 
 /** Dynamically set an interrupt handler
  *
+ *  @param irq The  IRQ number to associate the handler with
+ *  @param handler  The handler function called when the interrupt occurs
+ *  @param threaded The handler function called inside a thread when the handler
+ *                  returns INTERRUPT_THREADED.
+ *  @param data     Data passed to the interrupt handler
+ */
+error_t interrupts_install_threaded_handler(unsigned int nr,
+                                            interrupt_handler_func_t handler,
+                                            interrupt_handler_func_t threaded,
+                                            void *data);
+
+/** Dynamically set an interrupt handler
+ *
  *  @param irq The IRQ number to associate the handler with
  *  @param handler The handler function called when the interrupt occurs
  *  @param data Data passed to the interrupt handler
  */
-error_t
-interrupts_install_handler(unsigned int irq, interrupt_handler_func_t, void *);
+static inline error_t
+interrupts_install_handler(unsigned int irq, interrupt_handler_func_t handler,
+                           void *data)
+{
+    return interrupts_install_threaded_handler(irq, handler, NULL, data);
+}
 
 /** Install a pre-configured interrupt handler.
  *

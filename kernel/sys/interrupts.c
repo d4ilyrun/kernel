@@ -7,10 +7,31 @@
 #include <kernel/logger.h>
 #include <kernel/sched.h>
 #include <kernel/signal.h>
+#include <kernel/worker.h>
 
 #include <libalgo/linked_list.h>
 
 static struct interrupt_chip interrupt_root_chip;
+
+/*
+ *
+ */
+static void threaded_interrupt(void *cookie)
+{
+    struct interrupt_handler *handler = cookie;
+    struct interrupt_chip *chip = handler->chip;
+
+    while (true) {
+        /* The thread could well have been re-scheduled by the hw handler
+         * since we unmask the irq before blocking it. */
+        if (!atomic_read(&handler->thread_scheduled))
+            sched_block_thread(current);
+        atomic_write(&handler->thread_scheduled, false);
+
+        handler->threaded_handler(handler->data);
+        chip->irq_unmask(chip, handler->irq);
+    }
+}
 
 /*
  *
@@ -28,14 +49,32 @@ interrupt_chip_interrupt_handle(const struct interrupt_chip *chip,
         llist_is_empty(&chip->interrupts[nr].handlers))
         return E_NOENT;
 
+    chip->irq_mask(chip, nr);
+
     FOREACH_LLIST_ENTRY (handler, &chip->interrupts[nr].handlers, this) {
-        if (handler->handler(handler->data) == INTERRUPT_HANDLED) {
+        switch (handler->handler(handler->data)) {
+        case INTERRUPT_IGNORED:
+            continue;
+        case INTERRUPT_HANDLED:
             if (chip->irq_eoi)
                 chip->irq_eoi(chip, nr);
-            break;
+            chip->irq_unmask(chip, nr);
+            goto end;
+        case INTERRUPT_THREADED:
+            if (chip->irq_eoi)
+                chip->irq_eoi(chip, handler->irq);
+            if (handler->thread) {
+                atomic_write(&handler->thread_scheduled, true);
+                sched_unblock_thread(handler->thread);
+            } else {
+                log_warn("%pS: no thread to wake up", handler->handler);
+                chip->irq_unmask(chip, nr);
+            }
+            goto end;
         }
     }
 
+end:
     return E_SUCCESS;
 }
 
@@ -77,6 +116,14 @@ interrupt_chip_install_handler(struct interrupt_chip *chip, unsigned int nr,
 {
     if (nr >= chip->interrupt_count)
         return -E_INVAL;
+
+    handler->chip = chip;
+    handler->irq = nr;
+
+    if (handler->thread) {
+        atomic_write(&handler->thread_scheduled, false);
+        sched_new_thread(handler->thread);
+    }
 
     llist_add_tail(&chip->interrupts[nr].handlers, &handler->this);
     if (chip->irq_unmask)
@@ -133,20 +180,37 @@ error_t interrupts_install_static_handler(unsigned int nr,
 /*
  *
  */
-error_t interrupts_install_handler(unsigned int nr,
-                                   interrupt_handler_func_t handler, void *data)
+error_t interrupts_install_threaded_handler(unsigned int nr,
+                                            interrupt_handler_func_t handler,
+                                            interrupt_handler_func_t threaded,
+                                            void *data)
 {
     struct interrupt_chip *chip = &interrupt_root_chip;
     struct interrupt_handler *interrupt_handler;
+    struct thread *thread = NULL;
 
     if (nr >= chip->interrupt_count)
+        return E_INVAL;
+    if (!handler)
         return E_INVAL;
 
     interrupt_handler = kmalloc(sizeof(*interrupt_handler), KMALLOC_KERNEL);
     if (!interrupt_handler)
         return E_NOMEM;
 
+    if (threaded) {
+        thread = thread_spawn(&kernel_process, threaded_interrupt,
+                              interrupt_handler, NULL, NULL, THREAD_KERNEL);
+        if (thread == NULL) {
+            log_err("failed to interrupt thread");
+            kfree(interrupt_handler);
+            return E_NOMEM;
+        }
+    }
+
     interrupt_handler->handler = handler;
+    interrupt_handler->threaded_handler = threaded;
+    interrupt_handler->thread = thread;
     interrupt_handler->data = data;
 
     return interrupt_chip_install_handler(chip, nr, interrupt_handler);
