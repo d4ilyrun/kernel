@@ -116,25 +116,14 @@ static error_t kernel_start_init_process(void)
     return E_SUCCESS;
 }
 
+/*
+ * NOTE: Interrupts are disabled when entering this function.
+ */
 void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 {
     error_t err;
 
     memcpy(mbt_tmp.raw, mbt, mbt->total_size);
-
-    // FIXME: Find how to clear pending keyboard IRQs inherited from bootloader
-    //
-    // At this stage we still might have pending IRQs waiting to be processed.
-    // These come from untreated keyboard inputs during the bootloader phase.
-    //
-    // They get treated as a Segment Overrun Exception (0x9) once interrupts
-    // become enabled eventually, since this is the default vector for Keyboard
-    // IRQs.
-    //
-    // This seems to make the kernel hang for some reason (or at least prevent
-    // any further keyboard interactions).
-
-    interrupts_disable();
 
     /*
      *
