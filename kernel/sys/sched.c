@@ -148,6 +148,15 @@ void sched_unblock_thread(thread_t *thread)
 {
     const bool old_if = scheduler_preempt_disable();
 
+    // FIXME: This is not safe anymore on an SMP system where we could
+    //        be calling sched_block_thread() on another core.
+    //
+    // thread->state is guarded by the scheduler's preemption level, but this
+    // preemption level only applies to the current core. We must find a better
+    // way to guard this value.
+    if (thread->state == SCHED_RUNNING)
+        goto exit;
+
     // Avoid resurecting a thread that had been killed in the meantime
     if (thread->state == SCHED_WAITING)
         thread->state = SCHED_RUNNING;
@@ -158,6 +167,7 @@ void sched_unblock_thread(thread_t *thread)
     if (current == idle_thread)
         schedule_locked(true, true);
 
+exit:
     scheduler_preempt_enable(old_if);
 }
 
