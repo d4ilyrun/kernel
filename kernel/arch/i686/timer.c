@@ -41,7 +41,6 @@ error_t arch_timer_start(u32 frequency)
 
     interrupts_install_handler(PIC_MASTER_VECTOR + IRQ_TIMER,
                                INTERRUPT_HANDLER(irq_timer), NULL);
-    pic_enable_irq(IRQ_TIMER);
 
     return E_SUCCESS;
 }
