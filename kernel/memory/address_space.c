@@ -654,7 +654,7 @@ void *sys_mmap(void *addr, size_t size, int prot, int flags, int fd, off_t off)
     size = align_up(size, PAGE_SIZE);
     segment = __vm_alloc(current->process->as, addr, size, vmflags, data);
     if (IS_ERR(segment)) {
-        kfree(data);
+        vm_vnode_free_mapping(data);
         return segment;
     }
 
