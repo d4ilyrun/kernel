@@ -6,18 +6,10 @@
 #include <kernel/error.h>
 #include <kernel/types.h>
 
+#include <dailyrun/framebuffer.h>
+
 #include <limits.h>
 
-/*
- *
- */
-struct framebuffer_params {
-    unsigned int width;
-    unsigned int height;
-    unsigned int pitch;
-    unsigned int bpp;
-};
-
-error_t framebuffer_register(paddr_t buffer, const struct framebuffer_params *);
+error_t framebuffer_register(paddr_t buffer, const struct fb_params *);
 
 #endif /* !_KERNEL_FRAMEBUFFER_H */

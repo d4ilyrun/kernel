@@ -200,7 +200,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 
         if (tag->type == MULTIBOOT_TAG_TYPE_FRAMEBUFFER) {
             struct multiboot_tag_framebuffer_common *t = (void *)tag;
-            struct framebuffer_params fb_params = {
+            struct fb_params fb_params = {
                 .width = t->framebuffer_width,
                 .height = t->framebuffer_height,
                 .pitch = t->framebuffer_pitch,

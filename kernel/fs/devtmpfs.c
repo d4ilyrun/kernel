@@ -67,7 +67,15 @@ struct file *device_open(device_t *dev)
 static struct file *devtmpfs_vnode_open(struct vnode *vnode)
 {
     struct device *dev = vnode->pdata;
-    return file_open(vnode, dev->fops);
+    struct file *file;
+
+    file = file_open(vnode, dev->fops);
+    if (IS_ERR(file))
+        return file;
+
+    file->priv = dev;
+
+    return file;
 }
 
 /*

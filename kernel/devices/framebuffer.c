@@ -1,32 +1,36 @@
 #define LOG_DOMAIN "framebuffer"
 
+#include <kernel/atomic.h>
 #include <kernel/devices/driver.h>
 #include <kernel/devices/framebuffer.h>
 #include <kernel/error.h>
 #include <kernel/file.h>
 #include <kernel/init.h>
+#include <kernel/interrupts.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/memory.h>
-#include <kernel/atomic.h>
+#include <kernel/process.h>
 #include <kernel/types.h>
 #include <kernel/vm.h>
-#include <kernel/interrupts.h>
+
+#include <dailyrun/framebuffer.h>
 
 #include <fonts/terminal.h>
-
-#include <string.h>
 #include <limits.h>
+#include <string.h>
+#include <sys/ioctl.h>
 
 /*
  * Framebuffer device.
  */
 struct framebuffer {
     struct device dev;
-    struct framebuffer_params params;
-    char name[NAME_MAX];
-    void *front_buffer;
-    void *back_buffer;
+    struct fb_params params;
+
+    void    *front_buffer;
+    void    *back_buffer;
+    paddr_t  back_buffer_phys;
 
     /* Used by the console driver */
     struct console console;
@@ -36,6 +40,11 @@ struct framebuffer {
     unsigned int   console_fg_color;
     unsigned int   console_bg_color;
 };
+
+static struct framebuffer *to_framebuffer(struct device *dev)
+{
+    return container_of(dev, struct framebuffer, dev);
+}
 
 /* Count the number of framebuffer active on the system */
 static atomic_t framebuffer_count = { 0 };
@@ -238,7 +247,63 @@ static void framebuffer_console_set_color(const struct console *console,
     }
 }
 
+/*
+ *
+ */
+static int
+framebuffer_get_params(struct framebuffer *fb, struct fb_params *out)
+{
+    memcpy(out, &fb->params, sizeof(*out));
+
+    return 0;
+}
+
+
+/*
+ * TODO: Make it so the back buffer can be allocated via mmap()?
+ */
+static int
+framebuffer_get_buffer(struct framebuffer *fb, struct fb_buffer *out)
+{
+    void *buffer;
+
+    buffer = vm_alloc_at(current->process->as, fb->back_buffer_phys,
+                         align_up(fb_size(fb), PAGE_SIZE),
+                         VM_USER_RW | VM_CACHE_UC);
+    if (!buffer)
+        return -E_NOMEM;
+
+    out->back_buffer = buffer;
+    out->back_buffer_size = fb_size(fb);
+
+    return 0;
+}
+
+/*
+ *
+ */
+static int
+framebuffer_ioctl(struct file *file, unsigned long request, void *params)
+{
+    struct device *dev = file->priv;
+    struct framebuffer *fb = to_framebuffer(dev);
+
+    if (!params)
+        return -E_INVAL;
+
+    switch (request) {
+    case IO_FB_GET_PARAMS:
+        return framebuffer_get_params(fb, params);
+    case IO_FB_GET_BUFFER:
+        return framebuffer_get_buffer(fb, params);
+    default:
+        log_warn("%s: unsupported ioctl: %lu\n", device_name(dev), request);
+        return E_NOT_SUPPORTED;
+    }
+}
+
 static const struct file_operations framebuffer_fops = {
+    .ioctl = framebuffer_ioctl,
 };
 
 static struct device_driver framebuffer_driver = {
@@ -249,7 +314,7 @@ static struct device_driver framebuffer_driver = {
  *
  */
 error_t
-framebuffer_register(paddr_t buffer, const struct framebuffer_params *params)
+framebuffer_register(paddr_t buffer, const struct fb_params *params)
 {
     struct framebuffer *fb;
     struct device *dev;
@@ -268,6 +333,7 @@ framebuffer_register(paddr_t buffer, const struct framebuffer_params *params)
     log_info("creating %dx%dx%d framebuffer @ %p (%zuKB)", params->width, params->height,
              params->bpp, (void *)buffer, bufsize / 1000);
 
+    fb->back_buffer_phys = buffer;
     fb->back_buffer = vm_alloc_at(&kernel_address_space, buffer, bufsize,
                                   VM_KERNEL_RW | VM_CACHE_WC);
     if (!fb->back_buffer) {
@@ -285,15 +351,14 @@ framebuffer_register(paddr_t buffer, const struct framebuffer_params *params)
     }
 
     memcpy(&fb->params, params, sizeof(*params));
-    snprintk(fb->name, sizeof(fb->name), "fb%d",
-             atomic_inc(&framebuffer_count));
 
     dev = &fb->dev;
     dev->driver = &framebuffer_driver;
     dev->fops = &framebuffer_fops;
+    device_set_name(dev, "fb%d", atomic_inc(&framebuffer_count));
     device_register(dev);
 
-    fb->console.name = fb->name;
+    fb->console.name = device_name(dev);
     fb->console.write = framebuffer_console_write;
     fb->console.set_color = framebuffer_console_set_color;
     framebuffer_console_set_color(&fb->console, COLOR_WHITE, COLOR_NONE);
