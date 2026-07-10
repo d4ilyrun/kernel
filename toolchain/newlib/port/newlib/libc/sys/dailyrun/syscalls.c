@@ -205,6 +205,28 @@ int _open(const char *path, int oflags, ...)
     return ret;
 }
 
+int ioctl(int fd, unsigned long request, ...)
+{
+    va_list args;
+    void *params;
+    int ret;
+
+    va_start(args, request);
+    params = va_arg(args, void *);
+    va_end(args);
+
+    __asm__ volatile("int $0x80"
+                     : "=a"(ret)
+                     : "a"(SYS_ioctl), "b"(fd), "c"(request), "d"(params)
+                     : "memory");
+    if (ret < 0) {
+        errno = -ret;
+        ret = -1;
+    }
+
+    return ret;
+}
+
 /*
  * signal() should not be used for anything else than setting the handler
  * to SIGDFL or SIGIGN. For other values follow the BSD semantics: the signal

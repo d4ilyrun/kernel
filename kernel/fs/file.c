@@ -279,3 +279,33 @@ err:
     process_fd_put(process, fdp);
     return -err;
 }
+
+/*
+ * ioctl syscall.
+ */
+int sys_ioctl(int fd, unsigned long request, void *param)
+{
+    struct process *process = current->process;
+    struct fd *fdp;
+    struct file *file;
+    error_t err;
+    int ret;
+
+    fdp = process_fd_get(process, fd);
+    if (!fdp)
+        return -E_BAD_FD;
+    file = fdp->file;
+
+    err = E_NOT_SUPPORTED;
+    if (!file->ops->ioctl)
+        goto err;
+
+    ret = file_ioctl(file, request, param);
+
+    process_fd_put(process, fdp);
+    return ret;
+
+err:
+    process_fd_put(process, fdp);
+    return -err;
+}

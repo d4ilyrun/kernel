@@ -100,6 +100,8 @@ struct file_operations {
      * @see man 2 lseek
      */
     off_t (*seek)(struct file *, off_t, int whence);
+    /** Manipulate the device parameter of special files */
+    int (*ioctl)(struct file *, unsigned long request, void *param);
 };
 
 /** Create a new file structure */
@@ -126,17 +128,17 @@ void file_modified(struct file *file);
 void file_changed(struct file *file);
 
 #define __file_ops(_default, _file, _ops, ...)                             \
-    (_file->ops->_ops ? _file->ops->_ops(_file __VA_OPT__(, ) __VA_ARGS__) \
+    (_file->ops->_ops ? _file->ops->_ops(_file, ##__VA_ARGS__) \
                       : _default)
 
 #define file_ops(_file, _ops, ...) \
-    __file_ops(E_NOT_SUPPORTED, _file, _ops, __VA_ARGS__)
+    __file_ops(E_NOT_SUPPORTED, _file, _ops, ##__VA_ARGS__)
 
-#define file_size(file) file_ops(file, size)
-
-#define file_write(file, buf, len) file_ops(file, write, buf, len)
-#define file_read(file, buf, len) file_ops(file, read, buf, len)
-#define file_seek(file, off, whence) file_ops(file, seek, off, whence)
+#define file_size(file)         file_ops(file, size)
+#define file_write(file, ...)   file_ops(file, write, ##__VA_ARGS__)
+#define file_read(file, ...)    file_ops(file, read,  ##__VA_ARGS__)
+#define file_seek(file, ...)    file_ops(file, seek,  ##__VA_ARGS__)
+#define file_ioctl(file, ...)   file_ops(file, ioctl, ##__VA_ARGS__)
 
 #endif /* KERNEL_FILE_H */
 
