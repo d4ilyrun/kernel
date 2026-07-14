@@ -6,6 +6,7 @@
 #include <kernel/printk.h>
 #include <kernel/process.h>
 #include <kernel/symbols.h>
+#include <kernel/sched.h>
 
 #include <kernel/arch/i686/gdt.h>
 
@@ -53,13 +54,15 @@ void stack_trace(void)
 }
 
 #define LOG_DOMAIN "PROC"
-static void panic_dump_process(void)
+static void panic_dump_process(bool interrupts_enabled)
 {
-    log_err("%s (TID: %d)", current->process->name, current->tid);
+    log_err("%s (TID: %d)",
+            current->process->name, current->tid);
+    log_err("interrupts: %s", interrupts_enabled ? "enabled" : "disabled");
+    log_err("preemption: %s", sched_preemptible() ? "enabled" : "disabled");
     log_err("ESP0=" FMT32 " ESP=" FMT32 " CR3=" FMT32, current->context.esp0,
             current->context.esp_user, current->context.cr3);
 }
-
 #undef LOG_DOMAIN
 
 #define LOG_DOMAIN "REGS"
@@ -109,7 +112,9 @@ static void panic_dump_stack(u32 esp, u32 size)
 
 void panic(u32 esp, const char *msg, ...)
 {
-    interrupts_disable();
+    bool interrupts_enabled;
+
+    interrupts_enabled = interrupts_test_and_disable();
 
     va_list parameters;
     va_start(parameters, msg);
@@ -122,7 +127,7 @@ void panic(u32 esp, const char *msg, ...)
 
     va_end(parameters);
 
-    panic_dump_process();
+    panic_dump_process(interrupts_enabled);
     printk("\n");
 
     panic_dump_registers();

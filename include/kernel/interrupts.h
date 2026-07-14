@@ -30,6 +30,8 @@
 
 #include <libalgo/linked_list.h>
 
+extern bool interrupts_initialized;
+
 /**
  *  Values returned by an interrupt handler.
  */

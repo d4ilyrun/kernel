@@ -38,6 +38,8 @@ KERNEL_SRCS := 	\
 	sys/signal.c \
 	sys/timer.c \
 	sys/interrupts.c \
+	sys/spinlock.c \
+	sys/semaphore.c \
 	misc/printk.c \
 	misc/logger.c \
 	misc/console.c \
@@ -47,7 +49,6 @@ KERNEL_SRCS := 	\
 	misc/elf32.c \
 	misc/waitqueue.c \
 	misc/worker.c \
-	misc/semaphore.c \
 	misc/uacpi.c \
 	misc/user.c \
 	memory/memory.c \

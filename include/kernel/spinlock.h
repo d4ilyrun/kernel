@@ -9,91 +9,35 @@
 #include <kernel/cpu.h>
 #include <kernel/types.h>
 
-#ifdef CONFIG_DEBUG_SPINLOCK
-#include <kernel/logger.h>
-#include <kernel/timer.h>
-#endif
-
 #include <utils/compiler.h>
 #include <utils/macro.h>
 
 #include <stdbool.h>
 
-/* Default timeout: 30s */
-#define SPINLOCK_DEBUG_STALL_TIMEOUT MS(30)
-
-/**
- * @struct spinlock
- * @brief Spinlock
- */
 typedef struct spinlock {
     bool locked;
-#ifdef CONFIG_DEBUG_SPINLOCK
-    /** Instruction pointer where this lock was last acquired. */
-    vaddr_t owner;
-#endif
+    vaddr_t owner; /* Instruction pointer to where this lock was acquired. */
 } spinlock_t;
 
-/** Default init value (unlocked) */
 #define __SPINLOCK_INIT \
     {                   \
         .locked = false \
     }
+
 #define SPINLOCK_INIT ((spinlock_t)__SPINLOCK_INIT)
 
-/** Initialize a spinlock */
 #define __INIT_SPINLOCK(_lock) _lock = __SPINLOCK_INIT
 #define INIT_SPINLOCK(_lock) _lock = SPINLOCK_INIT
 
-/** Declare a spinlock and initialize it */
 #define DECLARE_SPINLOCK(_lock) spinlock_t _lock = SPINLOCK_INIT
 
-#ifdef CONFIG_DEBUG_SPINLOCK
-
-/** @brief Try to acquire a spinlock, or wait until it is free */
-static ALWAYS_INLINE spinlock_t *
-__spinlock_acquire(spinlock_t *lock, vaddr_t owner)
-{
-    time_t start = timer_get_ms();
-
-    while (__atomic_test_and_set(&lock->locked, __ATOMIC_ACQUIRE)) {
-        if (timer_get_ms() - start > SPINLOCK_DEBUG_STALL_TIMEOUT) {
-            WARN("stall detected on spinlock (owner: %ps)",
-                 (void *)lock->owner);
-            start = timer_get_ms();
-        }
-    }
-
-    lock->owner = owner;
-
-    return lock;
-}
-
-#else
-
-/** @brief Try to acquire a spinlock, or wait until it is free */
-static ALWAYS_INLINE spinlock_t *
-__spinlock_acquire(spinlock_t *lock, vaddr_t owner)
-{
-    UNUSED(owner);
-
-    WAIT_FOR(!__atomic_test_and_set(&lock->locked, __ATOMIC_ACQUIRE));
-
-    return lock;
-}
-
-#endif
-
+spinlock_t * __spinlock_acquire(spinlock_t *lock, vaddr_t owner);
 #define spinlock_acquire(lock) __spinlock_acquire(lock, __THIS_IP)
 
-/** @brief Release a spinlock for others to take it */
-static ALWAYS_INLINE void spinlock_release(spinlock_t *lock)
-{
-    __atomic_clear(&lock->locked, __ATOMIC_RELEASE);
-}
+void spinlock_release(spinlock_t *lock);
 
 /** Check whether a lock is currently held by someone. */
-static ALWAYS_INLINE bool spinlock_is_held(const spinlock_t *lock)
+static inline bool spinlock_is_held(const spinlock_t *lock)
 {
     return __atomic_load_n(&lock->locked, __ATOMIC_ACQUIRE);
 }

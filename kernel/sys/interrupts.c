@@ -12,6 +12,8 @@
 
 static struct interrupt_chip interrupt_root_chip;
 
+bool interrupts_initialized = false;
+
 /*
  *
  */
