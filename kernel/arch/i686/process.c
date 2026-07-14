@@ -72,7 +72,7 @@ arch_thread_entrypoint(thread_entry_t entrypoint, void *data, void *esp,
     u32 *ustack = NULL;
 
     /* scheduler was locked by the previous thread before starting this one */
-    scheduler_preempt_enable(true);
+    sched_preempt_enable(true);
 
     /*
      * Allocate the user stack.

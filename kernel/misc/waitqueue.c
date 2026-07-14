@@ -68,7 +68,7 @@ struct thread *waitqueue_dequeue(struct waitqueue *queue)
 
 size_t waitqueue_dequeue_all(struct waitqueue *queue)
 {
-    const bool old_if = scheduler_preempt_disable();
+    const bool old_if = sched_preempt_disable();
     struct thread *thread = NULL;
     size_t count = 0;
     node_t *node;
@@ -82,7 +82,7 @@ size_t waitqueue_dequeue_all(struct waitqueue *queue)
         }
     }
 
-    scheduler_preempt_enable(old_if);
+    sched_preempt_enable(old_if);
 
     return count;
 }

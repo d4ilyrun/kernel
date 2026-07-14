@@ -158,7 +158,9 @@ typedef struct thread {
      * switching back into the thread.
      */
     thread_context_t context;
+
     thread_state_t state; /*!< Thread's current state, used by the scheduler */
+    atomic_t       preempt;
 
     pid_t tid; /*!< Thread ID */
     u32 flags; /*!< Combination of \ref thread_flags values */

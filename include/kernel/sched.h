@@ -75,12 +75,14 @@ void schedule_preempt(void);
 /** Prevent the current thread from being pree-empted by the scheduler.
  *  @return Wether interrupts were previously enabled
  */
-bool scheduler_preempt_disable(void);
+bool sched_preempt_disable(void);
 
 /** Re-allow the current thread to be pre-empted.
  *  @param old_if_flag The state of the interrputs prior to locking
  */
-void scheduler_preempt_enable(bool old_if_flag);
+void sched_preempt_enable(bool old_if_flag);
+
+bool sched_preemptible(void);
 
 /** Add a new thread to be scheduled.
  *  When adding a new thread, its state will be set to @ref SCHED_RUNNING
@@ -128,14 +130,14 @@ typedef struct {
 static inline sched_scope_t sched_scope_constructor(void)
 {
     return (sched_scope_t){
-        .old_if = scheduler_preempt_disable(),
+        .old_if = sched_preempt_disable(),
         .done = false,
     };
 }
 
 static inline void sched_scope_destructor(sched_scope_t *scope)
 {
-    scheduler_preempt_enable(scope->old_if);
+    sched_preempt_enable(scope->old_if);
 }
 
 /** Define a scope during which the current thread should never be pre-empted.

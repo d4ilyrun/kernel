@@ -9,24 +9,18 @@
 #include <libalgo/queue.h>
 #include <utils/constants.h>
 #include <utils/container_of.h>
+#include "kernel/logger.h"
 
 bool scheduler_initialized = false;
 
 static DECLARE_LLIST(sleeping_tasks);
 
 typedef struct scheduler {
-
     /** The runqueue
      * All threads inside this queue are ready to run and could theoretically
      * be switched to at any moment.
      */
     queue_t ready;
-
-    /** Fields used for synchronization in a multiprocessor environment */
-    struct {
-        atomic_t preemption_level;
-    } sync;
-
 } scheduler_t;
 
 static scheduler_t scheduler;
@@ -50,7 +44,7 @@ static void schedule_locked(bool preempt, bool reschedule)
     if (unlikely(!scheduler_initialized))
         return;
 
-    if (atomic_read(&scheduler.sync.preemption_level) > 1 && !preempt)
+    if (!sched_preemptible() && !preempt)
         return;
 
     next_node = queue_dequeue(&scheduler.ready);
@@ -85,31 +79,35 @@ static void schedule_locked(bool preempt, bool reschedule)
 
 void schedule(void)
 {
-    const bool old_if = scheduler_preempt_disable();
+    const bool old_if = sched_preempt_disable();
     schedule_locked(false, true);
-    scheduler_preempt_enable(old_if);
+    sched_preempt_enable(old_if);
 }
 
 void schedule_preempt(void)
 {
-    const bool old_if = scheduler_preempt_disable();
+    const bool old_if = sched_preempt_disable();
     schedule_locked(true, true);
-    scheduler_preempt_enable(old_if);
+    sched_preempt_enable(old_if);
 }
 
-bool scheduler_preempt_disable(void)
+bool sched_preempt_disable(void)
 {
     bool if_flag = interrupts_test_and_disable();
-    atomic_inc(&scheduler.sync.preemption_level);
+    atomic_inc(&current->preempt);
     return if_flag;
 }
 
-void scheduler_preempt_enable(bool old_if_flag)
+void sched_preempt_enable(bool old_if_flag)
 {
-    if (atomic_read(&scheduler.sync.preemption_level))
-        atomic_dec(&scheduler.sync.preemption_level);
-
+    PANIC_ON(atomic_dec(&current->preempt) == 0,
+             "extra call to sched_preempt_enable()");
     interrupts_restore(old_if_flag);
+}
+
+bool sched_preemptible(void)
+{
+    return atomic_read(&current->preempt) == 0;
 }
 
 static void idle_task(void *data __attribute__((unused)))
@@ -131,7 +129,7 @@ void sched_new_thread(thread_t *thread)
 
 void sched_block_thread(struct thread *thread)
 {
-    const bool old_if = scheduler_preempt_disable();
+    const bool old_if = sched_preempt_disable();
 
     if (thread->state != SCHED_RUNNING)
         goto block_thread_exit;
@@ -141,12 +139,12 @@ void sched_block_thread(struct thread *thread)
         schedule_locked(true, true);
 
 block_thread_exit:
-    scheduler_preempt_enable(old_if);
+    sched_preempt_enable(old_if);
 }
 
 void sched_unblock_thread(thread_t *thread)
 {
-    const bool old_if = scheduler_preempt_disable();
+    const bool old_if = sched_preempt_disable();
 
     // Avoid resurecting a thread that had been killed in the meantime
     if (thread->state == SCHED_WAITING)
@@ -158,7 +156,7 @@ void sched_unblock_thread(thread_t *thread)
     if (current == idle_thread)
         schedule_locked(true, true);
 
-    scheduler_preempt_enable(old_if);
+    sched_preempt_enable(old_if);
 }
 
 static int process_cmp_wakeup(const void *current_node, const void *cmp_node)
@@ -196,7 +194,6 @@ void sched_unblock_waiting_before(clock_t deadline)
 
 static error_t scheduler_init(void)
 {
-    atomic_write(&scheduler.sync.preemption_level, 0);
     INIT_QUEUE(scheduler.ready);
 
     idle_thread = thread_spawn(&kernel_process, idle_task, NULL, NULL, NULL,
