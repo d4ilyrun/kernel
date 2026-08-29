@@ -192,6 +192,7 @@ out:
 vnode_t *vfs_find_by_path(const char *raw_path)
 {
     path_t path = NEW_DYNAMIC_PATH(raw_path);
+    path_segment_t segment;
     vnode_t *node;
     vfs_t *fs;
 
@@ -200,7 +201,7 @@ vnode_t *vfs_find_by_path(const char *raw_path)
         return PTR_ERR(E_NOENT);
 
     node = fs->operations->root(fs);
-    DO_FOREACH_SEGMENT(segment, &path, {
+    FOREACH_PATH_SEGMENT(segment, &path) {
         vnode_t *parent = node;
         node = vfs_find_child_at(&parent, &segment);
 
@@ -212,7 +213,7 @@ vnode_t *vfs_find_by_path(const char *raw_path)
 
         if (IS_ERR(node))
             return node;
-    });
+    }
 
     /* If path resolves to the directoy onto which a filesystem is mounted
      * we return the root of the mounted filesystem.

@@ -59,6 +59,7 @@ ForEachMacros:
   - FOREACH_LLIST_ENTRY_REVERSE_SAFE
   - FOREACH_CHILDREN
   - FOREACH_MULTIBOOT_TAG
+  - FOREACH_PATH_SEGMENT
   - INFINITE_LOOP
   - locked_scope
   - no_preemption_scope

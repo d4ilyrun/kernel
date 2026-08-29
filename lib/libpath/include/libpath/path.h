@@ -120,19 +120,13 @@ typedef struct libpath_segment {
 
 /** Loop over all the segments of a given path.
  *
- *  @param _segment Name of the iterator used by the loop to store the segment
- *  @param _path The original path
- *  @param _body The body placed inside the loop
+ *  @param _segment The iterator used by the loop to store the segment
+ *  @param _path    The original path
  */
-#define DO_FOREACH_SEGMENT(_segment, _path, _body)   \
-    do {                                             \
-        path_segment_t _segment;                     \
-        if (path_walk_first((_path), &(_segment))) { \
-            do {                                     \
-                _body;                               \
-            } while (path_walk_next(&(_segment)));   \
-        }                                            \
-    } while (0)
+#define FOREACH_PATH_SEGMENT(_segment, _path)                             \
+    for (bool start = true; start ? path_walk_first((_path), &(_segment)) \
+                                  : path_walk_next(&(_segment));          \
+         start = false)
 
 /** Check whether a segment is the first of ots containing path */
 static ALWAYS_INLINE bool path_segment_is_first(const path_segment_t *segment)

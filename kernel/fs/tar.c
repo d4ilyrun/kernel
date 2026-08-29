@@ -277,6 +277,7 @@ static tree_t tar_init_tree(struct tar_filesystem *fs)
     while ((tar_node = tar_node_from_header(fs, offset)) != NULL) {
         struct tar_header *header = &tar_node->header;
         path_t path = NEW_DYNAMIC_PATH(header->filename);
+        path_segment_t segment;
         tree_node_t *current = root;
 
         if (path.len >= TAR_FILENAME_SIZE)
@@ -291,7 +292,7 @@ static tree_t tar_init_tree(struct tar_filesystem *fs)
          * This loop adds the required directory entries to construct the path
          * specified in the node's header (if not already present).
          */
-        DO_FOREACH_SEGMENT(segment, &path, {
+        FOREACH_PATH_SEGMENT (segment, &path) {
             tar_node_t *new = NULL;
             if (!path_segment_is_last(&segment)) {
                 tree_node_t *node = tree_find_child(current, tar_node_is,
@@ -313,7 +314,7 @@ static tree_t tar_init_tree(struct tar_filesystem *fs)
             }
             tree_add_child(current, &new->this);
             current = &new->this;
-        });
+        }
 
         offset += align_up(tar_node->size + TAR_HEADER_SIZE, TAR_HEADER_SIZE);
     }
