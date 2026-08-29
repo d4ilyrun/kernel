@@ -328,16 +328,17 @@ static inline bool vfs_exist(const char *path)
     return true;
 }
 
-/** @struct vfs_fs
+/** @struct vfs_type
+ *
  *  @brief Represents a file system format
  *
  *  This structure is used by the VFS driver to mount the filesystem.
  */
-typedef struct vfs_fs {
+typedef struct vfs_type {
     const char *const name;               ///< Name of the filesystem
     vfs_t *(*new)(struct block_device *); ///< Create a new instance of this
                                           ///< filesystem using the given device
-} vfs_fs_t;
+} vfs_type_t;
 
 /** Declare a new available filesystem.
  *
@@ -347,12 +348,12 @@ typedef struct vfs_fs {
  * @param fs_name The name of the filesystem
  * @param fw_new The function used to create a new instance of this filesystem
  */
-#define DECLARE_FILESYSTEM(fs_name, fs_new)      \
-    SECTION(".data.vfs.filesystems")             \
-    MAYBE_UNUSED                                 \
-    static vfs_fs_t fs_name##_fs_declaration = { \
-        .name = stringify(fs_name),              \
-        .new = fs_new,                           \
+#define DECLARE_FILESYSTEM(fs_name, fs_new)        \
+    SECTION(".data.vfs.filesystems")               \
+    MAYBE_UNUSED                                   \
+    static vfs_type_t fs_name##_fs_declaration = { \
+        .name = stringify(fs_name),                \
+        .new = fs_new,                             \
     }
 
 /** @} */

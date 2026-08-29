@@ -22,15 +22,15 @@ static struct kmem_cache *kmem_cache_vnode;
 extern u32 _kernel_filesystems_start;
 extern u32 _kernel_filesystems_end;
 
-static const vfs_fs_t *kernel_filesystems_start =
-    (const vfs_fs_t *)&_kernel_filesystems_start;
+static const vfs_type_t *kernel_filesystems_start =
+    (const vfs_type_t *)&_kernel_filesystems_start;
 
-static const vfs_fs_t *kernel_filesystems_end =
-    (const vfs_fs_t *)&_kernel_filesystems_end;
+static const vfs_type_t *kernel_filesystems_end =
+    (const vfs_type_t *)&_kernel_filesystems_end;
 
-static const vfs_fs_t *vfs_find_fs(const char *fs_type)
+static const vfs_type_t *vfs_find_fs(const char *fs_type)
 {
-    for (const vfs_fs_t *fs = kernel_filesystems_start;
+    for (const vfs_type_t *fs = kernel_filesystems_start;
          fs < kernel_filesystems_end; ++fs) {
         if (!strcmp(fs->name, fs_type))
             return fs;
@@ -50,7 +50,7 @@ static vfs_t *vfs_root_fs()
 static error_t vfs_mount_at(vnode_t *mountpoint, const char *fs_type,
                             struct block_device *blkdev)
 {
-    const vfs_fs_t *fs;
+    const vfs_type_t *fs;
     vfs_t *new;
 
     if (mountpoint &&
