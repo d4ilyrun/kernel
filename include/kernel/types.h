@@ -1,7 +1,7 @@
 #ifndef KERNEL_TYPES_H
 #define KERNEL_TYPES_H
 
-#include <arch.h>
+#include <dailyrun/arch.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -48,13 +48,5 @@ typedef native_t vaddr_t;
 
 /** An IPv4 address */
 typedef in_addr_t ipv4_t;
-
-/** Comparison function over two generic objects
- *  @return 0 if both are equal, -1 if left is inferior, +1 if it is superior
- */
-typedef int (*compare_t)(const void *left, const void *right);
-#define COMPARE_EQ 0
-#define COMPARE_LESS -1
-#define COMPARE_GREATER 1
 
 #endif /* KERNEL_TYPES_H */

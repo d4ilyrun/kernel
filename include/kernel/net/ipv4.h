@@ -20,7 +20,7 @@
 
 #include <utils/compiler.h>
 
-#include <arch.h>
+#include <dailyrun/arch.h>
 
 struct packet;
 struct net_route;

@@ -1,6 +1,7 @@
 #include <libalgo/hashtable.h>
 
-#include <arch.h>
+#include <dailyrun/arch.h>
+#include <stdint.h>
 
 #define hashtable_entry_key(entry) ({ entry->key; })
 
@@ -29,7 +30,7 @@ static uint32_t hash32(uint32_t a)
 static inline unsigned long hash_key(struct hashtable *table, const void *key)
 {
 #if ARCH_WORD_SIZE == 4
-    return hash32((u32)key) % table->size;
+    return hash32((uint32_t)key) % table->size;
 #elif ARCH_WORD_SIZE == 8
     /* Too lazy to implement a real 64b hash function, so we perform a 32b hash
      * of the lower 32bits. */

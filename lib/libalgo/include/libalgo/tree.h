@@ -11,8 +11,6 @@
 
 #pragma once
 
-#include <kernel/types.h>
-
 #include <libalgo/linked_list.h>
 #include <utils/compiler.h>
 

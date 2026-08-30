@@ -15,10 +15,12 @@
  * @{
  */
 
-#include <kernel/types.h>
+#include <dailyrun/container_of.h>
 
-#include <utils/container_of.h>
-#include <utils/compiler.h>
+#include <stdbool.h>
+#include <stddef.h>
+
+#include "libalgo.h"
 
 /**
  *  Intrusive doubly-linked list node.
@@ -206,7 +208,7 @@ static inline node_t *llist_prev(const node_t *entry)
     llist_entry(llist_last(list), type, member)
 
 /** @return Whether a list is empty */
-static PURE inline bool llist_is_empty(const llist_t *list)
+static inline bool llist_is_empty(const llist_t *list)
 {
     return llist_first(list) == llist_head(list);
 }
