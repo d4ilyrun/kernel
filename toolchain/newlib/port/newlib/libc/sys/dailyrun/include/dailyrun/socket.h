@@ -11,6 +11,9 @@
 #define SOCK_DGRAM  1
 #define SOCK_RAW    3
 
+/* Setsockopt flags */
+#define SOCK_NONBLOCK 0x8000
+
 typedef unsigned int socket_type_t;
 
 #endif /* _DAILYRUN_SOCKET_H */

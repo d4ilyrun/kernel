@@ -33,6 +33,13 @@ error_t socket_init(struct socket *socket, int domain, int type, int proto)
     if (!node)
         return E_AF_NOT_SUPPORTED;
 
+    /* NOTE: Linux compatible way of opening a non-blocking socket.
+     *       This avoids having to call setsockopt() or fcntl().
+     */
+    if (type & SOCK_NONBLOCK)
+        socket->file->flags |= O_NONBLOCK;
+    type &= ~SOCK_NONBLOCK;
+
     socket->domain = container_of(node, struct socket_domain, this);
     socket->state = SOCKET_DISCONNECTED;
 
