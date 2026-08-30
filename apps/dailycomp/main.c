@@ -1,22 +1,19 @@
 #include <dailyrun/framebuffer.h>
 #include <dailyrun/input.h>
 
+#include <libinput/libinput.h>
+
 #include <dirent.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include <sys/un.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
-#include <libinput/libinput.h>
-
 #include "dailycomp.h"
-
-#define for_each_input_device(dev, ctx) \
-    for (dev = (ctx)->input_devices; dev; dev = dev->next)
 
 static inline bool valid_pixel(const struct context *ctx, int i, int j)
 {
@@ -48,79 +45,76 @@ static void put_pixel(struct context *ctx, int i, int j, uint32_t color)
 /*
  *
  */
-static void refresh_display(struct context *ctx)
+static void draw_cursor(struct context *ctx)
 {
-    if (ctx->cursor_j != ctx->cursor_cur_j ||
-        ctx->cursor_i != ctx->cursor_cur_i) {
 
-        for (int i = 0; i < 8; ++i)
-            for (int j = 0; j < 8; ++j)
-                put_pixel(ctx, ctx->cursor_cur_i + i, ctx->cursor_cur_j + j, 0);
-        for (int i = 0; i < 8; ++i)
-            for (int j = 0; j < 8; ++j)
-                put_pixel(ctx, ctx->cursor_i + i, ctx->cursor_j + j, 0xFFFFFFFF);
+    if (ctx->cursor_j == ctx->cursor_cur_j &&
+        ctx->cursor_i == ctx->cursor_cur_i)
+        return; /* position did not change */
 
-        ctx->cursor_cur_j = ctx->cursor_j;
-        ctx->cursor_cur_i = ctx->cursor_i;
-    }
+    for (int i = 0; i < 8; ++i)
+        for (int j = 0; j < 8; ++j)
+            put_pixel(ctx, ctx->cursor_cur_i + i, ctx->cursor_cur_j + j, 0);
+    for (int i = 0; i < 8; ++i)
+        for (int j = 0; j < 8; ++j)
+            put_pixel(ctx, ctx->cursor_i + i, ctx->cursor_j + j, 0xFFFFFFFF);
+
+    ctx->cursor_cur_j = ctx->cursor_j;
+    ctx->cursor_cur_i = ctx->cursor_i;
 }
 
 /*
  *
  */
-static void mouse_update_position(struct context *ctx,
-                                  const struct input_event *ev)
+static void handle_client_message(struct context *ctx,
+                                  struct window_ev_message *msg)
 {
-    switch (ev->ev_type) {
-    case INPUT_EV_CURSOR_REL:
-        ctx->cursor_i -= ev->ev_data.cursor_pos.pos_y;
-        ctx->cursor_j += ev->ev_data.cursor_pos.pos_x;
-        break;
-    case INPUT_EV_CURSOR_ABS:
-        ctx->cursor_i = ev->ev_data.cursor_pos.pos_y;
-        ctx->cursor_j = ev->ev_data.cursor_pos.pos_x;
-        break;
+    struct window *win;
+
+    if (msg->magic != WINDOW_EV_MAGIC)
+        return;
+
+    switch (msg->type) {
+    case WINDOW_EV_NEW_REQUEST:
+        win = window_new(msg->new.title,
+                         msg->new.sock_path,
+                         msg->new.pos_i, msg->new.pos_j,
+                         msg->new.width, msg->new.height);
+        if (win == NULL) {
+            printf("failed to create window: %s", msg->new.title);
+            break;
+        }
+
+        msg->type = WINDOW_EV_NEW_RESPONSE;
+        strncpy(msg->new.shm_id, win->buffer_shm_id, sizeof(msg->new.shm_id));
+        window_send_message(win, msg);
+        return;
+
+    case WINDOW_EV_REGION_DIRTY:
+        /* event handled by the window itself */
+        FOREACH_LLIST_ENTRY(win, &ctx->windows, this) {
+            if (win->id == msg->window_id)
+                return window_handle_event(win, msg);
+        }
+
+        printf("ev: unknown window id: %#08x\n", msg->window_id);
+        return;
+
+    case WINDOW_EV_NEW_RESPONSE:
+        /* event sent by the server and handled by the client. */
+        return;
+
     default:
-        break;
-    }
-
-    if (ctx->cursor_j >= (int32_t)ctx->fb_params.width)
-        ctx->cursor_j = ctx->fb_params.width - 1;
-    if (ctx->cursor_j < 0)
-        ctx->cursor_j = 0;
-
-    if (ctx->cursor_i >= (int32_t)ctx->fb_params.height)
-        ctx->cursor_i = ctx->fb_params.height - 1;
-    if (ctx->cursor_i < 0)
-        ctx->cursor_i = 0;
-}
-
-/*
- *
- */
-static void input_device_handle_event(struct input_device *dev,
-                                      const struct input_event *ev)
-{
-    // input_event_dump(ev);
-
-    switch (ev->ev_type) {
-    case INPUT_EV_KEY_PRESS:
-    case INPUT_EV_KEY_RELEASE:
-    case INPUT_EV_CURSOR_REL:
-    case INPUT_EV_CURSOR_ABS:
-        mouse_update_position(dev->ctx, ev);
-        break;
+        return;
     }
 }
 
 /*
  *
  */
-static void input_device_destroy(struct input_device *dev)
+static void refresh_screen(struct context *ctx)
 {
-    close(dev->fd);
-    free((void *)dev->name);
-    free(dev);
+    draw_cursor(ctx);
 }
 
 /*
@@ -128,20 +122,24 @@ static void input_device_destroy(struct input_device *dev)
  */
 static void main_loop_step(struct context *ctx)
 {
-    struct input_device *mouse = ctx->input_devices;
-    struct input_event events[64];
-    unsigned int count;
+    struct input_device *dev;
+    struct window_ev_message win_events[64];
+    unsigned int win_event_count = 0;
+    struct window *win;
     ssize_t size;
 
-    size = read(mouse->fd, events, sizeof(events));
-    if (size <= 0)
-        return;
+    /* TODO: Add and use poll() syscall */
+    size = read(ctx->ev_sock_fd, win_events, sizeof(win_events));
+    if (size >= 0)
+        win_event_count = size / sizeof(struct window_ev_message);
 
-    count = size / sizeof(struct input_event);
-    for (unsigned int i = 0; i < count; ++i)
-        input_device_handle_event(mouse, &events[i]);
+    for (int i = 0; i < win_event_count; ++i)
+        handle_client_message(ctx, &win_events[i]);
 
-    refresh_display(ctx);
+    FOREACH_LLIST_ENTRY(dev, &ctx->input_devices, this)
+        input_device_handle_events(dev);
+
+    refresh_screen(ctx);
 }
 
 /*
@@ -158,44 +156,52 @@ static int init_input_devices(struct context *ctx)
         return -1;
     }
 
-    ctx->input_device_count = 0;
-    ctx->input_devices = NULL;
-
     while ((entry = readdir(dir))) {
         struct input_device *dev;
         char path[PATH_MAX];
         int idx;
-        int fd;
 
         if (sscanf(entry->d_name, "input%d", &idx) != 1)
             continue;
 
-        /* debug: mouse only */
-        if (strcmp(entry->d_name, "input1"))
-            continue;
-
         sprintf(path, "/dev/%s", entry->d_name);
-        fd = open(path, O_RDONLY);
-        if (!fd) {
-            printf("open(%s) failed: %s\n", path, strerror(errno));
+        dev = input_device_new(ctx, entry->d_name, path);
+        if (!dev) {
+            printf("failed to init input device: %s\n", path);
             continue;
         }
 
-        dev = calloc(1, sizeof(*dev));
-        if (!dev) {
-            printf("malloc(%s) failed: %s\n", path, strerror(errno));
-            close(fd);
-            break;
-        }
-
-        /* register input device */
-        dev->fd = fd;
-        dev->ctx = ctx;
-        dev->name = strdup(entry->d_name);
-        dev->next = ctx->input_devices;
-        ctx->input_devices = dev;
-        ctx->input_device_count++;
+        llist_add(&ctx->input_devices, &dev->this);
     }
+
+    return 0;
+}
+
+/*
+ * Open the UNIX socket used by the clients to send messages to the server.
+ */
+static int init_event_socket(struct context *ctx, const char *sock_path)
+{
+    struct sockaddr_un sun;
+    int ret;
+
+    memset(&sun, 0, sizeof(sun));
+    sun.sun_family = AF_UNIX;
+    strlcpy(sun.sun_path, sock_path, sizeof(sun.sun_path));
+
+    ctx->ev_sock_fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+    if (ctx->ev_sock_fd < 0) {
+        printf("socket(AF_UNIX): %m\n");
+        return -1;
+    }
+
+    ret = bind(ctx->ev_sock_fd, (void *)&sun, sizeof(sun));
+    if (ret < 0) {
+        printf("connect(%s): %m\n", sock_path);
+        return -1;
+    }
+
+    printf("server listening for events on '%s'\n", sock_path);
 
     return 0;
 }
@@ -233,37 +239,45 @@ static int init_framebuffer(struct context *ctx)
 static void release_ctx(struct context *ctx)
 {
     struct input_device *dev;
+    struct input_device *next;
 
-    dev = ctx->input_devices;
-    while (dev) {
-        struct input_device *next_dev;
-
-        next_dev = dev->next;
+    FOREACH_LLIST_ENTRY_SAFE(dev, next, &ctx->input_devices, this)
         input_device_destroy(dev);
-        dev = next_dev;
-    }
 
     if (ctx->fb_fd != -1)
         close(ctx->fb_fd);
-
+    if (ctx->ev_sock_fd != -1)
+        close(ctx->ev_sock_fd);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
     struct context ctx;
     int ret;
 
     memset(&ctx, 0, sizeof(ctx));
+    INIT_LLIST(ctx.input_devices);
+    INIT_LLIST(ctx.windows);
+    ctx.ev_sock_fd = -1;
+    ctx.fb_fd = -1;
+
+    printf("%s !!!\n", argv[0]);
+
+    ret = init_event_socket(&ctx, DAILYCOMP_SOCK_PATH);
+    if (ret) {
+        printf("init_event_socket() failed\n");
+        goto err;
+    }
 
     ret = init_framebuffer(&ctx);
     if (ret) {
-        printf("init_framebuffer() failed");
+        printf("init_framebuffer() failed\n");
         goto err;
     }
 
     ret = init_input_devices(&ctx);
     if (ret) {
-        printf("init_input_devices() failed");
+        printf("init_input_devices() failed\n");
         goto err;
     }
 

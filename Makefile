@@ -80,7 +80,7 @@ include $(DOCS_DIR)/build.mk
 compile_commands.json:
 	$(call COMPILE,GEN,$@)
 	$(call ASSERT_EXE_EXISTS,bear)
-	$(SILENT)bear -- $(MAKE) -B all
+	$(SILENT)bear -- $(MAKE) -B all apps
 
 $(INITRAMFS): apps/install
 	$(call INSTALL,$(ROOT_DIR)/,$(BUILD_ROOT_DIR))
