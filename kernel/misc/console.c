@@ -117,9 +117,9 @@ static error_t console_device_init(void)
     if (IS_ERR(console))
         PANIC("failed to open /dev/console: %pe", console);
 
-    ASSERT(process_set_fd(&kernel_process, FD_STDIN,  file_get(console), FD_READ) >= 0);
-    ASSERT(process_set_fd(&kernel_process, FD_STDOUT, file_get(console), FD_WRITE) >= 0);
-    ASSERT(process_set_fd(&kernel_process, FD_STDERR, file_get(console), FD_WRITE) >= 0);
+    ASSERT(process_set_fd(&kernel_process, FD_STDIN,  file_get(console), 0) >= 0);
+    ASSERT(process_set_fd(&kernel_process, FD_STDOUT, file_get(console), 0) >= 0);
+    ASSERT(process_set_fd(&kernel_process, FD_STDERR, file_get(console), 0) >= 0);
 
     file_put(console);
 

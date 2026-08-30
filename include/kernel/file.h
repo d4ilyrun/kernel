@@ -32,6 +32,7 @@ struct file {
     const struct file_operations *ops; ///< @see file_operations
     atomic_t refcount;                 ///< Number of references to this file
     spinlock_t lock;                   ///< Synchronization lock
+    int flags;                         ///< File description flags (O_*)
 };
 
 void __file_put(struct file *file);
@@ -105,7 +106,8 @@ struct file_operations {
 };
 
 /** Create a new file structure */
-struct file *file_open(struct vnode *, const struct file_operations *);
+struct file *
+file_open(struct vnode *, const struct file_operations *, int oflags);
 
 /** Reposition the open file description offset
  *

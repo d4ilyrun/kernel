@@ -45,7 +45,7 @@ static struct vnode_operations socket_vnode_ops = {
     .release = socket_vnode_release,
 };
 
-struct socket *socket_alloc(void)
+struct socket *socket_alloc(int oflags)
 {
     struct socket_node *node;
     struct socket *socket;
@@ -72,7 +72,7 @@ struct socket *socket_alloc(void)
     stat->st_mode = S_IRWU | S_IRWG | S_IRWO;
     stat->st_nlink = 1;
 
-    file = file_open(vnode, &socket_fops);
+    file = file_open(vnode, &socket_fops, oflags);
     if (IS_ERR(file)) {
         log_err("Failed to open socket file: %pE", file);
         vnode_release(vnode);
@@ -257,7 +257,7 @@ int sys_socket(int domain, int type, int proto)
     error_t err;
     int fd;
 
-    socket = socket_alloc();
+    socket = socket_alloc(O_RDWR);
     if (!socket)
         return -E_NOMEM;
 
@@ -265,7 +265,7 @@ int sys_socket(int domain, int type, int proto)
     if (err)
         goto fail;
 
-    fd = process_add_fd(current->process, socket->file, FD_RW);
+    fd = process_add_fd(current->process, socket->file, 0);
     if (fd < 0) {
         err = fd;
         goto fail;

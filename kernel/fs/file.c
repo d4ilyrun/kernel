@@ -9,10 +9,16 @@
 
 #include <unistd.h>
 
-struct file *file_open(struct vnode *vnode, const struct file_operations *fops)
+struct file *file_open(struct vnode *vnode,
+                       const struct file_operations *fops,
+                       int oflags)
 {
     struct file *file;
     error_t ret = E_SUCCESS;
+
+    /* clear file creation flags. */
+    oflags &= ~(O_CLOEXEC | O_CREAT | O_DIRECTORY | O_EXCL |
+                O_NOCTTY  | O_TRUNC);
 
     if (fops == NULL)
         return PTR_ERR(E_NOT_SUPPORTED);
@@ -23,6 +29,7 @@ struct file *file_open(struct vnode *vnode, const struct file_operations *fops)
 
     file->ops = fops;
     file->vnode = vnode_acquire(vnode, NULL);
+    file->flags = oflags;
 
     INIT_SPINLOCK(file->lock);
 
@@ -138,7 +145,7 @@ ssize_t sys_read(int fd, char *buf, size_t nbyte)
     /*
      * File was not opened for reading.
      */
-    if (!(fdp->flags & FD_READ)) {
+    if (!O_READABLE(file->flags)) {
         count = -E_BAD_FD;
         goto out;
     }
@@ -181,7 +188,7 @@ ssize_t sys_write(int fd, const char *buf, size_t nbyte)
     /*
      * File was not opened for writing.
      */
-    if (!(fdp->flags & FD_WRITE)) {
+    if (!O_WRITABLE(file->flags)) {
         count = -E_BAD_FD;
         goto out;
     }
@@ -195,7 +202,7 @@ ssize_t sys_write(int fd, const char *buf, size_t nbyte)
          * prior to each write and no intervening file modification operation
          * shall occur between changing the file offset and the write operation.
          */
-        if (fdp->flags & FD_APPEND)
+        if (file->flags & O_APPEND)
             file->pos = file_size(file);
 
         locked_scope (&file->vnode->lock) {
@@ -246,7 +253,7 @@ ssize_t sys_getdents(int fd, void *buf, size_t size, int flags)
     UNUSED(flags);
 
     fdp = process_fd_get(process, fd);
-    if (!fdp || !(fdp->flags & FD_READ))
+    if (!fdp || !O_READABLE(fdp->file->flags))
         return -E_BAD_FD;
     file = fdp->file;
     vnode = file->vnode;

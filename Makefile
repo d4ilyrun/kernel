@@ -54,6 +54,7 @@ TO_CLEAN += $(BUILD_DIR)/$(ROOT_DIR)
 DEBUG ?= y
 
 CFLAGS   := -std=gnu11 -Werror -Wall -Wextra -MMD -MP
+CFLAGS   += -Wno-unused-parameter
 CFLAGS   += -fdiagnostics-color=always
 CPPFLAGS += -I$(INC_DIR)
 

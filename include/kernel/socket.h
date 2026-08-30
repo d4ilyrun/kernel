@@ -91,7 +91,7 @@ static inline struct vnode *socket_vnode(struct socket *socket)
  *  @note After initialization, the socket's reference count
  *        is set to 1. To free a socket call @c socket_put().
  */
-struct socket *socket_alloc(void);
+struct socket *socket_alloc(int oflags);
 
 /*
  *

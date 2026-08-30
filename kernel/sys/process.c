@@ -1069,7 +1069,7 @@ int sys_dup2(int old, int new)
         /* Clear FD_CLOEXEC while holding the lock to avoid leaking the file
          * descriptor if a fork/exec were to happen in the meantime.
          */
-        fdp->flags &= ~FD_NOINHERIT;
+        fdp->flags &= ~FD_CLOEXEC;
     }
 
     return new;

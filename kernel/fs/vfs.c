@@ -386,7 +386,7 @@ static struct file *vfs_open_at(struct vnode *vnode, int oflags)
         if (!vnode_check_creds(vnode, creds, oflags))
             goto out;
 
-        file = vnode->operations->open(vnode);
+        file = vnode->operations->open(vnode, oflags);
         if (IS_ERR(file))
             goto out;
     }
@@ -572,20 +572,8 @@ void vnode_fill_stats(struct vnode *vnode, mode_t mode, struct user_creds *creds
  */
 error_t compute_fd_flags(int oflags, int *flags)
 {
-    *flags = 0;
-
-    if (oflags & (O_TRUNC | O_SYNC | O_NONBLOCK | O_NOCTTY | O_NOFOLLOW))
-        return -E_INVAL;
-
-    if (O_READABLE(oflags))
-        *flags |= FD_READ;
-    if (O_READABLE(oflags))
-        *flags |= FD_WRITE;
-
-    if (oflags & O_APPEND)
-        *flags |= FD_APPEND;
     if (oflags & O_CLOEXEC)
-        *flags |= FD_NOINHERIT;
+        *flags |= FD_CLOEXEC;
 
     return E_SUCCESS;
 }
@@ -642,7 +630,7 @@ int sys_open(const char *path, int oflags, mode_t mode)
     if (fd < 0)
         file_put(file);
 
-    if (flags & FD_APPEND)
+    if (file->flags & O_APPEND)
         file_seek(file, 0, SEEK_END);
 
 error_release_node:

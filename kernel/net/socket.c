@@ -125,8 +125,8 @@ socket_dgram_recvmsg(struct socket *socket, struct msghdr *msg, int flags)
 
     msg->msg_flags = 0;
 
-    if (flags & ~O_NONBLOCK) {
-        not_implemented("recvmsg: flags (%x)", flags & ~O_NONBLOCK);
+    if (flags) {
+        not_implemented("recvmsg: flags (%x)", flags);
         return -E_NOT_SUPPORTED;
     }
 
@@ -135,7 +135,7 @@ socket_dgram_recvmsg(struct socket *socket, struct msghdr *msg, int flags)
         return -E_NOT_IMPLEMENTED;
     }
 
-    packet = socket_dequeue_packet(socket, flags & O_NONBLOCK);
+    packet = socket_dequeue_packet(socket, socket->file->flags & O_NONBLOCK);
     if (IS_ERR(packet))
         return -ERR_FROM_PTR(packet);
 

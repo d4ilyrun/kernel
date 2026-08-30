@@ -444,20 +444,6 @@ struct thread *thread_find_by_tid(pid_t tid);
 #define FD_STDOUT 1
 #define FD_STDERR 2
 
-/*
- * File description flag.
- *
- * These are set when opening a file description (open, socket, ...) or by
- * using other syscalls (e.g. fcntl).
- */
-enum file_flags {
-    FD_READ = _FREAD,
-    FD_WRITE = _FWRITE,
-    FD_RW = FD_READ | FD_WRITE,
-    FD_APPEND = _FAPPEND,
-    FD_NOINHERIT = _FNOINHERIT, /* FD_CLOEXEC is already defined by fcntl(). */
-};
-
 /** @struct fd
  *
  * Opened file description.
@@ -468,7 +454,14 @@ enum file_flags {
 struct fd {
     struct file *file;
     atomic_t     refcount;
-    int          flags;    ///< Parameter flags (@see POSIX.1-2024 open)
+
+    /*
+     * File descriptor flags (FD_CLOEXEC).
+     *
+     * These flags are specific to one descriptor only and are not shared
+     * across descriptors for to the same file description.
+     */
+    int flags;
 };
 
 void __fd_put(struct fd *fd);

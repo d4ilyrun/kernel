@@ -191,7 +191,7 @@ typedef struct vnode_operations {
     error_t (*remove)(vnode_t *node, const char *child);
 
     /** Create a new opened file corresponding to this vnode  */
-    struct file *(*open)(vnode_t *vnode);
+    struct file *(*open)(vnode_t *vnode, int oflags);
 
     /** Called by the VFS driver before deleting a vnode (optional).
      *  This is responsible for freeing/updating any necessary internal

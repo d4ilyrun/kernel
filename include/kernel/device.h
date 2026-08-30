@@ -107,9 +107,6 @@ error_t device_register(device_t *);
 /** Find a registered device by name */
 struct device *device_find(const char *name);
 
-/** Open a device for interacting with it. */
-struct file *device_open(device_t *);
-
 /** Set the name of the device */
 #define device_set_name(dev, fmt, ...) \
     snprintk((dev)->name, sizeof((dev)->name), fmt, ##__VA_ARGS__)

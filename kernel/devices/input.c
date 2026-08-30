@@ -228,7 +228,6 @@ static ssize_t input_device_read(struct file *file, char *buffer, size_t size)
 again:
     spinlock_acquire(&dev->ev_lock);
     if (ringbuffer_is_empty(&dev->ev_buffer)) {
-        /* TODO: support O_NONBLOCK */
         waitqueue_lock(&dev->ev_waiters);
         spinlock_release(&dev->ev_lock);
         waitqueue_enqueue_locked(&dev->ev_waiters, current);
@@ -253,7 +252,19 @@ again:
     return read;
 }
 
+/*
+ * TODO: support O_NONBLOCK
+ */
+static error_t input_device_open(struct file *file)
+{
+    if (!(file->flags & O_NONBLOCK))
+        return E_INVAL;
+
+    return 0;
+}
+
 static const struct file_operations input_dev_fops = {
+    .open = input_device_open,
     .read = input_device_read,
 };
 

@@ -450,9 +450,9 @@ static error_t tar_vnode_remove(vnode_t *vnode, const char *name)
     return E_READ_ONLY_FS;
 }
 
-static struct file *tar_vnode_open(vnode_t *vnode)
+static struct file *tar_vnode_open(vnode_t *vnode, int oflags)
 {
-    return file_open(vnode, &tar_file_ops);
+    return file_open(vnode, &tar_file_ops, oflags);
 }
 
 /*

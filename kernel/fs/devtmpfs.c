@@ -53,23 +53,15 @@ static inline struct vnode *device_acquire_vnode(struct device *dev)
     return dev->vnode;
 }
 
-struct file *device_open(device_t *dev)
-{
-    struct vnode *vnode = device_acquire_vnode(dev);
-    struct file *file = file_open(vnode, dev->fops);
-    vnode_release(vnode);
-    return file;
-}
-
 /*
  * Forward open call to the device's driver's fops.
  */
-static struct file *devtmpfs_vnode_open(struct vnode *vnode)
+static struct file *devtmpfs_vnode_open(struct vnode *vnode, int oflags)
 {
     struct device *dev = vnode->pdata;
     struct file *file;
 
-    file = file_open(vnode, dev->fops);
+    file = file_open(vnode, dev->fops, oflags);
     if (IS_ERR(file))
         return file;
 
@@ -208,9 +200,9 @@ devtmpfs_root_vnode_lookup(vnode_t *node, const path_segment_t *child)
 /*
  *
  */
-static struct file *devtmpfs_root_vnode_open(struct vnode *vnode)
+static struct file *devtmpfs_root_vnode_open(struct vnode *vnode, int oflags)
 {
-    return file_open(vnode, &devtmpfs_root_fops);
+    return file_open(vnode, &devtmpfs_root_fops, oflags);
 }
 
 /*

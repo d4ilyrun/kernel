@@ -190,6 +190,11 @@ static error_t pipe_init(struct pipe *pipe)
  */
 static error_t pipe_open(struct file *file)
 {
+    if (!(file->flags & O_NONBLOCK)) {
+        not_implemented("blocking pipe");
+        return E_NOT_SUPPORTED;
+    }
+
     file_accessed(file);
     file_modified(file);
     file_changed(file);
@@ -295,25 +300,25 @@ int sys_pipe(int *fds)
     if (ret)
         goto exit_error;
 
-    read_file = file_open(pipe->ends[PIPE_READ].vnode, &pipe_fops);
+    read_file = file_open(pipe->ends[PIPE_READ].vnode, &pipe_fops, O_RDWR);
     if (IS_ERR(read_file)) {
         ret = -ERR_FROM_PTR(read_file);
         goto exit_error;
     }
 
-    fds[PIPE_READ] = process_add_fd(current->process, read_file, FD_RW);
+    fds[PIPE_READ] = process_add_fd(current->process, read_file, 0);
     if (fds[PIPE_READ] < 0) {
         ret = fds[PIPE_READ];
         goto exit_error;
     }
 
-    write_file = file_open(pipe->ends[PIPE_WRITE].vnode, &pipe_fops);
+    write_file = file_open(pipe->ends[PIPE_WRITE].vnode, &pipe_fops, O_RDWR);
     if (IS_ERR(write_file)) {
         ret = -ERR_FROM_PTR(write_file);
         goto exit_error;
     }
 
-    fds[PIPE_WRITE] = process_add_fd(current->process, write_file, FD_RW);
+    fds[PIPE_WRITE] = process_add_fd(current->process, write_file, 0);
     if (fds[PIPE_WRITE] < 0) {
         ret = fds[PIPE_WRITE];
         process_remove_fd(current->process, fds[PIPE_READ]);
