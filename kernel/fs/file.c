@@ -3,101 +3,101 @@
 #include <kernel/process.h>
 #include <kernel/timer.h>
 #include <kernel/vfs.h>
-#include <dirent.h>
 
 #include <dailyrun/net.h> /* struct msghdr */
 
+#include <dirent.h>
 #include <unistd.h>
 
 struct file *file_open(struct vnode *vnode, const struct file_operations *fops)
 {
-    struct file *file;
-    error_t ret = E_SUCCESS;
+	struct file *file;
+	error_t ret = E_SUCCESS;
 
-    if (fops == NULL)
-        return PTR_ERR(E_NOT_SUPPORTED);
+	if (fops == NULL)
+		return PTR_ERR(E_NOT_SUPPORTED);
 
-    file = kcalloc(1, sizeof(*file), KMALLOC_KERNEL);
-    if (file == NULL)
-        return PTR_ERR(E_NOMEM);
+	file = kcalloc(1, sizeof(*file), KMALLOC_KERNEL);
+	if (file == NULL)
+		return PTR_ERR(E_NOMEM);
 
-    file->ops = fops;
-    file->vnode = vnode_acquire(vnode, NULL);
+	file->ops = fops;
+	file->vnode = vnode_acquire(vnode, NULL);
 
-    INIT_SPINLOCK(file->lock);
+	INIT_SPINLOCK(file->lock);
 
-    atomic_write(&file->refcount, 0);
-    file_get(file);
+	atomic_write(&file->refcount, 0);
+	file_get(file);
 
-    if (fops->open)
-        ret = fops->open(file);
+	if (fops->open)
+		ret = fops->open(file);
 
-    if (ret != E_SUCCESS) {
-        file_put(file);
-        return PTR_ERR(ret);
-    }
+	if (ret != E_SUCCESS) {
+		file_put(file);
+		return PTR_ERR(ret);
+	}
 
-    return file;
+	return file;
 }
 
 void __file_put(struct file *file)
 {
-    struct vnode *vnode = file->vnode;
+	struct vnode *vnode = file->vnode;
 
-    if (file->ops->close)
-        file->ops->close(file);
+	if (file->ops->close)
+		file->ops->close(file);
 
-    /*
-     * TODO: If the link count of the file is 0, the space occupied
-     *       by the file shall be freed and the file shall no longer
-     *       be accessible.
-     */
-    vnode_release(vnode);
+	/*
+	 * TODO: If the link count of the file is 0, the space occupied
+	 *       by the file shall be freed and the file shall no longer
+	 *       be accessible.
+	 */
+	vnode_release(vnode);
 
-    kfree(file);
+	kfree(file);
 }
 
 void file_accessed(struct file *file)
 {
-    clock_get_time(&file->vnode->stat.st_atim);
+	clock_get_time(&file->vnode->stat.st_atim);
 }
 
 void file_modified(struct file *file)
 {
-    clock_get_time(&file->vnode->stat.st_mtim);
+	clock_get_time(&file->vnode->stat.st_mtim);
 }
 
 void file_changed(struct file *file)
 {
-    clock_get_time(&file->vnode->stat.st_ctim);
+	clock_get_time(&file->vnode->stat.st_ctim);
 }
 
 off_t default_file_seek(struct file *file, off_t off, int whence)
 {
-    enum vnode_type type = file->vnode->type;
+	enum vnode_type type = file->vnode->type;
 
-    if (type == VNODE_SOCKET || type == VNODE_FIFO)
-        return -E_SEEK_PIPE;
+	if (type == VNODE_SOCKET || type == VNODE_FIFO)
+		return -E_SEEK_PIPE;
 
-    spinlock_acquire(&file->lock);
+	spinlock_acquire(&file->lock);
 
-    switch (whence) {
-    case SEEK_CUR:
-        file->pos += off;
-        break;
-    case SEEK_END:
-        file->pos = file_size(file) + off;
-        break;
-    case SEEK_SET:
-        file->pos = off;
-        break;
-    default:
-        spinlock_release(&file->lock);
-        return -E_INVAL;
-    }
+	switch (whence) {
+	case SEEK_CUR:
+		file->pos += off;
+		break;
+	case SEEK_END:
+		file->pos = file_size(file) + off;
+		break;
+	case SEEK_SET:
+		file->pos = off;
+		break;
+	default:
+		spinlock_release(&file->lock);
+		return -E_INVAL;
+	}
 
-    spinlock_release(&file->lock);
-    return file->pos;
+	spinlock_release(&file->lock);
+	return file->pos;
 }
 
 /*
@@ -105,16 +105,16 @@ off_t default_file_seek(struct file *file, off_t off, int whence)
  */
 off_t sys_lseek(int fd, off_t off, int whence)
 {
-    struct fd *fdp;
+	struct fd *fdp;
 
-    fdp = process_fd_get(current->process, fd);
-    if (!fdp)
-        return -E_BAD_FD;
+	fdp = process_fd_get(current->process, fd);
+	if (!fdp)
+		return -E_BAD_FD;
 
-    off = file_seek(fdp->file, off, whence);
-    process_fd_put(current->process, fdp);
+	off = file_seek(fdp->file, off, whence);
+	process_fd_put(current->process, fdp);
 
-    return off;
+	return off;
 }
 
 /*
@@ -125,42 +125,42 @@ off_t sys_lseek(int fd, off_t off, int whence)
  */
 ssize_t sys_read(int fd, char *buf, size_t nbyte)
 {
-    struct fd *fdp;
-    struct file *file;
-    ssize_t count = 0;
+	struct fd *fdp;
+	struct file *file;
+	ssize_t count = 0;
 
-    fdp = process_fd_get(current->process, fd);
-    if (!fdp)
-        return -E_BAD_FD;
+	fdp = process_fd_get(current->process, fd);
+	if (!fdp)
+		return -E_BAD_FD;
 
-    file = fdp->file;
+	file = fdp->file;
 
-    /*
-     * File was not opened for reading.
-     */
-    if (!(fdp->flags & FD_READ)) {
-        count = -E_BAD_FD;
-        goto out;
-    }
+	/*
+	 * File was not opened for reading.
+	 */
+	if (!(fdp->flags & FD_READ)) {
+		count = -E_BAD_FD;
+		goto out;
+	}
 
-    if (file->vnode->type == VNODE_DIRECTORY) {
-        count = -E_IS_DIRECTORY;
-        goto out;
-    }
+	if (file->vnode->type == VNODE_DIRECTORY) {
+		count = -E_IS_DIRECTORY;
+		goto out;
+	}
 
-    if (nbyte == 0)
-        goto out;
+	if (nbyte == 0)
+		goto out;
 
-    locked_scope (&file->lock) {
-        locked_scope (&file->vnode->lock) {
-            count = file_read(file, buf, nbyte);
-            file_accessed(file);
-        }
-    }
+	locked_scope (&file->lock) {
+		locked_scope (&file->vnode->lock) {
+			count = file_read(file, buf, nbyte);
+			file_accessed(file);
+		}
+	}
 
 out:
-    process_fd_put(current->process, fdp);
-    return count;
+	process_fd_put(current->process, fdp);
+	return count;
 }
 
 /*
@@ -168,45 +168,45 @@ out:
  */
 ssize_t sys_write(int fd, const char *buf, size_t nbyte)
 {
-    struct fd *fdp;
-    struct file *file;
-    ssize_t count = 0;
+	struct fd *fdp;
+	struct file *file;
+	ssize_t count = 0;
 
-    fdp = process_fd_get(current->process, fd);
-    if (!fdp)
-        return -E_BAD_FD;
+	fdp = process_fd_get(current->process, fd);
+	if (!fdp)
+		return -E_BAD_FD;
 
-    file = fdp->file;
+	file = fdp->file;
 
-    /*
-     * File was not opened for writing.
-     */
-    if (!(fdp->flags & FD_WRITE)) {
-        count = -E_BAD_FD;
-        goto out;
-    }
+	/*
+	 * File was not opened for writing.
+	 */
+	if (!(fdp->flags & FD_WRITE)) {
+		count = -E_BAD_FD;
+		goto out;
+	}
 
-    if (nbyte == 0)
-        goto out;
+	if (nbyte == 0)
+		goto out;
 
-    locked_scope (&file->lock) {
-        /*
-         * If O_APPEND, the file offset shall be set to the end of the file
-         * prior to each write and no intervening file modification operation
-         * shall occur between changing the file offset and the write operation.
-         */
-        if (fdp->flags & FD_APPEND)
-            file->pos = file_size(file);
+	locked_scope (&file->lock) {
+		/*
+		 * If O_APPEND, the file offset shall be set to the end of the file
+		 * prior to each write and no intervening file modification operation
+		 * shall occur between changing the file offset and the write operation.
+		 */
+		if (fdp->flags & FD_APPEND)
+			file->pos = file_size(file);
 
-        locked_scope (&file->vnode->lock) {
-            count = file_write(file, buf, nbyte);
-            file_modified(file);
-        }
-    }
+		locked_scope (&file->vnode->lock) {
+			count = file_write(file, buf, nbyte);
+			file_modified(file);
+		}
+	}
 
 out:
-    process_fd_put(current->process, fdp);
-    return count;
+	process_fd_put(current->process, fdp);
+	return count;
 }
 
 /*
@@ -214,22 +214,22 @@ out:
  */
 int sys_close(int fd)
 {
-    return process_remove_fd(current->process, fd);
+	return process_remove_fd(current->process, fd);
 }
 
 int sys_fstat(int fd, struct stat *buf)
 {
-    struct fd *fdp;
+	struct fd *fdp;
 
-    fdp = process_fd_get(current->process, fd);
-    if (!fdp)
-        return -E_BAD_FD;
+	fdp = process_fd_get(current->process, fd);
+	if (!fdp)
+		return -E_BAD_FD;
 
-    *buf = fdp->file->vnode->stat;
+	*buf = fdp->file->vnode->stat;
 
-    process_fd_put(current->process, fdp);
+	process_fd_put(current->process, fdp);
 
-    return 0;
+	return 0;
 }
 
 /*
@@ -237,45 +237,45 @@ int sys_fstat(int fd, struct stat *buf)
  */
 ssize_t sys_getdents(int fd, void *buf, size_t size, int flags)
 {
-    struct process *process = current->process;
-    struct vnode *vnode;
-    struct fd *fdp;
-    struct file *file;
-    error_t err;
+	struct process *process = current->process;
+	struct vnode *vnode;
+	struct fd *fdp;
+	struct file *file;
+	error_t err;
 
-    UNUSED(flags);
+	UNUSED(flags);
 
-    fdp = process_fd_get(process, fd);
-    if (!fdp || !(fdp->flags & FD_READ))
-        return -E_BAD_FD;
-    file = fdp->file;
-    vnode = file->vnode;
+	fdp = process_fd_get(process, fd);
+	if (!fdp || !(fdp->flags & FD_READ))
+		return -E_BAD_FD;
+	file = fdp->file;
+	vnode = file->vnode;
 
-    err = E_NOT_DIRECTORY;
-    if (vnode->type != VNODE_DIRECTORY)
-        goto err;
+	err = E_NOT_DIRECTORY;
+	if (vnode->type != VNODE_DIRECTORY)
+		goto err;
 
-    err = E_NOT_SUPPORTED;
-    if (vnode->operations->getdents == NULL)
-        goto err;
+	err = E_NOT_SUPPORTED;
+	if (vnode->operations->getdents == NULL)
+		goto err;
 
-    locked_scope (&file->lock) {
-        err = E_INVAL;
-        if (file->pos < 0)
-            goto err;
+	locked_scope (&file->lock) {
+		err = E_INVAL;
+		if (file->pos < 0)
+			goto err;
 
-        locked_scope (&vnode->lock) {
-            err = vnode->operations->getdents(vnode, &file->pos, buf, &size);
-            if (err)
-                goto err;
-        }
-    }
+		locked_scope (&vnode->lock) {
+			err = vnode->operations->getdents(vnode, &file->pos, buf, &size);
+			if (err)
+				goto err;
+		}
+	}
 
-    process_fd_put(process, fdp);
+	process_fd_put(process, fdp);
 
-    return size;
+	return size;
 
 err:
-    process_fd_put(process, fdp);
-    return -err;
+	process_fd_put(process, fdp);
+	return -err;
 }

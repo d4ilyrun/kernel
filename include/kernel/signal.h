@@ -8,9 +8,9 @@
 #ifndef KERNEL_SIGNAL_H
 #define KERNEL_SIGNAL_H
 
-#include <kernel/spinlock.h>
 #include <kernel/atomic.h>
 #include <kernel/error.h>
+#include <kernel/spinlock.h>
 
 #include <libalgo/queue.h>
 
@@ -23,8 +23,8 @@
 struct thread;
 struct process;
 
-#define SIGNAL_MIN 1
-#define SIGNAL_MAX (SIGNAL_COUNT - 1)
+#define SIGNAL_MIN   1
+#define SIGNAL_MAX   (SIGNAL_COUNT - 1)
 #define SIGNAL_COUNT NSIG
 
 /*
@@ -34,9 +34,9 @@ struct process;
  * to take decisions and fill the structures during signal delivery.
  */
 struct signal_context {
-    node_t      this; /* used by struct signal_queue */
-    siginfo_t   si_info;
-    int         si_signo;
+	node_t this; /* used by struct signal_queue */
+	siginfo_t si_info;
+	int si_signo;
 };
 
 /*
@@ -45,42 +45,42 @@ struct signal_context {
  * There exists one queue of pending signal per process AND per thread.
  */
 struct signal_queue {
-    spinlock_t  lock;
-    llist_t     signals; /* struct signal_context */
-    sigset_t    pending;
+	spinlock_t lock;
+	llist_t signals; /* struct signal_context */
+	sigset_t pending;
 };
 
 static inline void signal_queue_init(struct signal_queue *queue)
 {
-    INIT_SPINLOCK(queue->lock);
-    INIT_LLIST(queue->signals);
+	INIT_SPINLOCK(queue->lock);
+	INIT_LLIST(queue->signals);
 }
 
 /*
  * Reflects what is specified in sigaction().
  */
 struct signal_action {
-    struct sigaction sa_action;
+	struct sigaction sa_action;
 };
 
 /*
  *
  */
 struct signal_set {
-    spinlock_t            lock; /* should be held when accessing this structure. */
-    struct signal_action  sig_actions[SIGNAL_COUNT];
+	spinlock_t lock; /* should be held when accessing this structure. */
+	struct signal_action sig_actions[SIGNAL_COUNT];
 };
 
 /*
  * Frame pushed onto the stack before calling the signal handler.
  */
 struct signal_frame {
-    int         signo;
-    siginfo_t   *p_siginfo;
-    ucontext_t  *p_ucontext;
-    /* Above are the arguments passed to the signal handler. */
-    siginfo_t  siginfo;
-    ucontext_t ucontext;
+	int signo;
+	siginfo_t *p_siginfo;
+	ucontext_t *p_ucontext;
+	/* Above are the arguments passed to the signal handler. */
+	siginfo_t siginfo;
+	ucontext_t ucontext;
 };
 
 /** Free an existing signal set structure. */
@@ -92,8 +92,7 @@ struct signal_set *signal_set_clone(struct signal_set *set);
 /** Reset all signal actions to their default value. */
 void signal_set_reset(struct signal_set *set);
 
-struct signal_context *signal_queue_pop(struct signal_queue *queue,
-                                        sigset_t blocked);
+struct signal_context *signal_queue_pop(struct signal_queue *queue, sigset_t blocked);
 
 /** Remove and free all signals present inside a signal queue. */
 size_t signal_queue_flush(struct signal_queue *queue);
@@ -115,6 +114,6 @@ error_t signal_thread(struct thread *thread, const siginfo_t *sig_info);
  */
 
 error_t arch_signal_deliver_catch(struct thread *, const struct signal_action *,
-                                  const struct signal_context *);
+				  const struct signal_context *);
 
 #endif /* KERNEL_SIGNAL_H */

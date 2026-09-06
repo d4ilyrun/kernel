@@ -61,32 +61,32 @@
  *  @enum page_flags
  */
 enum page_flags {
-    PAGE_AVAILABLE = BIT(0),   ///< This page has not been allocated
-    PAGE_COW = BIT(1),         ///< Currently used in a CoW mapping
-    PAGE_SLAB = BIT(2),        ///< Page allocated by the slab allocator
-    PAGE_LARGE_ALLOC = BIT(3), ///< Page allocated by kmalloc_large()
-    PAGE_VNODE = BIT(4),       ///< Page is mapped to a vnode
+	PAGE_AVAILABLE = BIT(0),   ///< This page has not been allocated
+	PAGE_COW = BIT(1),	   ///< Currently used in a CoW mapping
+	PAGE_SLAB = BIT(2),	   ///< Page allocated by the slab allocator
+	PAGE_LARGE_ALLOC = BIT(3), ///< Page allocated by kmalloc_large()
+	PAGE_VNODE = BIT(4),	   ///< Page is mapped to a vnode
 };
 
 /** Represents a physical pageframe
  *  @struct page
  */
 struct page {
-    uint16_t flags;    ///< Combination of @ref page_flags
-    uint16_t refcount; ///< How many processes reference that page
+	uint16_t flags;	   ///< Combination of @ref page_flags
+	uint16_t refcount; ///< How many processes reference that page
 
-    union {
-        /* Used by pages allocated by the slab allocator (PAGE_SLAB) */
-        struct {
-            struct kmem_cache *cache;
-        } slab;
+	union {
+		/* Used by pages allocated by the slab allocator (PAGE_SLAB) */
+		struct {
+			struct kmem_cache *cache;
+		} slab;
 
-        /* Used by vnode backed pages (PAGE_VNODE) */
-        struct {
-            struct vnode *vn_vnode;
-            off_t         vn_offset;
-        };
-    };
+		/* Used by vnode backed pages (PAGE_VNODE) */
+		struct {
+			struct vnode *vn_vnode;
+			off_t vn_offset;
+		};
+	};
 };
 
 /**
@@ -106,22 +106,22 @@ extern struct page pmm_pageframes[TOTAL_PAGEFRAMES_COUNT];
 /** @return A page's physical address */
 static inline paddr_t page_address(const struct page *page)
 {
-    return FROM_PFN((page - pmm_pageframes) / sizeof(*page));
+	return FROM_PFN((page - pmm_pageframes) / sizeof(*page));
 }
 
 /** @return The page struct corresponding to a pageframe number */
 static inline struct page *pfn_to_page(unsigned int pfn)
 {
-    return &pmm_pageframes[pfn];
+	return &pmm_pageframes[pfn];
 }
 
 /** @return The page struct corresponding to a physical address's pageframe */
 static inline struct page *address_to_page(paddr_t addr)
 {
-    if (addr == PMM_INVALID_PAGEFRAME)
-        return NULL;
+	if (addr == PMM_INVALID_PAGEFRAME)
+		return NULL;
 
-    return pfn_to_page(TO_PFN(addr));
+	return pfn_to_page(TO_PFN(addr));
 }
 
 /** Increase the page's refcount. */
@@ -133,7 +133,7 @@ void page_put(struct page *page);
 /** @return whether the page is part of a CoW mapping. */
 static inline bool page_is_cow(struct page *page)
 {
-    return page->flags & PAGE_COW;
+	return page->flags & PAGE_COW;
 }
 
 /**

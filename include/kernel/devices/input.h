@@ -17,15 +17,15 @@
  * read regularly from userland (typically by the display server).
  */
 struct input_device {
-    struct device     dev;
-    struct ringbuffer ev_buffer;
-    spinlock_t        ev_lock;
-    struct waitqueue  ev_waiters;
+	struct device dev;
+	struct ringbuffer ev_buffer;
+	spinlock_t ev_lock;
+	struct waitqueue ev_waiters;
 };
 
 static inline struct input_device *to_input_device(struct device *device)
 {
-    return container_of(device, struct input_device, dev);
+	return container_of(device, struct input_device, dev);
 }
 
 error_t register_input_device(struct input_device *);

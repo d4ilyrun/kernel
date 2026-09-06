@@ -58,12 +58,12 @@
  * @brief Feature flags passed to the kmalloc function family
  */
 typedef enum kmalloc_flags {
-    KMALLOC_KERNEL = 0, /* Default allocation flags. */
+	KMALLOC_KERNEL = 0, /* Default allocation flags. */
 } kmalloc_flags_t;
 
 #define KMALLOC_CACHE_MIN_SIZE 16
 #define KMALLOC_CACHE_MAX_SIZE 16384
-#define KMALLOC_CACHE_COUNT 11
+#define KMALLOC_CACHE_COUNT    11
 
 /*
  * @return The index of the smallest cache that can contain a @size bytes object
@@ -73,19 +73,30 @@ typedef enum kmalloc_flags {
  */
 static ALWAYS_INLINE __attribute__((const)) int kmalloc_cache_index(size_t size)
 {
-    if (size <= 16) return 0;
-    if (size <= 32) return 1;
-    if (size <= 64) return 2;
-    if (size <= 128) return 3;
-    if (size <= 256) return 4;
-    if (size <= 512) return 5;
-    if (size <= 1024) return 6;
-    if (size <= 2048) return 7;
-    if (size <= 4096) return 8;
-    if (size <= 8192) return 9;
-    if (size <= 16384) return 10;
+	if (size <= 16)
+		return 0;
+	if (size <= 32)
+		return 1;
+	if (size <= 64)
+		return 2;
+	if (size <= 128)
+		return 3;
+	if (size <= 256)
+		return 4;
+	if (size <= 512)
+		return 5;
+	if (size <= 1024)
+		return 6;
+	if (size <= 2048)
+		return 7;
+	if (size <= 4096)
+		return 8;
+	if (size <= 8192)
+		return 9;
+	if (size <= 16384)
+		return 10;
 
-    return -1;
+	return -1;
 }
 
 /** Allocate kernel memory from one of the global memory caches.
@@ -105,15 +116,14 @@ void *kmalloc_large(size_t size, int flags);
  */
 static ALWAYS_INLINE void *kmalloc(size_t size, int flags)
 {
-    int cache_index;
+	int cache_index;
 
-    cache_index = kmalloc_cache_index(size);
-    if (cache_index < 0)
-        return kmalloc_large(size, flags);
+	cache_index = kmalloc_cache_index(size);
+	if (cache_index < 0)
+		return kmalloc_large(size, flags);
 
-    return kmalloc_from_cache(cache_index, flags);
+	return kmalloc_from_cache(cache_index, flags);
 }
-
 
 /**
  * Allocate @c nmemb members of @c size bytes and initialize its content to 0.

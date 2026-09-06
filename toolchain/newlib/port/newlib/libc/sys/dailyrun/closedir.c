@@ -4,14 +4,14 @@
 
 int closedir(DIR *dirp)
 {
-    int ret;
+	int ret;
 
-    ret = close(dirp->dd_fd);
-    if (ret)
-        return ret;
+	ret = close(dirp->dd_fd);
+	if (ret)
+		return ret;
 
-    free(dirp->dd_buf);
-    free(dirp);
+	free(dirp->dd_buf);
+	free(dirp);
 
-    return 0;
+	return 0;
 }

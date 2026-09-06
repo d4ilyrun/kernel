@@ -12,16 +12,16 @@
 
 void memory_init(struct multiboot_info *mbt)
 {
-    log_info("Initializing pageframe allocator");
-    if (!pmm_init(mbt))
-        PANIC("Failed to initialize the physical memory manager");
+	log_info("Initializing pageframe allocator");
+	if (!pmm_init(mbt))
+		PANIC("Failed to initialize the physical memory manager");
 
-    log_info("Initializing MMU");
-    if (!mmu_init())
-        PANIC("Failed to initialize virtual address space");
+	log_info("Initializing MMU");
+	if (!mmu_init())
+		PANIC("Failed to initialize virtual address space");
 
-    address_space_init(&kernel_address_space);
+	address_space_init(&kernel_address_space);
 
-    kmem_cache_api_init();
-    kmalloc_api_init();
+	kmem_cache_api_init();
+	kmalloc_api_init();
 }

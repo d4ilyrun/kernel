@@ -6,16 +6,16 @@
 #include <kernel/pmm.h>
 #include <kernel/process.h>
 #include <kernel/sched.h>
+#include <kernel/syscalls.h>
 #include <kernel/vfs.h>
 #include <kernel/vm.h>
 #include <kernel/vmm.h>
-#include <kernel/syscalls.h>
 
 #include <utils/container_of.h>
 #include <utils/macro.h>
 
-#include <sys/mman.h>
 #include <string.h>
+#include <sys/mman.h>
 
 /*
  * We don't want to expose the MMU API everywhere we include the VM header,
@@ -46,8 +46,8 @@ struct address_space kernel_address_space = {
  *  Drivers are matched using the request's flags.
  */
 struct vm_segment_driver_match {
-    const struct vm_segment_driver *driver;
-    vm_flags_t flags;
+	const struct vm_segment_driver *driver;
+	vm_flags_t flags;
 };
 
 extern const struct vm_segment_driver vm_vnode;
@@ -58,301 +58,295 @@ static struct vm_segment_driver_match vm_segment_drivers[] = {
 
 static inline struct vm_segment *to_segment(const node_t *this)
 {
-    return container_of(this, struct vm_segment, this);
+	return container_of(this, struct vm_segment, this);
 }
 
 static inline int vm_segment_compare(const void *left, const void *right)
 {
-    RETURN_CMP(to_segment(left)->start, to_segment(right)->start);
+	RETURN_CMP(to_segment(left)->start, to_segment(right)->start);
 }
 
-static inline void
-vm_segment_insert(struct address_space *as, struct vm_segment *segment)
+static inline void vm_segment_insert(struct address_space *as, struct vm_segment *segment)
 {
-    llist_insert_sorted(as->segments, &segment->this, vm_segment_compare);
+	llist_insert_sorted(as->segments, &segment->this, vm_segment_compare);
 }
 
-static inline void
-vm_segment_remove(struct address_space *as, struct vm_segment *segment)
+static inline void vm_segment_remove(struct address_space *as, struct vm_segment *segment)
 {
-    UNUSED(as);
-    llist_remove(&segment->this);
+	UNUSED(as);
+	llist_remove(&segment->this);
 }
 
 static const struct vm_segment_driver *vm_find_driver(vm_flags_t flags)
 {
-    struct vm_segment_driver_match *match;
+	struct vm_segment_driver_match *match;
 
-    for (size_t i = 0; i < ARRAY_SIZE(vm_segment_drivers); ++i) {
-        match = &vm_segment_drivers[i];
-        if ((flags & match->flags) == match->flags)
-            return match->driver;
-    }
+	for (size_t i = 0; i < ARRAY_SIZE(vm_segment_drivers); ++i) {
+		match = &vm_segment_drivers[i];
+		if ((flags & match->flags) == match->flags)
+			return match->driver;
+	}
 
-    /* If no match has been found, vm_vnode is always the default choice. */
-    return &vm_vnode;
+	/* If no match has been found, vm_vnode is always the default choice. */
+	return &vm_vnode;
 }
 
 struct address_space *address_space_new(void)
 {
-    struct address_space *as;
+	struct address_space *as;
 
-    as = kcalloc(1, sizeof(*as), KMALLOC_KERNEL);
-    if (as == NULL)
-        return PTR_ERR(E_NOMEM);
+	as = kcalloc(1, sizeof(*as), KMALLOC_KERNEL);
+	if (as == NULL)
+		return PTR_ERR(E_NOMEM);
 
-    as->vmm = vmm_new(as);
-    if (as->vmm == NULL)
-        goto vm_new_nomem;
+	as->vmm = vmm_new(as);
+	if (as->vmm == NULL)
+		goto vm_new_nomem;
 
-    as->mmu = mmu_new();
-    if (as->mmu == PMM_INVALID_PAGEFRAME)
-        goto vm_new_nomem;
+	as->mmu = mmu_new();
+	if (as->mmu == PMM_INVALID_PAGEFRAME)
+		goto vm_new_nomem;
 
-    INIT_SPINLOCK(as->lock);
+	INIT_SPINLOCK(as->lock);
 
-    return as;
+	return as;
 
 vm_new_nomem:
-    kfree(as->vmm);
-    kfree(as);
-    return PTR_ERR(E_NOMEM);
+	kfree(as->vmm);
+	kfree(as);
+	return PTR_ERR(E_NOMEM);
 }
 
 error_t address_space_init(struct address_space *as)
 {
-    struct vm_segment *segment;
-    llist_t *list_head;
-    paddr_t page;
-    bool success;
+	struct vm_segment *segment;
+	llist_t *list_head;
+	paddr_t page;
+	bool success;
 
-    if (as == &kernel_address_space) {
-        success = vmm_init(as->vmm, KERNEL_ADDRESS_SPACE_START,
-                           KERNEL_ADDRESS_SPACE_END);
-        return success ? E_SUCCESS : E_INVAL;
-    }
+	if (as == &kernel_address_space) {
+		success = vmm_init(as->vmm, KERNEL_ADDRESS_SPACE_START, KERNEL_ADDRESS_SPACE_END);
+		return success ? E_SUCCESS : E_INVAL;
+	}
 
-    success = vmm_init(as->vmm, USER_MEMORY_START, USER_MEMORY_END);
+	success = vmm_init(as->vmm, USER_MEMORY_START, USER_MEMORY_END);
 
-    /*
-     * Allocate the heads of the address space's lists.
-     *
-     * We need to dynamically allocate them so that they also get duplicated
-     * through coW. otherwise, we'd have to edit clone the whole list and update
-     * all next/prev pointers accordingly.
-     */
+	/*
+	 * Allocate the heads of the address space's lists.
+	 *
+	 * We need to dynamically allocate them so that they also get duplicated
+	 * through coW. otherwise, we'd have to edit clone the whole list and update
+	 * all next/prev pointers accordingly.
+	 */
 
-    segment = vm_vnode.vm_alloc(as, 0, sizeof(*list_head), VM_READ | VM_WRITE,
-                                NULL);
-    if (IS_ERR(segment))
-        return ERR_FROM_PTR(segment);
+	segment = vm_vnode.vm_alloc(as, 0, sizeof(*list_head), VM_READ | VM_WRITE, NULL);
+	if (IS_ERR(segment))
+		return ERR_FROM_PTR(segment);
 
-    /*
-     * Since we cannot recursively keep track of the segment list head inside
-     * the segment list, we use segment we just allocated as its sentinel.
-     */
-    as->segments = (llist_t *)&segment->this;
+	/*
+	 * Since we cannot recursively keep track of the segment list head inside
+	 * the segment list, we use segment we just allocated as its sentinel.
+	 */
+	as->segments = (llist_t *)&segment->this;
 
-    /*
-     * We cannot lazily allocate the kmalloc list segment since the pagefault
-     * handler will not be able to retrive it and will see it as an
-     * actual faulty access.
-     */
-    page = pmm_allocate();
-    if (page == PMM_INVALID_PAGEFRAME)
-        return E_NOMEM;
-    if (!mmu_map(segment->start, page, PROT_WRITE | PROT_READ))
-        return E_EXIST;
+	/*
+	 * We cannot lazily allocate the kmalloc list segment since the pagefault
+	 * handler will not be able to retrive it and will see it as an
+	 * actual faulty access.
+	 */
+	page = pmm_allocate();
+	if (page == PMM_INVALID_PAGEFRAME)
+		return E_NOMEM;
+	if (!mmu_map(segment->start, page, PROT_WRITE | PROT_READ))
+		return E_EXIST;
 
-    INIT_LLIST(*as->segments);
+	INIT_LLIST(*as->segments);
 
-    return success ? E_SUCCESS : E_INVAL;
+	return success ? E_SUCCESS : E_INVAL;
 }
 
 error_t address_space_clear(struct address_space *as)
 {
-    struct vm_segment *segment;
-    paddr_t phys;
+	struct vm_segment *segment;
+	paddr_t phys;
 
-    // We need to be able to read the address space's MMU to retreive
-    // The physical addresses associated with segments.
-    WARN_ON(as != current->process->as);
-    WARN_ON(as == &kernel_address_space);
-    WARN_ON(as == kernel_process.as);
+	// We need to be able to read the address space's MMU to retreive
+	// The physical addresses associated with segments.
+	WARN_ON(as != current->process->as);
+	WARN_ON(as == &kernel_address_space);
+	WARN_ON(as == kernel_process.as);
 
-    locked_scope (&as->lock) {
+	locked_scope (&as->lock) {
 
-        FOREACH_LLIST_SAFE (this, node, as->segments) {
-            segment = to_segment(this);
-            for (size_t off = 0; off < segment->size; off += PAGE_SIZE) {
-                phys = mmu_unmap(segment->start + off);
-                if (phys != PMM_INVALID_PAGEFRAME)
-                    pmm_free(phys);
-            }
-        }
+		FOREACH_LLIST_SAFE (this, node, as->segments) {
+			segment = to_segment(this);
+			for (size_t off = 0; off < segment->size; off += PAGE_SIZE) {
+				phys = mmu_unmap(segment->start + off);
+				if (phys != PMM_INVALID_PAGEFRAME)
+					pmm_free(phys);
+			}
+		}
 
-        /* The list's sentinel was also dynamically allocated. */
-        segment = to_segment(llist_head(as->segments));
-        for (size_t off = 0; off < segment->size; off += PAGE_SIZE) {
-            phys = mmu_unmap(segment->start + off);
-            if (phys != PMM_INVALID_PAGEFRAME)
-                pmm_free(phys);
-        }
+		/* The list's sentinel was also dynamically allocated. */
+		segment = to_segment(llist_head(as->segments));
+		for (size_t off = 0; off < segment->size; off += PAGE_SIZE) {
+			phys = mmu_unmap(segment->start + off);
+			if (phys != PMM_INVALID_PAGEFRAME)
+				pmm_free(phys);
+		}
 
-        as->data_end = 0;
-        as->segments = NULL;
+		as->data_end = 0;
+		as->segments = NULL;
 
-        vmm_clear(as->vmm);
-    }
+		vmm_clear(as->vmm);
+	}
 
-    return E_SUCCESS;
+	return E_SUCCESS;
 }
 
 error_t address_space_destroy(struct address_space *as)
 {
-    if (as == kernel_process.as) {
-        log_err("Trying to destroy kernel address space");
-        stack_trace();
-        return E_INVAL;
-    }
+	if (as == kernel_process.as) {
+		log_err("Trying to destroy kernel address space");
+		stack_trace();
+		return E_INVAL;
+	}
 
-    locked_scope (&as->lock) {
-        vmm_destroy(as->vmm);
-        mmu_destroy(as->mmu);
-    }
+	locked_scope (&as->lock) {
+		vmm_destroy(as->vmm);
+		mmu_destroy(as->mmu);
+	}
 
-    return E_SUCCESS;
+	return E_SUCCESS;
 }
 
 error_t address_space_load(struct address_space *as)
 {
-    no_preemption_scope () {
-        current->process->as = as;
-        mmu_load(as->mmu);
-        thread_set_mmu(current, as->mmu);
-    }
+	no_preemption_scope () {
+		current->process->as = as;
+		mmu_load(as->mmu);
+		thread_set_mmu(current, as->mmu);
+	}
 
-    return E_SUCCESS;
+	return E_SUCCESS;
 }
 
 error_t address_space_copy_current(struct address_space *dst)
 {
-    struct address_space *src = current->process->as;
+	struct address_space *src = current->process->as;
 
-    /*
-     * The destination address space should be cleared before copying into it.
-     * This is to avoid having 'zombie' segments left inaccessible after.
-     */
-    if (dst->segments)
-        return E_BUSY;
+	/*
+	 * The destination address space should be cleared before copying into it.
+	 * This is to avoid having 'zombie' segments left inaccessible after.
+	 */
+	if (dst->segments)
+		return E_BUSY;
 
-    locked_scope (&dst->lock) {
-        no_preemption_scope () {
-            mmu_clone(dst->mmu); /* Clone current MMU into the destination AS */
-            vmm_copy(dst->vmm, src->vmm);
-        }
+	locked_scope (&dst->lock) {
+		no_preemption_scope () {
+			mmu_clone(dst->mmu); /* Clone current MMU into the destination AS */
+			vmm_copy(dst->vmm, src->vmm);
+		}
 
-        dst->segments = src->segments;
-        dst->data_end = src->data_end;
-    }
+		dst->segments = src->segments;
+		dst->data_end = src->data_end;
+	}
 
-    return E_SUCCESS;
+	return E_SUCCESS;
 }
 
 error_t address_space_fault(struct address_space *as, void *addr, bool is_cow)
 {
-    struct vm_segment *segment;
-    error_t err;
+	struct vm_segment *segment;
+	error_t err;
 
-    /*
-     * Copy-on-Write pages
-     */
-    if (is_cow) {
-        err = mmu_copy_on_write((vaddr_t)addr);
-        if (err)
-            log_warn("cow @ %p failed: %pe", addr, &err);
-        return err;
-    }
+	/*
+	 * Copy-on-Write pages
+	 */
+	if (is_cow) {
+		err = mmu_copy_on_write((vaddr_t)addr);
+		if (err)
+			log_warn("cow @ %p failed: %pe", addr, &err);
+		return err;
+	}
 
-    segment = vm_find(as, addr);
-    if (!segment)
-        return -E_NOENT;
+	segment = vm_find(as, addr);
+	if (!segment)
+		return -E_NOENT;
 
-    return segment->driver->vm_fault(as, segment);
+	return segment->driver->vm_fault(as, segment);
 }
 
 /*
  * Check whether the provided flags combination is correct.
  */
-static inline bool
-vm_flags_validate(struct address_space *as, vm_flags_t *flags)
+static inline bool vm_flags_validate(struct address_space *as, vm_flags_t *flags)
 {
-    UNUSED(as);
+	UNUSED(as);
 
-    switch (*flags & VM_CACHE_MASK) {
-    case 0:
-        /* Default caching policy: write-back. */
-        *flags |= VM_CACHE_WB;
-        break;
+	switch (*flags & VM_CACHE_MASK) {
+	case 0:
+		/* Default caching policy: write-back. */
+		*flags |= VM_CACHE_WB;
+		break;
 
-    case VM_CACHE_UC:
-    case VM_CACHE_WC:
-    case VM_CACHE_WT:
-    case VM_CACHE_WB:
-        break;
+	case VM_CACHE_UC:
+	case VM_CACHE_WC:
+	case VM_CACHE_WT:
+	case VM_CACHE_WB:
+		break;
 
-    default:
-        return false;
-    }
+	default:
+		return false;
+	}
 
-    return true;
+	return true;
 }
 
 /*
  *
  */
-static struct vm_segment *__vm_alloc(struct address_space *as, void *addr,
-                                     size_t size, vm_flags_t flags, void *data)
+static struct vm_segment *
+__vm_alloc(struct address_space *as, void *addr, size_t size, vm_flags_t flags, void *data)
 {
-    const struct vm_segment_driver *driver;
-    struct vm_segment *segment;
+	const struct vm_segment_driver *driver;
+	struct vm_segment *segment;
 
-    if (size == 0 || size % PAGE_SIZE)
-        return PTR_ERR(E_INVAL);
+	if (size == 0 || size % PAGE_SIZE)
+		return PTR_ERR(E_INVAL);
 
-    if (!vm_flags_validate(as, &flags))
-        return PTR_ERR(E_INVAL);
+	if (!vm_flags_validate(as, &flags))
+		return PTR_ERR(E_INVAL);
 
-    driver = vm_find_driver(flags);
-    if (!driver)
-        return PTR_ERR(E_NOENT);
+	driver = vm_find_driver(flags);
+	if (!driver)
+		return PTR_ERR(E_NOENT);
 
-    locked_scope (&as->lock) {
-        segment = driver->vm_alloc(as, (vaddr_t)addr, size, flags, data);
-        if (IS_ERR(segment))
-            return segment;
+	locked_scope (&as->lock) {
+		segment = driver->vm_alloc(as, (vaddr_t)addr, size, flags, data);
+		if (IS_ERR(segment))
+			return segment;
 
-        segment->flags = flags;
-        segment->driver = driver;
-        vm_segment_insert(as, segment);
-    }
+		segment->flags = flags;
+		segment->driver = driver;
+		vm_segment_insert(as, segment);
+	}
 
-    return segment;
+	return segment;
 }
 
 /*
  * Allocate virtual memory located after a given address.
  */
-void *vm_alloc_start(struct address_space *as, void *addr, size_t size,
-                     vm_flags_t flags)
+void *vm_alloc_start(struct address_space *as, void *addr, size_t size, vm_flags_t flags)
 {
-    struct vm_segment *segment;
+	struct vm_segment *segment;
 
-    segment = __vm_alloc(as, addr, size, flags, NULL);
-    if (IS_ERR(segment))
-        return NULL;
+	segment = __vm_alloc(as, addr, size, flags, NULL);
+	if (IS_ERR(segment))
+		return NULL;
 
-    return (void *)segment->start;
+	return (void *)segment->start;
 }
 
 /*
@@ -360,42 +354,41 @@ void *vm_alloc_start(struct address_space *as, void *addr, size_t size,
  */
 void *vm_alloc(struct address_space *as, size_t size, vm_flags_t flags)
 {
-    return vm_alloc_start(as, 0, size, flags);
+	return vm_alloc_start(as, 0, size, flags);
 }
 
 /*
  * Allocate virtual memory and map it to the given physical address.
  */
-void *vm_alloc_at(struct address_space *as, paddr_t phys, size_t size,
-                  vm_flags_t flags)
+void *vm_alloc_at(struct address_space *as, paddr_t phys, size_t size, vm_flags_t flags)
 {
-    const struct vm_segment_driver *driver;
-    struct vm_segment *segment;
+	const struct vm_segment_driver *driver;
+	struct vm_segment *segment;
 
-    if (size % PAGE_SIZE)
-        return NULL;
+	if (size % PAGE_SIZE)
+		return NULL;
 
-    if (phys % PAGE_SIZE)
-        return NULL;
+	if (phys % PAGE_SIZE)
+		return NULL;
 
-    if (!vm_flags_validate(as, &flags))
-        return NULL;
+	if (!vm_flags_validate(as, &flags))
+		return NULL;
 
-    driver = vm_find_driver(flags);
-    if (!driver)
-        return NULL;
+	driver = vm_find_driver(flags);
+	if (!driver)
+		return NULL;
 
-    locked_scope (&as->lock) {
-        segment = driver->vm_alloc_at(as, phys, size, flags, NULL);
-        if (IS_ERR(segment))
-            return NULL;
-        vm_segment_insert(as, segment);
-    }
+	locked_scope (&as->lock) {
+		segment = driver->vm_alloc_at(as, phys, size, flags, NULL);
+		if (IS_ERR(segment))
+			return NULL;
+		vm_segment_insert(as, segment);
+	}
 
-    segment->flags = flags;
-    segment->driver = driver;
+	segment->flags = flags;
+	segment->driver = driver;
 
-    return (void *)segment->start;
+	return (void *)segment->start;
 }
 
 /*
@@ -403,221 +396,215 @@ void *vm_alloc_at(struct address_space *as, paddr_t phys, size_t size,
  */
 void vm_free(struct address_space *as, void *addr)
 {
-    struct vm_segment *segment;
+	struct vm_segment *segment;
 
-    if (addr == NULL)
-        return;
+	if (addr == NULL)
+		return;
 
-    if ((vaddr_t)addr % PAGE_SIZE) {
-        WARN("freeing unaligned virtual address: %p (skipping)", addr);
-        return;
-    }
+	if ((vaddr_t)addr % PAGE_SIZE) {
+		WARN("freeing unaligned virtual address: %p (skipping)", addr);
+		return;
+	}
 
-    locked_scope (&as->lock) {
-        segment = vm_find(as, addr);
-        if (!segment) {
-            log_dbg("free: no backing segment for %p", addr);
-            return;
-        }
+	locked_scope (&as->lock) {
+		segment = vm_find(as, addr);
+		if (!segment) {
+			log_dbg("free: no backing segment for %p", addr);
+			return;
+		}
 
-        /* NOTE: We should not be freeing the whole segment at once. We may want
-         *       to free only part of a segment. This means treating each memory
-         *       segment as a single big 'object', and could also cause issues
-         *       when implementing VMA merging later.
-         */
-        vm_segment_remove(as, segment);
-        segment->driver->vm_free(as, segment);
-    }
+		/* NOTE: We should not be freeing the whole segment at once. We may want
+		 *       to free only part of a segment. This means treating each memory
+		 *       segment as a single big 'object', and could also cause issues
+		 *       when implementing VMA merging later.
+		 */
+		vm_segment_remove(as, segment);
+		segment->driver->vm_free(as, segment);
+	}
 }
 
 error_t vm_map(struct address_space *as, void *addr)
 {
-    struct vm_segment *segment;
-    error_t ret;
+	struct vm_segment *segment;
+	error_t ret;
 
-    if (addr == NULL)
-        return E_SUCCESS;
+	if (addr == NULL)
+		return E_SUCCESS;
 
-    if ((vaddr_t)addr % PAGE_SIZE) {
-        log_warn("mapping unaligned virtual address: %p (skipping)", addr);
-        return E_INVAL;
-    }
+	if ((vaddr_t)addr % PAGE_SIZE) {
+		log_warn("mapping unaligned virtual address: %p (skipping)", addr);
+		return E_INVAL;
+	}
 
-    locked_scope (&as->lock) {
-        segment = vm_find(as, addr);
-        if (!segment) {
-            log_dbg("map: no backing segment for %p", addr);
-            return E_NOENT;
-        }
+	locked_scope (&as->lock) {
+		segment = vm_find(as, addr);
+		if (!segment) {
+			log_dbg("map: no backing segment for %p", addr);
+			return E_NOENT;
+		}
 
-        ret = segment->driver->vm_map(as, segment, segment->flags);
-    }
+		ret = segment->driver->vm_map(as, segment, segment->flags);
+	}
 
-    return ret;
+	return ret;
 }
 
 static int vm_segment_contains(const void *this, const void *addr)
 {
-    const struct vm_segment *segment = to_segment(this);
+	const struct vm_segment *segment = to_segment(this);
 
-    if (!IN_RANGE((vaddr_t)addr, segment->start, segment_end(segment) - 1))
-        return !COMPARE_EQ;
+	if (!IN_RANGE((vaddr_t)addr, segment->start, segment_end(segment) - 1))
+		return !COMPARE_EQ;
 
-    return COMPARE_EQ;
+	return COMPARE_EQ;
 }
 
 struct vm_segment *vm_find(const struct address_space *as, void *addr)
 {
-    node_t *segment = llist_find_first(as->segments, addr, vm_segment_contains);
+	node_t *segment = llist_find_first(as->segments, addr, vm_segment_contains);
 
-    return segment ? to_segment(segment) : NULL;
+	return segment ? to_segment(segment) : NULL;
 }
 
-static MAYBE_UNUSED error_t vm_resize_segment(struct address_space *as,
-                                              struct vm_segment *segment,
-                                              size_t new_size)
+static MAYBE_UNUSED error_t vm_resize_segment(struct address_space *as, struct vm_segment *segment,
+					      size_t new_size)
 {
-    if (!PAGE_ALIGNED(new_size)) {
-        log_err("resize: segment size must be page aligned");
-        return E_INVAL;
-    }
+	if (!PAGE_ALIGNED(new_size)) {
+		log_err("resize: segment size must be page aligned");
+		return E_INVAL;
+	}
 
-    if (new_size == segment->size)
-        return E_SUCCESS;
+	if (new_size == segment->size)
+		return E_SUCCESS;
 
-    locked_scope(&as->lock) {
-        if (new_size == 0) {
-            segment->driver->vm_free(as, segment);
-            return E_SUCCESS;
-        }
+	locked_scope (&as->lock) {
+		if (new_size == 0) {
+			segment->driver->vm_free(as, segment);
+			return E_SUCCESS;
+		}
 
-        if (!segment->driver->vm_resize)
-            return E_NOT_SUPPORTED;
+		if (!segment->driver->vm_resize)
+			return E_NOT_SUPPORTED;
 
-        return segment->driver->vm_resize(as, segment, new_size);
-    }
+		return segment->driver->vm_resize(as, segment, new_size);
+	}
 
-    assert_not_reached();
-}
-
-/*
- *
- */
-static inline error_t vm_set_protection(struct address_space *as,
-                                        struct vm_segment *segment,
-                                        vm_flags_t prot, vm_flags_t mask)
-{
-        error_t err;
-
-        prot &= VM_PROT_MASK;
-        mask &= VM_PROT_MASK;
-
-        if (!mask)
-            return E_SUCCESS; /* bits not modified */
-
-        err = segment->driver->vm_set_protection(as, segment, prot);
-        if (err) {
-                log_warn("failed to set protection for [%p-%p]: %pe",
-                         (void *)segment->start, (void *)segment_end(segment),
-                         &err);
-                return -err;
-        }
-
-        segment->flags &= ~mask;
-        segment->flags |= prot;
-
-        return E_SUCCESS;
+	assert_not_reached();
 }
 
 /*
  *
  */
-static inline error_t vm_set_policy(struct address_space *as,
-                                    struct vm_segment *segment,
-                                    vm_flags_t policy, vm_flags_t mask)
+static inline error_t vm_set_protection(struct address_space *as, struct vm_segment *segment,
+					vm_flags_t prot, vm_flags_t mask)
 {
-    error_t err;
+	error_t err;
 
-    policy &= VM_CACHE_MASK;
-    mask &= VM_CACHE_MASK;
+	prot &= VM_PROT_MASK;
+	mask &= VM_PROT_MASK;
 
-    if (!mask)
-        return E_SUCCESS; /* bits not modified */
+	if (!mask)
+		return E_SUCCESS; /* bits not modified */
 
-    /* The config for cache policy only makes as a whole, don't allow
-     * configuring specific bits inside it. */
-    if (mask != VM_CACHE_MASK) {
-        log_err("set_policy(): partial cache mask not allowed: %#x", mask);
-        return -E_INVAL;
-    }
+	err = segment->driver->vm_set_protection(as, segment, prot);
+	if (err) {
+		log_warn("failed to set protection for [%p-%p]: %pe", (void *)segment->start,
+			 (void *)segment_end(segment), &err);
+		return -err;
+	}
 
-    err = segment->driver->vm_set_policy(as, segment, policy);
-    if (err) {
-        log_warn("failed to set caching policy for [%p-%p]: %pe",
-                 (void *)segment->start, (void *)segment_end(segment), &err);
-        return -err;
-    }
+	segment->flags &= ~mask;
+	segment->flags |= prot;
 
-    segment->flags &= ~VM_CACHE_MASK;
-    segment->flags |= policy;
-
-    return E_SUCCESS;
+	return E_SUCCESS;
 }
 
 /*
  *
  */
-error_t vm_modify_flags(struct address_space *as, void *addr,
-                        vm_flags_t flags, vm_flags_t mask)
+static inline error_t vm_set_policy(struct address_space *as, struct vm_segment *segment,
+				    vm_flags_t policy, vm_flags_t mask)
 {
-    struct vm_segment *segment;
-    error_t err;
+	error_t err;
 
-    AS_ASSERT_OWNED(as);
+	policy &= VM_CACHE_MASK;
+	mask &= VM_CACHE_MASK;
 
-    if (!vm_flags_validate(as, &flags))
-        return -E_INVAL;
-    flags &= mask;
+	if (!mask)
+		return E_SUCCESS; /* bits not modified */
 
-    /* NOTE: We should be adding a size parameter if we ever want to change
-     *       the flags for only part of a segment.
-     */
-    locked_scope (&as->lock) {
-        segment = vm_find(as, addr);
-        if (!segment)
-            return E_NOENT;
-        flags = (segment->flags & ~mask) | flags;
+	/* The config for cache policy only makes as a whole, don't allow
+	 * configuring specific bits inside it. */
+	if (mask != VM_CACHE_MASK) {
+		log_err("set_policy(): partial cache mask not allowed: %#x", mask);
+		return -E_INVAL;
+	}
 
-        err = vm_set_policy(as, segment, flags, mask);
-        if (err)
-            return err;
+	err = segment->driver->vm_set_policy(as, segment, policy);
+	if (err) {
+		log_warn("failed to set caching policy for [%p-%p]: %pe", (void *)segment->start,
+			 (void *)segment_end(segment), &err);
+		return -err;
+	}
 
-        err = vm_set_protection(as, segment, flags, mask);
-        if (err)
-            return err;
+	segment->flags &= ~VM_CACHE_MASK;
+	segment->flags |= policy;
 
-        segment->flags = flags;
-    }
-
-    return E_SUCCESS;
+	return E_SUCCESS;
 }
 
 /*
  *
  */
-static inline error_t compute_mmap_vmflags(int prot, int flags,
-					   vm_flags_t *vmflags)
+error_t vm_modify_flags(struct address_space *as, void *addr, vm_flags_t flags, vm_flags_t mask)
 {
-    if (!(flags & MAP_PRIVATE))
-        return E_INVAL;
+	struct vm_segment *segment;
+	error_t err;
 
-    *vmflags &= ~PROT_MASK;
-    *vmflags |= prot & PROT_MASK;
+	AS_ASSERT_OWNED(as);
 
-    if (flags & MAP_FIXED)
-        *vmflags |= VM_FIXED;
+	if (!vm_flags_validate(as, &flags))
+		return -E_INVAL;
+	flags &= mask;
 
-    return E_SUCCESS;
+	/* NOTE: We should be adding a size parameter if we ever want to change
+	 *       the flags for only part of a segment.
+	 */
+	locked_scope (&as->lock) {
+		segment = vm_find(as, addr);
+		if (!segment)
+			return E_NOENT;
+		flags = (segment->flags & ~mask) | flags;
+
+		err = vm_set_policy(as, segment, flags, mask);
+		if (err)
+			return err;
+
+		err = vm_set_protection(as, segment, flags, mask);
+		if (err)
+			return err;
+
+		segment->flags = flags;
+	}
+
+	return E_SUCCESS;
+}
+
+/*
+ *
+ */
+static inline error_t compute_mmap_vmflags(int prot, int flags, vm_flags_t *vmflags)
+{
+	if (!(flags & MAP_PRIVATE))
+		return E_INVAL;
+
+	*vmflags &= ~PROT_MASK;
+	*vmflags |= prot & PROT_MASK;
+
+	if (flags & MAP_FIXED)
+		*vmflags |= VM_FIXED;
+
+	return E_SUCCESS;
 }
 
 /* mmap() syscall
@@ -628,37 +615,37 @@ static inline error_t compute_mmap_vmflags(int prot, int flags,
  */
 void *sys_mmap(void *addr, size_t size, int prot, int flags, int fd, off_t off)
 {
-    struct vm_segment *segment;
-    struct vm_vnode_mapping *data = NULL;
-    vm_flags_t vmflags = 0;
-    error_t err;
+	struct vm_segment *segment;
+	struct vm_vnode_mapping *data = NULL;
+	vm_flags_t vmflags = 0;
+	error_t err;
 
-    err = compute_mmap_vmflags(prot, flags, &vmflags);
-    if (err)
-        return PTR_ERR(err);
+	err = compute_mmap_vmflags(prot, flags, &vmflags);
+	if (err)
+		return PTR_ERR(err);
 
-    /* file-backed memory */
-    if (!(flags & MAP_ANONYMOUS)) {
-        struct fd *fdp;
+	/* file-backed memory */
+	if (!(flags & MAP_ANONYMOUS)) {
+		struct fd *fdp;
 
-        fdp = process_fd_get(current->process, fd);
-        if (fdp == NULL)
-            return PTR_ERR(E_BAD_FD);
+		fdp = process_fd_get(current->process, fd);
+		if (fdp == NULL)
+			return PTR_ERR(E_BAD_FD);
 
-        data = vm_vnode_new_mapping(fdp->file->vnode, off);
-        process_fd_put(current->process, fdp);
-        if (IS_ERR(data))
-            return data;
-    }
+		data = vm_vnode_new_mapping(fdp->file->vnode, off);
+		process_fd_put(current->process, fdp);
+		if (IS_ERR(data))
+			return data;
+	}
 
-    size = align_up(size, PAGE_SIZE);
-    segment = __vm_alloc(current->process->as, addr, size, vmflags, data);
-    if (IS_ERR(segment)) {
-        kfree(data);
-        return segment;
-    }
+	size = align_up(size, PAGE_SIZE);
+	segment = __vm_alloc(current->process->as, addr, size, vmflags, data);
+	if (IS_ERR(segment)) {
+		kfree(data);
+		return segment;
+	}
 
-    return (void *)segment->start;
+	return (void *)segment->start;
 }
 
 /*
@@ -666,11 +653,11 @@ void *sys_mmap(void *addr, size_t size, int prot, int flags, int fd, off_t off)
  */
 int sys_munmap(void *addr, size_t size)
 {
-    UNUSED(addr);
-    UNUSED(size);
+	UNUSED(addr);
+	UNUSED(size);
 
-    /* TODO: unmap only part of a segment */
-    not_implemented("munmap(%p, %zu)", addr, size);
+	/* TODO: unmap only part of a segment */
+	not_implemented("munmap(%p, %zu)", addr, size);
 
-    return -E_NOT_IMPLEMENTED;
+	return -E_NOT_IMPLEMENTED;
 }

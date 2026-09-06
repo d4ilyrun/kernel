@@ -22,7 +22,7 @@ typedef atomic_t refcnt_t;
  */
 static inline void refcnt_init(refcnt_t *ref)
 {
-    atomic_write(ref, 1);
+	atomic_write(ref, 1);
 }
 
 #define REFCNT_INIT_STATIC() ((refcnt_t){.val = 1})
@@ -30,23 +30,23 @@ static inline void refcnt_init(refcnt_t *ref)
 /** @return the current number of references to an object. */
 static inline unsigned int refcnt_read(refcnt_t *ref)
 {
-    return atomic_read(ref);
+	return atomic_read(ref);
 }
 
 /** Increase the number of references to an object. */
 static inline unsigned int refcnt_get(refcnt_t *ref)
 {
-    unsigned int refs;
+	unsigned int refs;
 
-    /*
-     * All references to this object have been released already.
-     * Do not 'resurrect' it as it may have been scheduled to be
-     * garbage collected (e.g. process API).
-     */
-    refs = atomic_inc(ref);
-    ASSERT(refs > 0);
+	/*
+	 * All references to this object have been released already.
+	 * Do not 'resurrect' it as it may have been scheduled to be
+	 * garbage collected (e.g. process API).
+	 */
+	refs = atomic_inc(ref);
+	ASSERT(refs > 0);
 
-    return refs;
+	return refs;
 }
 
 /** Decrease the number of references to an object.
@@ -55,7 +55,7 @@ static inline unsigned int refcnt_get(refcnt_t *ref)
  */
 static inline unsigned int refcnt_put(refcnt_t *ref)
 {
-    return atomic_dec(ref) - 1;
+	return atomic_dec(ref) - 1;
 }
 
 #endif /* KERNEL_REFCNT_H */

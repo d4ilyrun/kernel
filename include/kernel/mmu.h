@@ -41,10 +41,10 @@ typedef unsigned int mmu_prot_t;
  *  @brief Caching policies.
  */
 typedef enum mmu_caching_policy {
-    POLICY_UC = BIT(6), /*!< Uncachealbe memory. */
-    POLICY_WC = BIT(7), /*!< Write-combining memory. */
-    POLICY_WT = BIT(8), /*!< Write-through memory. */
-    POLICY_WB = BIT(9), /*!< Write-back memory. */
+	POLICY_UC = BIT(6), /*!< Uncachealbe memory. */
+	POLICY_WC = BIT(7), /*!< Write-combining memory. */
+	POLICY_WT = BIT(8), /*!< Write-through memory. */
+	POLICY_WB = BIT(9), /*!< Write-back memory. */
 } mmu_policy_t;
 
 /** Initialize the MMU's paging system
@@ -151,7 +151,7 @@ paddr_t mmu_find_physical(vaddr_t);
 /** @return Whether the current MMU contains a mapping for a virtual address. */
 static inline bool mmu_is_mapped(vaddr_t addr)
 {
-    return !IS_ERR(mmu_find_physical(addr));
+	return !IS_ERR(mmu_find_physical(addr));
 }
 
 /** Configure the caching policy in effect when accessing a page.
@@ -169,8 +169,7 @@ error_t mmu_set_policy(vaddr_t, mmu_policy_t policy);
  * @param policy  Caching policy applied to this page.
  *                A combination of @ref mmu_caching_policy flags.
  */
-error_t mmu_set_policy_range(vaddr_t range_start, size_t range_size,
-                             mmu_policy_t policy);
+error_t mmu_set_policy_range(vaddr_t range_start, size_t range_size, mmu_policy_t policy);
 
 /** Configure the memory protection applied when accessing a page.
  *
@@ -187,7 +186,6 @@ error_t mmu_set_protection(vaddr_t vaddr, mmu_prot_t prot);
  * @param prot         Protection flags applied to all pages in the range.
  *                     A combination of @ref mmu_prot flags.
  */
-error_t mmu_set_protection_range(vaddr_t range_start, size_t range_size,
-                                 mmu_prot_t prot);
+error_t mmu_set_protection_range(vaddr_t range_start, size_t range_size, mmu_prot_t prot);
 
 #endif /* KERNEL_MMU_H */

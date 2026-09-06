@@ -22,40 +22,40 @@ struct packet;
 
 /** Socket connection state */
 enum socket_state {
-    SOCKET_DISCONNECTED, /*!< Connected to a partner */
-    SOCKET_CONNECTED,    /*!< Not connected to a remote partner */
+	SOCKET_DISCONNECTED, /*!< Connected to a partner */
+	SOCKET_CONNECTED,    /*!< Not connected to a remote partner */
 };
 
 /** A BSD socket */
 struct socket {
-    struct file *file;                   /*!< The socket's backing file */
-    const struct socket_domain *domain;  /*!< The socket's domain */
-    const struct socket_protocol *proto; /*!< Socket protocol type */
-    enum socket_state state;             /*!< Socket connection state*/
-    spinlock_t lock;    /*!< Socket wide synchronisation lock */
-    void *data;         /*!< Domain-specific socket data */
+	struct file *file;		     /*!< The socket's backing file */
+	const struct socket_domain *domain;  /*!< The socket's domain */
+	const struct socket_protocol *proto; /*!< Socket protocol type */
+	enum socket_state state;	     /*!< Socket connection state*/
+	spinlock_t lock;		     /*!< Socket wide synchronisation lock */
+	void *data;			     /*!< Domain-specific socket data */
 
-    queue_t          rx_packets;         /*!< Packets received */
-    spinlock_t       rx_lock;            /*!< Synchronisation lock for rx_packets */
-    struct waitqueue rx_blocked;         /*!< Blocked processes waiting for new packets. */
+	queue_t rx_packets;	     /*!< Packets received */
+	spinlock_t rx_lock;	     /*!< Synchronisation lock for rx_packets */
+	struct waitqueue rx_blocked; /*!< Blocked processes waiting for new packets. */
 };
 
 /** Check whether the socket is connection oriented (TCP, ...) */
 static inline bool socket_mode_is_connection(socket_type_t socket_type)
 {
-    return socket_type == SOCK_STREAM;
+	return socket_type == SOCK_STREAM;
 }
 
 /** */
 static inline void socket_lock(struct socket *socket)
 {
-    spinlock_acquire(&socket->lock);
+	spinlock_acquire(&socket->lock);
 }
 
 /** */
 static inline void socket_unlock(struct socket *socket)
 {
-    spinlock_release(&socket->lock);
+	spinlock_release(&socket->lock);
 }
 
 /** Socket node
@@ -65,24 +65,22 @@ static inline void socket_unlock(struct socket *socket)
  *  easily jump between the two using @ref container_of
  */
 struct socket_node {
-    struct socket socket; /*!< The socket */
-    struct vnode vnode;   /*!< The vnode */
+	struct socket socket; /*!< The socket */
+	struct vnode vnode;   /*!< The vnode */
 };
 
 /** @return The socket corresponding to a vnode */
 static inline struct socket *socket_from_vnode(struct vnode *vnode)
 {
-    struct socket_node *socket_node = container_of(vnode, struct socket_node,
-                                                   vnode);
-    return &socket_node->socket;
+	struct socket_node *socket_node = container_of(vnode, struct socket_node, vnode);
+	return &socket_node->socket;
 }
 
 /** @return The socket's vnode */
 static inline struct vnode *socket_vnode(struct socket *socket)
 {
-    struct socket_node *socket_node = container_of(socket, struct socket_node,
-                                                   socket);
-    return &socket_node->vnode;
+	struct socket_node *socket_node = container_of(socket, struct socket_node, socket);
+	return &socket_node->vnode;
 }
 
 /** Allocate and initialize a new socket.
@@ -97,8 +95,8 @@ struct socket *socket_alloc(void);
  */
 static inline struct socket *socket_get(struct socket *socket)
 {
-    vnode_acquire(socket_vnode(socket), NULL);
-    return socket;
+	vnode_acquire(socket_vnode(socket), NULL);
+	return socket;
 }
 
 /*
@@ -106,7 +104,7 @@ static inline struct socket *socket_get(struct socket *socket)
  */
 static inline void socket_put(struct socket *socket)
 {
-    vnode_release(socket_vnode(socket));
+	vnode_release(socket_vnode(socket));
 }
 
 /** Initialize a socket's underlying protocol.
@@ -136,10 +134,10 @@ struct packet *socket_dequeue_packet(struct socket *socket, bool block);
  * @ref communication domain
  */
 struct socket_domain {
-    sa_family_t domain;               /*!< Domain identifier */
-    node_t this;                      /*!< Used to list all domains */
-    error_t (*socket_init)(struct socket *, int type, int proto);
-    error_t (*verify_addr)(const struct sockaddr *addr, socklen_t addr_len);
+	sa_family_t domain; /*!< Domain identifier */
+	node_t this;	    /*!< Used to list all domains */
+	error_t (*socket_init)(struct socket *, int type, int proto);
+	error_t (*verify_addr)(const struct sockaddr *addr, socklen_t addr_len);
 };
 
 /** Register a new domain of sockets */
@@ -147,29 +145,27 @@ error_t socket_domain_register(struct socket_domain *);
 
 /** */
 struct socket_protocol_ops {
-    /** Initialize per-protocol data */
-    error_t (*init)(struct socket *);
-    /** Close connection, remove socket from global lists. */
-    void (*close)(struct socket *);
-    /** Release per-protocol data. */
-    void (*release)(struct socket *);
-    /** Associate socket with a local address */
-    error_t (*bind)(struct socket *, const struct sockaddr *addr,
-                    socklen_t addrlen);
-    /** Connect socket to a partner */
-    error_t (*connect)(struct socket *, const struct sockaddr *addr,
-                       socklen_t addrlen);
-    /** Send a message through the socket */
-    ssize_t (*sendmsg)(struct socket *, const struct msghdr *, int flags);
-    /** Read a message received by the socket */
-    ssize_t (*recvmsg)(struct socket *, struct msghdr *, int flags);
+	/** Initialize per-protocol data */
+	error_t (*init)(struct socket *);
+	/** Close connection, remove socket from global lists. */
+	void (*close)(struct socket *);
+	/** Release per-protocol data. */
+	void (*release)(struct socket *);
+	/** Associate socket with a local address */
+	error_t (*bind)(struct socket *, const struct sockaddr *addr, socklen_t addrlen);
+	/** Connect socket to a partner */
+	error_t (*connect)(struct socket *, const struct sockaddr *addr, socklen_t addrlen);
+	/** Send a message through the socket */
+	ssize_t (*sendmsg)(struct socket *, const struct msghdr *, int flags);
+	/** Read a message received by the socket */
+	ssize_t (*recvmsg)(struct socket *, struct msghdr *, int flags);
 };
 
 /** */
 struct socket_protocol {
-    int proto;                             /*!< Protocol number */
-    socket_type_t type;                    /*!< Protocol type */
-    const struct socket_protocol_ops *ops; /*!< Protocol operations **/
+	int proto;			       /*!< Protocol number */
+	socket_type_t type;		       /*!< Protocol type */
+	const struct socket_protocol_ops *ops; /*!< Protocol operations **/
 };
 
 /** Common sendmsg() logic for datagram sockets.
@@ -183,10 +179,8 @@ struct socket_protocol {
  * @return Total number of bytes sent on success, or a negative error code
  *         on failure.
  */
-ssize_t
-socket_dgram_sendmsg(struct socket *, const struct msghdr *, int flags,
-                     ssize_t (*send_one)(struct socket *, const struct iovec *,
-                                         int flags));
+ssize_t socket_dgram_sendmsg(struct socket *, const struct msghdr *, int flags,
+			     ssize_t (*send_one)(struct socket *, const struct iovec *, int flags));
 
 /** Common recvmsg() logic for datagram sockets.
  *
@@ -200,8 +194,7 @@ socket_dgram_sendmsg(struct socket *, const struct msghdr *, int flags,
  * @return Number of bytes received on success, or a negative error code
  *         on failure.
  */
-ssize_t
-socket_dgram_recvmsg(struct socket *socket, struct msghdr *msg, int flags);
+ssize_t socket_dgram_recvmsg(struct socket *socket, struct msghdr *msg, int flags);
 
 #endif /* KERNEL_SOCKET_H */
 

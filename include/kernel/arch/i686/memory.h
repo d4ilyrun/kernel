@@ -20,8 +20,8 @@
 /** Number of bits to shift one bit left to get the size of a page */
 #define PAGE_SHIFT 12
 /** The size of a single page */
-#define PAGE_SIZE (1 << PAGE_SHIFT)
-#define PAGE_MASK (~(PAGE_SIZE - 1))
+#define PAGE_SIZE	 (1 << PAGE_SHIFT)
+#define PAGE_MASK	 (~(PAGE_SIZE - 1))
 #define PAGE_OFFSET_MASK (PAGE_SIZE - 1)
 
 /** First usable physical address
@@ -40,6 +40,6 @@
  * 32-bit address bus -> 4GiB of addressable memory
  */
 #define ADDRESS_SPACE_SIZE (0x100000000UL)
-#define ADDRESS_SPACE_END (0xFFFFFFFFUL)
+#define ADDRESS_SPACE_END  (0xFFFFFFFFUL)
 
 #endif /* KERNEL_ARCH_I686_MEMORY_H */

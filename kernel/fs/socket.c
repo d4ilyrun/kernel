@@ -23,9 +23,9 @@
 #include <kernel/logger.h>
 #include <kernel/net/packet.h>
 #include <kernel/socket.h>
+#include <kernel/syscalls.h>
 #include <kernel/timer.h>
 #include <kernel/vfs.h>
-#include <kernel/syscalls.h>
 
 #include <limits.h>
 
@@ -33,12 +33,12 @@ static struct file_operations socket_fops;
 
 static void socket_vnode_release(struct vnode *vnode)
 {
-    struct socket *socket = socket_from_vnode(vnode);
+	struct socket *socket = socket_from_vnode(vnode);
 
-    if (socket->proto && socket->proto->ops->release)
-        socket->proto->ops->release(socket);
+	if (socket->proto && socket->proto->ops->release)
+		socket->proto->ops->release(socket);
 
-    kfree(container_of(vnode, struct socket_node, vnode));
+	kfree(container_of(vnode, struct socket_node, vnode));
 }
 
 static struct vnode_operations socket_vnode_ops = {
@@ -47,42 +47,42 @@ static struct vnode_operations socket_vnode_ops = {
 
 struct socket *socket_alloc(void)
 {
-    struct socket_node *node;
-    struct socket *socket;
-    struct vnode *vnode;
-    struct file *file;
-    struct stat *stat;
+	struct socket_node *node;
+	struct socket *socket;
+	struct vnode *vnode;
+	struct file *file;
+	struct stat *stat;
 
-    node = kcalloc(1, sizeof(*node), KMALLOC_KERNEL);
-    if (node == NULL)
-        return PTR_ERR(E_NOMEM);
+	node = kcalloc(1, sizeof(*node), KMALLOC_KERNEL);
+	if (node == NULL)
+		return PTR_ERR(E_NOMEM);
 
-    /* Increase refcount */
-    vnode = vnode_acquire(&node->vnode, NULL);
-    socket = &node->socket;
+	/* Increase refcount */
+	vnode = vnode_acquire(&node->vnode, NULL);
+	socket = &node->socket;
 
-    /* No real filesystem, just standalone vnodes */
-    vnode->fs = NULL;
-    vnode->operations = &socket_vnode_ops;
-    vnode->type = VNODE_SOCKET;
+	/* No real filesystem, just standalone vnodes */
+	vnode->fs = NULL;
+	vnode->operations = &socket_vnode_ops;
+	vnode->type = VNODE_SOCKET;
 
-    stat = &vnode->stat;
-    clock_get_time(&stat->st_mtim);
-    stat->st_ctim = stat->st_mtim;
-    stat->st_mode = S_IRWU | S_IRWG | S_IRWO;
-    stat->st_nlink = 1;
+	stat = &vnode->stat;
+	clock_get_time(&stat->st_mtim);
+	stat->st_ctim = stat->st_mtim;
+	stat->st_mode = S_IRWU | S_IRWG | S_IRWO;
+	stat->st_nlink = 1;
 
-    file = file_open(vnode, &socket_fops);
-    if (IS_ERR(file)) {
-        log_err("Failed to open socket file: %pE", file);
-        vnode_release(vnode);
-        return (void *)file;
-    }
+	file = file_open(vnode, &socket_fops);
+	if (IS_ERR(file)) {
+		log_err("Failed to open socket file: %pE", file);
+		vnode_release(vnode);
+		return (void *)file;
+	}
 
-    socket->file = file;
-    file->priv = socket;
+	socket->file = file;
+	file->priv = socket;
 
-    return socket;
+	return socket;
 }
 
 /* Close a socket.
@@ -98,97 +98,93 @@ struct socket *socket_alloc(void)
  */
 static void socket_close(struct file *file)
 {
-    struct socket *socket = file->priv;
+	struct socket *socket = file->priv;
 
-    /*
-     * Discard all previously received packets.
-     */
-    spinlock_acquire(&socket->rx_lock);
-    while (!queue_is_empty(&socket->rx_packets)) {
-        struct packet *pkt;
+	/*
+	 * Discard all previously received packets.
+	 */
+	spinlock_acquire(&socket->rx_lock);
+	while (!queue_is_empty(&socket->rx_packets)) {
+		struct packet *pkt;
 
-        pkt = queue_dequeue_entry(&socket->rx_packets, struct packet, rx_this);
-        packet_free(pkt);
-    }
-    spinlock_release(&socket->rx_lock);
+		pkt = queue_dequeue_entry(&socket->rx_packets, struct packet, rx_this);
+		packet_free(pkt);
+	}
+	spinlock_release(&socket->rx_lock);
 
-    /*
-     * Close connection and make socket unreachable.
-     */
-    if (socket->proto->ops->close)
-        socket->proto->ops->close(socket);
+	/*
+	 * Close connection and make socket unreachable.
+	 */
+	if (socket->proto->ops->close)
+		socket->proto->ops->close(socket);
 }
 
 /*
  *
  */
-static error_t
-socket_bind(struct file *file, const struct sockaddr *addr, socklen_t addr_len)
+static error_t socket_bind(struct file *file, const struct sockaddr *addr, socklen_t addr_len)
 {
-    struct socket *socket = file->priv;
-    error_t err;
+	struct socket *socket = file->priv;
+	error_t err;
 
-    if (socket->file->vnode->type != VNODE_SOCKET)
-        return E_NOT_SOCKET;
+	if (socket->file->vnode->type != VNODE_SOCKET)
+		return E_NOT_SOCKET;
 
-    err = socket->domain->verify_addr(addr, addr_len);
-    if (err)
-        return -err;
+	err = socket->domain->verify_addr(addr, addr_len);
+	if (err)
+		return -err;
 
-    return socket->proto->ops->bind(socket, addr, addr_len);
+	return socket->proto->ops->bind(socket, addr, addr_len);
 }
 
-static error_t
-socket_connect(struct file *file, const struct sockaddr *addr,
-               socklen_t addr_len)
+static error_t socket_connect(struct file *file, const struct sockaddr *addr, socklen_t addr_len)
 {
-    struct socket *socket = file->priv;
-    error_t err;
+	struct socket *socket = file->priv;
+	error_t err;
 
-    if (socket->file->vnode->type != VNODE_SOCKET)
-        return E_NOT_SOCKET;
+	if (socket->file->vnode->type != VNODE_SOCKET)
+		return E_NOT_SOCKET;
 
-    err = socket->domain->verify_addr(addr, addr_len);
-    if (err)
-        return -err;
+	err = socket->domain->verify_addr(addr, addr_len);
+	if (err)
+		return -err;
 
-    return socket->proto->ops->connect(socket, addr, addr_len);
+	return socket->proto->ops->connect(socket, addr, addr_len);
 }
 
 /*
  * https://pubs.opengroup.org/onlinepubs/9699919799/functions/sendmsg.html
  */
-static ssize_t
-socket_sendmsg(struct file *file, const struct msghdr *msg, int flags)
+static ssize_t socket_sendmsg(struct file *file, const struct msghdr *msg, int flags)
 {
-    struct socket *socket = file->priv;
-    error_t err;
+	struct socket *socket = file->priv;
+	error_t err;
 
-    if (file->vnode->type != VNODE_SOCKET)
-        return -E_NOT_SOCKET;
+	if (file->vnode->type != VNODE_SOCKET)
+		return -E_NOT_SOCKET;
 
-    if (msg->msg_namelen > NAME_MAX)
-        return -E_NAME_TOO_LONG;
+	if (msg->msg_namelen > NAME_MAX)
+		return -E_NAME_TOO_LONG;
 
-    if (msg->msg_iovlen <= 0 || msg->msg_iovlen > IOV_MAX)
-        return -E_MSG_SIZE;
+	if (msg->msg_iovlen <= 0 || msg->msg_iovlen > IOV_MAX)
+		return -E_MSG_SIZE;
 
-    // In connection-mode, specified address is ignored
-    if (socket_mode_is_connection(socket->proto->type)) {
-        if (socket->state != SOCKET_CONNECTED)
-            return -E_NOT_CONNECTED;
-    } else {
-        if (socket->state != SOCKET_CONNECTED) {
-            if (!msg->msg_name)
-                return -E_DEST_ADDR_REQUIRED;
+	// In connection-mode, specified address is ignored
+	if (socket_mode_is_connection(socket->proto->type)) {
+		if (socket->state != SOCKET_CONNECTED)
+			return -E_NOT_CONNECTED;
+	} else {
+		if (socket->state != SOCKET_CONNECTED) {
+			if (!msg->msg_name)
+				return -E_DEST_ADDR_REQUIRED;
 
-            err =socket->domain->verify_addr(msg->msg_name, msg->msg_namelen);
-            if (err)
-                return -err;
-        }
-    }
+			err = socket->domain->verify_addr(msg->msg_name, msg->msg_namelen);
+			if (err)
+				return -err;
+		}
+	}
 
-    return socket->proto->ops->sendmsg(socket, msg, flags);
+	return socket->proto->ops->sendmsg(socket, msg, flags);
 }
 
 /*
@@ -196,48 +192,48 @@ socket_sendmsg(struct file *file, const struct msghdr *msg, int flags)
  */
 static ssize_t socket_recvmsg(struct file *file, struct msghdr *msg, int flags)
 {
-    struct socket *socket = file->priv;
+	struct socket *socket = file->priv;
 
-    if (file->vnode->type != VNODE_SOCKET)
-        return -E_NOT_SOCKET;
+	if (file->vnode->type != VNODE_SOCKET)
+		return -E_NOT_SOCKET;
 
-    if (msg->msg_iovlen <= 0 || msg->msg_iovlen > IOV_MAX)
-        return -E_MSG_SIZE;
+	if (msg->msg_iovlen <= 0 || msg->msg_iovlen > IOV_MAX)
+		return -E_MSG_SIZE;
 
-    if (socket_mode_is_connection(socket->proto->type)) {
-        if (socket->state != SOCKET_CONNECTED)
-            return -E_NOT_CONNECTED;
-    }
+	if (socket_mode_is_connection(socket->proto->type)) {
+		if (socket->state != SOCKET_CONNECTED)
+			return -E_NOT_CONNECTED;
+	}
 
-    return socket->proto->ops->recvmsg(socket, msg, flags);
+	return socket->proto->ops->recvmsg(socket, msg, flags);
 }
 
 static ssize_t socket_write(struct file *file, const char *data, size_t len)
 {
-    struct iovec iov = {
-        .iov_base = (void *)data,
-        .iov_len = len,
-    };
-    struct msghdr msg = {
-        .msg_iov = &iov,
-        .msg_iovlen = 1,
-    };
+	struct iovec iov = {
+	    .iov_base = (void *)data,
+	    .iov_len = len,
+	};
+	struct msghdr msg = {
+	    .msg_iov = &iov,
+	    .msg_iovlen = 1,
+	};
 
-    return socket_sendmsg(file, &msg, 0);
+	return socket_sendmsg(file, &msg, 0);
 }
 
 static ssize_t socket_read(struct file *file, char *data, size_t len)
 {
-    struct iovec iov = {
-        .iov_base = data,
-        .iov_len = len,
-    };
-    struct msghdr msg = {
-        .msg_iov = &iov,
-        .msg_iovlen = 1,
-    };
+	struct iovec iov = {
+	    .iov_base = data,
+	    .iov_len = len,
+	};
+	struct msghdr msg = {
+	    .msg_iov = &iov,
+	    .msg_iovlen = 1,
+	};
 
-    return socket_recvmsg(file, &msg, 0);
+	return socket_recvmsg(file, &msg, 0);
 }
 
 static struct file_operations socket_fops = {
@@ -253,29 +249,29 @@ static struct file_operations socket_fops = {
  */
 int sys_socket(int domain, int type, int proto)
 {
-    struct socket *socket;
-    error_t err;
-    int fd;
+	struct socket *socket;
+	error_t err;
+	int fd;
 
-    socket = socket_alloc();
-    if (!socket)
-        return -E_NOMEM;
+	socket = socket_alloc();
+	if (!socket)
+		return -E_NOMEM;
 
-    err = socket_init(socket, domain, type, proto);
-    if (err)
-        goto fail;
+	err = socket_init(socket, domain, type, proto);
+	if (err)
+		goto fail;
 
-    fd = process_add_fd(current->process, socket->file, FD_RW);
-    if (fd < 0) {
-        err = fd;
-        goto fail;
-    }
+	fd = process_add_fd(current->process, socket->file, FD_RW);
+	if (fd < 0) {
+		err = fd;
+		goto fail;
+	}
 
-    return fd;
+	return fd;
 
 fail:
-    socket_put(socket);
-    return -err;
+	socket_put(socket);
+	return -err;
 }
 
 /*
@@ -283,17 +279,17 @@ fail:
  */
 int sys_connect(int fd, const struct sockaddr *addr, socklen_t addr_len)
 {
-    struct fd *fdp;
-    ssize_t count;
+	struct fd *fdp;
+	ssize_t count;
 
-    fdp = process_fd_get(current->process, fd);
-    if (!fdp)
-        return -E_BAD_FD;
+	fdp = process_fd_get(current->process, fd);
+	if (!fdp)
+		return -E_BAD_FD;
 
-    count = socket_connect(fdp->file, addr, addr_len);
-    process_fd_put(current->process, fdp);
+	count = socket_connect(fdp->file, addr, addr_len);
+	process_fd_put(current->process, fdp);
 
-    return count;
+	return count;
 }
 
 /*
@@ -301,17 +297,17 @@ int sys_connect(int fd, const struct sockaddr *addr, socklen_t addr_len)
  */
 int sys_bind(int fd, const struct sockaddr *addr, socklen_t addr_len)
 {
-    struct fd *fdp;
-    ssize_t count;
+	struct fd *fdp;
+	ssize_t count;
 
-    fdp = process_fd_get(current->process, fd);
-    if (!fdp)
-        return -E_BAD_FD;
+	fdp = process_fd_get(current->process, fd);
+	if (!fdp)
+		return -E_BAD_FD;
 
-    count = socket_bind(fdp->file, addr, addr_len);
-    process_fd_put(current->process, fdp);
+	count = socket_bind(fdp->file, addr, addr_len);
+	process_fd_put(current->process, fdp);
 
-    return count;
+	return count;
 }
 
 /*
@@ -319,22 +315,22 @@ int sys_bind(int fd, const struct sockaddr *addr, socklen_t addr_len)
  */
 ssize_t sys_sendmsg(int fd, const struct msghdr *msg_in, int flags)
 {
-    struct msghdr msg;
-    struct fd *fdp;
-    ssize_t count;
+	struct msghdr msg;
+	struct fd *fdp;
+	ssize_t count;
 
-    fdp = process_fd_get(current->process, fd);
-    if (!fdp)
-        return -E_BAD_FD;
+	fdp = process_fd_get(current->process, fd);
+	if (!fdp)
+		return -E_BAD_FD;
 
-    memcpy(&msg, &msg_in, sizeof(msg));
-    msg.msg_flags = flags;
-    flags = fdp->flags;
+	memcpy(&msg, &msg_in, sizeof(msg));
+	msg.msg_flags = flags;
+	flags = fdp->flags;
 
-    count = socket_sendmsg(fdp->file, &msg, flags);
-    process_fd_put(current->process, fdp);
+	count = socket_sendmsg(fdp->file, &msg, flags);
+	process_fd_put(current->process, fdp);
 
-    return count;
+	return count;
 }
 
 /*
@@ -342,22 +338,22 @@ ssize_t sys_sendmsg(int fd, const struct msghdr *msg_in, int flags)
  */
 ssize_t sys_recvmsg(int fd, struct msghdr *msg_in, int flags)
 {
-    struct msghdr msg;
-    struct fd *fdp;
-    ssize_t count;
+	struct msghdr msg;
+	struct fd *fdp;
+	ssize_t count;
 
-    fdp = process_fd_get(current->process, fd);
-    if (!fdp)
-        return -E_BAD_FD;
+	fdp = process_fd_get(current->process, fd);
+	if (!fdp)
+		return -E_BAD_FD;
 
-    memcpy(&msg, &msg_in, sizeof(msg));
-    msg.msg_flags = flags;
-    flags = fdp->flags;
+	memcpy(&msg, &msg_in, sizeof(msg));
+	msg.msg_flags = flags;
+	flags = fdp->flags;
 
-    count = socket_recvmsg(fdp->file, &msg, flags);
-    process_fd_put(current->process, fdp);
+	count = socket_recvmsg(fdp->file, &msg, flags);
+	process_fd_put(current->process, fdp);
 
-    msg_in->msg_flags = msg.msg_flags;
+	msg_in->msg_flags = msg.msg_flags;
 
-    return count;
+	return count;
 }

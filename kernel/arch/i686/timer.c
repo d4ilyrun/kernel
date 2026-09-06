@@ -31,34 +31,34 @@ static INTERRUPT_HANDLER_FUNCTION(irq_timer);
 
 error_t arch_timer_start(u32 frequency)
 {
-    error_t err;
+	error_t err;
 
-    err = pit_config_channel(PIT_CHANNEL_TIMER, frequency, PIT_RATE_GENERATOR);
-    if (err) {
-        log_err("failed to config PIT timer channel");
-        return err;
-    }
+	err = pit_config_channel(PIT_CHANNEL_TIMER, frequency, PIT_RATE_GENERATOR);
+	if (err) {
+		log_err("failed to config PIT timer channel");
+		return err;
+	}
 
-    interrupts_install_handler(PIC_MASTER_VECTOR + IRQ_TIMER,
-                               INTERRUPT_HANDLER(irq_timer), NULL);
+	interrupts_install_handler(PIC_MASTER_VECTOR + IRQ_TIMER, INTERRUPT_HANDLER(irq_timer),
+				   NULL);
 
-    return E_SUCCESS;
+	return E_SUCCESS;
 }
 
 static INTERRUPT_HANDLER_FUNCTION(irq_timer)
 {
-    UNUSED(data);
+	UNUSED(data);
 
-    if (timer_tick())
-        log_warn("INTERNAL TICKS COUNTER OVERFLOW");
+	if (timer_tick())
+		log_warn("INTERNAL TICKS COUNTER OVERFLOW");
 
-    pic_eoi(IRQ_TIMER);
+	pic_eoi(IRQ_TIMER);
 
-    /*
-     * Unblock waiting threads whose deadline has been reached, and preempt
-     * the current thread if we reached the end of its timeslice.
-     */
-    sched_unblock_waiting_before(timer_ticks_counter);
+	/*
+	 * Unblock waiting threads whose deadline has been reached, and preempt
+	 * the current thread if we reached the end of its timeslice.
+	 */
+	sched_unblock_waiting_before(timer_ticks_counter);
 
-    return INTERRUPT_HANDLED;
+	return INTERRUPT_HANDLED;
 }

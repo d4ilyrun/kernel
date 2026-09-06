@@ -19,20 +19,20 @@ DECLARE_SPINLOCK(registered_devices_lock); // TODO: Use RW-lock
  */
 static error_t device_check_name(const struct device *new)
 {
-    struct device *existing;
+	struct device *existing;
 
-    ASSERT(spinlock_is_held(&registered_devices_lock));
+	ASSERT(spinlock_is_held(&registered_devices_lock));
 
-    if (!new->name[0])
-        return E_INVAL;
+	if (!new->name[0])
+		return E_INVAL;
 
-    FOREACH_LLIST_ENTRY(existing, &registered_devices, this) {
-        if (!strcmp(existing->name, new->name)) {
-            return E_EXIST;
-        }
-    }
+	FOREACH_LLIST_ENTRY (existing, &registered_devices, this) {
+		if (!strcmp(existing->name, new->name)) {
+			return E_EXIST;
+		}
+	}
 
-    return E_SUCCESS;
+	return E_SUCCESS;
 }
 
 /*
@@ -40,21 +40,21 @@ static error_t device_check_name(const struct device *new)
  */
 error_t device_register(device_t *dev)
 {
-    error_t err;
+	error_t err;
 
-    spinlock_acquire(&registered_devices_lock);
+	spinlock_acquire(&registered_devices_lock);
 
-    err = device_check_name(dev);
-    if (err)
-        goto out;
+	err = device_check_name(dev);
+	if (err)
+		goto out;
 
-    dev->vnode = NULL;
-    llist_add(&registered_devices, &dev->this);
-    err = E_SUCCESS;
+	dev->vnode = NULL;
+	llist_add(&registered_devices, &dev->this);
+	err = E_SUCCESS;
 
 out:
-    spinlock_release(&registered_devices_lock);
-    return err;
+	spinlock_release(&registered_devices_lock);
+	return err;
 }
 
 /*
@@ -62,21 +62,21 @@ out:
  */
 struct device *device_find(const char *name)
 {
-    struct device *dev;
-    bool found = false;
+	struct device *dev;
+	bool found = false;
 
-    locked_scope (&registered_devices_lock) {
-        FOREACH_LLIST (node, &registered_devices) {
-            dev = container_of(node, device_t, this);
-            if (!strcmp(dev->name, name)) {
-                found = true;
-                break;
-            }
-        }
-    }
+	locked_scope (&registered_devices_lock) {
+		FOREACH_LLIST (node, &registered_devices) {
+			dev = container_of(node, device_t, this);
+			if (!strcmp(dev->name, name)) {
+				found = true;
+				break;
+			}
+		}
+	}
 
-    if (!found)
-        return NULL;
+	if (!found)
+		return NULL;
 
-    return dev;
+	return dev;
 }

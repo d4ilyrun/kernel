@@ -51,8 +51,8 @@
 #pragma once
 
 #include <kernel/error.h>
-#include <kernel/types.h>
 #include <kernel/printk.h>
+#include <kernel/types.h>
 
 #include <libalgo/linked_list.h>
 
@@ -79,21 +79,21 @@ typedef struct device_driver driver_t;
  */
 typedef struct device {
 
-    node_t this; ///< Used to list devices, internal use only
+	node_t this; ///< Used to list devices, internal use only
 
-    char name[NAME_MAX]; ///< The name of the device
-    driver_t *driver; ///< The driver for this device
+	char name[NAME_MAX]; ///< The name of the device
+	driver_t *driver;    ///< The driver for this device
 
-    /** Operations applied to the device's underlying file
-     *
-     *  Used by the VFS when interacting with a file opened from the devtmpfs.
-     *  This should be generally filled in by the driver-type API, and not by
-     *  the device's driver's init function.
-     *
-     *  @see file_operations
-     */
-    const struct file_operations *fops;
-    struct vnode *vnode; ///< This device's vnode, used by the VFS
+	/** Operations applied to the device's underlying file
+	 *
+	 *  Used by the VFS when interacting with a file opened from the devtmpfs.
+	 *  This should be generally filled in by the driver-type API, and not by
+	 *  the device's driver's init function.
+	 *
+	 *  @see file_operations
+	 */
+	const struct file_operations *fops;
+	struct vnode *vnode; ///< This device's vnode, used by the VFS
 
 } device_t;
 
@@ -112,12 +112,12 @@ struct file *device_open(device_t *);
 
 /** Set the name of the device */
 #define device_set_name(dev, fmt, ...) \
-    snprintk((dev)->name, sizeof((dev)->name), fmt, ##__VA_ARGS__)
+	snprintk((dev)->name, sizeof((dev)->name), fmt, ##__VA_ARGS__)
 
 /** @return The name of the device */
 static inline const char *device_name(const struct device *dev)
 {
-    return dev->name;
+	return dev->name;
 }
 
 /** Generate generic functions used to read/write a device's regsiters
@@ -131,30 +131,26 @@ static inline const char *device_name(const struct device *dev)
  *
  * @info \c _off_type must be indirectly castable into an integer
  */
-#define generate_device_rw_functions(_pfx, _dev_type, _reg_field, _off_type)   \
-    __device_read(u8, b, _pfx, _dev_type, _reg_field, _off_type)               \
-        __device_write(u8, b, _pfx, _dev_type, _reg_field, _off_type)          \
-            __device_read(u16, w, _pfx, _dev_type, _reg_field, _off_type)      \
-                __device_write(u16, w, _pfx, _dev_type, _reg_field, _off_type) \
-                    __device_read(u32, l, _pfx, _dev_type, _reg_field,         \
-                                  _off_type)                                   \
-                        __device_write(u32, l, _pfx, _dev_type, _reg_field,    \
-                                       _off_type)
+#define generate_device_rw_functions(_pfx, _dev_type, _reg_field, _off_type)          \
+	__device_read(u8, b, _pfx, _dev_type, _reg_field, _off_type)                  \
+	    __device_write(u8, b, _pfx, _dev_type, _reg_field, _off_type)             \
+		__device_read(u16, w, _pfx, _dev_type, _reg_field, _off_type)         \
+		    __device_write(u16, w, _pfx, _dev_type, _reg_field, _off_type)    \
+			__device_read(u32, l, _pfx, _dev_type, _reg_field, _off_type) \
+			    __device_write(u32, l, _pfx, _dev_type, _reg_field, _off_type)
 
-#define __device_read(_type, _type_pfx, _pfx, _device_type, _device_reg_field, \
-                      _offset_type)                                            \
-    static MAYBE_UNUSED inline _type _pfx##_read##_type_pfx(                   \
-        _device_type *device, _offset_type offset)                             \
-    {                                                                          \
-        return *(_type *)(device->_device_reg_field + offset);                 \
-    }
+#define __device_read(_type, _type_pfx, _pfx, _device_type, _device_reg_field, _offset_type) \
+	static MAYBE_UNUSED inline _type _pfx##_read##_type_pfx(_device_type *device,        \
+								_offset_type offset)         \
+	{                                                                                    \
+		return *(_type *)(device->_device_reg_field + offset);                       \
+	}
 
-#define __device_write(_type, _type_pfx, _pfx, _device_type,  \
-                       _device_reg_field, _offset_type)       \
-    static MAYBE_UNUSED inline void _pfx##_write##_type_pfx(  \
-        _device_type *device, _offset_type offset, _type val) \
-    {                                                         \
-        *(_type *)(device->_device_reg_field + offset) = val; \
-    }
+#define __device_write(_type, _type_pfx, _pfx, _device_type, _device_reg_field, _offset_type)   \
+	static MAYBE_UNUSED inline void _pfx##_write##_type_pfx(_device_type *device,           \
+								_offset_type offset, _type val) \
+	{                                                                                       \
+		*(_type *)(device->_device_reg_field + offset) = val;                           \
+	}
 
 /** @} */

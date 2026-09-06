@@ -30,8 +30,8 @@
 #ifndef KERNEL_ARCH_I686_DEVICES_PIT_H
 #define KERNEL_ARCH_I686_DEVICES_PIT_H
 
-#include <kernel/types.h>
 #include <kernel/error.h>
+#include <kernel/types.h>
 
 #define PIT_INTERNAL_FREQUENCY (1193182)
 
@@ -45,9 +45,9 @@
  * @brief The different PIT channels available
  */
 typedef enum pit_channel {
-    PIT_CHANNEL_TIMER,   //< CPU Timer
-    PIT_CHANNEL_DRAM,    //< Legacy. Used to refresh DRAM
-    PIT_CHANNEL_SPEAKER, //< Connected to the PC speaker
+	PIT_CHANNEL_TIMER,   //< CPU Timer
+	PIT_CHANNEL_DRAM,    //< Legacy. Used to refresh DRAM
+	PIT_CHANNEL_SPEAKER, //< Connected to the PC speaker
 } pit_channel;
 
 /**
@@ -55,12 +55,12 @@ typedef enum pit_channel {
  * @brief The different programmable modes for a channel
  */
 typedef enum {
-    PIT_TRIGGER_LOW = 0,
-    PIT_TRIGGER_HIGH,
-    PIT_RATE_GENERATOR,
-    PIT_PWM,
-    PIT_SW_STROBE,
-    PIT_HW_STROBE,
+	PIT_TRIGGER_LOW = 0,
+	PIT_TRIGGER_HIGH,
+	PIT_RATE_GENERATOR,
+	PIT_PWM,
+	PIT_SW_STROBE,
+	PIT_HW_STROBE,
 } pit_mode;
 
 /**

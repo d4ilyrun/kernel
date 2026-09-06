@@ -51,20 +51,20 @@
 
 /** Worker thread */
 struct worker {
-    struct thread *thread;   /// Worker thread
-    struct waitqueue queue;  /// The processes waiting for this thread to finish
-    bool done;               /// Whether the thread has finished
-    thread_entry_t function; /// Worker thread's entrypoint
-    void *data;              /// Passed as an argument to @ref function
+	struct thread *thread;	 /// Worker thread
+	struct waitqueue queue;	 /// The processes waiting for this thread to finish
+	bool done;		 /// Whether the thread has finished
+	thread_entry_t function; /// Worker thread's entrypoint
+	void *data;		 /// Passed as an argument to @ref function
 };
 
 /** Initialize a worker */
-#define INIT_WORKER(_worker)                        \
-    _worker = ((struct worker){                     \
-        .queue = __WAITQUEUE_INIT((_worker).queue), \
-        .done = true,                               \
-        .thread = NULL,                             \
-    })
+#define INIT_WORKER(_worker)                            \
+	_worker = ((struct worker){                     \
+	    .queue = __WAITQUEUE_INIT((_worker).queue), \
+	    .done = true,                               \
+	    .thread = NULL,                             \
+	})
 
 /** Declare and initialize a worker */
 #define DECLARE_WORKER(_worker) struct worker INIT_WORKER(_worker)
@@ -84,7 +84,7 @@ void worker_release(struct worker *);
 /** @return Whether the worker thread is currently executing */
 static inline bool worker_running(const struct worker *worker)
 {
-    return !worker->done;
+	return !worker->done;
 }
 
 #endif /* KERNEL_WORKER_H */

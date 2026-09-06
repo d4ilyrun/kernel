@@ -16,16 +16,16 @@ static DECLARE_LLIST(sleeping_tasks);
 
 typedef struct scheduler {
 
-    /** The runqueue
-     * All threads inside this queue are ready to run and could theoretically
-     * be switched to at any moment.
-     */
-    queue_t ready;
+	/** The runqueue
+	 * All threads inside this queue are ready to run and could theoretically
+	 * be switched to at any moment.
+	 */
+	queue_t ready;
 
-    /** Fields used for synchronization in a multiprocessor environment */
-    struct {
-        atomic_t preemption_level;
-    } sync;
+	/** Fields used for synchronization in a multiprocessor environment */
+	struct {
+		atomic_t preemption_level;
+	} sync;
 
 } scheduler_t;
 
@@ -45,176 +45,174 @@ static thread_t *idle_thread;
  */
 static void schedule_locked(bool preempt, bool reschedule)
 {
-    node_t *next_node;
+	node_t *next_node;
 
-    if (unlikely(!scheduler_initialized))
-        return;
+	if (unlikely(!scheduler_initialized))
+		return;
 
-    if (atomic_read(&scheduler.sync.preemption_level) > 1 && !preempt)
-        return;
+	if (atomic_read(&scheduler.sync.preemption_level) > 1 && !preempt)
+		return;
 
-    next_node = queue_dequeue(&scheduler.ready);
-    if (next_node == NULL)
-        return;
+	next_node = queue_dequeue(&scheduler.ready);
+	if (next_node == NULL)
+		return;
 
-    thread_t *next = container_of(next_node, thread_t, this_sched);
+	thread_t *next = container_of(next_node, thread_t, this_sched);
 
-    if (reschedule) {
-        if (current->state != SCHED_WAITING && current->state != SCHED_ZOMBIE)
-            queue_enqueue(&scheduler.ready, &current->this_sched);
-    }
+	if (reschedule) {
+		if (current->state != SCHED_WAITING && current->state != SCHED_ZOMBIE)
+			queue_enqueue(&scheduler.ready, &current->this_sched);
+	}
 
-    /*
-     * If some tasks are ready, do not reschedule the idle task
-     */
-    if (next == idle_thread && !queue_is_empty(&scheduler.ready)) {
-        /*
-         * Prevent the current thread from killing itself.
-         */
-        if (queue_peek(&scheduler.ready) != &current->this_sched ||
-            current->state != SCHED_KILLED) {
-            next_node = queue_dequeue(&scheduler.ready);
-            next = container_of(next_node, thread_t, this_sched);
-            queue_enqueue(&scheduler.ready, &idle_thread->this_sched);
-        }
-    }
+	/*
+	 * If some tasks are ready, do not reschedule the idle task
+	 */
+	if (next == idle_thread && !queue_is_empty(&scheduler.ready)) {
+		/*
+		 * Prevent the current thread from killing itself.
+		 */
+		if (queue_peek(&scheduler.ready) != &current->this_sched ||
+		    current->state != SCHED_KILLED) {
+			next_node = queue_dequeue(&scheduler.ready);
+			next = container_of(next_node, thread_t, this_sched);
+			queue_enqueue(&scheduler.ready, &idle_thread->this_sched);
+		}
+	}
 
-    if (!thread_switch(next))
-        schedule_locked(preempt, false);
+	if (!thread_switch(next))
+		schedule_locked(preempt, false);
 }
 
 void schedule(void)
 {
-    const bool old_if = scheduler_preempt_disable();
-    schedule_locked(false, true);
-    scheduler_preempt_enable(old_if);
+	const bool old_if = scheduler_preempt_disable();
+	schedule_locked(false, true);
+	scheduler_preempt_enable(old_if);
 }
 
 void schedule_preempt(void)
 {
-    const bool old_if = scheduler_preempt_disable();
-    schedule_locked(true, true);
-    scheduler_preempt_enable(old_if);
+	const bool old_if = scheduler_preempt_disable();
+	schedule_locked(true, true);
+	scheduler_preempt_enable(old_if);
 }
 
 bool scheduler_preempt_disable(void)
 {
-    bool if_flag = interrupts_test_and_disable();
-    atomic_inc(&scheduler.sync.preemption_level);
-    return if_flag;
+	bool if_flag = interrupts_test_and_disable();
+	atomic_inc(&scheduler.sync.preemption_level);
+	return if_flag;
 }
 
 void scheduler_preempt_enable(bool old_if_flag)
 {
-    if (atomic_read(&scheduler.sync.preemption_level))
-        atomic_dec(&scheduler.sync.preemption_level);
+	if (atomic_read(&scheduler.sync.preemption_level))
+		atomic_dec(&scheduler.sync.preemption_level);
 
-    interrupts_restore(old_if_flag);
+	interrupts_restore(old_if_flag);
 }
 
 static void idle_task(void *data __attribute__((unused)))
 {
-    while (1) {
-        interrupts_enable();
-        hlt();
-    }
+	while (1) {
+		interrupts_enable();
+		hlt();
+	}
 }
 
 void sched_new_thread(thread_t *thread)
 {
-    if (thread == NULL)
-        return;
+	if (thread == NULL)
+		return;
 
-    thread->state = SCHED_RUNNING;
-    queue_enqueue(&scheduler.ready, &thread->this_sched);
+	thread->state = SCHED_RUNNING;
+	queue_enqueue(&scheduler.ready, &thread->this_sched);
 }
 
 void sched_block_thread(struct thread *thread)
 {
-    const bool old_if = scheduler_preempt_disable();
+	const bool old_if = scheduler_preempt_disable();
 
-    if (thread->state != SCHED_RUNNING)
-        goto block_thread_exit;
+	if (thread->state != SCHED_RUNNING)
+		goto block_thread_exit;
 
-    thread->state = SCHED_WAITING;
-    if (thread == current)
-        schedule_locked(true, true);
+	thread->state = SCHED_WAITING;
+	if (thread == current)
+		schedule_locked(true, true);
 
 block_thread_exit:
-    scheduler_preempt_enable(old_if);
+	scheduler_preempt_enable(old_if);
 }
 
 void sched_unblock_thread(thread_t *thread)
 {
-    const bool old_if = scheduler_preempt_disable();
+	const bool old_if = scheduler_preempt_disable();
 
-    // FIXME: This is not safe anymore on an SMP system where we could
-    //        be calling sched_block_thread() on another core.
-    //
-    // thread->state is guarded by the scheduler's preemption level, but this
-    // preemption level only applies to the current core. We must find a better
-    // way to guard this value.
-    if (thread->state == SCHED_RUNNING)
-        goto exit;
+	// FIXME: This is not safe anymore on an SMP system where we could
+	//        be calling sched_block_thread() on another core.
+	//
+	// thread->state is guarded by the scheduler's preemption level, but this
+	// preemption level only applies to the current core. We must find a better
+	// way to guard this value.
+	if (thread->state == SCHED_RUNNING)
+		goto exit;
 
-    // Avoid resurecting a thread that had been killed in the meantime
-    if (thread->state == SCHED_WAITING)
-        thread->state = SCHED_RUNNING;
+	// Avoid resurecting a thread that had been killed in the meantime
+	if (thread->state == SCHED_WAITING)
+		thread->state = SCHED_RUNNING;
 
-    queue_enqueue(&scheduler.ready, &thread->this_sched);
+	queue_enqueue(&scheduler.ready, &thread->this_sched);
 
-    // give the least time possible to the IDLE task
-    if (current == idle_thread)
-        schedule_locked(true, true);
+	// give the least time possible to the IDLE task
+	if (current == idle_thread)
+		schedule_locked(true, true);
 
 exit:
-    scheduler_preempt_enable(old_if);
+	scheduler_preempt_enable(old_if);
 }
 
 static int process_cmp_wakeup(const void *current_node, const void *cmp_node)
 {
-    const thread_t *current = container_of(current_node, thread_t, this_sched);
-    const thread_t *cmp = container_of(cmp_node, thread_t, this_sched);
+	const thread_t *current = container_of(current_node, thread_t, this_sched);
+	const thread_t *cmp = container_of(cmp_node, thread_t, this_sched);
 
-    RETURN_CMP(current->sleep.wakeup, cmp->sleep.wakeup);
+	RETURN_CMP(current->sleep.wakeup, cmp->sleep.wakeup);
 }
 
 void sched_block_waiting_until(struct thread *thread, clock_t until)
 {
-    thread->sleep.wakeup = until;
-    llist_insert_sorted(&sleeping_tasks, &current->this_sched, process_cmp_wakeup);
-    sched_block_thread(current);
+	thread->sleep.wakeup = until;
+	llist_insert_sorted(&sleeping_tasks, &current->this_sched, process_cmp_wakeup);
+	sched_block_thread(current);
 }
 
 void sched_unblock_waiting_before(clock_t deadline)
 {
-    struct thread *next_wakeup;
+	struct thread *next_wakeup;
 
-    if (!scheduler_initialized)
-        return;
+	if (!scheduler_initialized)
+		return;
 
-    while (!llist_is_empty(&sleeping_tasks)) {
-        next_wakeup = container_of(llist_first(&sleeping_tasks), struct thread,
-                                   this_sched);
-        if (next_wakeup->sleep.wakeup > deadline)
-            break;
+	while (!llist_is_empty(&sleeping_tasks)) {
+		next_wakeup = container_of(llist_first(&sleeping_tasks), struct thread, this_sched);
+		if (next_wakeup->sleep.wakeup > deadline)
+			break;
 
-        llist_pop(&sleeping_tasks);
-        sched_unblock_thread(next_wakeup);
-    }
+		llist_pop(&sleeping_tasks);
+		sched_unblock_thread(next_wakeup);
+	}
 }
 
 static error_t scheduler_init(void)
 {
-    atomic_write(&scheduler.sync.preemption_level, 0);
-    INIT_QUEUE(scheduler.ready);
+	atomic_write(&scheduler.sync.preemption_level, 0);
+	INIT_QUEUE(scheduler.ready);
 
-    idle_thread = thread_spawn(&kernel_process, idle_task, NULL, NULL, NULL,
-                               THREAD_KERNEL);
-    sched_new_thread(idle_thread);
-    scheduler_initialized = true;
+	idle_thread = thread_spawn(&kernel_process, idle_task, NULL, NULL, NULL, THREAD_KERNEL);
+	sched_new_thread(idle_thread);
+	scheduler_initialized = true;
 
-    return E_SUCCESS;
+	return E_SUCCESS;
 }
 
 DECLARE_INITCALL(INIT_LATE, scheduler_init);

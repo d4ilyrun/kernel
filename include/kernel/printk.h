@@ -16,7 +16,6 @@ int vprintk(const char *restrict format, va_list parameters);
  *
  * @return The number of bytes that were written
  */
-int snprintk(char *buffer, size_t buffsize, const char *restrict format, ...)
-    FORMAT(printf, 3, 4);
+int snprintk(char *buffer, size_t buffsize, const char *restrict format, ...) FORMAT(printf, 3, 4);
 
 #endif /* KERNEL_PRINTK_H */

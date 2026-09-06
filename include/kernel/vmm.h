@@ -90,51 +90,51 @@ struct file;
  */
 typedef struct vma {
 
-    struct vm_segment segment; /*!< Used by the address space API */
+	struct vm_segment segment; /*!< Used by the address space API */
 
-    bool allocated; /*!< Whether this area is currently being used */
+	bool allocated; /*!< Whether this area is currently being used */
 
-    /**
-     * @brief Intrusive AVL tree structures used by the VMM
-     * @link libalgo/avl.H
-     */
-    struct vma_avl {
-        struct avl by_address; /*!< AVL tree ordered by address */
-        struct avl by_size;    /*!< AVL tree ordered by size */
-    } avl;
+	/**
+	 * @brief Intrusive AVL tree structures used by the VMM
+	 * @link libalgo/avl.H
+	 */
+	struct vma_avl {
+		struct avl by_address; /*!< AVL tree ordered by address */
+		struct avl by_size;    /*!< AVL tree ordered by size */
+	} avl;
 
 } vma_t;
 
 /* For simplicity, we will allocate 64B for each VMA structure */
 #define VMA_SIZE (64)
 static_assert(sizeof(vma_t) <= VMA_SIZE, "Update the allocated size for VMA "
-                                         "structures!");
+					 "structures!");
 
 static inline struct vma *to_vma(struct vm_segment *segment)
 {
-    return container_of(segment, struct vma, segment);
+	return container_of(segment, struct vma, segment);
 }
 
 /** Compute the end address of a VMA. */
 static inline vaddr_t vma_end(const vma_t *vma)
 {
-    return segment_end(&vma->segment);
+	return segment_end(&vma->segment);
 }
 
 /** @return the start address of a VMA. */
 static inline vaddr_t vma_start(const vma_t *vma)
 {
-    return vma->segment.start;
+	return vma->segment.start;
 }
 
 static inline size_t vma_size(const vma_t *vma)
 {
-    return vma->segment.size;
+	return vma->segment.size;
 }
 
 static inline u32 vma_flags(const vma_t *vma)
 {
-    return vma->segment.flags;
+	return vma->segment.flags;
 }
 
 /**
@@ -163,27 +163,27 @@ static inline u32 vma_flags(const vma_t *vma)
  */
 typedef struct vmm {
 
-    vaddr_t start; /*!< The start of the VMM's assigned range */
-    vaddr_t end;   /*!< The end of the VMM's assigned range (excluded) */
+	vaddr_t start; /*!< The start of the VMM's assigned range */
+	vaddr_t end;   /*!< The end of the VMM's assigned range (excluded) */
 
-    struct address_space *as;
+	struct address_space *as;
 
-    /** Roots of the AVL trees containing the VMAs */
-    struct vmm_vma_roots {
-        avl_t *by_address;
-        avl_t *by_size;
-    } vmas;
+	/** Roots of the AVL trees containing the VMAs */
+	struct vmm_vma_roots {
+		avl_t *by_address;
+		avl_t *by_size;
+	} vmas;
 
-    spinlock_t lock; /*!< Used restrict access to the VMM when modifying it */
+	spinlock_t lock; /*!< Used restrict access to the VMM when modifying it */
 
-    bool debug; /*!< Enable debug logs for this VMM */
+	bool debug; /*!< Enable debug logs for this VMM */
 
-    /** Bitmap of the available virtual addreses inside the reserved area
-     *
-     *  TODO: Using a bitmap for this takes 2KiB of memory per VMM (so per
-     * process)! Is there a less expensive way to keep track of them?
-     */
-    BITMAP(reserved, VMM_RESERVED_SIZE / VMA_SIZE);
+	/** Bitmap of the available virtual addreses inside the reserved area
+	 *
+	 *  TODO: Using a bitmap for this takes 2KiB of memory per VMM (so per
+	 * process)! Is there a less expensive way to keep track of them?
+	 */
+	BITMAP(reserved, VMM_RESERVED_SIZE / VMA_SIZE);
 
 } vmm_t;
 

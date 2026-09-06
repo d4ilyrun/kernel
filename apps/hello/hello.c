@@ -8,12 +8,12 @@
 
 int main(int argc, const char **argv)
 {
-    const char *who = "World";
+	const char *who = "World";
 
-    if (argc > 1)
-        who = argv[1];
+	if (argc > 1)
+		who = argv[1];
 
-    printf("Hello, %s\n", who);
+	printf("Hello, %s\n", who);
 
-    return 0;
+	return 0;
 }

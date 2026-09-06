@@ -20,45 +20,45 @@
  *  this field directly.
  */
 typedef struct {
-    _Atomic __atomic_t val; /** The underlying value */
+	_Atomic __atomic_t val; /** The underlying value */
 } atomic_t;
 
 static_assert(sizeof(atomic_t) == sizeof(__atomic_t));
 static_assert(offsetof(atomic_t, val) == 0);
 
 /** Cast a compatible scalar type into an atomic type. */
-#define atomic_cast(val)                                                  \
-    ({                                                                    \
-        _Static_assert(same_size(atomic_t, *val), "Invalid atomic cast"); \
-        (atomic_t *)(val);                                                \
-    })
+#define atomic_cast(val)                                                          \
+	({                                                                        \
+		_Static_assert(same_size(atomic_t, *val), "Invalid atomic cast"); \
+		(atomic_t *)(val);                                                \
+	})
 
 /** Cast a compatible scalar type into an constant atomic type. */
-#define const_atomic_cast(val)                                            \
-    ({                                                                    \
-        _Static_assert(same_size(atomic_t, *val), "Invalid const atomic " \
-                                                  "cast");                \
-        (const atomic_t *)(val);                                          \
-    })
+#define const_atomic_cast(val)                                                    \
+	({                                                                        \
+		_Static_assert(same_size(atomic_t, *val), "Invalid const atomic " \
+							  "cast");                \
+		(const atomic_t *)(val);                                          \
+	})
 
 /** Atomically read the content of a scalar variable */
-#define READ_ONCE(_x)                                                         \
-    ({                                                                        \
-        _Static_assert(is_native_word(_x), "Variable is not of native size"); \
-        *(const volatile typeof(_x) *)&(_x);                                  \
-    })
+#define READ_ONCE(_x)                                                                 \
+	({                                                                            \
+		_Static_assert(is_native_word(_x), "Variable is not of native size"); \
+		*(const volatile typeof(_x) *)&(_x);                                  \
+	})
 
 /** Atomically modify the content of a scalar variable */
-#define WRITE_ONCE(_x, _val)                                                  \
-    ({                                                                        \
-        _Static_assert(is_native_word(_x), "Variable is not of native size"); \
-        *(volatile typeof(_x) *)&(_x) = (_val);                               \
-    })
+#define WRITE_ONCE(_x, _val)                                                          \
+	({                                                                            \
+		_Static_assert(is_native_word(_x), "Variable is not of native size"); \
+		*(volatile typeof(_x) *)&(_x) = (_val);                               \
+	})
 
-#define stdatomic_read atomic_load
+#define stdatomic_read	atomic_load
 #define stdatomic_write atomic_store
-#define stdatomic_add atomic_fetch_add
-#define stdatomic_sub atomic_fetch_sub
+#define stdatomic_add	atomic_fetch_add
+#define stdatomic_sub	atomic_fetch_sub
 
 /*
  * Defined inside stdatomic.h, but we need to redefine it ourselves to be able
@@ -66,26 +66,24 @@ static_assert(offsetof(atomic_t, val) == 0);
  * the original stdatomic.h implementation of atomic_exchange.
  */
 #undef atomic_exchange
-#define stdatomic_exchange(atomic, val) \
-    atomic_exchange_explicit(atomic, val, memory_order_seq_cst);
+#define stdatomic_exchange(atomic, val) atomic_exchange_explicit(atomic, val, memory_order_seq_cst);
 
 /** Read the value of an atomic variable */
 static ALWAYS_INLINE __atomic_t atomic_read(const atomic_t *atomic)
 {
-    return stdatomic_read(&atomic->val);
+	return stdatomic_read(&atomic->val);
 }
 
 /** Modify an atomic variable's value */
 static ALWAYS_INLINE void atomic_write(atomic_t *atomic, __atomic_t val)
 {
-    stdatomic_write(&atomic->val, val);
+	stdatomic_write(&atomic->val, val);
 }
 
 /** Modify an atomic variable's value and return the old one */
-static ALWAYS_INLINE __atomic_t atomic_exchange(atomic_t *atomic,
-                                                __atomic_t val)
+static ALWAYS_INLINE __atomic_t atomic_exchange(atomic_t *atomic, __atomic_t val)
 {
-    return stdatomic_exchange(&atomic->val, val);
+	return stdatomic_exchange(&atomic->val, val);
 }
 
 /** Increment the value of an atomic variable
@@ -94,7 +92,7 @@ static ALWAYS_INLINE __atomic_t atomic_exchange(atomic_t *atomic,
  */
 static ALWAYS_INLINE __atomic_t atomic_add(atomic_t *atomic, __atomic_t val)
 {
-    return stdatomic_add(&atomic->val, val);
+	return stdatomic_add(&atomic->val, val);
 }
 
 /** Decrement the value of an atomic variable.
@@ -103,7 +101,7 @@ static ALWAYS_INLINE __atomic_t atomic_add(atomic_t *atomic, __atomic_t val)
  */
 static ALWAYS_INLINE __atomic_t atomic_sub(atomic_t *atomic, __atomic_t val)
 {
-    return stdatomic_sub(&atomic->val, val);
+	return stdatomic_sub(&atomic->val, val);
 }
 
 /** Increment the value of an atomic variable by one.
@@ -112,7 +110,7 @@ static ALWAYS_INLINE __atomic_t atomic_sub(atomic_t *atomic, __atomic_t val)
  */
 static ALWAYS_INLINE __atomic_t atomic_inc(atomic_t *atomic)
 {
-    return atomic_add(atomic, 1);
+	return atomic_add(atomic, 1);
 }
 
 /** Decrement the value of an atomic variable by one.
@@ -121,7 +119,7 @@ static ALWAYS_INLINE __atomic_t atomic_inc(atomic_t *atomic)
  */
 static ALWAYS_INLINE __atomic_t atomic_dec(atomic_t *atomic)
 {
-    return atomic_sub(atomic, 1);
+	return atomic_sub(atomic, 1);
 }
 
 #endif /* KERNEL_ATOMIC_H */

@@ -64,12 +64,12 @@ typedef enum vnode_type vnode_type;
  *  @brief Vector Table for operations on a filesystems
  */
 typedef struct vfs_operations {
-    /** Retreive the root of the filesystem */
-    vnode_t *(*root)(vfs_t *);
-    /** Free internal structures and vnodes.
-     *  This function is called by the driver before unmounting the filesystem.
-     */
-    void (*delete)(vfs_t *);
+	/** Retreive the root of the filesystem */
+	vnode_t *(*root)(vfs_t *);
+	/** Free internal structures and vnodes.
+	 *  This function is called by the driver before unmounting the filesystem.
+	 */
+	void (*delete)(vfs_t *);
 } vfs_ops_t;
 
 /**
@@ -77,11 +77,11 @@ typedef struct vfs_operations {
  * @brief represents a single virtual filesystem
  */
 typedef struct vfs {
-    node_t this;
-    vfs_ops_t *operations;       ///< @ref vfs_operations
-    vnode_t *node;               ///< vnode on which this FS is mounted
-    void *pdata;                 ///< Private FS dependent data
-    struct block_device *blkdev; ///< Block device the filesystem resides on.
+	node_t this;
+	vfs_ops_t *operations;	     ///< @ref vfs_operations
+	vnode_t *node;		     ///< vnode on which this FS is mounted
+	void *pdata;		     ///< Private FS dependent data
+	struct block_device *blkdev; ///< Block device the filesystem resides on.
 } vfs_t;
 
 /** Mount a filesystem of the given type at a given path.
@@ -164,13 +164,13 @@ struct file *vfs_open(const char *path, int oflags);
  *  @brief The different existing types of vnodes
  */
 typedef enum vnode_type {
-    VNODE_FIFO = S_IFIFO,        ///< FIFO
-    VNODE_CHARDEVICE = S_IFCHR,  ///< Character device
-    VNODE_DIRECTORY = S_IFDIR,   ///< Regular directory
-    VNODE_BLOCKDEVICE = S_IFBLK, ///< Block device
-    VNODE_FILE = S_IFREG,        ///< Regular file
-    VNODE_SYMLINK = S_IFLNK,     ///< Symbolic link
-    VNODE_SOCKET = S_IFSOCK,     ///< Socket file
+	VNODE_FIFO = S_IFIFO,	     ///< FIFO
+	VNODE_CHARDEVICE = S_IFCHR,  ///< Character device
+	VNODE_DIRECTORY = S_IFDIR,   ///< Regular directory
+	VNODE_BLOCKDEVICE = S_IFBLK, ///< Block device
+	VNODE_FILE = S_IFREG,	     ///< Regular file
+	VNODE_SYMLINK = S_IFLNK,     ///< Symbolic link
+	VNODE_SOCKET = S_IFSOCK,     ///< Socket file
 } vnode_type;
 
 /** @struct vnode_operations
@@ -178,46 +178,46 @@ typedef enum vnode_type {
  */
 typedef struct vnode_operations {
 
-    /** Find a child node (by name) inside a directory node.
-     *  @warning The node returned by this function MUST be released afterwards
-     *           using \ref vnode_release (subject to change in the future).
-     */
-    vnode_t *(*lookup)(vnode_t *, const path_segment_t *);
+	/** Find a child node (by name) inside a directory node.
+	 *  @warning The node returned by this function MUST be released afterwards
+	 *           using \ref vnode_release (subject to change in the future).
+	 */
+	vnode_t *(*lookup)(vnode_t *, const path_segment_t *);
 
-    /** Add a new child to the vnode. */
-    vnode_t *(*create)(vnode_t *node, const char *name, vnode_type, mode_t);
+	/** Add a new child to the vnode. */
+	vnode_t *(*create)(vnode_t *node, const char *name, vnode_type, mode_t);
 
-    /** Remove a child from a directory */
-    error_t (*remove)(vnode_t *node, const char *child);
+	/** Remove a child from a directory */
+	error_t (*remove)(vnode_t *node, const char *child);
 
-    /** Create a new opened file corresponding to this vnode  */
-    struct file *(*open)(vnode_t *vnode);
+	/** Create a new opened file corresponding to this vnode  */
+	struct file *(*open)(vnode_t *vnode);
 
-    /** Called by the VFS driver before deleting a vnode (optional).
-     *  This is responsible for freeing/updating any necessary internal
-     *  structures before deleting a vnode.
-     */
-    void (*release)(vnode_t *node);
+	/** Called by the VFS driver before deleting a vnode (optional).
+	 *  This is responsible for freeing/updating any necessary internal
+	 *  structures before deleting a vnode.
+	 */
+	void (*release)(vnode_t *node);
 
-    /** Fill a buffer with directory entries. */
-    error_t (*getdents)(vnode_t *node, off_t *offp, void *buf, size_t *sizep);
+	/** Fill a buffer with directory entries. */
+	error_t (*getdents)(vnode_t *node, off_t *offp, void *buf, size_t *sizep);
 
-    /** Retrieve a page backing a vnode at the given file offset.
-     *
-     * The vnode implementation is responsible for allocating, loading and
-     * retaining the page. The returned page must have its reference count
-     * incremented and remain valid until released with put_page().
-     *
-     * @return A referenced page on success, or an error pointer on failure.
-     */
-    struct page *(*get_page)(vnode_t *vnode, off_t offset);
+	/** Retrieve a page backing a vnode at the given file offset.
+	 *
+	 * The vnode implementation is responsible for allocating, loading and
+	 * retaining the page. The returned page must have its reference count
+	 * incremented and remain valid until released with put_page().
+	 *
+	 * @return A referenced page on success, or an error pointer on failure.
+	 */
+	struct page *(*get_page)(vnode_t *vnode, off_t offset);
 
-    /** Release a page previously obtained through get_page().
-     *
-     * The vnode implementation is responsible for decrementing the page
-     * reference count.
-     */
-    void (*put_page)(vnode_t *vnode, struct page *page);
+	/** Release a page previously obtained through get_page().
+	 *
+	 * The vnode implementation is responsible for decrementing the page
+	 * reference count.
+	 */
+	void (*put_page)(vnode_t *vnode, struct page *page);
 
 } vnode_ops_t;
 
@@ -225,14 +225,14 @@ typedef struct vnode_operations {
  *  @brief represents a single virtual node
  */
 struct vnode {
-    vfs_t *fs;               ///< Filesystem to which this node belong
-    vnode_type type;         ///< Type of the node
-    u16 refcount;            ///< Number of references hold to that node
-    vnode_ops_t *operations; ///< @ref vnode_operations
-    void *pdata;             ///< Private node data
-    vfs_t *mounted_here;     ///< Potential filesystem mounted over this node
-    struct stat stat;        ///< File statistics
-    spinlock_t lock;         ///< Must be held when accessing the node's data.
+	vfs_t *fs;		 ///< Filesystem to which this node belong
+	vnode_type type;	 ///< Type of the node
+	u16 refcount;		 ///< Number of references hold to that node
+	vnode_ops_t *operations; ///< @ref vnode_operations
+	void *pdata;		 ///< Private node data
+	vfs_t *mounted_here;	 ///< Potential filesystem mounted over this node
+	struct stat stat;	 ///< File statistics
+	spinlock_t lock;	 ///< Must be held when accessing the node's data.
 };
 
 /** Increment the refcount of a vnode
@@ -286,8 +286,7 @@ void vnode_free(struct vnode *vnode);
  *
  *  @return \c true if the vnode can be accessed.
  */
-bool vnode_check_creds(const struct vnode *, const struct user_creds *,
-                       int oflags);
+bool vnode_check_creds(const struct vnode *, const struct user_creds *, int oflags);
 
 /** Get a page for vnode-backed memory.
  *
@@ -313,19 +312,18 @@ void vfs_vnode_put_page(struct page *page);
  *  This function should be called on new vnodes when the stat structure's
  *  content cannot be retreived from a backing store (e.g. pseudo filesystem).
  */
-void vnode_fill_stats(struct vnode *vnode, mode_t mode,
-                      struct user_creds *creds);
+void vnode_fill_stats(struct vnode *vnode, mode_t mode, struct user_creds *creds);
 
 /** @} */
 
 /** @return Whether a path exists in the current VFS. */
 static inline bool vfs_exist(const char *path)
 {
-    struct vnode *vnode = vfs_find_by_path(path);
-    if (IS_ERR(vnode))
-        return false;
-    vnode_release(vnode);
-    return true;
+	struct vnode *vnode = vfs_find_by_path(path);
+	if (IS_ERR(vnode))
+		return false;
+	vnode_release(vnode);
+	return true;
 }
 
 /** @struct vfs_fs
@@ -334,9 +332,9 @@ static inline bool vfs_exist(const char *path)
  *  This structure is used by the VFS driver to mount the filesystem.
  */
 typedef struct vfs_fs {
-    const char *const name;               ///< Name of the filesystem
-    vfs_t *(*new)(struct block_device *); ///< Create a new instance of this
-                                          ///< filesystem using the given device
+	const char *const name;		      ///< Name of the filesystem
+	vfs_t *(*new)(struct block_device *); ///< Create a new instance of this
+					      ///< filesystem using the given device
 } vfs_fs_t;
 
 /** Declare a new available filesystem.
@@ -347,12 +345,12 @@ typedef struct vfs_fs {
  * @param fs_name The name of the filesystem
  * @param fw_new The function used to create a new instance of this filesystem
  */
-#define DECLARE_FILESYSTEM(fs_name, fs_new)      \
-    SECTION(".data.vfs.filesystems")             \
-    MAYBE_UNUSED                                 \
-    static vfs_fs_t fs_name##_fs_declaration = { \
-        .name = stringify(fs_name),              \
-        .new = fs_new,                           \
-    }
+#define DECLARE_FILESYSTEM(fs_name, fs_new)          \
+	SECTION(".data.vfs.filesystems")             \
+	MAYBE_UNUSED                                 \
+	static vfs_fs_t fs_name##_fs_declaration = { \
+	    .name = stringify(fs_name),              \
+	    .new = fs_new,                           \
+	}
 
 /** @} */

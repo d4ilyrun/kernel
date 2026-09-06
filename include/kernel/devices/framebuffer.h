@@ -12,10 +12,10 @@
  *
  */
 struct framebuffer_params {
-    unsigned int width;
-    unsigned int height;
-    unsigned int pitch;
-    unsigned int bpp;
+	unsigned int width;
+	unsigned int height;
+	unsigned int pitch;
+	unsigned int bpp;
 };
 
 error_t framebuffer_register(paddr_t buffer, const struct framebuffer_params *);

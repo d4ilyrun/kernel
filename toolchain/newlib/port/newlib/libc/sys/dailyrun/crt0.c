@@ -21,32 +21,32 @@ extern char _end;
  */
 static void handle_signal(int signal, siginfo_t *info, void *data)
 {
-    ucontext_t *ucontext = data;
-    sig_sa_sigaction_t handler = ucontext->sa_handler;
+	ucontext_t *ucontext = data;
+	sig_sa_sigaction_t handler = ucontext->sa_handler;
 
-    handler(signal, info, ucontext);
-    sigreturn(ucontext);
+	handler(signal, info, ucontext);
+	sigreturn(ucontext);
 }
 
 void _start(int argc, char **argv, char **envp)
 {
-    char *bss;
-    int ret;
+	char *bss;
+	int ret;
 
-    /* Fill bss with zeros */
-    bss = &_edata + 1;
-    while (bss < &_end)
-        *bss++ = 0;
+	/* Fill bss with zeros */
+	bss = &_edata + 1;
+	while (bss < &_end)
+		*bss++ = 0;
 
-    /* Install signal handler trampoline. */
-    ret = sigsethandler(handle_signal);
-    if (ret) {
-        fprintf(stdout, "crt0: sigsethandler failed: %s\n", strerror(errno));
-        goto out;
-    }
+	/* Install signal handler trampoline. */
+	ret = sigsethandler(handle_signal);
+	if (ret) {
+		fprintf(stdout, "crt0: sigsethandler failed: %s\n", strerror(errno));
+		goto out;
+	}
 
-    ret = main(argc, argv, envp);
+	ret = main(argc, argv, envp);
 
 out:
-    _exit(ret);
+	_exit(ret);
 }

@@ -10,9 +10,9 @@ extern struct socket_protocol_ops af_inet_icmp_ops;
 
 /** ICMP frame header format */
 struct icmp_header {
-    u8 type;
-    u8 code;
-    __be u16 checksum;
+	u8 type;
+	u8 code;
+	__be u16 checksum;
 };
 
 #define ICMP_HEADER_SIZE 4
@@ -20,8 +20,8 @@ static_assert(sizeof(struct icmp_header) == ICMP_HEADER_SIZE);
 
 /** Content of the ICMP header's 'type' field */
 enum icmp_type {
-    ICMP_ECHO_REPLY = 0,   /* Ping reply */
-    ICMP_ECHO_REQUEST = 8, /* Ping request */
+	ICMP_ECHO_REPLY = 0,   /* Ping reply */
+	ICMP_ECHO_REQUEST = 8, /* Ping request */
 };
 
 /** Process a newly received ICMP packet */

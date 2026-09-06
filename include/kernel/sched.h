@@ -91,13 +91,11 @@ void sched_new_thread(thread_t *);
  *  @see \ref sched_new_thread
  *       \ref thread_create
  */
-static ALWAYS_INLINE void
-sched_new_thread_create(thread_entry_t entrypoint, void *data, u32 flags)
+static ALWAYS_INLINE void sched_new_thread_create(thread_entry_t entrypoint, void *data, u32 flags)
 {
-    struct thread *thread = thread_spawn(current->process, entrypoint, data,
-                                         NULL, NULL, flags);
-    if (!IS_ERR(thread))
-        sched_new_thread(thread);
+	struct thread *thread = thread_spawn(current->process, entrypoint, data, NULL, NULL, flags);
+	if (!IS_ERR(thread))
+		sched_new_thread(thread);
 }
 
 /** Mark the thread as blocked
@@ -121,21 +119,21 @@ void sched_block_waiting_until(struct thread *, clock_t until);
 void sched_unblock_waiting_before(clock_t deadline);
 
 typedef struct {
-    const bool old_if;
-    bool done;
+	const bool old_if;
+	bool done;
 } sched_scope_t;
 
 static inline sched_scope_t sched_scope_constructor(void)
 {
-    return (sched_scope_t){
-        .old_if = scheduler_preempt_disable(),
-        .done = false,
-    };
+	return (sched_scope_t){
+	    .old_if = scheduler_preempt_disable(),
+	    .done = false,
+	};
 }
 
 static inline void sched_scope_destructor(sched_scope_t *scope)
 {
-    scheduler_preempt_enable(scope->old_if);
+	scheduler_preempt_enable(scope->old_if);
 }
 
 /** Define a scope during which the current thread should never be pre-empted.
@@ -144,7 +142,6 @@ static inline void sched_scope_destructor(sched_scope_t *scope)
  *  placed inside it will break out of the guarded scope instead of that of its
  *  containing loop.
  */
-#define no_preemption_scope()                                  \
-    for (sched_scope_t scope CLEANUP(sched_scope_destructor) = \
-             sched_scope_constructor();                        \
-         !scope.done; scope.done = true)
+#define no_preemption_scope()                                                                 \
+	for (sched_scope_t scope CLEANUP(sched_scope_destructor) = sched_scope_constructor(); \
+	     !scope.done; scope.done = true)

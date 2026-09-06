@@ -26,18 +26,18 @@
 #include <utils/macro.h>
 
 #include <stddef.h>
-#include <sys/stat.h>
 #include <sys/signal.h>
+#include <sys/stat.h>
 
 typedef struct syscall_args {
-    u32 nr;
-    u32 arg1, arg2, arg3, arg4, arg5, arg6;
+	u32 nr;
+	u32 arg1, arg2, arg3, arg4, arg5, arg6;
 } syscall_args_t;
 
 /* SYSCALLS HANDLER */
 
 #define SYSCALL_FUNCTION(name, vector, argc, type, ret_type, ...) \
-    ret_type CONCAT(sys_, name)(__VA_ARGS__);
+	ret_type CONCAT(sys_, name)(__VA_ARGS__);
 DEFINE_SYSCALLS(SYSCALL_FUNCTION);
 
 #endif /* KERNEL_SYSCALLS_H */

@@ -27,11 +27,11 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/param.h>
 #include <dirent.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <sys/lock.h>
+#include <sys/param.h>
+#include <unistd.h>
 
 /*
  * One of these structures is malloced to describe the current directory
@@ -40,24 +40,23 @@
  * associated with that return value.
  */
 struct ddloc {
-	struct	ddloc *loc_next;/* next structure in list */
-	long	loc_index;	/* key associated with structure */
-	long	loc_seek;	/* magic cookie returned by getdirentries */
-	long	loc_loc;	/* offset of entry in buffer */
-	DIR    *loc_dirp;       /* DIR pointer */
+	struct ddloc *loc_next; /* next structure in list */
+	long loc_index;		/* key associated with structure */
+	long loc_seek;		/* magic cookie returned by getdirentries */
+	long loc_loc;		/* offset of entry in buffer */
+	DIR *loc_dirp;		/* DIR pointer */
 };
 
-#define	NDIRHASH	32	/* Num of hash lists, must be a power of 2 */
-#define	LOCHASH(i)	((i)&(NDIRHASH-1))
+#define NDIRHASH   32 /* Num of hash lists, must be a power of 2 */
+#define LOCHASH(i) ((i) & (NDIRHASH - 1))
 
-static long	dd_loccnt = 1;	/* Index of entry for sequential readdir's */
-static struct	ddloc *dd_hash[NDIRHASH];   /* Hash list heads for ddlocs */
+static long dd_loccnt = 1;		/* Index of entry for sequential readdir's */
+static struct ddloc *dd_hash[NDIRHASH]; /* Hash list heads for ddlocs */
 
 /*
  * return a pointer into a directory
  */
-long
-telldir (DIR *dirp)
+long telldir(DIR *dirp)
 {
 	int index;
 	struct ddloc *lp;
@@ -80,7 +79,7 @@ telldir (DIR *dirp)
  * seek to an entry in a directory.
  * Only values returned by "telldir" should be passed to seekdir.
  */
-void seekdir (register DIR *dirp, long loc)
+void seekdir(register DIR *dirp, long loc)
 {
 	register struct ddloc *lp;
 	register struct ddloc **prevlp;
@@ -100,7 +99,7 @@ void seekdir (register DIR *dirp, long loc)
 		}
 		if (lp->loc_loc == dirp->dd_loc && lp->loc_seek == dirp->dd_seek)
 			goto found;
-		(void) lseek(dirp->dd_fd, lp->loc_seek, 0);
+		(void)lseek(dirp->dd_fd, lp->loc_seek, 0);
 		dirp->dd_seek = lp->loc_seek;
 		dirp->dd_loc = 0;
 		while (dirp->dd_loc < lp->loc_loc) {
@@ -108,20 +107,19 @@ void seekdir (register DIR *dirp, long loc)
 			if (dp == NULL)
 				break;
 		}
-found:
+	found:
 		*prevlp = lp->loc_next;
 		free((caddr_t)lp);
 	} else {
 		// loc 0 means rewinding
-		(void) lseek(dirp->dd_fd, 0, 0);
+		(void)lseek(dirp->dd_fd, 0, 0);
 		dirp->dd_seek = 0;
 		dirp->dd_loc = 0;
 	}
 }
 
 /* clean out any hash entries from a closed directory */
-void
-_cleanupdir (register DIR *dirp)
+void _cleanupdir(register DIR *dirp)
 {
 	int i;
 
@@ -140,8 +138,7 @@ _cleanupdir (register DIR *dirp)
 			if (lp->loc_dirp == dirp) {
 				prevlp->loc_next = nextlp;
 				free((caddr_t)lp);
-			}
-			else
+			} else
 				prevlp = lp;
 			lp = nextlp;
 		}

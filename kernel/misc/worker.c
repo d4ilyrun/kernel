@@ -8,74 +8,74 @@
 
 static void worker_entrypoint(void *cookie)
 {
-    struct worker *worker = cookie;
+	struct worker *worker = cookie;
 
-    INFINITE_LOOP () {
-        worker->function(worker->data);
-        worker->done = true;
-        waitqueue_dequeue_all(&worker->queue);
-        sched_block_thread(worker->thread);
-    }
+	INFINITE_LOOP () {
+		worker->function(worker->data);
+		worker->done = true;
+		waitqueue_dequeue_all(&worker->queue);
+		sched_block_thread(worker->thread);
+	}
 }
 
 error_t worker_init(struct worker *worker)
 {
-    struct thread *thread;
+	struct thread *thread;
 
-    if (worker->thread)
-        return E_BUSY;
+	if (worker->thread)
+		return E_BUSY;
 
-    INIT_WORKER(*worker);
+	INIT_WORKER(*worker);
 
-    thread = thread_spawn(&kernel_process, worker_entrypoint, worker, NULL,
-                          NULL, THREAD_KERNEL);
-    if (thread == NULL) {
-        log_err("failed to spawn worker thread");
-        return E_NOMEM;
-    }
+	thread = thread_spawn(&kernel_process, worker_entrypoint, worker, NULL, NULL,
+			      THREAD_KERNEL);
+	if (thread == NULL) {
+		log_err("failed to spawn worker thread");
+		return E_NOMEM;
+	}
 
-    worker->thread = thread;
-    sched_block_thread(thread);
+	worker->thread = thread;
+	sched_block_thread(thread);
 
-    return E_SUCCESS;
+	return E_SUCCESS;
 }
 
 void worker_release(struct worker *worker)
 {
-    WARN_ON(!waitqueue_is_empty(&worker->queue));
+	WARN_ON(!waitqueue_is_empty(&worker->queue));
 
-    if (worker->thread == current) {
-        WARN("A worker is trying to release itself");
-        return;
-    }
+	if (worker->thread == current) {
+		WARN("A worker is trying to release itself");
+		return;
+	}
 
-    /** TODO: Find a cleaner way to kill a thread that wasn't alive before */
-    no_preemption_scope () {
-        sched_new_thread(worker->thread);
-        worker->thread->state = SCHED_KILLED;
-    }
+	/** TODO: Find a cleaner way to kill a thread that wasn't alive before */
+	no_preemption_scope () {
+		sched_new_thread(worker->thread);
+		worker->thread->state = SCHED_KILLED;
+	}
 }
 
 void worker_start(struct worker *worker, thread_entry_t function, void *data)
 {
-    WARN_ON(!waitqueue_is_empty(&worker->queue));
+	WARN_ON(!waitqueue_is_empty(&worker->queue));
 
-    if (worker_running(worker)) {
-        log_warn("worker has already been started");
-        return;
-    }
+	if (worker_running(worker)) {
+		log_warn("worker has already been started");
+		return;
+	}
 
-    worker->done = false;
-    worker->data = data;
-    worker->function = function;
+	worker->done = false;
+	worker->data = data;
+	worker->function = function;
 
-    sched_unblock_thread(worker->thread);
+	sched_unblock_thread(worker->thread);
 }
 
 void worker_wait(struct worker *worker)
 {
-    if (worker->done)
-        return;
+	if (worker->done)
+		return;
 
-    waitqueue_enqueue(&worker->queue, current);
+	waitqueue_enqueue(&worker->queue, current);
 }

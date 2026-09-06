@@ -41,16 +41,16 @@
  *  @brief Safer wrapper around a string symbolizing a path
  */
 typedef struct libpath_path {
-    const char *path; ///< Original raw string containing the full path
-    size_t len;       ///< The length of the raw string
+	const char *path; ///< Original raw string containing the full path
+	size_t len;	  ///< The length of the raw string
 } path_t;
 
 /** Initialize a new path */
-#define NEW_PATH(_path, _len)          \
-    (path_t)                           \
-    {                                  \
-        .path = (_path), .len = (_len) \
-    }
+#define NEW_PATH(_path, _len)                  \
+	(path_t)                               \
+	{                                      \
+		.path = (_path), .len = (_len) \
+	}
 
 /** Dynamically create a path using libc's \c strlen function
  *  If you already know the string's length, use \ref NEW_PATH instead.
@@ -60,13 +60,13 @@ typedef struct libpath_path {
 /** Check whether a path is an absolute one */
 static inline bool path_is_absolute(const path_t *path)
 {
-    return path->len > 0 && path->path[0] == LIBPATH_SEPARATOR;
+	return path->len > 0 && path->path[0] == LIBPATH_SEPARATOR;
 }
 
 /** Check whether a path is empty */
 static inline bool path_is_empty(const path_t *path)
 {
-    return path->len == 0 || (path_is_absolute(path) && path->len == 1);
+	return path->len == 0 || (path_is_absolute(path) && path->len == 1);
 }
 
 /** Store the raw path of path's parent inside a string.
@@ -105,17 +105,17 @@ ssize_t path_load_parent(char *parent, const path_t *path, size_t size);
  * This structure is used to walk along a path (forward or backward)
  */
 typedef struct libpath_segment {
-    const char *start;  ///< Start of the segment
-    const char *end;    ///< End of the segment
-    const path_t *path; ///< The original path the segment is a part of
+	const char *start;  ///< Start of the segment
+	const char *end;    ///< End of the segment
+	const path_t *path; ///< The original path the segment is a part of
 
-    /// Start of the next segment.
-    /// If this segment is the last one of the path, this is set to NULL.
-    const char *next;
+	/// Start of the next segment.
+	/// If this segment is the last one of the path, this is set to NULL.
+	const char *next;
 
-    /// Start of the previous segment.
-    /// If this segment is the first one of the path, this is set to NULL.
-    const char *prev;
+	/// Start of the previous segment.
+	/// If this segment is the first one of the path, this is set to NULL.
+	const char *prev;
 } path_segment_t;
 
 /** Loop over all the segments of a given path.
@@ -124,38 +124,38 @@ typedef struct libpath_segment {
  *  @param _path The original path
  *  @param _body The body placed inside the loop
  */
-#define DO_FOREACH_SEGMENT(_segment, _path, _body)   \
-    do {                                             \
-        path_segment_t _segment;                     \
-        if (path_walk_first((_path), &(_segment))) { \
-            do {                                     \
-                _body;                               \
-            } while (path_walk_next(&(_segment)));   \
-        }                                            \
-    } while (0)
+#define DO_FOREACH_SEGMENT(_segment, _path, _body)             \
+	do {                                                   \
+		path_segment_t _segment;                       \
+		if (path_walk_first((_path), &(_segment))) {   \
+			do {                                   \
+				_body;                         \
+			} while (path_walk_next(&(_segment))); \
+		}                                              \
+	} while (0)
 
 /** Check whether a segment is the first of ots containing path */
 static ALWAYS_INLINE bool path_segment_is_first(const path_segment_t *segment)
 {
-    return segment->prev == NULL;
+	return segment->prev == NULL;
 }
 
 /** Check whether a segment is the first of ots containing path */
 static ALWAYS_INLINE bool path_segment_is_last(const path_segment_t *segment)
 {
-    return segment->next == NULL;
+	return segment->next == NULL;
 }
 
 /** Retieve the length of a segment's content */
 static ALWAYS_INLINE size_t path_segment_length(const path_segment_t *segment)
 {
-    if (segment->end == NULL) {
-        // If this is the last segment of a path not terminated by a separator
-        // We need to compute the length based on the original full path length
-        return (segment->path->len - (segment->start - segment->path->path));
-    }
+	if (segment->end == NULL) {
+		// If this is the last segment of a path not terminated by a separator
+		// We need to compute the length based on the original full path length
+		return (segment->path->len - (segment->start - segment->path->path));
+	}
 
-    return segment->end - segment->start;
+	return segment->end - segment->start;
 }
 
 /** Retrieve the first segment of a path

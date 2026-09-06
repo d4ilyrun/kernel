@@ -43,87 +43,87 @@
 #define MCR 4 /* Modem control */
 #define LSR 5 /* Line Status */
 #define MSR 6 /* Modem Status */
-#define SR 7  /* Scratch */
+#define SR  7 /* Scratch */
 
 /* Register addres from offset */
 #define UART_REG(_reg) ((UART_PORT) + (_reg))
 
 static ALWAYS_INLINE uint16_t uart_div_latch_value(const uint16_t baudrate)
 {
-    return (UART_CLOCK_HZ / baudrate);
+	return (UART_CLOCK_HZ / baudrate);
 }
 
 int uart_putc(const char c)
 {
-    /* Wait until transfer buffer is empty */
-    WAIT_FOR(BIT_READ(inb(UART_REG(LSR)), 5));
+	/* Wait until transfer buffer is empty */
+	WAIT_FOR(BIT_READ(inb(UART_REG(LSR)), 5));
 
-    outb(UART_REG(THR), c);
-    return 0;
+	outb(UART_REG(THR), c);
+	return 0;
 }
 
 static char uart_getc(void)
 {
-    /* Wait until data is available to be read */
-    WAIT_FOR(BIT_READ(inb(UART_REG(LSR)), 0));
-    return inb(UART_REG(THR));
+	/* Wait until data is available to be read */
+	WAIT_FOR(BIT_READ(inb(UART_REG(LSR)), 0));
+	return inb(UART_REG(THR));
 }
 
 static error_t uart_reset(void)
 {
-    /* Clear interrupts */
-    outb(UART_REG(IER), 0x00);
+	/* Clear interrupts */
+	outb(UART_REG(IER), 0x00);
 
-    /* Set baudrate */
-    const uint16_t div_latch = uart_div_latch_value(UART_BAUDRATE);
-    outb(UART_REG(LCR), BIT(7)); // temporary div_latch access
-    outb(UART_REG(DLH), MSB(div_latch));
-    outb(UART_REG(DLL), LSB(div_latch));
+	/* Set baudrate */
+	const uint16_t div_latch = uart_div_latch_value(UART_BAUDRATE);
+	outb(UART_REG(LCR), BIT(7)); // temporary div_latch access
+	outb(UART_REG(DLH), MSB(div_latch));
+	outb(UART_REG(DLL), LSB(div_latch));
 
-    /* Turn off div_latch access, set default LineControl values:
-     * 8bits, no parity, one stop bit
-     */
-    outb(UART_REG(LCR), 0x03);
+	/* Turn off div_latch access, set default LineControl values:
+	 * 8bits, no parity, one stop bit
+	 */
+	outb(UART_REG(LCR), 0x03);
 
-    /* Clear and enable FIFOs (interrupt triggered when 14B inside buffer) */
-    outb(UART_REG(FCR), 0xC7);
-    outb(UART_REG(IER), 0x01);
+	/* Clear and enable FIFOs (interrupt triggered when 14B inside buffer) */
+	outb(UART_REG(FCR), 0xC7);
+	outb(UART_REG(IER), 0x01);
 
-    return E_SUCCESS;
+	return E_SUCCESS;
 }
 
 static ssize_t __uart_write(const char *buf, size_t length)
 {
-    for (size_t i = 0; i < length; i++)
-        uart_putc(buf[i]);
+	for (size_t i = 0; i < length; i++)
+		uart_putc(buf[i]);
 
-    return length;
+	return length;
 }
 
 static ssize_t __uart_read(char *buf, size_t length)
 {
-    for (size_t i = 0; i < length; i++)
-        buf[i] = uart_getc();
+	for (size_t i = 0; i < length; i++)
+		buf[i] = uart_getc();
 
-    return length;
+	return length;
 }
 
 static error_t uart_open(struct file *file)
 {
-    UNUSED(file);
-    return uart_reset();
+	UNUSED(file);
+	return uart_reset();
 }
 
 static ssize_t uart_write(struct file *file, const char *buf, size_t length)
 {
-    UNUSED(file);
-    return __uart_write(buf, length);
+	UNUSED(file);
+	return __uart_write(buf, length);
 }
 
 static ssize_t uart_read(struct file *file, char *buf, size_t length)
 {
-    UNUSED(file);
-    return __uart_read(buf, length);
+	UNUSED(file);
+	return __uart_read(buf, length);
 }
 
 struct file_operations uart_file_ops = {
@@ -145,62 +145,60 @@ static struct device uart_device = {
 /*
  *
  */
-static ssize_t uart_console_write(const struct console *console,
-                                  const char *buffer, size_t size)
+static ssize_t uart_console_write(const struct console *console, const char *buffer, size_t size)
 {
-    UNUSED(console);
+	UNUSED(console);
 
-    return __uart_write(buffer, size);
+	return __uart_write(buffer, size);
 }
 
 /*
  * Update colors by writing the corresponding ANSI color codes.
  */
-static void uart_console_set_color(const struct console *console,
-                                   enum console_color fg,
-                                   enum console_color bg)
+static void
+uart_console_set_color(const struct console *console, enum console_color fg, enum console_color bg)
 {
-    UNUSED(console);
+	UNUSED(console);
 
-#define UART_WRITE_ANSI(color, s)         \
-    case color:                           \
-        __uart_write((s), sizeof(s) - 1); \
-        break
+#define UART_WRITE_ANSI(color, s)                 \
+	case color:                               \
+		__uart_write((s), sizeof(s) - 1); \
+		break
 
-    switch (fg) {
-    UART_WRITE_ANSI(COLOR_BLACK,        "\033[0;30m");
-    UART_WRITE_ANSI(COLOR_RED,          "\033[0;31m");
-    UART_WRITE_ANSI(COLOR_GREEN,        "\033[0;32m");
-    UART_WRITE_ANSI(COLOR_YELLOW,       "\033[0;33m");
-    UART_WRITE_ANSI(COLOR_BLUE,         "\033[0;34m");
-    UART_WRITE_ANSI(COLOR_MAGENTA,      "\033[0;35m");
-    UART_WRITE_ANSI(COLOR_CYAN,         "\033[0;36m");
-    UART_WRITE_ANSI(COLOR_WHITE,        "\033[0;37m");
-    UART_WRITE_ANSI(COLOR_NONE,         "\033[0;39m");
-    UART_WRITE_ANSI(COLOR_BOLD_RED,     "\033[1;31m");
-    UART_WRITE_ANSI(COLOR_BOLD_GREEN,   "\033[1;32m");
-    UART_WRITE_ANSI(COLOR_BOLD_YELLOW,  "\033[1;33m");
-    UART_WRITE_ANSI(COLOR_BOLD_BLUE,    "\033[1;34m");
-    UART_WRITE_ANSI(COLOR_BOLD_MAGENTA, "\033[1;35m");
-    UART_WRITE_ANSI(COLOR_BOLD_CYAN,    "\033[1;36m");
-    UART_WRITE_ANSI(COLOR_BOLD_WHITE,   "\033[1;37m");
-    default:
-        break;
-    }
+	switch (fg) {
+		UART_WRITE_ANSI(COLOR_BLACK, "\033[0;30m");
+		UART_WRITE_ANSI(COLOR_RED, "\033[0;31m");
+		UART_WRITE_ANSI(COLOR_GREEN, "\033[0;32m");
+		UART_WRITE_ANSI(COLOR_YELLOW, "\033[0;33m");
+		UART_WRITE_ANSI(COLOR_BLUE, "\033[0;34m");
+		UART_WRITE_ANSI(COLOR_MAGENTA, "\033[0;35m");
+		UART_WRITE_ANSI(COLOR_CYAN, "\033[0;36m");
+		UART_WRITE_ANSI(COLOR_WHITE, "\033[0;37m");
+		UART_WRITE_ANSI(COLOR_NONE, "\033[0;39m");
+		UART_WRITE_ANSI(COLOR_BOLD_RED, "\033[1;31m");
+		UART_WRITE_ANSI(COLOR_BOLD_GREEN, "\033[1;32m");
+		UART_WRITE_ANSI(COLOR_BOLD_YELLOW, "\033[1;33m");
+		UART_WRITE_ANSI(COLOR_BOLD_BLUE, "\033[1;34m");
+		UART_WRITE_ANSI(COLOR_BOLD_MAGENTA, "\033[1;35m");
+		UART_WRITE_ANSI(COLOR_BOLD_CYAN, "\033[1;36m");
+		UART_WRITE_ANSI(COLOR_BOLD_WHITE, "\033[1;37m");
+	default:
+		break;
+	}
 
-    switch (bg) {
-    UART_WRITE_ANSI(COLOR_BLACK,   "\033[40m");
-    UART_WRITE_ANSI(COLOR_RED,     "\033[41m");
-    UART_WRITE_ANSI(COLOR_GREEN,   "\033[42m");
-    UART_WRITE_ANSI(COLOR_YELLOW,  "\033[43m");
-    UART_WRITE_ANSI(COLOR_BLUE,    "\033[44m");
-    UART_WRITE_ANSI(COLOR_MAGENTA, "\033[45m");
-    UART_WRITE_ANSI(COLOR_CYAN,    "\033[46m");
-    UART_WRITE_ANSI(COLOR_WHITE,   "\033[47m");
-    UART_WRITE_ANSI(COLOR_NONE,    "\033[49m");
-    default:
-        break;
-    }
+	switch (bg) {
+		UART_WRITE_ANSI(COLOR_BLACK, "\033[40m");
+		UART_WRITE_ANSI(COLOR_RED, "\033[41m");
+		UART_WRITE_ANSI(COLOR_GREEN, "\033[42m");
+		UART_WRITE_ANSI(COLOR_YELLOW, "\033[43m");
+		UART_WRITE_ANSI(COLOR_BLUE, "\033[44m");
+		UART_WRITE_ANSI(COLOR_MAGENTA, "\033[45m");
+		UART_WRITE_ANSI(COLOR_CYAN, "\033[46m");
+		UART_WRITE_ANSI(COLOR_WHITE, "\033[47m");
+		UART_WRITE_ANSI(COLOR_NONE, "\033[49m");
+	default:
+		break;
+	}
 }
 
 static struct console uart_console = {
@@ -211,15 +209,15 @@ static struct console uart_console = {
 
 error_t uart_init(void)
 {
-    error_t ret;
+	error_t ret;
 
-    ret = console_register(&uart_console);
-    if (ret != E_SUCCESS)
-        return ret;
+	ret = console_register(&uart_console);
+	if (ret != E_SUCCESS)
+		return ret;
 
-    ret = device_register(&uart_device);
-    if (ret == E_SUCCESS)
-        return ret;
+	ret = device_register(&uart_device);
+	if (ret == E_SUCCESS)
+		return ret;
 
-    return ret;
+	return ret;
 }

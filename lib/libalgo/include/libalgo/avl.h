@@ -50,22 +50,22 @@ typedef struct avl avl_t;
  * at the given node" (i.e. the node and its children).
  */
 struct avl {
-    avl_t *left;    ///< The left child
-    avl_t *right;   ///< The right child
-    avl_t *parent;  ///< The parent, NULL if this is the root
-    ssize_t height; ///< Height of the tree
+	avl_t *left;	///< The left child
+	avl_t *right;	///< The right child
+	avl_t *parent;	///< The parent, NULL if this is the root
+	ssize_t height; ///< Height of the tree
 };
 
 /** Returns the height of an AVL tree */
 static inline ssize_t avl_height(const avl_t *avl)
 {
-    return (avl == NULL) ? -1 : avl->height;
+	return (avl == NULL) ? -1 : avl->height;
 }
 
 /** Returns hether the given AVL node is the root of a tree */
 static inline bool avl_is_root(const avl_t *avl)
 {
-    return avl->parent == NULL;
+	return avl->parent == NULL;
 }
 
 /** Create an empty AVL node, with no child nor parent */

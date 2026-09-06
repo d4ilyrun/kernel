@@ -38,7 +38,7 @@
 #define LOG_DOMAIN NULL
 #endif
 
-#define FMT8 "%#02hhx"
+#define FMT8  "%#02hhx"
 #define FMT16 "%#04hx"
 #define FMT32 "%#08x"
 #define FMT64 "%#016llx"
@@ -49,14 +49,14 @@
  *  @note The lower a level numerical representation is the more important it is
  */
 enum log_level {
-    LOG_LEVEL_ERR,   /** error messages */
-    LOG_LEVEL_WARN,  /** warning messages*/
-    LOG_LEVEL_INFO,  /** standard messages */
-    LOG_LEVEL_DEBUG, /** debug messages */
+	LOG_LEVEL_ERR,	 /** error messages */
+	LOG_LEVEL_WARN,	 /** warning messages*/
+	LOG_LEVEL_INFO,	 /** standard messages */
+	LOG_LEVEL_DEBUG, /** debug messages */
 
-    /* Used for indexing purposes only */
-    LOG_LEVEL_COUNT,
-    LOG_LEVEL_ALL = LOG_LEVEL_COUNT,
+	/* Used for indexing purposes only */
+	LOG_LEVEL_COUNT,
+	LOG_LEVEL_ALL = LOG_LEVEL_COUNT,
 };
 
 /**
@@ -73,8 +73,7 @@ enum log_level {
 FORMAT(printf, 3, 4)
 void log(enum log_level, const char *domain, const char *msg, ...);
 
-void log_vlog(enum log_level, const char *domain, const char *msg,
-              va_list parameters);
+void log_vlog(enum log_level, const char *domain, const char *msg, va_list parameters);
 
 /**
  * @brief Completely stop the kernel's execution
@@ -96,41 +95,40 @@ void stack_trace(void);
 /** @brief Change the maximum log level to display */
 void log_set_level(enum log_level);
 
-#define PANIC(...)                   \
-    {                                \
-        do {                         \
-            u32 esp = read_esp();    \
-            panic(esp, __VA_ARGS__); \
-        } while (0);                 \
-    }
+#define PANIC(...)                               \
+	{                                        \
+		do {                             \
+			u32 esp = read_esp();    \
+			panic(esp, __VA_ARGS__); \
+		} while (0);                     \
+	}
 
-#define PANIC_ON(cond, ...)     \
-    {                           \
-        if (cond)               \
-            PANIC(__VA_ARGS__); \
-    }
+#define PANIC_ON(cond, ...)                 \
+	{                                   \
+		if (cond)                   \
+			PANIC(__VA_ARGS__); \
+	}
 
-#define ASSERT(cond)                                                         \
-    do {                                                                     \
-        PANIC_ON(!(cond), "assertion failed: %s: line %d: %s", __FUNCTION__, \
-                 __LINE__, stringify(cond));                                 \
-    } while (0)
+#define ASSERT(cond)                                                                           \
+	do {                                                                                   \
+		PANIC_ON(!(cond), "assertion failed: %s: line %d: %s", __FUNCTION__, __LINE__, \
+			 stringify(cond));                                                     \
+	} while (0)
 
-#define WARN(_msg, ...)                              \
-    do {                                             \
-        printk("%s:%d: " _msg "\n", __FUNCTION__,    \
-               __LINE__ __VA_OPT__(, ) __VA_ARGS__); \
-        stack_trace();                               \
-    } while (0)
+#define WARN(_msg, ...)                                                                         \
+	do {                                                                                    \
+		printk("%s:%d: " _msg "\n", __FUNCTION__, __LINE__ __VA_OPT__(, ) __VA_ARGS__); \
+		stack_trace();                                                                  \
+	} while (0)
 
-#define WARN_ON_MSG(_cond, _msg, ...) \
-    ({                                \
-        bool __cond = !!(_cond);      \
-        if (unlikely(__cond)) {       \
-            WARN(_msg, __VA_ARGS__);  \
-        }                             \
-        unlikely(__cond);             \
-    })
+#define WARN_ON_MSG(_cond, _msg, ...)            \
+	({                                       \
+		bool __cond = !!(_cond);         \
+		if (unlikely(__cond)) {          \
+			WARN(_msg, __VA_ARGS__); \
+		}                                \
+		unlikely(__cond);                \
+	})
 
 #define WARN_ON(_cond) WARN_ON_MSG((_cond), stringify(_cond))
 
@@ -138,14 +136,10 @@ void log_set_level(enum log_level);
  * Print a log message to the kernel's console
  * @{
  */
-#define log_err(format, ...) \
-    log(LOG_LEVEL_ERR, LOG_DOMAIN, format __VA_OPT__(, ) __VA_ARGS__)
-#define log_warn(format, ...) \
-    log(LOG_LEVEL_WARN, LOG_DOMAIN, format __VA_OPT__(, ) __VA_ARGS__)
-#define log_info(format, ...) \
-    log(LOG_LEVEL_INFO, LOG_DOMAIN, format __VA_OPT__(, ) __VA_ARGS__)
-#define log_dbg(format, ...) \
-    log(LOG_LEVEL_DEBUG, LOG_DOMAIN, format __VA_OPT__(, ) __VA_ARGS__)
+#define log_err(format, ...)  log(LOG_LEVEL_ERR, LOG_DOMAIN, format __VA_OPT__(, ) __VA_ARGS__)
+#define log_warn(format, ...) log(LOG_LEVEL_WARN, LOG_DOMAIN, format __VA_OPT__(, ) __VA_ARGS__)
+#define log_info(format, ...) log(LOG_LEVEL_INFO, LOG_DOMAIN, format __VA_OPT__(, ) __VA_ARGS__)
+#define log_dbg(format, ...)  log(LOG_LEVEL_DEBUG, LOG_DOMAIN, format __VA_OPT__(, ) __VA_ARGS__)
 /** @} */
 
 /**
@@ -158,16 +152,11 @@ void log_set_level(enum log_level);
  *
  * @{
  */
-#define log_variable(_var) \
-    log(LOG_LEVEL_DEBUG, "variable", "%s=" FMT32, stringify(_var), _var)
-#define log_variable_8(_var) \
-    log(LOG_LEVEL_DEBUG, "variable", "%s=" FMT8, stringify(_var), _var)
-#define log_variable_16(_var) \
-    log(LOG_LEVEL_DEBUG, "variable", "%s=" FMT16, stringify(_var), _var)
-#define log_variable_64(_var) \
-    log(LOG_LEVEL_DEBUG, "variable", "%s=" FMT64, stringify(_var), _var)
-#define log_variable_str(_var) \
-    log(LOG_LEVEL_DEBUG, "variable", "%s=%s", stringify(_var), _var)
+#define log_variable(_var)     log(LOG_LEVEL_DEBUG, "variable", "%s=" FMT32, stringify(_var), _var)
+#define log_variable_8(_var)   log(LOG_LEVEL_DEBUG, "variable", "%s=" FMT8, stringify(_var), _var)
+#define log_variable_16(_var)  log(LOG_LEVEL_DEBUG, "variable", "%s=" FMT16, stringify(_var), _var)
+#define log_variable_64(_var)  log(LOG_LEVEL_DEBUG, "variable", "%s=" FMT64, stringify(_var), _var)
+#define log_variable_str(_var) log(LOG_LEVEL_DEBUG, "variable", "%s=%s", stringify(_var), _var)
 /** @} */
 
 /**
@@ -177,14 +166,14 @@ void log_set_level(enum log_level);
  * @param _len The number of elements inside the array
  * @param _fmt The format to use for the elements (LOG_FMT_*)
  */
-#define log_array_fmt(_arr, _len, _fmt)      \
-    {                                        \
-        log_dbg(stringify(_arr));            \
-        printk("{ ");                        \
-        for (size_t i = 0; i < (_len); ++i)  \
-            printk("" _fmt ", ", (_arr)[i]); \
-        printk("}\n");                       \
-    }
+#define log_array_fmt(_arr, _len, _fmt)                  \
+	{                                                \
+		log_dbg(stringify(_arr));                \
+		printk("{ ");                            \
+		for (size_t i = 0; i < (_len); ++i)      \
+			printk("" _fmt ", ", (_arr)[i]); \
+		printk("}\n");                           \
+	}
 
 /**
  * @brief Print the content of an array
@@ -195,10 +184,10 @@ void log_set_level(enum log_level);
  * @ref log_array_fmt
  * @{
  */
-#define log_array(_arr, _len) log_array_fmt(_arr, _len, FMT32)
-#define log_array_8(_arr, _len) log_array_fmt(_arr, _len, FMT8)
-#define log_array_16(_arr, _len) log_array_fmt(_arr, _len, FMT16)
-#define log_array_64(_arr, _len) log_array_fmt(_arr, _len, FMT64)
+#define log_array(_arr, _len)	  log_array_fmt(_arr, _len, FMT32)
+#define log_array_8(_arr, _len)	  log_array_fmt(_arr, _len, FMT8)
+#define log_array_16(_arr, _len)  log_array_fmt(_arr, _len, FMT16)
+#define log_array_64(_arr, _len)  log_array_fmt(_arr, _len, FMT64)
 #define log_array_str(_arr, _len) log_array_fmt(_arr, _len, "%s")
 /** @} */
 

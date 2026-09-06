@@ -22,16 +22,16 @@
 
 /** @brief Compute the number of ticks in a given time frame @{ */
 #define SEC_TO_TICKS(_time) SEC((_time) * TICKS_PER_SECOND)
-#define MS_TO_TICKS(_time) MS_TO_SEC(SEC_TO_TICKS(_time))
-#define US_TO_TICKS(_time) US_TO_SEC(SEC_TO_TICKS(_time))
-#define NS_TO_TICKS(_time) NS_TO_SEC(SEC_TO_TICKS(_time))
+#define MS_TO_TICKS(_time)  MS_TO_SEC(SEC_TO_TICKS(_time))
+#define US_TO_TICKS(_time)  US_TO_SEC(SEC_TO_TICKS(_time))
+#define NS_TO_TICKS(_time)  NS_TO_SEC(SEC_TO_TICKS(_time))
 /** @} */
 
 /** @brief Convert a number of ticks into a regular time unit @{ */
 #define TICKS_TO_SEC(_ticks) SEC((_ticks) / TICKS_PER_SECOND)
-#define TICKS_TO_MS(_ticks) MS(TICKS_TO_SEC(_ticks))
-#define TICKS_TO_US(_ticks) US(TICKS_TO_SEC(_ticks))
-#define TICKS_TO_NS(_ticks) NS(TICKS_TO_SEC(_ticks))
+#define TICKS_TO_MS(_ticks)  MS(TICKS_TO_SEC(_ticks))
+#define TICKS_TO_US(_ticks)  US(TICKS_TO_SEC(_ticks))
+#define TICKS_TO_NS(_ticks)  NS(TICKS_TO_SEC(_ticks))
 /** @} */
 
 /**
@@ -56,7 +56,7 @@ void timer_start(u32 frequency);
 /** @return the number of timer intervals elapsed since startup */
 static inline clock_t timer_gettick(void)
 {
-    return timer_ticks_counter;
+	return timer_ticks_counter;
 }
 
 /**
@@ -65,27 +65,27 @@ static inline clock_t timer_gettick(void)
  */
 static inline bool timer_tick(void)
 {
-    clock_t old_ticks = timer_ticks_counter;
-    timer_ticks_counter += 1;
-    return old_ticks > timer_ticks_counter;
+	clock_t old_ticks = timer_ticks_counter;
+	timer_ticks_counter += 1;
+	return old_ticks > timer_ticks_counter;
 }
 
 /** @return the number of miliseconds elapsed since startup. */
 static inline time_t timer_get_ms(void)
 {
-    return TICKS_TO_MS(timer_gettick());
+	return TICKS_TO_MS(timer_gettick());
 }
 
 /** @return the number of microseconds elapsed since startup. */
 static inline time_t timer_get_us(void)
 {
-    return TICKS_TO_US(timer_gettick());
+	return TICKS_TO_US(timer_gettick());
 }
 
 /** @return the number of nanoseconds elapsed since startup. */
 static inline time_t timer_get_ns(void)
 {
-    return TICKS_TO_NS(timer_gettick());
+	return TICKS_TO_NS(timer_gettick());
 }
 
 /** Fill a timespec structure with the current time of the day.
@@ -95,10 +95,10 @@ static inline time_t timer_get_ns(void)
  */
 static inline void clock_get_time(struct timespec *time)
 {
-    time_t ns = timer_get_ns();
+	time_t ns = timer_get_ns();
 
-    time->tv_sec = NS_TO_SEC(ns);
-    time->tv_nsec = ns % NS(1);
+	time->tv_sec = NS_TO_SEC(ns);
+	time->tv_nsec = ns % NS(1);
 }
 
 /**

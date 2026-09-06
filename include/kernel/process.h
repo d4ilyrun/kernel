@@ -32,16 +32,16 @@
  */
 
 #include <kernel/file.h>
+#include <kernel/signal.h>
 #include <kernel/types.h>
 #include <kernel/user.h>
 #include <kernel/vmm.h>
-#include <kernel/signal.h>
 
 #include <libalgo/linked_list.h>
 #include <utils/compiler.h>
 
-#include <string.h>
 #include <limits.h>
+#include <string.h>
 
 #if ARCH == i686
 #include <kernel/arch/i686/process.h>
@@ -69,10 +69,10 @@ typedef void (*thread_entry_t)(void *data);
  *  @enum thread_state
  */
 typedef enum thread_state {
-    SCHED_RUNNING, ///< Currently running (or ready to run)
-    SCHED_WAITING, ///< Currently waiting for a resource (timer, lock ...)
-    SCHED_ZOMBIE,  ///< Thread waiting to be collected by its parent process.
-    SCHED_KILLED,  ///< The thread has been killed waiting to be destroyed
+	SCHED_RUNNING, ///< Currently running (or ready to run)
+	SCHED_WAITING, ///< Currently waiting for a resource (timer, lock ...)
+	SCHED_ZOMBIE,  ///< Thread waiting to be collected by its parent process.
+	SCHED_KILLED,  ///< The thread has been killed waiting to be destroyed
 } thread_state_t;
 
 /**
@@ -85,53 +85,53 @@ typedef enum thread_state {
  * @struct process
  */
 struct process {
-    char name[PROCESS_NAME_MAX_LEN]; /*!< The thread's name */
-    pid_t pid;                       /*!< Process' unique ID */
-    unsigned int flags;
+	char name[PROCESS_NAME_MAX_LEN]; /*!< The thread's name */
+	pid_t pid;			 /*!< Process' unique ID */
+	unsigned int flags;
 
-    struct address_space *as; /*!< The process's address space */
+	struct address_space *as; /*!< The process's address space */
 
-    struct process *parent;
-    llist_t threads;        /*!< Linked list of the process' active threads */
-    llist_t children;       /*!< Linked list of the process' active children */
+	struct process *parent;
+	llist_t threads;  /*!< Linked list of the process' active threads */
+	llist_t children; /*!< Linked list of the process' active children */
 
-    node_t  this;           /*!< Node inside the parent's list of children */
-    node_t  this_global;    /*!< Used by the global list of alive processes */
+	node_t this;	    /*!< Node inside the parent's list of children */
+	node_t this_global; /*!< Used by the global list of alive processes */
 
-    size_t refcount; /*!< Reference count to this process.
-                         We only kill a process once all of its threads have
-                         been released. */
+	size_t refcount; /*!< Reference count to this process.
+			     We only kill a process once all of its threads have
+			     been released. */
 
-    /* Open file descriptions table.
-     *
-     * This table is lock protected by @ref fds_lock, one must **always**
-     * take this lock when accessing a process' open files (read AND write).
-     */
-    struct fd  *fds[PROCESS_FD_COUNT];
-    spinlock_t  fds_lock;
+	/* Open file descriptions table.
+	 *
+	 * This table is lock protected by @ref fds_lock, one must **always**
+	 * take this lock when accessing a process' open files (read AND write).
+	 */
+	struct fd *fds[PROCESS_FD_COUNT];
+	spinlock_t fds_lock;
 
-    /*
-     * Signal handling.
-     */
-    struct signal_set  *sig_set;     /* Registered signal handlers. */
-    struct signal_queue sig_pending;
-    sig_sa_sigaction_t  sig_handler; /* stub handler set by sigsethandler(). */
+	/*
+	 * Signal handling.
+	 */
+	struct signal_set *sig_set; /* Registered signal handlers. */
+	struct signal_queue sig_pending;
+	sig_sa_sigaction_t sig_handler; /* stub handler set by sigsethandler(). */
 
-    thread_state_t state;
-    uint16_t exit_status; /** Transmitted to the parent process during wait() */
+	thread_state_t state;
+	uint16_t exit_status; /** Transmitted to the parent process during wait() */
 
-    struct user_creds *creds; /** Process credentials. */
+	struct user_creds *creds; /** Process credentials. */
 
-    mode_t cmask; /* file mode creation mask */
+	mode_t cmask; /* file mode creation mask */
 
-    spinlock_t lock;
+	spinlock_t lock;
 };
 
 /*
  * Possible values for (struct process)->flags.
  */
 enum process_flags {
-    PROC_SA_NOCLDWAIT = BIT(0), /* Do not generate SIGCHLD when children stop */
+	PROC_SA_NOCLDWAIT = BIT(0), /* Do not generate SIGCHLD when children stop */
 };
 
 /* Union of all the flags that should be inherited when forking. */
@@ -151,37 +151,37 @@ enum process_flags {
  */
 typedef struct thread {
 
-    /**
-     * Arch specific thread context
-     *
-     * This includes registers, and information that must be kept for when
-     * switching back into the thread.
-     */
-    thread_context_t context;
-    thread_state_t state; /*!< Thread's current state, used by the scheduler */
+	/**
+	 * Arch specific thread context
+	 *
+	 * This includes registers, and information that must be kept for when
+	 * switching back into the thread.
+	 */
+	thread_context_t context;
+	thread_state_t state; /*!< Thread's current state, used by the scheduler */
 
-    pid_t tid; /*!< Thread ID */
-    u32 flags; /*!< Combination of \ref thread_flags values */
+	pid_t tid; /*!< Thread ID */
+	u32 flags; /*!< Combination of \ref thread_flags values */
 
-    struct process *process; /*!< Containing process */
+	struct process *process; /*!< Containing process */
 
-    node_t this_proc;   /*!< Used by a process to list threads */
-    node_t this_sched;  /*!< Used by the scheduler */
-    node_t this_global; /*!< Used by the global list of alive processes */
+	node_t this_proc;   /*!< Used by a process to list threads */
+	node_t this_sched;  /*!< Used by the scheduler */
+	node_t this_global; /*!< Used by the global list of alive processes */
 
-    /** Information relative to the current state of the thread */
-    union {
-        /** For sleeping threads only */
-        struct {
-            clock_t wakeup; /*!< Time when it should wakeup (in ticks) */
-        } sleep;
-    };
+	/** Information relative to the current state of the thread */
+	union {
+		/** For sleeping threads only */
+		struct {
+			clock_t wakeup; /*!< Time when it should wakeup (in ticks) */
+		} sleep;
+	};
 
-    /*
-     * Signal handling.
-     */
-    struct signal_queue sig_pending;
-    sigset_t            sig_blocked; /* mask of currently blocked signals. */
+	/*
+	 * Signal handling.
+	 */
+	struct signal_queue sig_pending;
+	sigset_t sig_blocked; /* mask of currently blocked signals. */
 
 } thread_t;
 
@@ -198,14 +198,14 @@ extern spinlock_t threads_list_lock;
 
 /** @enum thread_flags */
 typedef enum thread_flags {
-    THREAD_KERNEL           = BIT(0), ///< This is a kernel thread
-    THREAD_RESCHED          = BIT(1), ///< Reschedule when exiting interrupt
+	THREAD_KERNEL = BIT(0),	 ///< This is a kernel thread
+	THREAD_RESCHED = BIT(1), ///< Reschedule when exiting interrupt
 } process_flags_t;
 
 /***/
 static ALWAYS_INLINE bool thread_is_kernel(thread_t *thread)
 {
-    return thread->flags & THREAD_KERNEL;
+	return thread->flags & THREAD_KERNEL;
 }
 
 /** The initial thread is the thread created along with the process.
@@ -213,100 +213,95 @@ static ALWAYS_INLINE bool thread_is_kernel(thread_t *thread)
  */
 static ALWAYS_INLINE bool thread_is_initial(thread_t *thread)
 {
-    return thread->tid == thread->process->pid;
+	return thread->tid == thread->process->pid;
 }
 
 /** Set the thread's current stack pointer */
 static inline void thread_set_stack_pointer(struct thread *thread, void *stack)
 {
-    arch_thread_set_stack_pointer(&thread->context, stack);
+	arch_thread_set_stack_pointer(&thread->context, stack);
 }
 
 /** Get the thread's current stack pointer */
 static inline void *thread_get_stack_pointer(struct thread *thread)
 {
-    return arch_thread_get_stack_pointer(&thread->context);
+	return arch_thread_get_stack_pointer(&thread->context);
 }
 
 /** Set the thread's current base pointer */
 static inline void thread_set_base_pointer(struct thread *thread, void *ptr)
 {
-    arch_thread_set_base_pointer(&thread->context, ptr);
+	arch_thread_set_base_pointer(&thread->context, ptr);
 }
 
 /** Get the thread's current base pointer */
 static inline void *thread_get_base_pointer(struct thread *thread)
 {
-    return arch_thread_get_base_pointer(&thread->context);
+	return arch_thread_get_base_pointer(&thread->context);
 }
 
 /** Set a thread's curent interrupt frame. */
-static inline void
-thread_set_interrupt_frame(thread_t *thread,
-                           const struct interrupt_frame *frame)
+static inline void thread_set_interrupt_frame(thread_t *thread, const struct interrupt_frame *frame)
 {
-    arch_thread_set_interrupt_frame(&thread->context, frame);
+	arch_thread_set_interrupt_frame(&thread->context, frame);
 }
 
 /** Get a thread's current interrupt frame. */
-static inline struct interrupt_frame *
-thread_get_interrupt_frame(struct thread *thread)
+static inline struct interrupt_frame *thread_get_interrupt_frame(struct thread *thread)
 {
-    return arch_thread_get_interrupt_frame(&thread->context);
+	return arch_thread_get_interrupt_frame(&thread->context);
 }
 
 /** Set the thread's kernel stack bottom address */
 static inline void thread_set_kernel_stack(struct thread *thread, void *stack)
 {
-    arch_thread_set_kernel_stack_top(&thread->context,
-                                     stack + KERNEL_STACK_SIZE);
+	arch_thread_set_kernel_stack_top(&thread->context, stack + KERNEL_STACK_SIZE);
 }
 
 /** Get the thread's kernel stack top address */
 static inline void *thread_get_kernel_stack_top(const struct thread *thread)
 {
-    return arch_thread_get_kernel_stack_top(&thread->context);
+	return arch_thread_get_kernel_stack_top(&thread->context);
 }
 
 /** Get the thread's kernel stack bottom address */
 static inline void *thread_get_kernel_stack(const struct thread *thread)
 {
-    void *top = thread_get_kernel_stack_top(thread);
-    if (!top)
-        return NULL;
+	void *top = thread_get_kernel_stack_top(thread);
+	if (!top)
+		return NULL;
 
-    return top - KERNEL_STACK_SIZE;
+	return top - KERNEL_STACK_SIZE;
 }
 
 /** Set the thread's user stack bottom address */
 static inline void thread_set_user_stack(struct thread *thread, void *stack)
 {
-    arch_thread_set_user_stack_top(&thread->context, stack + USER_STACK_SIZE);
+	arch_thread_set_user_stack_top(&thread->context, stack + USER_STACK_SIZE);
 }
 
 /** Get the thread's user stack top address */
 static inline void *thread_get_user_stack_top(const struct thread *thread)
 {
-    return arch_thread_get_user_stack_top(&thread->context);
+	return arch_thread_get_user_stack_top(&thread->context);
 }
 
 /** Get the thread's user stack bottom address */
 static inline void *thread_get_user_stack(const struct thread *thread)
 {
-    void *top = thread_get_user_stack_top(thread);
-    if (!top)
-        return NULL;
+	void *top = thread_get_user_stack_top(thread);
+	if (!top)
+		return NULL;
 
-    return top - USER_STACK_SIZE;
+	return top - USER_STACK_SIZE;
 }
 
 /**
  * Read the thread's return address when exiting the current interrupt context.
  */
-static inline void *
-thread_get_interrupt_return_address(const struct thread *thread)
+static inline void *thread_get_interrupt_return_address(const struct thread *thread)
 {
-    return arch_thread_get_interrupt_return_address(&thread->context);
+	return arch_thread_get_interrupt_return_address(&thread->context);
 }
 
 /** Process used when starting up the kernel.
@@ -351,10 +346,9 @@ void process_kill(struct process *process, uint16_t status);
 struct thread *process_execute_in_userland(const char *exec_path);
 
 /***/
-static inline void process_set_name(struct process *process, const char *name,
-                                    size_t size)
+static inline void process_set_name(struct process *process, const char *name, size_t size)
 {
-    strlcpy(process->name, name, MIN(size + 1, PROCESS_NAME_MAX_LEN));
+	strlcpy(process->name, name, MIN(size + 1, PROCESS_NAME_MAX_LEN));
 }
 
 /** Find an **alive** process by its PID. */
@@ -384,8 +378,8 @@ bool thread_switch(thread_t *);
  *            first kicking off the thread. Ignored if NULL.
  * @param flags Feature flags: a combination of \ref thread_flags enum values
  */
-thread_t *thread_spawn(struct process *, thread_entry_t, void *data,
-                       void *esp, void *ebp, u32 flags);
+thread_t *
+thread_spawn(struct process *, thread_entry_t, void *data, void *esp, void *ebp, u32 flags);
 
 /** Start executing code in userland
  *
@@ -402,8 +396,8 @@ thread_t *thread_spawn(struct process *, thread_entry_t, void *data,
  * @param data       The data passed as an argument to the 'entrypoint' function
  *                   (ignored)
  */
-NO_RETURN void thread_jump_to_userland(void *stack_pointer, void *base_pointer,
-                                       thread_entry_t, void *);
+NO_RETURN void
+thread_jump_to_userland(void *stack_pointer, void *base_pointer, thread_entry_t, void *);
 
 /** Set the MMU address saved inside the thread's structure.
  *  @note This function does not change the MMU currently in use,
@@ -440,7 +434,7 @@ void thread_deliver_pending_signal(struct thread *thread);
 /** Find an **alive** thread by its TID. */
 struct thread *thread_find_by_tid(pid_t tid);
 
-#define FD_STDIN 0
+#define FD_STDIN  0
 #define FD_STDOUT 1
 #define FD_STDERR 2
 
@@ -451,11 +445,11 @@ struct thread *thread_find_by_tid(pid_t tid);
  * using other syscalls (e.g. fcntl).
  */
 enum file_flags {
-    FD_READ = _FREAD,
-    FD_WRITE = _FWRITE,
-    FD_RW = FD_READ | FD_WRITE,
-    FD_APPEND = _FAPPEND,
-    FD_NOINHERIT = _FNOINHERIT, /* FD_CLOEXEC is already defined by fcntl(). */
+	FD_READ = _FREAD,
+	FD_WRITE = _FWRITE,
+	FD_RW = FD_READ | FD_WRITE,
+	FD_APPEND = _FAPPEND,
+	FD_NOINHERIT = _FNOINHERIT, /* FD_CLOEXEC is already defined by fcntl(). */
 };
 
 /** @struct fd
@@ -466,9 +460,9 @@ enum file_flags {
  * table, and that is referenced by the file descriptor.
  */
 struct fd {
-    struct file *file;
-    atomic_t     refcount;
-    int          flags;    ///< Parameter flags (@see POSIX.1-2024 open)
+	struct file *file;
+	atomic_t refcount;
+	int flags; ///< Parameter flags (@see POSIX.1-2024 open)
 };
 
 void __fd_put(struct fd *fd);
@@ -478,11 +472,11 @@ void __fd_put(struct fd *fd);
  */
 static inline struct fd *fd_get(struct fd *fd)
 {
-    if (!fd)
-        return NULL;
+	if (!fd)
+		return NULL;
 
-    atomic_inc(&fd->refcount);
-    return fd;
+	atomic_inc(&fd->refcount);
+	return fd;
 }
 
 /** Decrement an open file description's reference count.
@@ -492,13 +486,13 @@ static inline struct fd *fd_get(struct fd *fd)
  */
 static inline void fd_put(struct fd *fd)
 {
-    int count;
+	int count;
 
-    count = atomic_dec(&fd->refcount);
-    if (count > 1)
-        return;
+	count = atomic_dec(&fd->refcount);
+	if (count > 1)
+		return;
 
-    __fd_put(fd);
+	__fd_put(fd);
 }
 
 /** Compute the fd flags when opening.
@@ -516,8 +510,8 @@ struct fd *process_fd_get(struct process *, int fd);
 /** Release a file description retreived using @ref process_file_get(). */
 static inline void process_fd_put(struct process *process, struct fd *fd)
 {
-    UNUSED(process);
-    fd_put(fd);
+	UNUSED(process);
+	fd_put(fd);
 }
 
 /** Add an entry inside the process's open file description table.

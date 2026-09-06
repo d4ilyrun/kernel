@@ -21,24 +21,20 @@
 /*
  */
 #define INIT_NORMAL normal
-#define INIT_LATE late
+#define INIT_LATE   late
 
-#define INIT_STEPS \
-    INIT_BOOTSTRAP,     \
-    INIT_EARLY,         \
-    INIT_NORMAL,        \
-    INIT_LATE
+#define INIT_STEPS INIT_BOOTSTRAP, INIT_EARLY, INIT_NORMAL, INIT_LATE
 
 enum init_step {
-    INIT_STEP_BOOTSTRAP,
-    INIT_STEP_EARLY,
-    INIT_STEP_NORMAL,
-    INIT_STEP_LATE
+	INIT_STEP_BOOTSTRAP,
+	INIT_STEP_EARLY,
+	INIT_STEP_NORMAL,
+	INIT_STEP_LATE
 };
 
 struct initcall {
-    const char *name;
-    error_t (*call)(void); /** Initcall function */
+	const char *name;
+	error_t (*call)(void); /** Initcall function */
 };
 
 /**
@@ -47,17 +43,17 @@ struct initcall {
  * boundaries of such sections.
  */
 struct initcall_section {
-    struct initcall *start;
-    struct initcall *end;
+	struct initcall *start;
+	struct initcall *end;
 };
 
-#define DECLARE_INITCALL(_step, _function)        \
-    MAYBE_UNUSED                                  \
-    SECTION(".data.init." stringify(_step))      \
-    static struct initcall __init_##_function = { \
-        .name = stringify(_function),             \
-        .call = _function,                        \
-    }
+#define DECLARE_INITCALL(_step, _function)            \
+	MAYBE_UNUSED                                  \
+	SECTION(".data.init." stringify(_step))       \
+	static struct initcall __init_##_function = { \
+	    .name = stringify(_function),             \
+	    .call = _function,                        \
+	}
 
 /** Call all registered initcalls of a given step. */
 void initcall_do_level(enum init_step);

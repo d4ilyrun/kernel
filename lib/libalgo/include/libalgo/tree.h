@@ -17,18 +17,18 @@
 #include <utils/compiler.h>
 
 /** Initialize an empty tree node */
-#define INIT_TREE_NODE(_node)                       \
-    _node = ((struct tree_node){                    \
-        .children = LLIST_INIT((_node).children), \
-    })
+#define INIT_TREE_NODE(_node)                         \
+	_node = ((struct tree_node){                  \
+	    .children = LLIST_INIT((_node).children), \
+	})
 
 /** @struct tree_node
  *  @brief A single node inside a tree
  */
 typedef struct tree_node {
-    node_t this; ///< Linked list node used to link children together
-    struct tree_node *parent; ///< Parent node
-    llist_t children;         ///< Linked list of children of this node
+	node_t this;		  ///< Linked list node used to link children together
+	struct tree_node *parent; ///< Parent node
+	llist_t children;	  ///< Linked list of children of this node
 } tree_node_t;
 
 /** The root of a tree structure */
@@ -47,7 +47,7 @@ typedef tree_node_t *tree_t;
  *  @param _field The name of the field containing the node
  */
 #define FOREACH_CHILDREN_ENTRY(_child, _node, _field) \
-    FOREACH_LLIST_ENTRY (_child, &(_node)->children, _field.this)
+	FOREACH_LLIST_ENTRY (_child, &(_node)->children, _field.this)
 
 /** Convert a linked list node to its containing tree node
  *
@@ -57,7 +57,7 @@ typedef tree_node_t *tree_t;
  */
 static ALWAYS_INLINE tree_node_t *tree_node(node_t *node)
 {
-    return (tree_node_t *)node;
+	return (tree_node_t *)node;
 }
 
 /** Add the given node as a children of another

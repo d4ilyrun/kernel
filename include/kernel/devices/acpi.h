@@ -40,9 +40,9 @@
  *  @see device_driver
  */
 struct acpi_driver {
-    struct device_driver driver;
-    ///< The ACPI ID of the device compatible with this driver
-    const char *const compatible;
+	struct device_driver driver;
+	///< The ACPI ID of the device compatible with this driver
+	const char *const compatible;
 };
 
 #define ACPI_ID_MAX_LEN 8
@@ -51,15 +51,14 @@ struct acpi_driver {
  *  @see device
  */
 struct acpi_device {
-    device_t device;
-    char id[ACPI_ID_MAX_LEN]; ///< The device's ACPI id
+	device_t device;
+	char id[ACPI_ID_MAX_LEN]; ///< The device's ACPI id
 };
 
 /** Register an ACPI device driver */
 void acpi_driver_register(struct acpi_driver *);
 
-#define ACPI_DECLARE_DRIVER(_name, _driver) \
-    DECLARE_DRIVER(_name, _driver, acpi_driver_register)
+#define ACPI_DECLARE_DRIVER(_name, _driver) DECLARE_DRIVER(_name, _driver, acpi_driver_register)
 
 /** Initialize the ACPI environment
  *  @param mbt The multiboot info structure passed by the bootloader

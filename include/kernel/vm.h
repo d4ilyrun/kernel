@@ -41,34 +41,34 @@ struct vmm;
 
 /* We should not be modifying another process's address_space */
 #define AS_ASSERT_OWNED(_as) \
-    WARN_ON((_as) != &kernel_address_space && (_as) != current->process->as);
+	WARN_ON((_as) != &kernel_address_space && (_as) != current->process->as);
 
 /** Address space */
 struct address_space {
-    // TODO: replace this lock with a R/W one.
-    spinlock_t lock;   /*!< Address space wide lock. Functions that modify
-                         the address space should take that lock. */
-    struct vmm *vmm;   /*!< Used to allocate virtual memory segments */
-    paddr_t mmu;       /*!< Used to map virtual addresses to physical memory */
-    llist_t *segments; /*!< List of currently allocated segments */
-    vaddr_t data_end;  /*!< End of the process's data segment */
+	// TODO: replace this lock with a R/W one.
+	spinlock_t lock;   /*!< Address space wide lock. Functions that modify
+			     the address space should take that lock. */
+	struct vmm *vmm;   /*!< Used to allocate virtual memory segments */
+	paddr_t mmu;	   /*!< Used to map virtual addresses to physical memory */
+	llist_t *segments; /*!< List of currently allocated segments */
+	vaddr_t data_end;  /*!< End of the process's data segment */
 };
 
 /** @enum vm_flags */
 typedef enum vm_flags {
-    VM_NONE = 0,
-    VM_EXEC = PROT_EXEC,   /*!< Pages inside the area are executable */
-    VM_READ = PROT_READ,   /*!< Pages inside the area are readable */
-    VM_WRITE = PROT_WRITE,  /*!< Pages inside the area are writable */
-    VM_KERNEL = PROT_KERNEL, /*!< Pages should only be accessible from kernel */
-    VM_CLEAR = BIT(4),  /*!< Page content should be reset when allocating */
-    VM_FIXED = BIT(5),  /*!< Start address in vm_alloc_at() is not a hint */
+	VM_NONE = 0,
+	VM_EXEC = PROT_EXEC,	 /*!< Pages inside the area are executable */
+	VM_READ = PROT_READ,	 /*!< Pages inside the area are readable */
+	VM_WRITE = PROT_WRITE,	 /*!< Pages inside the area are writable */
+	VM_KERNEL = PROT_KERNEL, /*!< Pages should only be accessible from kernel */
+	VM_CLEAR = BIT(4),	 /*!< Page content should be reset when allocating */
+	VM_FIXED = BIT(5),	 /*!< Start address in vm_alloc_at() is not a hint */
 
-    /* Caching policies. */
-    VM_CACHE_UC = BIT(6), /*!< Uncacheable. */
-    VM_CACHE_WC = BIT(7), /*!< Write-combining. */
-    VM_CACHE_WT = BIT(8), /*!< Write-through. */
-    VM_CACHE_WB = BIT(9), /*!< Write-back (default). */
+	/* Caching policies. */
+	VM_CACHE_UC = BIT(6), /*!< Uncacheable. */
+	VM_CACHE_WC = BIT(7), /*!< Write-combining. */
+	VM_CACHE_WT = BIT(8), /*!< Write-through. */
+	VM_CACHE_WB = BIT(9), /*!< Write-back (default). */
 } vm_flags_t;
 
 #define VM_KERNEL_RO (VM_KERNEL | VM_READ)
@@ -85,7 +85,7 @@ typedef enum vm_flags {
  */
 #define VM_IOMEM (VM_KERNEL_RW | VM_CACHE_UC)
 
-#define VM_PROT_MASK (VM_READ | VM_WRITE | VM_EXEC | VM_KERNEL)
+#define VM_PROT_MASK  (VM_READ | VM_WRITE | VM_EXEC | VM_KERNEL)
 #define VM_CACHE_MASK (VM_CACHE_UC | VM_CACHE_WT | VM_CACHE_WB | VM_CACHE_WC)
 
 /** Segment driver
@@ -95,71 +95,70 @@ typedef enum vm_flags {
  */
 struct vm_segment_driver {
 
-    /** Allocate a segment of virtual memory.
-     *
-     *  @param as The address space this segment belongs to
-     *  @param start If specified, the segment should start at this address
-     *  @param size The size of the segment
-     *
-     *  @return The segment or a pointer encoded error
-     *
-     *  @see vm_alloc
-     */
-    struct vm_segment *(*vm_alloc)(struct address_space *, vaddr_t, size_t,
-                                   vm_flags_t, void *data);
+	/** Allocate a segment of virtual memory.
+	 *
+	 *  @param as The address space this segment belongs to
+	 *  @param start If specified, the segment should start at this address
+	 *  @param size The size of the segment
+	 *
+	 *  @return The segment or a pointer encoded error
+	 *
+	 *  @see vm_alloc
+	 */
+	struct vm_segment *(*vm_alloc)(struct address_space *, vaddr_t, size_t, vm_flags_t,
+				       void *data);
 
-    /** Allocate a segment of virtual memory mapped to a physical address.
-     *
-     *  @param as The address space this segment belongs to
-     *  @param start Start of the physical address range
-     *  @param size The size of the segment
-     *
-     *  @note This function assumes that the physical address range
-     *        is contiguous and large enough to contain @c size bytes.
-     *
-     *  @return The segment or a pointer encoded error
-     *
-     *  @see vm_alloc_at
-     */
-    struct vm_segment *(*vm_alloc_at)(struct address_space *, paddr_t, size_t,
-                                      vm_flags_t, void *data);
+	/** Allocate a segment of virtual memory mapped to a physical address.
+	 *
+	 *  @param as The address space this segment belongs to
+	 *  @param start Start of the physical address range
+	 *  @param size The size of the segment
+	 *
+	 *  @note This function assumes that the physical address range
+	 *        is contiguous and large enough to contain @c size bytes.
+	 *
+	 *  @return The segment or a pointer encoded error
+	 *
+	 *  @see vm_alloc_at
+	 */
+	struct vm_segment *(*vm_alloc_at)(struct address_space *, paddr_t, size_t, vm_flags_t,
+					  void *data);
 
-    /** Free a contiguous virtual memory segment.
-     *
-     *  This function is also responsible for freeing the physical backing
-     *  storage (pmm_free), and removing any eventual MMU entries.
-     */
-    void (*vm_free)(struct address_space *, struct vm_segment *);
+	/** Free a contiguous virtual memory segment.
+	 *
+	 *  This function is also responsible for freeing the physical backing
+	 *  storage (pmm_free), and removing any eventual MMU entries.
+	 */
+	void (*vm_free)(struct address_space *, struct vm_segment *);
 
-    /** Resize a virtual memory segment.
-     *
-     *  When expanding, if the required virtual memory range has already
-     *  been allocated, this function returns E_NOMEM.
-     *
-     *  Calling this function with a size of 0 is equivalent to vm_free().
-     *
-     *  @param size The new size of the segment
-     */
-    error_t (*vm_resize)(struct address_space *, struct vm_segment *, size_t);
+	/** Resize a virtual memory segment.
+	 *
+	 *  When expanding, if the required virtual memory range has already
+	 *  been allocated, this function returns E_NOMEM.
+	 *
+	 *  Calling this function with a size of 0 is equivalent to vm_free().
+	 *
+	 *  @param size The new size of the segment
+	 */
+	error_t (*vm_resize)(struct address_space *, struct vm_segment *, size_t);
 
-    /** Handle a page fault exception on a known segment.
-     *
-     *  @param as The address space the segment belongs to
-     *  @param segment The memory segment inside which the faulty address is
-     *                 located.
-     */
-    error_t (*vm_fault)(struct address_space *, struct vm_segment *);
+	/** Handle a page fault exception on a known segment.
+	 *
+	 *  @param as The address space the segment belongs to
+	 *  @param segment The memory segment inside which the faulty address is
+	 *                 located.
+	 */
+	error_t (*vm_fault)(struct address_space *, struct vm_segment *);
 
-    /** Map this segment onto a physical address. */
-    error_t (*vm_map)(struct address_space *, struct vm_segment *, vm_flags_t);
+	/** Map this segment onto a physical address. */
+	error_t (*vm_map)(struct address_space *, struct vm_segment *, vm_flags_t);
 
-    /** Configure the effective caching policy for a segment. */
-    error_t (*vm_set_policy)(struct address_space *, struct vm_segment *,
-                             vm_flags_t policy);
+	/** Configure the effective caching policy for a segment. */
+	error_t (*vm_set_policy)(struct address_space *, struct vm_segment *, vm_flags_t policy);
 
-    /** Configure the protection flags for a segment. */
-    error_t (*vm_set_protection)(struct address_space *, struct vm_segment *,
-                                 vm_flags_t protection);
+	/** Configure the protection flags for a segment. */
+	error_t (*vm_set_protection)(struct address_space *, struct vm_segment *,
+				     vm_flags_t protection);
 };
 
 /** Kernel-only address-space.
@@ -177,19 +176,19 @@ extern struct address_space kernel_address_space;
 
 /** Segment of contiguous virtual memory */
 struct vm_segment {
-    node_t this;   /*!< Used to enumerate allocated segments */
-    vaddr_t start; /*!< Starting virtual address of this area */
-    size_t size;   /*!< Size of the area */
-    u32 flags;     /*!< A combination of @ref vm_flags */
-    const struct vm_segment_driver *driver; /*!< Driver used to manipulate this
-                                                 segment */
-    void *data; /*! Private data used by the driver (vnode, ...). */
+	node_t this;				/*!< Used to enumerate allocated segments */
+	vaddr_t start;				/*!< Starting virtual address of this area */
+	size_t size;				/*!< Size of the area */
+	u32 flags;				/*!< A combination of @ref vm_flags */
+	const struct vm_segment_driver *driver; /*!< Driver used to manipulate this
+						     segment */
+	void *data;				/*! Private data used by the driver (vnode, ...). */
 };
 
 /** @return The end address of a contiguous virtual memory segment */
 static inline vaddr_t segment_end(const struct vm_segment *segment)
 {
-    return segment->start + segment->size;
+	return segment->start + segment->size;
 }
 
 /** Allocate a new address space structure.
@@ -272,22 +271,21 @@ error_t vm_map(struct address_space *, void *);
  * @note Currently, flags are updated for the entire segment containing
  *       @p addr. Partial segment updates are not supported.
  */
-error_t vm_modify_flags(struct address_space *as, void *addr,
-                        vm_flags_t flags, vm_flags_t mask);
+error_t vm_modify_flags(struct address_space *as, void *addr, vm_flags_t flags, vm_flags_t mask);
 
 /** Private data format used by the vm_vnode segment driver.
  *
  * @see vm_set_data
  */
 struct vm_vnode_mapping {
-    /** Vnode of the file is mapped by this memory segment.
-     *
-     *  The vnode must have been acquired using vfs_vnode_acquire(). It will be
-     *  released by the vm_vnode driver when freeing the segment or if an error
-     *  occurs.
-     */
-    struct vnode *vnode;
-    off_t offset; /*!< Offset into @c vnode at which the segment starts. */
+	/** Vnode of the file is mapped by this memory segment.
+	 *
+	 *  The vnode must have been acquired using vfs_vnode_acquire(). It will be
+	 *  released by the vm_vnode driver when freeing the segment or if an error
+	 *  occurs.
+	 */
+	struct vnode *vnode;
+	off_t offset; /*!< Offset into @c vnode at which the segment starts. */
 };
 
 /** Allocate and initialize a private data structure for vm_vnode.

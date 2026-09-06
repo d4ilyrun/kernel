@@ -25,9 +25,9 @@
 #include <kernel/arch/i686/interrupts.h>
 #endif
 
+#include <kernel/atomic.h>
 #include <kernel/error.h>
 #include <kernel/types.h>
-#include <kernel/atomic.h>
 
 #include <libalgo/linked_list.h>
 
@@ -35,9 +35,9 @@
  *  Values returned by an interrupt handler.
  */
 typedef enum interrupt_return {
-    INTERRUPT_HANDLED,      /*!< Interrupt was handled by the handler. */
-    INTERRUPT_THREADED,     /*!< Interrupt was handled by the handler. */
-    INTERRUPT_IGNORED,      /*!< Interrupt was for another handler. */
+	INTERRUPT_HANDLED,  /*!< Interrupt was handled by the handler. */
+	INTERRUPT_THREADED, /*!< Interrupt was handled by the handler. */
+	INTERRUPT_IGNORED,  /*!< Interrupt was for another handler. */
 } interrupt_return_t;
 
 /**
@@ -51,30 +51,30 @@ typedef struct interrupt_frame interrupt_frame;
 typedef interrupt_return_t (*interrupt_handler_func_t)(void *);
 
 struct interrupt_handler {
-    struct interrupt_chip       *chip;
-    unsigned int                irq; /* irq number (relative to the chip's base) */
-    interrupt_handler_func_t    handler;
-    void                        *data;
-    node_t                      this;    /* used by interrupt_vector->handlers */
+	struct interrupt_chip *chip;
+	unsigned int irq; /* irq number (relative to the chip's base) */
+	interrupt_handler_func_t handler;
+	void *data;
+	node_t this; /* used by interrupt_vector->handlers */
 
-    /* for threaded interrupts */
-    interrupt_handler_func_t    threaded_handler;
-    struct thread               *thread;
-    atomic_t                    thread_scheduled;
+	/* for threaded interrupts */
+	interrupt_handler_func_t threaded_handler;
+	struct thread *thread;
+	atomic_t thread_scheduled;
 };
 
 /** A single hardware IRQ vector. */
 struct interrupt_vector {
-    const char  *name;
-    llist_t     handlers;
+	const char *name;
+	llist_t handlers;
 };
 
 struct interrupt_chip {
-    struct interrupt_vector *interrupts; /* Array of struct interrupt_vector */
-    size_t                  interrupt_count;
-    void (*irq_mask)(const struct interrupt_chip *, int irq);
-    void (*irq_unmask)(const struct interrupt_chip *, int irq);
-    void (*irq_eoi)(const struct interrupt_chip *, int irq);
+	struct interrupt_vector *interrupts; /* Array of struct interrupt_vector */
+	size_t interrupt_count;
+	void (*irq_mask)(const struct interrupt_chip *, int irq);
+	void (*irq_unmask)(const struct interrupt_chip *, int irq);
+	void (*irq_eoi)(const struct interrupt_chip *, int irq);
 };
 
 /** Dynamically set an interrupt handler
@@ -85,10 +85,8 @@ struct interrupt_chip {
  *                  returns INTERRUPT_THREADED.
  *  @param data     Data passed to the interrupt handler
  */
-error_t interrupts_install_threaded_handler(unsigned int nr,
-                                            interrupt_handler_func_t handler,
-                                            interrupt_handler_func_t threaded,
-                                            void *data);
+error_t interrupts_install_threaded_handler(unsigned int nr, interrupt_handler_func_t handler,
+					    interrupt_handler_func_t threaded, void *data);
 
 /** Dynamically set an interrupt handler
  *
@@ -97,10 +95,9 @@ error_t interrupts_install_threaded_handler(unsigned int nr,
  *  @param data Data passed to the interrupt handler
  */
 static inline error_t
-interrupts_install_handler(unsigned int irq, interrupt_handler_func_t handler,
-                           void *data)
+interrupts_install_handler(unsigned int irq, interrupt_handler_func_t handler, void *data)
 {
-    return interrupts_install_threaded_handler(irq, handler, NULL, data);
+	return interrupts_install_threaded_handler(irq, handler, NULL, data);
 }
 
 /** Install a pre-configured interrupt handler.
@@ -110,8 +107,7 @@ interrupts_install_handler(unsigned int irq, interrupt_handler_func_t handler,
  *
  *  The interrupt_handler strcuture is initialized and provided by the caller.
  */
-error_t
-interrupts_install_static_handler(unsigned int nr, struct interrupt_handler *);
+error_t interrupts_install_static_handler(unsigned int nr, struct interrupt_handler *);
 
 /** Retreive the current handler for a given IRQ
  *
@@ -137,18 +133,18 @@ const char *interrupt_name(unsigned int nr);
  * You must always use this function when defining an interrupt handler.
  */
 #define INTERRUPT_HANDLER_FUNCTION(_interrupt) \
-    interrupt_return_t INTERRUPT_HANDLER(_interrupt)(void *data)
+	interrupt_return_t INTERRUPT_HANDLER(_interrupt)(void *data)
 
 /** @brief Disable interrupts on the current CPU. */
 static inline void interrupts_disable(void)
 {
-    arch_interrupts_disable();
+	arch_interrupts_disable();
 }
 
 /** @brief Enable interrupts on the current CPU. */
 static inline void interrupts_enable(void)
 {
-    arch_interrupts_enable();
+	arch_interrupts_enable();
 }
 
 /* @brief Disable CPU interrupts on the current CPU.
@@ -156,12 +152,12 @@ static inline void interrupts_enable(void)
  */
 static inline bool interrupts_test_and_disable(void)
 {
-    return arch_interrupts_test_and_disable();
+	return arch_interrupts_test_and_disable();
 }
 
 static inline bool interrupts_enabled(void)
 {
-    return arch_interrupts_enabled();
+	return arch_interrupts_enabled();
 }
 
 /** Restore the previous interrupt state.
@@ -170,26 +166,26 @@ static inline bool interrupts_enabled(void)
  */
 static inline void interrupts_restore(bool enabled)
 {
-    if (enabled)
-        interrupts_enable();
+	if (enabled)
+		interrupts_enable();
 }
 
 typedef struct {
-    bool enabled;
-    bool done;
+	bool enabled;
+	bool done;
 } scope_irq_off_t;
 
 static inline scope_irq_off_t scope_irq_off_constructor(void)
 {
-    return (scope_irq_off_t){
-        .enabled = interrupts_test_and_disable(),
-        .done = false,
-    };
+	return (scope_irq_off_t){
+	    .enabled = interrupts_test_and_disable(),
+	    .done = false,
+	};
 }
 
 static inline void scope_irq_off_destructor(scope_irq_off_t *guard)
 {
-    interrupts_restore(guard->enabled);
+	interrupts_restore(guard->enabled);
 }
 
 /** Define a scope inside which irqs are disabled on the current CPU.
@@ -198,11 +194,10 @@ static inline void scope_irq_off_destructor(scope_irq_off_t *guard)
  *  placed inside it will break out of the guarded scope instead of that of its
  *  containing loop.
  */
-#define interrupts_disabled_scope()                                \
-    for (scope_irq_off_t guard CLEANUP(scope_irq_off_destructor) = \
-             scope_irq_off_constructor();                          \
-         !guard.done; guard.done = true)
-
+#define interrupts_disabled_scope()                                    \
+	for (scope_irq_off_t guard CLEANUP(scope_irq_off_destructor) = \
+		 scope_irq_off_constructor();                          \
+	     !guard.done; guard.done = true)
 
 /*
  * Generic interrupt handlers.

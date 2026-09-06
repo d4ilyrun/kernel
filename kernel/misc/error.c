@@ -50,14 +50,14 @@ static const char *const ERROR_DESCRIPTIONS[E_TOTAL_COUNT] = {
 
 const char *err_to_str(error_t err)
 {
-    if (err >= E_TOTAL_COUNT) {
-        log_dbg("Invalid error code %d", err);
-        return "Invalid error code";
-    }
+	if (err >= E_TOTAL_COUNT) {
+		log_dbg("Invalid error code %d", err);
+		return "Invalid error code";
+	}
 
-    const char *const string = ERROR_DESCRIPTIONS[err];
-    if (string == NULL)
-        return "Unknown error code";
+	const char *const string = ERROR_DESCRIPTIONS[err];
+	if (string == NULL)
+		return "Unknown error code";
 
-    return string;
+	return string;
 }

@@ -27,23 +27,20 @@
  * @brief Spinlock
  */
 typedef struct spinlock {
-    bool locked;
+	bool locked;
 #ifdef CONFIG_DEBUG_SPINLOCK
-    /** Instruction pointer where this lock was last acquired. */
-    vaddr_t owner;
+	/** Instruction pointer where this lock was last acquired. */
+	vaddr_t owner;
 #endif
 } spinlock_t;
 
 /** Default init value (unlocked) */
-#define __SPINLOCK_INIT \
-    {                   \
-        .locked = false \
-    }
-#define SPINLOCK_INIT ((spinlock_t)__SPINLOCK_INIT)
+#define __SPINLOCK_INIT {.locked = false}
+#define SPINLOCK_INIT	((spinlock_t)__SPINLOCK_INIT)
 
 /** Initialize a spinlock */
 #define __INIT_SPINLOCK(_lock) _lock = __SPINLOCK_INIT
-#define INIT_SPINLOCK(_lock) _lock = SPINLOCK_INIT
+#define INIT_SPINLOCK(_lock)   _lock = SPINLOCK_INIT
 
 /** Declare a spinlock and initialize it */
 #define DECLARE_SPINLOCK(_lock) spinlock_t _lock = SPINLOCK_INIT
@@ -51,35 +48,32 @@ typedef struct spinlock {
 #ifdef CONFIG_DEBUG_SPINLOCK
 
 /** @brief Try to acquire a spinlock, or wait until it is free */
-static ALWAYS_INLINE spinlock_t *
-__spinlock_acquire(spinlock_t *lock, vaddr_t owner)
+static ALWAYS_INLINE spinlock_t *__spinlock_acquire(spinlock_t *lock, vaddr_t owner)
 {
-    time_t start = timer_get_ms();
+	time_t start = timer_get_ms();
 
-    while (__atomic_test_and_set(&lock->locked, __ATOMIC_ACQUIRE)) {
-        if (timer_get_ms() - start > SPINLOCK_DEBUG_STALL_TIMEOUT) {
-            WARN("stall detected on spinlock (owner: %ps)",
-                 (void *)lock->owner);
-            start = timer_get_ms();
-        }
-    }
+	while (__atomic_test_and_set(&lock->locked, __ATOMIC_ACQUIRE)) {
+		if (timer_get_ms() - start > SPINLOCK_DEBUG_STALL_TIMEOUT) {
+			WARN("stall detected on spinlock (owner: %ps)", (void *)lock->owner);
+			start = timer_get_ms();
+		}
+	}
 
-    lock->owner = owner;
+	lock->owner = owner;
 
-    return lock;
+	return lock;
 }
 
 #else
 
 /** @brief Try to acquire a spinlock, or wait until it is free */
-static ALWAYS_INLINE spinlock_t *
-__spinlock_acquire(spinlock_t *lock, vaddr_t owner)
+static ALWAYS_INLINE spinlock_t *__spinlock_acquire(spinlock_t *lock, vaddr_t owner)
 {
-    UNUSED(owner);
+	UNUSED(owner);
 
-    WAIT_FOR(!__atomic_test_and_set(&lock->locked, __ATOMIC_ACQUIRE));
+	WAIT_FOR(!__atomic_test_and_set(&lock->locked, __ATOMIC_ACQUIRE));
 
-    return lock;
+	return lock;
 }
 
 #endif
@@ -89,31 +83,31 @@ __spinlock_acquire(spinlock_t *lock, vaddr_t owner)
 /** @brief Release a spinlock for others to take it */
 static ALWAYS_INLINE void spinlock_release(spinlock_t *lock)
 {
-    __atomic_clear(&lock->locked, __ATOMIC_RELEASE);
+	__atomic_clear(&lock->locked, __ATOMIC_RELEASE);
 }
 
 /** Check whether a lock is currently held by someone. */
 static ALWAYS_INLINE bool spinlock_is_held(const spinlock_t *lock)
 {
-    return __atomic_load_n(&lock->locked, __ATOMIC_ACQUIRE);
+	return __atomic_load_n(&lock->locked, __ATOMIC_ACQUIRE);
 }
 
 typedef struct {
-    spinlock_t *lock;
-    bool done;
+	spinlock_t *lock;
+	bool done;
 } scope_lock_t;
 
 static inline scope_lock_t scope_lock_constructor(spinlock_t *lock)
 {
-    return (scope_lock_t){
-        .lock = __spinlock_acquire(lock, __RET_IP),
-        .done = false,
-    };
+	return (scope_lock_t){
+	    .lock = __spinlock_acquire(lock, __RET_IP),
+	    .done = false,
+	};
 }
 
 static inline void scope_lock_destructor(scope_lock_t *guard)
 {
-    spinlock_release(guard->lock);
+	spinlock_release(guard->lock);
 }
 
 /** Define a scope that is guarded by a spinlock.
@@ -132,7 +126,6 @@ static inline void scope_lock_destructor(scope_lock_t *guard)
  *  placed inside it will break out of the guarded scope instead of that of its
  *  containing loop.
  */
-#define locked_scope(_lock)                                  \
-    for (scope_lock_t guard CLEANUP(scope_lock_destructor) = \
-             scope_lock_constructor(_lock);                  \
-         !guard.done; guard.done = true)
+#define locked_scope(_lock)                                                                     \
+	for (scope_lock_t guard CLEANUP(scope_lock_destructor) = scope_lock_constructor(_lock); \
+	     !guard.done; guard.done = true)

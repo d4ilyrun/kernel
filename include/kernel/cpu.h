@@ -17,11 +17,11 @@
 /**
  * Expands to the instruction pointer of the location where the macro is used.
  */
-#define __THIS_IP            \
-    ({                       \
-        __label__ __here;    \
-    __here:                  \
-        (vaddr_t) && __here; \
-    })
+#define __THIS_IP                    \
+	({                           \
+		__label__ __here;    \
+	__here:                      \
+		(vaddr_t) && __here; \
+	})
 
 #endif /* KERNEL_CPU_H */

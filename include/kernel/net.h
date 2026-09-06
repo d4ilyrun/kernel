@@ -56,23 +56,15 @@
 #include <utils/bits.h>
 
 struct sockaddr_mac {
-    sa_family_t mac_family; /* AF_UNSPEC */
-    uint8_t mac_addr[6];
+	sa_family_t mac_family; /* AF_UNSPEC */
+	uint8_t mac_addr[6];
 };
 
 /** Convert an interger to its network representation (big endian) */
-#define hton(_x)                     \
-    _Generic((_x), uint16_t          \
-             : htons((_x)), uint32_t \
-             : htonl((_x)), default  \
-             : (_x))
+#define hton(_x) _Generic((_x), uint16_t: htons((_x)), uint32_t: htonl((_x)), default: (_x))
 
 /** Convert an interger from its network representation to that of the host */
-#define ntoh(_x)                     \
-    _Generic((_x), uint16_t          \
-             : ntohs((_x)), uint32_t \
-             : ntohl((_x)), default  \
-             : (_x))
+#define ntoh(_x) _Generic((_x), uint16_t: ntohs((_x)), uint32_t: ntohl((_x)), default: (_x))
 
 /**
  * Compute Internet Checksum for @c size bytes beginning at location @c addr

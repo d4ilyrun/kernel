@@ -41,8 +41,8 @@
 
 #include <kernel/types.h>
 
-#include <kernel/arch/i686/gdt.h>
 #include <kernel/arch/i686/cpu.h>
+#include <kernel/arch/i686/gdt.h>
 
 #include <utils/compiler.h>
 
@@ -52,29 +52,29 @@
  * @ref Intel developper manual, Table 6-1
  */
 typedef enum {
-    DIVISION_ERROR = 0x0,
-    DEBUG,
-    NON_MASKABLE,
-    BREAKPOINT,
-    OVERFLOW,
-    BOUND_RANGE_EXCEEDED,
-    INVALID_OPCODE,
-    DEVICE_NOT_AVAILABLE,
-    DOUBLE_FAULT,
-    COPROCESSOR_SEGMENT_OVERRUN,
-    INVALID_TSS,
-    SEGMENT_NOT_PRESENT,
-    STACK_SEGMENT_FAULT,
-    GENERAL_PROTECTION_FAULT,
-    PAGE_FAULT,
-    X87_FPE = 0x10,
-    ALIGNMENT_CHECK,
-    SIMD_FPE,
-    VIRTUALIZATTION_EXCEPTION,
-    CONTROL_PROTECTION_EXCEPTION,
-    HYPERVISOR_INJECTION_EXCEPTION = 0x1C,
-    VMM_COMMUNICATION_EXCEPTION,
-    SECURITY_EXCEPTION,
+	DIVISION_ERROR = 0x0,
+	DEBUG,
+	NON_MASKABLE,
+	BREAKPOINT,
+	OVERFLOW,
+	BOUND_RANGE_EXCEEDED,
+	INVALID_OPCODE,
+	DEVICE_NOT_AVAILABLE,
+	DOUBLE_FAULT,
+	COPROCESSOR_SEGMENT_OVERRUN,
+	INVALID_TSS,
+	SEGMENT_NOT_PRESENT,
+	STACK_SEGMENT_FAULT,
+	GENERAL_PROTECTION_FAULT,
+	PAGE_FAULT,
+	X87_FPE = 0x10,
+	ALIGNMENT_CHECK,
+	SIMD_FPE,
+	VIRTUALIZATTION_EXCEPTION,
+	CONTROL_PROTECTION_EXCEPTION,
+	HYPERVISOR_INJECTION_EXCEPTION = 0x1C,
+	VMM_COMMUNICATION_EXCEPTION,
+	SECURITY_EXCEPTION,
 } x86_exceptions;
 
 /**
@@ -83,11 +83,11 @@ typedef enum {
  * @ref Intel developper manual, section 6-11
  */
 typedef enum idt_gate_type {
-    TASK_GATE = 0x5,
-    INTERRUPT_GATE = 0x6,
-    TRAP_GATE = 0x7,
-    INTERRUPT_GATE_32B = 0xE,
-    TRAP_GATE_32B = 0xF,
+	TASK_GATE = 0x5,
+	INTERRUPT_GATE = 0x6,
+	TRAP_GATE = 0x7,
+	INTERRUPT_GATE_32B = 0xE,
+	TRAP_GATE_32B = 0xF,
 } idt_gate_type;
 
 /** @struct idtr IDT Register
@@ -95,63 +95,63 @@ typedef enum idt_gate_type {
  */
 typedef struct idtr idtr;
 struct PACKED idtr {
-    /** Size of the IDT */
-    u16 size;
-    /** Linear address of the IDT  */
-    u32 offset;
+	/** Size of the IDT */
+	u16 size;
+	/** Linear address of the IDT  */
+	u32 offset;
 };
 
 /** @struct idt_descriptor Single entry inside the IDT */
 typedef struct PACKED idt_descriptor {
-    /** 16 lower bits of the handler function's address  */
-    u16 offset_low;
-    /** Selector for the segment inside which we want to run the handler */
-    segment_selector segment;
-    u8 _reserved;
-    /** Acess restriction flags for this interrupt  */
-    u8 access;
-    /** 16 higher bits of the handler function's address  */
-    u16 offset_high;
+	/** 16 lower bits of the handler function's address  */
+	u16 offset_low;
+	/** Selector for the segment inside which we want to run the handler */
+	segment_selector segment;
+	u8 _reserved;
+	/** Acess restriction flags for this interrupt  */
+	u8 access;
+	/** 16 higher bits of the handler function's address  */
+	u16 offset_high;
 } idt_descriptor;
 
 /** @brief Frame passed onto the interrupt handlers by our stub handler */
 struct interrupt_frame {
 
-    /** Snapshot of the registers at the time the interrupt happened.*/
-    struct x86_regs regs;
+	/** Snapshot of the registers at the time the interrupt happened.*/
+	struct x86_regs regs;
 
-    /** Error code and interrupt number (pushed by our stub) */
-    u32 nr;
-    u32 error;
+	/** Error code and interrupt number (pushed by our stub) */
+	u32 nr;
+	u32 error;
 
-    /*
-     * The interrupt frame pushed by the hardware starts here.
-     */
-    struct x86_interrupt_frame frame;
+	/*
+	 * The interrupt frame pushed by the hardware starts here.
+	 */
+	struct x86_interrupt_frame frame;
 };
 
 static ALWAYS_INLINE void arch_interrupts_disable(void)
 {
-    ASM("cli");
+	ASM("cli");
 }
 
 static ALWAYS_INLINE void arch_interrupts_enable(void)
 {
-    ASM("sti");
+	ASM("sti");
 }
 
 static ALWAYS_INLINE bool arch_interrupts_test_and_disable(void)
 {
-    u32 eflags;
-    ASM("pushf; cli; popl %0" : "=r"(eflags)::"memory");
-    return boolean(eflags & 0x200); // flag: IF
+	u32 eflags;
+	ASM("pushf; cli; popl %0" : "=r"(eflags)::"memory");
+	return boolean(eflags & 0x200); // flag: IF
 }
 
 static ALWAYS_INLINE bool arch_interrupts_enabled(void)
 {
-    u32 eflags;
-    ASM("pushf; popl %0" : "=r"(eflags)::"memory");
-    return boolean(eflags & 0x200); // flag: IF
+	u32 eflags;
+	ASM("pushf; popl %0" : "=r"(eflags)::"memory");
+	return boolean(eflags & 0x200); // flag: IF
 }
 
 #endif /* KERNEL_I686_INTERRUPTS_H */

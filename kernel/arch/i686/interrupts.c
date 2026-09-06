@@ -5,13 +5,13 @@
 #include <kernel/process.h>
 #include <kernel/syscalls.h>
 
-#include <kernel/arch/i686/gdt.h>
 #include <kernel/arch/i686/devices/pic.h>
+#include <kernel/arch/i686/gdt.h>
 
 #include <dailyrun/arch/i686/syscalls.h>
 
-#define IDT_LENGTH 256
-#define IDT_SIZE (IDT_LENGTH * sizeof(idt_descriptor))
+#define IDT_LENGTH	 256
+#define IDT_SIZE	 (IDT_LENGTH * sizeof(idt_descriptor))
 #define IDT_BASE_ADDRESS 0x00000000UL
 
 static volatile idt_descriptor idt[IDT_LENGTH];
@@ -83,70 +83,66 @@ static const char *idt_interrupt_names[IDT_LENGTH] = {
  */
 void arch_interrupt_handle(interrupt_frame frame)
 {
-    error_t err;
+	error_t err;
 
-    thread_set_interrupt_frame(current, &frame);
-    thread_set_stack_pointer(current, (void *)frame.frame.esp);
+	thread_set_interrupt_frame(current, &frame);
+	thread_set_stack_pointer(current, (void *)frame.frame.esp);
 
-    err = interrupt_handle(frame.nr);
-    if (err == E_NOENT) {
-        log_err("Unsupported interrupt: %s (" FMT32 ")",
-                interrupt_name(frame.nr), frame.nr);
-        log_dbg("Thread: '%s' (TID=%d)", current->process->name, current->tid);
-        log_dbg("ERROR=" FMT32,                 frame.error);
-        log_dbg("FLAGS=" FMT32,                 frame.frame.flags);
-        log_dbg("CS="    FMT32  ", SS="  FMT32, frame.frame.cs, frame.frame.ss);
-        log_dbg("EIP="   FMT32  ", ESP=" FMT32, frame.frame.eip, frame.frame.esp);
-    }
+	err = interrupt_handle(frame.nr);
+	if (err == E_NOENT) {
+		log_err("Unsupported interrupt: %s (" FMT32 ")", interrupt_name(frame.nr),
+			frame.nr);
+		log_dbg("Thread: '%s' (TID=%d)", current->process->name, current->tid);
+		log_dbg("ERROR=" FMT32, frame.error);
+		log_dbg("FLAGS=" FMT32, frame.frame.flags);
+		log_dbg("CS=" FMT32 ", SS=" FMT32, frame.frame.cs, frame.frame.ss);
+		log_dbg("EIP=" FMT32 ", ESP=" FMT32, frame.frame.eip, frame.frame.esp);
+	}
 }
 
 static void idt_irq_mask(const struct interrupt_chip *chip, int irq)
 {
-    UNUSED(chip);
-    if (irq >= PIC_MASTER_VECTOR &&
-        irq <= PIC_MASTER_VECTOR + IRQ_ATA_SECONDARY)
-        pic_mask_irq(irq - PIC_MASTER_VECTOR);
+	UNUSED(chip);
+	if (irq >= PIC_MASTER_VECTOR && irq <= PIC_MASTER_VECTOR + IRQ_ATA_SECONDARY)
+		pic_mask_irq(irq - PIC_MASTER_VECTOR);
 }
 
 static void idt_irq_unmask(const struct interrupt_chip *chip, int irq)
 {
-    UNUSED(chip);
-    if (irq >= PIC_MASTER_VECTOR &&
-        irq <= PIC_MASTER_VECTOR + IRQ_ATA_SECONDARY)
-        pic_unmask_irq(irq - PIC_MASTER_VECTOR);
+	UNUSED(chip);
+	if (irq >= PIC_MASTER_VECTOR && irq <= PIC_MASTER_VECTOR + IRQ_ATA_SECONDARY)
+		pic_unmask_irq(irq - PIC_MASTER_VECTOR);
 }
 
 static void idt_irq_eoi(const struct interrupt_chip *chip, int irq)
 {
-    UNUSED(chip);
-    if (irq >= PIC_MASTER_VECTOR &&
-        irq <= PIC_MASTER_VECTOR + IRQ_ATA_SECONDARY)
-        pic_eoi(irq - PIC_MASTER_VECTOR);
+	UNUSED(chip);
+	if (irq >= PIC_MASTER_VECTOR && irq <= PIC_MASTER_VECTOR + IRQ_ATA_SECONDARY)
+		pic_eoi(irq - PIC_MASTER_VECTOR);
 }
 
 /*
  *
  */
-static void configure_idt_entry(volatile idt_descriptor *desc,
-                                idt_gate_type type, void *address)
+static void configure_idt_entry(volatile idt_descriptor *desc, idt_gate_type type, void *address)
 {
-    if (type == TASK_GATE) {
-        *desc = (idt_descriptor){
-            .offset_low = 0,
-            // segment selector: TSS from GDT, level=0
-            .segment.index = GDT_ENTRY_TSS,
-            .access = TASK_GATE | IDT_PRESENT,
-            .offset_high = 0,
-        };
-    } else {
-        *desc = (idt_descriptor){
-            .offset_low = (u32)address & 0xFFFF,
-            // segment selector: kernel code from GDT, level=0
-            .segment.index = GDT_ENTRY_KERNEL_CODE,
-            .access = type | IDT_PRESENT,
-            .offset_high = (u32)address >> 16,
-        };
-    }
+	if (type == TASK_GATE) {
+		*desc = (idt_descriptor){
+		    .offset_low = 0,
+		    // segment selector: TSS from GDT, level=0
+		    .segment.index = GDT_ENTRY_TSS,
+		    .access = TASK_GATE | IDT_PRESENT,
+		    .offset_high = 0,
+		};
+	} else {
+		*desc = (idt_descriptor){
+		    .offset_low = (u32)address & 0xFFFF,
+		    // segment selector: kernel code from GDT, level=0
+		    .segment.index = GDT_ENTRY_KERNEL_CODE,
+		    .access = type | IDT_PRESENT,
+		    .offset_high = (u32)address >> 16,
+		};
+	}
 }
 
 /*
@@ -156,42 +152,41 @@ static void configure_idt_entry(volatile idt_descriptor *desc,
  */
 error_t arch_interrupts_init(struct interrupt_chip *root_chip)
 {
-    static volatile idtr idtr = {
-        .size = IDT_SIZE - 1,
-        .offset = (size_t)idt,
-    };
+	static volatile idtr idtr = {
+	    .size = IDT_SIZE - 1,
+	    .offset = (size_t)idt,
+	};
 
-    root_chip->interrupts = idt_interrupt_vectors;
-    root_chip->interrupt_count = IDT_LENGTH;
+	root_chip->interrupts = idt_interrupt_vectors;
+	root_chip->interrupt_count = IDT_LENGTH;
 
-    /* TODO: Stop hardcoding this to use the PIC */
-    root_chip->irq_unmask = idt_irq_unmask;
-    root_chip->irq_mask = idt_irq_mask;
-    root_chip->irq_eoi = idt_irq_eoi;
+	/* TODO: Stop hardcoding this to use the PIC */
+	root_chip->irq_unmask = idt_irq_unmask;
+	root_chip->irq_mask = idt_irq_mask;
+	root_chip->irq_eoi = idt_irq_eoi;
 
-    /*
-     * Install every stub interrupt handlers (see interrupts.asm) and remove
-     * every the custom interrupt vector.
-     */
-    for (int i = 0; i < IDT_LENGTH; ++i) {
-        idt_interrupt_vectors[i].name = idt_interrupt_names[i];
-        INIT_LLIST(idt_interrupt_vectors[i].handlers);
-        configure_idt_entry(&idt[i], INTERRUPT_GATE_32B,
-                            interrupt_handler_stubs[i]);
-    }
+	/*
+	 * Install every stub interrupt handlers (see interrupts.asm) and remove
+	 * every the custom interrupt vector.
+	 */
+	for (int i = 0; i < IDT_LENGTH; ++i) {
+		idt_interrupt_vectors[i].name = idt_interrupt_names[i];
+		INIT_LLIST(idt_interrupt_vectors[i].handlers);
+		configure_idt_entry(&idt[i], INTERRUPT_GATE_32B, interrupt_handler_stubs[i]);
+	}
 
-    interrupts_install_static_handler(DIVISION_ERROR, &division_by_zero);
-    interrupts_install_static_handler(INVALID_OPCODE, &invalid_instruction);
+	interrupts_install_static_handler(DIVISION_ERROR, &division_by_zero);
+	interrupts_install_static_handler(INVALID_OPCODE, &invalid_instruction);
 
-    /*
-     * Make syscall interrupt callable from userland.
-     */
-    idt[SYSCALL_INTERRUPT_NR].access |= (3 << 5);
+	/*
+	 * Make syscall interrupt callable from userland.
+	 */
+	idt[SYSCALL_INTERRUPT_NR].access |= (3 << 5);
 
-    /*
-     * IDT is fully configured, load it.
-     */
-    ASM("lidt (%0)" : : "m"(idtr) : "memory");
+	/*
+	 * IDT is fully configured, load it.
+	 */
+	ASM("lidt (%0)" : : "m"(idtr) : "memory");
 
-    return E_SUCCESS;
+	return E_SUCCESS;
 }

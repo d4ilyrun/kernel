@@ -12,39 +12,38 @@
  *
  */
 struct kmem_cache {
-    llist_t slabs_full;
-    llist_t slabs_partial;
-    llist_t slabs_free;
-    spinlock_t lock;
+	llist_t slabs_full;
+	llist_t slabs_partial;
+	llist_t slabs_free;
+	spinlock_t lock;
 
-    size_t obj_size;
-    int obj_align;
-    size_t obj_real_size;
-    unsigned int coloring_offset_next;
+	size_t obj_size;
+	int obj_align;
+	size_t obj_real_size;
+	unsigned int coloring_offset_next;
 
-    void (*constructor)(void *data);
-    void (*destructor)(void *data);
+	void (*constructor)(void *data);
+	void (*destructor)(void *data);
 
-    const char *name;
-    int flags;
+	const char *name;
+	int flags;
 };
 
 /*
  *
  */
 struct kmem_slab {
-    void *page;
-    struct kmem_bufctl *free;
-    struct kmem_cache *cache;
-    atomic_t refcount;
-    unsigned int coloring_offset;
-    node_t this;
+	void *page;
+	struct kmem_bufctl *free;
+	struct kmem_cache *cache;
+	atomic_t refcount;
+	unsigned int coloring_offset;
+	node_t this;
 };
 
 /** Create a new cache. */
-struct kmem_cache *kmem_cache_create(const char *name, size_t obj_size,
-                                     int obj_align, void (*constructor)(void *),
-                                     void (*destructor)(void *));
+struct kmem_cache *kmem_cache_create(const char *name, size_t obj_size, int obj_align,
+				     void (*constructor)(void *), void (*destructor)(void *));
 
 /** Allocate an object from a cache
  *

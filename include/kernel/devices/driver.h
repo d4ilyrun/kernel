@@ -76,20 +76,20 @@
  */
 typedef struct device_driver {
 
-    node_t this; ///< Intrusive list node used to iterate through loaded drivers
-    const char *name; ///< The name of the driver
+	node_t this;	  ///< Intrusive list node used to iterate through loaded drivers
+	const char *name; ///< The name of the driver
 
-    /** Vector table of the common operations used to control drivers
-     *  @struct driver_operations
-     */
-    struct driver_operations {
-        /// Bind the driver to a device
-        error_t (*probe)(device_t *);
-        /// Check if the driver should be used for this device
-        /// This function should be the same for each driver on the same bus
-        /// (PCI, ACPI, ...). Typically inserted by the per-bus driver API.
-        bool (*match)(const driver_t *, const device_t *);
-    } operations; ///< Vector table of driver control operations
+	/** Vector table of the common operations used to control drivers
+	 *  @struct driver_operations
+	 */
+	struct driver_operations {
+		/// Bind the driver to a device
+		error_t (*probe)(device_t *);
+		/// Check if the driver should be used for this device
+		/// This function should be the same for each driver on the same bus
+		/// (PCI, ACPI, ...). Typically inserted by the per-bus driver API.
+		bool (*match)(const driver_t *, const device_t *);
+	} operations; ///< Vector table of driver control operations
 
 } driver_t;
 
@@ -121,14 +121,14 @@ typedef void (*driver_init_t)(void);
  * @param _driver_register The per-bus API register function
  */
 #define DECLARE_DRIVER(_name, _driver, _driver_register) \
-    static void init_driver_##_name(void)                \
-    {                                                    \
-        _driver_register(_driver);                       \
-    }                                                    \
+	static void init_driver_##_name(void)            \
+	{                                                \
+		_driver_register(_driver);               \
+	}                                                \
                                                          \
-    SECTION(".data.driver.init")                         \
-    MAYBE_UNUSED                                         \
-    static driver_init_t __##_name##_driver_init = init_driver_##_name;
+	SECTION(".data.driver.init")                     \
+	MAYBE_UNUSED                                     \
+	static driver_init_t __##_name##_driver_init = init_driver_##_name;
 
 /** Load all builtin drivers.
  *  Builtin drivers are ones declared using \ref DECLARE_DRIVER

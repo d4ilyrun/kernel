@@ -26,20 +26,20 @@
 #include <libalgo/linked_list.h>
 
 #define EXECFMT_ARGS_BUFFER_SIZE (4 * PAGE_SIZE)
-#define EXECFMT_MAX_ARGS 8192 /* Max number of arguments */
-#define EXECFMT_MAX_ARG_SIZE (PAGE_SIZE) /* Max size of a single arg */
+#define EXECFMT_MAX_ARGS	 8192	     /* Max number of arguments */
+#define EXECFMT_MAX_ARG_SIZE	 (PAGE_SIZE) /* Max size of a single arg */
 
 struct executable;
 struct file;
 
 /** An executable file format */
 struct execfmt {
-    node_t this;
-    const char *name;            ///< Format's name
-    bool (*match)(const void *); ///< Check whether an executable file is of the
-                                 ///< given format
-    error_t (*load)(struct executable *, void *); ///< Load an executable file
-                                                  ///< in memory
+	node_t this;
+	const char *name;	     ///< Format's name
+	bool (*match)(const void *); ///< Check whether an executable file is of the
+				     ///< given format
+	error_t (*load)(struct executable *, void *); ///< Load an executable file
+						      ///< in memory
 };
 
 /** Represents a loaded executable
@@ -49,7 +49,7 @@ struct execfmt {
  *  loaded executable's internal context (allocated memory addresses ...).
  */
 struct executable {
-    void (*entrypoint)(void*);
+	void (*entrypoint)(void *);
 };
 
 /** Executable parameters.
@@ -61,11 +61,11 @@ struct executable {
  * inside the argv buffer. This is also the case for envp.
  */
 struct exec_params {
-    const char *exec_path;
-    char *const *argv; /*!< Contains the string array of arguments */
-    size_t argc;       /*!< Total size of the @argv buffer */
-    char *const *envp; /*!< Contains the environnement variables */
-    size_t envpc; /*!< Total size of the @envp buffer */
+	const char *exec_path;
+	char *const *argv; /*!< Contains the string array of arguments */
+	size_t argc;	   /*!< Total size of the @argv buffer */
+	char *const *envp; /*!< Contains the environnement variables */
+	size_t envpc;	   /*!< Total size of the @envp buffer */
 };
 
 /** Register a new executable file format */

@@ -17,230 +17,224 @@ DECLARE_LLIST(af_inet_icmp_sockets);
 DECLARE_SPINLOCK(af_inet_icmp_sockets_lock);
 
 struct icmp_sock {
-    u16 identifier; /** ICMP echo identifier */
-    struct net_route route;
-    node_t this;
-    struct socket *socket;
+	u16 identifier; /** ICMP echo identifier */
+	struct net_route route;
+	node_t this;
+	struct socket *socket;
 };
 
 /***/
 struct icmp_echo_header {
-    struct icmp_header icmp;
-    __be u16 identifier;
-    __be u16 sequence;
+	struct icmp_header icmp;
+	__be u16 identifier;
+	__be u16 sequence;
 };
 
 #define to_isock(_isock) container_of(_isock, struct icmp_sock, this)
 
 static error_t icmp_handle_echo_request(struct packet *packet)
 {
-    struct icmp_header *icmphdr = packet_payload(packet);
-    struct packet *out_packet;
-    struct net_route route;
-    error_t ret = E_SUCCESS;
+	struct icmp_header *icmphdr = packet_payload(packet);
+	struct packet *out_packet;
+	struct net_route route;
+	error_t ret = E_SUCCESS;
 
-    /* Manually create out packet's routing table entry */
-    route.netdev = packet->netdev;
-    route.src.ip.sin_addr.s_addr = packet->l3.ipv4->daddr;
-    memcpy(route.src.mac.mac_addr, packet->l2.ethernet->dst,
-           sizeof(mac_address_t));
-    memcpy(route.dst.mac.mac_addr, packet->l2.ethernet->src,
-           sizeof(mac_address_t));
-    route.dst.ip.sin_addr.s_addr = packet->l3.ipv4->saddr;
+	/* Manually create out packet's routing table entry */
+	route.netdev = packet->netdev;
+	route.src.ip.sin_addr.s_addr = packet->l3.ipv4->daddr;
+	memcpy(route.src.mac.mac_addr, packet->l2.ethernet->dst, sizeof(mac_address_t));
+	memcpy(route.dst.mac.mac_addr, packet->l2.ethernet->src, sizeof(mac_address_t));
+	route.dst.ip.sin_addr.s_addr = packet->l3.ipv4->saddr;
 
-    /* Copy the request's content with a 'reply' type */
-    icmphdr->type = ICMP_ECHO_REPLY;
-    icmphdr->checksum = 0;
-    icmphdr->checksum = net_internet_checksum(packet_payload(packet),
-                                              packet_payload_size(packet));
+	/* Copy the request's content with a 'reply' type */
+	icmphdr->type = ICMP_ECHO_REPLY;
+	icmphdr->checksum = 0;
+	icmphdr->checksum = net_internet_checksum(packet_payload(packet),
+						  packet_payload_size(packet));
 
-    out_packet = ipv4_build_packet(&route, IPPROTO_ICMP, packet_payload(packet),
-                                   packet_payload_size(packet));
-    packet_free(packet);
+	out_packet = ipv4_build_packet(&route, IPPROTO_ICMP, packet_payload(packet),
+				       packet_payload_size(packet));
+	packet_free(packet);
 
-    if (IS_ERR(out_packet))
-        return ERR_FROM_PTR(out_packet);
+	if (IS_ERR(out_packet))
+		return ERR_FROM_PTR(out_packet);
 
-    ret = packet_send(out_packet);
+	ret = packet_send(out_packet);
 
-    packet_free(out_packet);
-    return ret;
+	packet_free(out_packet);
+	return ret;
 }
 
 /** Associate reply with the socket that sent the request */
 static error_t icmp_handle_echo_reply(struct packet *packet)
 {
-    struct icmp_echo_header *icmphdr = packet_payload(packet);
-    const struct icmp_sock *isock;
+	struct icmp_echo_header *icmphdr = packet_payload(packet);
+	const struct icmp_sock *isock;
 
-    if (packet_payload_size(packet) < sizeof(*icmphdr))
-        return E_INVAL;
+	if (packet_payload_size(packet) < sizeof(*icmphdr))
+		return E_INVAL;
 
-    locked_scope (&af_inet_icmp_sockets_lock) {
-        FOREACH_LLIST (node, &af_inet_icmp_sockets) {
-            isock = to_isock(node);
-            if (isock->identifier > icmphdr->identifier) {
-                packet_free(packet);
-                return E_SUCCESS;
-            }
-            if (isock->identifier == icmphdr->identifier)
-                break;
-        }
-    }
+	locked_scope (&af_inet_icmp_sockets_lock) {
+		FOREACH_LLIST (node, &af_inet_icmp_sockets) {
+			isock = to_isock(node);
+			if (isock->identifier > icmphdr->identifier) {
+				packet_free(packet);
+				return E_SUCCESS;
+			}
+			if (isock->identifier == icmphdr->identifier)
+				break;
+		}
+	}
 
-    return socket_enqueue_packet(isock->socket, packet);
+	return socket_enqueue_packet(isock->socket, packet);
 }
 
 error_t icmp_receive_packet(struct packet *packet)
 {
-    struct icmp_header *icmphdr = packet_payload(packet);
-    error_t ret;
+	struct icmp_header *icmphdr = packet_payload(packet);
+	error_t ret;
 
-    if (net_internet_checksum(packet_payload(packet),
-                              packet_payload_size(packet))) {
-        log_warn("invalid checksum");
-        ret = E_INVAL;
-        goto invalid_packet;
-    }
+	if (net_internet_checksum(packet_payload(packet), packet_payload_size(packet))) {
+		log_warn("invalid checksum");
+		ret = E_INVAL;
+		goto invalid_packet;
+	}
 
-    switch (icmphdr->type) {
-    case ICMP_ECHO_REQUEST:
-        return icmp_handle_echo_request(packet);
-    case ICMP_ECHO_REPLY:
-        return icmp_handle_echo_reply(packet);
-    default:
-        log_warn("unsupported packet type: %d", icmphdr->type);
-        ret = E_NOT_SUPPORTED;
-    }
+	switch (icmphdr->type) {
+	case ICMP_ECHO_REQUEST:
+		return icmp_handle_echo_request(packet);
+	case ICMP_ECHO_REPLY:
+		return icmp_handle_echo_reply(packet);
+	default:
+		log_warn("unsupported packet type: %d", icmphdr->type);
+		ret = E_NOT_SUPPORTED;
+	}
 
 invalid_packet:
-    packet_free(packet);
-    return ret;
+	packet_free(packet);
+	return ret;
 }
 
-static error_t af_inet_ping_bind(struct socket *socket,
-                                 const struct sockaddr *sockaddr, socklen_t len)
+static error_t
+af_inet_ping_bind(struct socket *socket, const struct sockaddr *sockaddr, socklen_t len)
 {
-    struct icmp_sock *isock = socket->data;
-    struct sockaddr_in *src = (struct sockaddr_in *)sockaddr;
-    struct net_interface *iface;
-    error_t ret = E_SUCCESS;
+	struct icmp_sock *isock = socket->data;
+	struct sockaddr_in *src = (struct sockaddr_in *)sockaddr;
+	struct net_interface *iface;
+	error_t ret = E_SUCCESS;
 
-    UNUSED(len);
+	UNUSED(len);
 
-    iface = net_interface_find(src->sin_addr.s_addr);
-    if (iface == NULL)
-        return E_ADDR_NOT_AVAILABLE;
+	iface = net_interface_find(src->sin_addr.s_addr);
+	if (iface == NULL)
+		return E_ADDR_NOT_AVAILABLE;
 
-    isock->route.src.ip = *src;
-    isock->route.netdev = iface->netdev;
+	isock->route.src.ip = *src;
+	isock->route.netdev = iface->netdev;
 
-    return ret;
+	return ret;
 }
 
-static error_t af_inet_ping_connect(struct socket *socket,
-                                    const struct sockaddr *sockaddr,
-                                    socklen_t len)
+static error_t
+af_inet_ping_connect(struct socket *socket, const struct sockaddr *sockaddr, socklen_t len)
 {
-    struct icmp_sock *isock = socket->data;
-    struct sockaddr_in *dst = (struct sockaddr_in *)sockaddr;
-    struct net_route route;
-    error_t ret = E_SUCCESS;
+	struct icmp_sock *isock = socket->data;
+	struct sockaddr_in *dst = (struct sockaddr_in *)sockaddr;
+	struct net_route route;
+	error_t ret = E_SUCCESS;
 
-    UNUSED(len);
+	UNUSED(len);
 
-    socket_lock(socket);
+	socket_lock(socket);
 
-    ret = net_route_compute(&route, dst);
-    if (ret)
-        goto exit_connect;
+	ret = net_route_compute(&route, dst);
+	if (ret)
+		goto exit_connect;
 
-    /* The source address may already have been chosen by bind() */
-    if (isock->route.src.ip.sin_family != AF_UNSPEC) {
-        route.src = isock->route.src;
-        if (route.netdev != isock->route.netdev)
-            return E_NET_UNREACHABLE;
-    }
+	/* The source address may already have been chosen by bind() */
+	if (isock->route.src.ip.sin_family != AF_UNSPEC) {
+		route.src = isock->route.src;
+		if (route.netdev != isock->route.netdev)
+			return E_NET_UNREACHABLE;
+	}
 
-    isock->route = route;
-    socket->state = SOCKET_CONNECTED;
+	isock->route = route;
+	socket->state = SOCKET_CONNECTED;
 
 exit_connect:
-    socket_unlock(socket);
-    return ret;
+	socket_unlock(socket);
+	return ret;
 }
 
-static ssize_t
-af_inet_ping_send_one(struct socket *socket, const struct iovec *iov, int flags)
+static ssize_t af_inet_ping_send_one(struct socket *socket, const struct iovec *iov, int flags)
 {
-    struct icmp_sock *isock = socket->data;
-    struct icmp_echo_header *icmphdr = iov->iov_base;
-    struct packet *packet;
-    error_t error;
+	struct icmp_sock *isock = socket->data;
+	struct icmp_echo_header *icmphdr = iov->iov_base;
+	struct packet *packet;
+	error_t error;
 
-    UNUSED(flags);
+	UNUSED(flags);
 
-    if (iov->iov_len < sizeof(struct icmp_echo_header))
-        return -E_INVAL;
+	if (iov->iov_len < sizeof(struct icmp_echo_header))
+		return -E_INVAL;
 
-    if (icmphdr->icmp.type != ICMP_ECHO_REQUEST)
-        return -E_NOT_SUPPORTED;
+	if (icmphdr->icmp.type != ICMP_ECHO_REQUEST)
+		return -E_NOT_SUPPORTED;
 
-    icmphdr->identifier = isock->identifier;
-    icmphdr->icmp.checksum = 0;
-    icmphdr->icmp.checksum = net_internet_checksum(iov->iov_base, iov->iov_len);
+	icmphdr->identifier = isock->identifier;
+	icmphdr->icmp.checksum = 0;
+	icmphdr->icmp.checksum = net_internet_checksum(iov->iov_base, iov->iov_len);
 
-    packet = ipv4_build_packet(&isock->route, socket->proto->proto,
-                               iov->iov_base, iov->iov_len);
-    if (IS_ERR(packet))
-        return -ERR_FROM_PTR(packet);
+	packet = ipv4_build_packet(&isock->route, socket->proto->proto, iov->iov_base,
+				   iov->iov_len);
+	if (IS_ERR(packet))
+		return -ERR_FROM_PTR(packet);
 
-    error = packet_send(packet);
-    return error ? -error : iov->iov_len;
+	error = packet_send(packet);
+	return error ? -error : iov->iov_len;
 }
 
-static ssize_t
-af_inet_ping_sendmsg(struct socket *socket, const struct msghdr *msg, int flags)
+static ssize_t af_inet_ping_sendmsg(struct socket *socket, const struct msghdr *msg, int flags)
 {
-    if (msg->msg_name) {
-        not_implemented("overriding destination address in sendmsg");
-        return -E_NOT_IMPLEMENTED;
-    }
+	if (msg->msg_name) {
+		not_implemented("overriding destination address in sendmsg");
+		return -E_NOT_IMPLEMENTED;
+	}
 
-    return socket_dgram_sendmsg(socket, msg, flags, af_inet_ping_send_one);
+	return socket_dgram_sendmsg(socket, msg, flags, af_inet_ping_send_one);
 }
 
 static error_t af_inet_ping_init(struct socket *socket)
 {
-    struct icmp_sock *isock;
+	struct icmp_sock *isock;
 
-    isock = kcalloc(1, sizeof(*isock), KMALLOC_KERNEL);
-    if (isock == NULL)
-        return E_NOMEM;
+	isock = kcalloc(1, sizeof(*isock), KMALLOC_KERNEL);
+	if (isock == NULL)
+		return E_NOMEM;
 
-    isock->identifier = icmp_last_identifier++;
-    isock->socket = socket;
-    socket->data = isock;
+	isock->identifier = icmp_last_identifier++;
+	isock->socket = socket;
+	socket->data = isock;
 
-    spinlock_acquire(&af_inet_icmp_sockets_lock);
-    llist_add_tail(&af_inet_icmp_sockets, &isock->this);
-    spinlock_release(&af_inet_icmp_sockets_lock);
+	spinlock_acquire(&af_inet_icmp_sockets_lock);
+	llist_add_tail(&af_inet_icmp_sockets, &isock->this);
+	spinlock_release(&af_inet_icmp_sockets_lock);
 
-    return E_SUCCESS;
+	return E_SUCCESS;
 }
 
 static void af_inet_ping_close(struct socket *socket)
 {
-    struct icmp_sock *isock = socket->data;
+	struct icmp_sock *isock = socket->data;
 
-    spinlock_acquire(&af_inet_icmp_sockets_lock);
-    llist_add_tail(&af_inet_icmp_sockets, &isock->this);
-    spinlock_release(&af_inet_icmp_sockets_lock);
+	spinlock_acquire(&af_inet_icmp_sockets_lock);
+	llist_add_tail(&af_inet_icmp_sockets, &isock->this);
+	spinlock_release(&af_inet_icmp_sockets_lock);
 }
 
 static void af_inet_ping_release(struct socket *socket)
 {
-    kfree(socket->data);
+	kfree(socket->data);
 }
 
 struct socket_protocol_ops af_inet_icmp_ops = {

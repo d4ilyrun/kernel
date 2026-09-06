@@ -20,100 +20,92 @@
  */
 typedef struct x86_thread {
 
-    u32 cr3; ///< Physical address of the process's page directory
+	u32 cr3; ///< Physical address of the process's page directory
 
-    /**
-     * @brief Address of the top of the thread's kernel stack.
-     *
-     * This is the value used by the kernel to locate the
-     * stack to use when switching from ring3 -> ring0.
-     * It should be loaded inside the current cpu's
-     * @link tss TSS.ESP0 @endlink when switching thread.
-     */
-    u32 esp0;
+	/**
+	 * @brief Address of the top of the thread's kernel stack.
+	 *
+	 * This is the value used by the kernel to locate the
+	 * stack to use when switching from ring3 -> ring0.
+	 * It should be loaded inside the current cpu's
+	 * @link tss TSS.ESP0 @endlink when switching thread.
+	 */
+	u32 esp0;
 
-    /**
-     * @brief Address of the top of the user stack
-     * This is only valid for user threads.
-     */
-    u32 esp_user;
+	/**
+	 * @brief Address of the top of the user stack
+	 * This is only valid for user threads.
+	 */
+	u32 esp_user;
 
-    /**
-     * The thread's current stack pointer.
-     *
-     * This value is updated whenever:
-     * - An interrupt occurs while the thread is running
-     * - The thread is rescheduled
-     */
-    u32 esp;
+	/**
+	 * The thread's current stack pointer.
+	 *
+	 * This value is updated whenever:
+	 * - An interrupt occurs while the thread is running
+	 * - The thread is rescheduled
+	 */
+	u32 esp;
 
-    /** Frame pushed during the last userland -> kernel context switch. */
-    struct interrupt_frame frame;
+	/** Frame pushed during the last userland -> kernel context switch. */
+	struct interrupt_frame frame;
 
 } thread_context_t;
 
-static inline void
-arch_thread_set_stack_pointer(thread_context_t *ctx, void *stack)
+static inline void arch_thread_set_stack_pointer(thread_context_t *ctx, void *stack)
 {
-    ctx->esp = (u32)stack;
+	ctx->esp = (u32)stack;
 }
 
 static inline void *arch_thread_get_stack_pointer(thread_context_t *ctx)
 {
-    return (void *)ctx->esp;
+	return (void *)ctx->esp;
 }
 
-static inline void
-arch_thread_set_base_pointer(thread_context_t *ctx, void *ptr)
+static inline void arch_thread_set_base_pointer(thread_context_t *ctx, void *ptr)
 {
-    ctx->frame.regs.ebp = (vaddr_t)ptr;
+	ctx->frame.regs.ebp = (vaddr_t)ptr;
 }
 
 static inline void *arch_thread_get_base_pointer(thread_context_t *ctx)
 {
-    return (void *)ctx->frame.regs.ebp;
+	return (void *)ctx->frame.regs.ebp;
 }
 
 static inline void
-arch_thread_set_interrupt_frame(thread_context_t *ctx,
-                                const struct interrupt_frame *frame)
+arch_thread_set_interrupt_frame(thread_context_t *ctx, const struct interrupt_frame *frame)
 {
-    ctx->frame = *frame;
+	ctx->frame = *frame;
 }
 
-static inline struct interrupt_frame *
-arch_thread_get_interrupt_frame(thread_context_t *ctx)
+static inline struct interrupt_frame *arch_thread_get_interrupt_frame(thread_context_t *ctx)
 {
-    return &ctx->frame;
+	return &ctx->frame;
 }
 
-static inline void
-arch_thread_set_kernel_stack_top(thread_context_t *ctx, void *top)
+static inline void arch_thread_set_kernel_stack_top(thread_context_t *ctx, void *top)
 {
-    ctx->esp0 = (u32)top;
+	ctx->esp0 = (u32)top;
 }
 
-static inline void *
-arch_thread_get_kernel_stack_top(const thread_context_t *ctx)
+static inline void *arch_thread_get_kernel_stack_top(const thread_context_t *ctx)
 {
-    return (void *)ctx->esp0;
+	return (void *)ctx->esp0;
 }
 
-static inline void
-arch_thread_set_user_stack_top(thread_context_t *ctx, void *top)
+static inline void arch_thread_set_user_stack_top(thread_context_t *ctx, void *top)
 {
-    ctx->esp_user = (u32)top;
+	ctx->esp_user = (u32)top;
 }
 
 static inline void *arch_thread_get_user_stack_top(const thread_context_t *ctx)
 {
-    return (void *)ctx->esp_user;
+	return (void *)ctx->esp_user;
 }
 
-static inline void *
-arch_thread_get_interrupt_return_address(const thread_context_t *ctx)
+static inline void *arch_thread_get_interrupt_return_address(const thread_context_t *ctx)
 {
-    return (void *)ctx->frame.frame.eip;
+	return (void *)ctx->frame.frame.eip;
 }
 
 #endif /* KERNEL_ARCH_I686_PROCESS_H */

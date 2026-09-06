@@ -28,48 +28,47 @@ extern u32 _kernel_drivers_end;
 
 static ALWAYS_INLINE driver_t *to_driver(const node_t *this)
 {
-    return container_of(this, driver_t, this);
+	return container_of(this, driver_t, this);
 }
 
 void driver_load_drivers(void)
 {
-    // Inside the 'data.driver.*' section are stored the addresses of ever
-    // driver's init function.
-    for (driver_init_t *init_function = (void *)&_kernel_drivers_start;
-         (void *)init_function < (void *)&_kernel_drivers_end;
-         init_function += 1) {
-        (*init_function)();
-    }
+	// Inside the 'data.driver.*' section are stored the addresses of ever
+	// driver's init function.
+	for (driver_init_t *init_function = (void *)&_kernel_drivers_start;
+	     (void *)init_function < (void *)&_kernel_drivers_end; init_function += 1) {
+		(*init_function)();
+	}
 }
 
 void driver_register(driver_t *driver)
 {
-    log_dbg("loading driver '%s'", driver->name);
-    llist_add(&loaded_drivers, &driver->this);
+	log_dbg("loading driver '%s'", driver->name);
+	llist_add(&loaded_drivers, &driver->this);
 }
 
 error_t driver_probe(driver_t *driver, device_t *device)
 {
-    error_t status = driver->operations.probe(device);
-    if (status) {
-        log_variable_str(driver->name);
-        log_warn("Failed to probe '%s': %pe", driver->name, &status);
-    }
+	error_t status = driver->operations.probe(device);
+	if (status) {
+		log_variable_str(driver->name);
+		log_warn("Failed to probe '%s': %pe", driver->name, &status);
+	}
 
-    return status;
+	return status;
 }
 
 static int __driver_is_match(const void *this, const void *data)
 {
-    const driver_t *driver = this;
-    return driver->operations.match(this, data) ? COMPARE_EQ : !COMPARE_EQ;
+	const driver_t *driver = this;
+	return driver->operations.match(this, data) ? COMPARE_EQ : !COMPARE_EQ;
 }
 
 driver_t *driver_find_match(device_t *dev)
 {
-    node_t *driver = llist_find_first(&loaded_drivers, dev, __driver_is_match);
-    if (driver == NULL)
-        return NULL;
+	node_t *driver = llist_find_first(&loaded_drivers, dev, __driver_is_match);
+	if (driver == NULL)
+		return NULL;
 
-    return to_driver(driver);
+	return to_driver(driver);
 }

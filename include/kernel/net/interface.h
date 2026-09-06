@@ -37,26 +37,25 @@
 
 /** A network interface */
 struct net_interface {
-    const char *name;               /** The name of this interface */
-    struct ethernet_device *netdev; /** The interface's network device */
-    llist_t subnets; /** The subnets registered under this interface */
-    LLIST_NODE(this);
+	const char *name;		/** The name of this interface */
+	struct ethernet_device *netdev; /** The interface's network device */
+	llist_t subnets;		/** The subnets registered under this interface */
+	LLIST_NODE(this);
 };
 
 /** An interface subnet */
 struct subnet {
-    LLIST_NODE(this);
-    struct net_interface *interface; /** The subnet's containing interface */
-    __be ipv4_t ip; /** source ip used when interacting with this subnet */
-    uint8_t cidr;   /** subnet mask prefix length */
+	LLIST_NODE(this);
+	struct net_interface *interface; /** The subnet's containing interface */
+	__be ipv4_t ip;			 /** source ip used when interacting with this subnet */
+	uint8_t cidr;			 /** subnet mask prefix length */
 };
 
 /** Create a new network interface */
 struct net_interface *net_interface_new(struct ethernet_device *, const char *);
 
 /** Add a new subnet to a network interface */
-error_t
-net_interface_add_subnet(struct net_interface *, __be ipv4_t, uint8_t cidr);
+error_t net_interface_add_subnet(struct net_interface *, __be ipv4_t, uint8_t cidr);
 
 /** Find the first subnet that contains the specified address
  * @return The matching subnet or NULL

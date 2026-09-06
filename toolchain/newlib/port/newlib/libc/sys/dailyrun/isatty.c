@@ -1,5 +1,5 @@
 int _isatty(int fd)
 {
-    (void) fd;
-    return 1;
+	(void)fd;
+	return 1;
 }

@@ -28,15 +28,15 @@ struct net_interface;
 
 /** Ethernet device capabilities */
 enum ethernet_capability {
-    ETHERNET_CAP_BROADCAST, /** Device supports broadcast packets */
-    ETHERNET_CAP_MULTICAST, /** Device supports multicast packets */
+	ETHERNET_CAP_BROADCAST, /** Device supports broadcast packets */
+	ETHERNET_CAP_MULTICAST, /** Device supports multicast packets */
 };
 
 /** Operations that can be performed on an ethernet device */
 struct ethernet_operations {
-    error_t (*send_packet)(struct ethernet_device *, struct packet *);
-    error_t (*enable_capability)(struct ethernet_device *,
-                                 enum ethernet_capability, bool enable);
+	error_t (*send_packet)(struct ethernet_device *, struct packet *);
+	error_t (*enable_capability)(struct ethernet_device *, enum ethernet_capability,
+				     bool enable);
 };
 
 /** An ethernet device
@@ -48,20 +48,20 @@ struct ethernet_operations {
  * after the ethernet_device structure.
  */
 struct ethernet_device {
-    struct device device;            /** The underlying generic device */
-    struct ethernet_operations *ops; /** The ethernet operation vtable */
-    mac_address_t mac;               /** The device's mac address */
+	struct device device;		 /** The underlying generic device */
+	struct ethernet_operations *ops; /** The ethernet operation vtable */
+	mac_address_t mac;		 /** The device's mac address */
 
-    size_t mtu; /** Maximum transmittable packet size */
+	size_t mtu; /** Maximum transmittable packet size */
 
-    /** Device capability bitfields @see ethernet_device_capabilities*/
-    uint32_t capabilities;
+	/** Device capability bitfields @see ethernet_device_capabilities*/
+	uint32_t capabilities;
 
-    struct net_interface *interface; /** The netdevice's interface */
-    LLIST_NODE(this); /** Node inside the linked list of registered devices */
+	struct net_interface *interface; /** The netdevice's interface */
+	LLIST_NODE(this);		 /** Node inside the linked list of registered devices */
 
-    struct worker *worker;
-    queue_t rx_queue;
+	struct worker *worker;
+	queue_t rx_queue;
 };
 
 /** Boundary onto which the ethernet device's private data must be aligned */
@@ -89,21 +89,19 @@ struct ethernet_device *ethernet_device_find_by_mac(mac_address_t);
 
 static inline void *ethernet_device_priv(struct ethernet_device *dev)
 {
-    return (void *)(dev) +
-           align_up(sizeof(*dev), ETHERNET_DEVICE_PRIV_ALIGNMENT);
+	return (void *)(dev) + align_up(sizeof(*dev), ETHERNET_DEVICE_PRIV_ALIGNMENT);
 }
 
 /** Set the name of the device */
-static inline void
-ethernet_device_set_name(struct ethernet_device *dev, const char *name)
+static inline void ethernet_device_set_name(struct ethernet_device *dev, const char *name)
 {
-    device_set_name(&dev->device, "%s", name);
+	device_set_name(&dev->device, "%s", name);
 }
 
 /** @return The name of the device */
 static inline const char *ethernet_device_name(struct ethernet_device *dev)
 {
-    return device_name(&dev->device);
+	return device_name(&dev->device);
 }
 
 /** Process a packet received by an ethernet network device */

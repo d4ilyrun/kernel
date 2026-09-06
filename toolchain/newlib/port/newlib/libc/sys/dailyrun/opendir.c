@@ -8,40 +8,39 @@
 
 static DIR *__fdopendir(int fd)
 {
-    DIR *dirp;
+	DIR *dirp;
 
-    dirp = calloc(1, sizeof(DIR));
-    if (dirp == NULL) {
-        close(fd);
-        return NULL;
-    }
+	dirp = calloc(1, sizeof(DIR));
+	if (dirp == NULL) {
+		close(fd);
+		return NULL;
+	}
 
-    dirp->dd_fd = fd;
-    dirp->dd_buf_size = DIR_BUFSIZE;
-    dirp->dd_buf = malloc(dirp->dd_buf_size);
-    if (dirp->dd_buf == NULL) {
-        free(dirp);
-        close(fd);
-        return NULL;
-    }
+	dirp->dd_fd = fd;
+	dirp->dd_buf_size = DIR_BUFSIZE;
+	dirp->dd_buf = malloc(dirp->dd_buf_size);
+	if (dirp->dd_buf == NULL) {
+		free(dirp);
+		close(fd);
+		return NULL;
+	}
 
-    return dirp;
+	return dirp;
 }
 
 DIR *fdopendir(int fd)
 {
-    /* TODO: Set CLOEXEC on fd via fcntl(). */
-    return __fdopendir(fd);
+	/* TODO: Set CLOEXEC on fd via fcntl(). */
+	return __fdopendir(fd);
 }
 
 DIR *opendir(const char *name)
 {
-    int fd;
+	int fd;
 
+	fd = open(name, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+	if (fd < 0)
+		return NULL;
 
-    fd = open(name, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
-    if (fd < 0)
-        return NULL;
-
-    return __fdopendir(fd);
+	return __fdopendir(fd);
 }

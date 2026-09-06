@@ -12,24 +12,23 @@
 
 /** A semaphore */
 struct semaphore {
-    spinlock_t lock;
-    struct waitqueue waitqueue;
-    unsigned int count;
+	spinlock_t lock;
+	struct waitqueue waitqueue;
+	unsigned int count;
 };
 
 typedef struct semaphore semaphore_t;
 
 /** Initialize a semaphore */
-#define INIT_SEMAPHORE(_name, _count)                   \
-    _name = ((struct semaphore){                        \
-        .count = (_count),                              \
-        __INIT_SPINLOCK(.lock),                         \
-        .waitqueue = __WAITQUEUE_INIT(_name.waitqueue), \
-    })
+#define INIT_SEMAPHORE(_name, _count)                       \
+	_name = ((struct semaphore){                        \
+	    .count = (_count),                              \
+	    __INIT_SPINLOCK(.lock),                         \
+	    .waitqueue = __WAITQUEUE_INIT(_name.waitqueue), \
+	})
 
 /** Declare and initialize a semaphore */
-#define DECLARE_SEMAPHORE(_name, _count) \
-    struct semaphore _name = SEMAPHORE_INIT(_count)
+#define DECLARE_SEMAPHORE(_name, _count) struct semaphore _name = SEMAPHORE_INIT(_count)
 
 /** Initialize a mutex. */
 #define INIT_MUTEX(_name) INIT_SEMAPHORE(_name, 1)

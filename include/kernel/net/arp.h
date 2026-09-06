@@ -17,8 +17,7 @@
 #include <kernel/net/ipv4.h>
 
 /** The maximum total size of an ARP packet */
-#define ARP_PACKET_SIZE \
-    (sizeof(struct ethernet_header) + sizeof(struct arp_header))
+#define ARP_PACKET_SIZE (sizeof(struct ethernet_header) + sizeof(struct arp_header))
 
 /** An ARP header.
  *
@@ -26,26 +25,26 @@
  * address combinations. However, we currently only support IP over Ethernet.
  */
 struct PACKED arp_header {
-    __be uint16_t hw_type;   ///< Hardware Address type
-    __be uint16_t prot_type; ///< Protocol address type
-    uint8_t hw_length;       ///< Hardware address length
-    uint8_t prot_length;     ///< Protocol address length
-    __be uint16_t operation; ///< @see enum arp_operation
-    mac_address_t src_mac;   ///< Sender's hardware address
-    __be ipv4_t src_ip;      ///< Sender's protocol address
-    mac_address_t dst_mac;   ///< Recipient's hardware address (or broadcast)
-    __be ipv4_t dst_ip;      ///< Recipient's protocol address
+	__be uint16_t hw_type;	 ///< Hardware Address type
+	__be uint16_t prot_type; ///< Protocol address type
+	uint8_t hw_length;	 ///< Hardware address length
+	uint8_t prot_length;	 ///< Protocol address length
+	__be uint16_t operation; ///< @see enum arp_operation
+	mac_address_t src_mac;	 ///< Sender's hardware address
+	__be ipv4_t src_ip;	 ///< Sender's protocol address
+	mac_address_t dst_mac;	 ///< Recipient's hardware address (or broadcast)
+	__be ipv4_t dst_ip;	 ///< Recipient's protocol address
 };
 
 /** The different accepted types of hardware addresses */
 enum arp_hw_type {
-    ARP_HW_ETHERNET = 1, ///< Ethernet MAC address
+	ARP_HW_ETHERNET = 1, ///< Ethernet MAC address
 };
 
 /** The different ARP operations */
 enum arp_operation {
-    ARP_REQUEST = 1, ///< Request. Sent first to try and find a MAC address.
-    ARP_REPLY = 2,   ///< Reply. Sent back to the sender if a match was found.
+	ARP_REQUEST = 1, ///< Request. Sent first to try and find a MAC address.
+	ARP_REPLY = 2,	 ///< Reply. Sent back to the sender if a match was found.
 };
 
 /** Compute the size of an ARP header.
@@ -55,14 +54,14 @@ enum arp_operation {
  */
 static inline size_t arp_header_size(struct arp_header *hdr)
 {
-    return sizeof(*hdr);
+	return sizeof(*hdr);
 }
 
 /** Add a new entry inside the ARP table.
  *  @param ip The IP address (in **network** order)
  *  @param mac The MAC address associated with the IP
  */
- error_t arp_add(__be ipv4_t, mac_address_t);
+error_t arp_add(__be ipv4_t, mac_address_t);
 
 /** Retreive the MAC address associated with an IPv4 address.
  *  @param ip The IP address (in **network** order)

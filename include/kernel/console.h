@@ -13,23 +13,23 @@
 #include <libalgo/linked_list.h>
 
 enum console_color {
-    COLOR_NONE,
-    COLOR_BLACK,
-    COLOR_BLUE,
-    COLOR_GREEN,
-    COLOR_CYAN,
-    COLOR_RED,
-    COLOR_MAGENTA,
-    COLOR_YELLOW,
-    COLOR_WHITE,
-    COLOR_BOLD_RED,
-    COLOR_BOLD_GREEN,
-    COLOR_BOLD_YELLOW,
-    COLOR_BOLD_BLUE,
-    COLOR_BOLD_MAGENTA,
-    COLOR_BOLD_CYAN,
-    COLOR_BOLD_WHITE,
-    COLOR_COUNT
+	COLOR_NONE,
+	COLOR_BLACK,
+	COLOR_BLUE,
+	COLOR_GREEN,
+	COLOR_CYAN,
+	COLOR_RED,
+	COLOR_MAGENTA,
+	COLOR_YELLOW,
+	COLOR_WHITE,
+	COLOR_BOLD_RED,
+	COLOR_BOLD_GREEN,
+	COLOR_BOLD_YELLOW,
+	COLOR_BOLD_BLUE,
+	COLOR_BOLD_MAGENTA,
+	COLOR_BOLD_CYAN,
+	COLOR_BOLD_WHITE,
+	COLOR_COUNT
 };
 
 /* Kernel console.
@@ -40,11 +40,10 @@ enum console_color {
  * be chosen as the active console using console_set_active().
  */
 struct console {
-    LLIST_NODE(this);
-    const char *name;
-    ssize_t (*write)(const struct console *, const char *buffer, size_t size);
-    void (*set_color)(const struct console *, enum console_color fg,
-                      enum console_color bg);
+	LLIST_NODE(this);
+	const char *name;
+	ssize_t (*write)(const struct console *, const char *buffer, size_t size);
+	void (*set_color)(const struct console *, enum console_color fg, enum console_color bg);
 };
 
 /** Register a console with the kernel.
@@ -82,9 +81,8 @@ void console_set_color(enum console_color fg, enum console_color bg);
 
 static inline void console_set_fg_color(enum console_color color)
 {
-    return console_set_color(color, COLOR_NONE);
+	return console_set_color(color, COLOR_NONE);
 }
-
 
 #endif /* KERNEL_CONSOLE_H */
 

@@ -90,20 +90,16 @@ static_assert(is_aligned(USER_STACK_SIZE, PAGE_SIZE));
 
 #ifdef __ASSEMBLER__
 
-#define KERNEL_HIGHER_HALF_PHYSICAL(_virtual) \
-    ((_virtual) - KERNEL_HIGHER_HALF_OFFSET)
-#define KERNEL_HIGHER_HALF_VIRTUAL(_physical) \
-    ((_physical) + KERNEL_HIGHER_HALF_OFFSET)
+#define KERNEL_HIGHER_HALF_PHYSICAL(_virtual) ((_virtual) - KERNEL_HIGHER_HALF_OFFSET)
+#define KERNEL_HIGHER_HALF_VIRTUAL(_physical) ((_physical) + KERNEL_HIGHER_HALF_OFFSET)
 
 #else
 
 /** Compute the physical equivalent of a higher half relocated virtual address
  */
-#define KERNEL_HIGHER_HALF_PHYSICAL(_virtual) \
-    ((u32)(_virtual) - KERNEL_HIGHER_HALF_OFFSET)
+#define KERNEL_HIGHER_HALF_PHYSICAL(_virtual) ((u32)(_virtual) - KERNEL_HIGHER_HALF_OFFSET)
 /** Compute the higher half virtual equivalent of a physical address */
-#define KERNEL_HIGHER_HALF_VIRTUAL(_physical) \
-    ((u32)(_physical) + KERNEL_HIGHER_HALF_OFFSET)
+#define KERNEL_HIGHER_HALF_VIRTUAL(_physical) ((u32)(_physical) + KERNEL_HIGHER_HALF_OFFSET)
 
 #include <kernel/types.h>
 
@@ -127,7 +123,7 @@ extern u32 _kernel_code_start;
  * @note this address is defined inside the kernel's linker scrpit.
  */
 extern u32 _kernel_code_end;
-#define KERNEL_CODE_END ((u32) & _kernel_code_end)
+#define KERNEL_CODE_END	  ((u32) & _kernel_code_end)
 
 #endif /* __ASSEMBLER__ */
 
@@ -137,17 +133,17 @@ extern u32 _kernel_code_end;
  *  @ref kernel_vmm
  *  @{
  */
-#define KERNEL_VMM_RESERVED_END (PAGE_TABLES_START)
+#define KERNEL_VMM_RESERVED_END	  (PAGE_TABLES_START)
 #define KERNEL_VMM_RESERVED_START (KERNEL_VMM_RESERVED_END - VMM_RESERVED_SIZE)
 /** @} */
 
-#define KERNEL_ADDRESS_SPACE_END (KERNEL_VMM_RESERVED_START)
+#define KERNEL_ADDRESS_SPACE_END   (KERNEL_VMM_RESERVED_START)
 #define KERNEL_ADDRESS_SPACE_START (KERNEL_CODE_END)
 
-#define KERNEL_MEMORY_END (ADDRESS_SPACE_END)
+#define KERNEL_MEMORY_END   (ADDRESS_SPACE_END)
 #define KERNEL_MEMORY_START (KERNEL_HIGHER_HALF_OFFSET)
 
-#define USER_MEMORY_END KERNEL_MEMORY_START
+#define USER_MEMORY_END	  KERNEL_MEMORY_START
 #define USER_MEMORY_START VMM_RESERVED_END
 
 /**
@@ -157,18 +153,18 @@ extern u32 _kernel_code_end;
  *
  * @see @ref vmm
  */
-#define VMM_RESERVED_END 0x100000UL
+#define VMM_RESERVED_END   0x100000UL
 #define VMM_RESERVED_START NULL_PAGE_END
-#define VMM_RESERVED_SIZE (VMM_RESERVED_END - VMM_RESERVED_START)
+#define VMM_RESERVED_SIZE  (VMM_RESERVED_END - VMM_RESERVED_START)
 
 /** @brief A single page of memory reserved to detect NULL references. */
-#define NULL_PAGE_SIZE PAGE_SIZE
+#define NULL_PAGE_SIZE	PAGE_SIZE
 #define NULL_PAGE_START 0x0
-#define NULL_PAGE_END (NULL_PAGE_START + NULL_PAGE_SIZE)
+#define NULL_PAGE_END	(NULL_PAGE_START + NULL_PAGE_SIZE)
 
 #define PAGE_ALIGN_DOWN(_ptr) align_down_ptr(_ptr, PAGE_SIZE)
-#define PAGE_ALIGN_UP(_ptr) align_up_ptr(_ptr, PAGE_SIZE)
-#define PAGE_ALIGNED(_ptr) is_aligned_ptr(_ptr, PAGE_SIZE)
+#define PAGE_ALIGN_UP(_ptr)   align_up_ptr(_ptr, PAGE_SIZE)
+#define PAGE_ALIGNED(_ptr)    is_aligned_ptr(_ptr, PAGE_SIZE)
 
 #ifndef __ASSEMBLER__
 

@@ -12,16 +12,16 @@
 #ifndef _LIBALGO_RINGBUFFER_H
 #define _LIBALGO_RINGBUFFER_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 /** @struct ringbuffer */
 struct ringbuffer {
-    uint8_t *buf_start;
-    uint8_t *buf_end;
-    uint8_t *buf_read_pos;
-    uint8_t *buf_write_pos;
+	uint8_t *buf_start;
+	uint8_t *buf_end;
+	uint8_t *buf_read_pos;
+	uint8_t *buf_write_pos;
 };
 
 /** Reset a ringbuffer's read and write pointers.
@@ -30,17 +30,16 @@ struct ringbuffer {
  */
 static inline void ringbuffer_reset(struct ringbuffer *rb)
 {
-    rb->buf_read_pos = rb->buf_start;
-    rb->buf_write_pos = rb->buf_start;
+	rb->buf_read_pos = rb->buf_start;
+	rb->buf_write_pos = rb->buf_start;
 }
 
 /** Initialize a ringbuffer's pointers. */
-static inline void
-ringbuffer_init(struct ringbuffer *rb, void *buffer, size_t buffer_size)
+static inline void ringbuffer_init(struct ringbuffer *rb, void *buffer, size_t buffer_size)
 {
-    rb->buf_start = buffer;
-    rb->buf_end = buffer + buffer_size;
-    ringbuffer_reset(rb);
+	rb->buf_start = buffer;
+	rb->buf_end = buffer + buffer_size;
+	ringbuffer_reset(rb);
 }
 
 /**
@@ -48,11 +47,10 @@ ringbuffer_init(struct ringbuffer *rb, void *buffer, size_t buffer_size)
  */
 static inline size_t ringbuffer_available(const struct ringbuffer *rb)
 {
-    if (rb->buf_write_pos >= rb->buf_read_pos)
-        return (rb->buf_end - rb->buf_write_pos) +
-               (rb->buf_read_pos - rb->buf_start);
+	if (rb->buf_write_pos >= rb->buf_read_pos)
+		return (rb->buf_end - rb->buf_write_pos) + (rb->buf_read_pos - rb->buf_start);
 
-    return rb->buf_read_pos - rb->buf_write_pos;
+	return rb->buf_read_pos - rb->buf_write_pos;
 }
 
 /**
@@ -60,7 +58,7 @@ static inline size_t ringbuffer_available(const struct ringbuffer *rb)
  */
 static inline size_t ringbuffer_remaining(const struct ringbuffer *rb)
 {
-    return rb->buf_end - rb->buf_start - ringbuffer_available(rb);
+	return rb->buf_end - rb->buf_start - ringbuffer_available(rb);
 }
 
 /**
@@ -68,7 +66,7 @@ static inline size_t ringbuffer_remaining(const struct ringbuffer *rb)
  */
 static inline bool ringbuffer_is_empty(const struct ringbuffer *rb)
 {
-    return ringbuffer_remaining(rb) == 0;
+	return ringbuffer_remaining(rb) == 0;
 }
 
 /**

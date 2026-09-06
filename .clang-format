@@ -1,13 +1,15 @@
 BasedOnStyle: LLVM
 Language: Cpp
 
-IndentWidth: 4
-TabWidth: 4
-UseTab: Never
+ColumnLimit: 100
+IndentWidth: 8
+TabWidth: 8
+UseTab: Always
 
 AlignOperands: AlignAfterOperator
 AlignEscapedNewlines: Left
 AlignTrailingComments: true
+AlignConsecutiveMacros: true
 AlwaysBreakBeforeMultilineStrings: false
 BinPackArguments: true
 

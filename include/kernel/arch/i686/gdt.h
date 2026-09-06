@@ -35,12 +35,12 @@
  * @brief Known fixed indexes inside the GDT
  */
 enum {
-    GDT_ENTRY_NULL = 0,        /** Required NULL segment */
-    GDT_ENTRY_KERNEL_CODE = 1, /** Kernel code segment */
-    GDT_ENTRY_KERNEL_DATA = 2, /** Kernel data segment */
-    GDT_ENTRY_USER_CODE = 3,   /** User code segment */
-    GDT_ENTRY_USER_DATA = 4,   /** User data segment */
-    GDT_ENTRY_TSS = 5
+	GDT_ENTRY_NULL = 0,	   /** Required NULL segment */
+	GDT_ENTRY_KERNEL_CODE = 1, /** Kernel code segment */
+	GDT_ENTRY_KERNEL_DATA = 2, /** Kernel data segment */
+	GDT_ENTRY_USER_CODE = 3,   /** User code segment */
+	GDT_ENTRY_USER_DATA = 4,   /** User data segment */
+	GDT_ENTRY_TSS = 5
 };
 
 /**
@@ -49,8 +49,8 @@ enum {
  */
 typedef struct gdtr gdtr;
 struct PACKED gdtr {
-    u16 size;
-    u32 offset;
+	u16 size;
+	u32 offset;
 };
 
 /**
@@ -58,10 +58,10 @@ struct PACKED gdtr {
  * A single entry inside the GDT.
  */
 typedef struct gdt_descriptor {
-    u32 base;
-    u32 limit : 20;
-    u8 access;
-    u8 flags : 4;
+	u32 base;
+	u32 limit : 20;
+	u8 access;
+	u8 flags : 4;
 } gdt_descriptor;
 
 /**
@@ -75,45 +75,45 @@ typedef struct gdt_descriptor {
  * @see https://wiki.osdev.org/Task_State_Segment
  */
 typedef struct PACKED tss {
-    u16 link;
-    u16 _reserved1;
-    u32 esp0;
-    u16 ss0;
-    u16 _reserved2;
-    u32 esp1;
-    u16 ss1;
-    u16 _reserved3;
-    u32 esp2;
-    u16 ss2;
-    u16 _reserved4;
-    u32 cr3;
-    u32 eip;
-    u32 eflags;
-    u32 eax;
-    u32 ecx;
-    u32 edx;
-    u32 ebx;
-    u32 esp;
-    u32 ebp;
-    u32 esi;
-    u32 edi;
-    u16 es;
-    u16 _reserved5;
-    u16 cs;
-    u16 _reserved6;
-    u16 ss;
-    u16 _reserved7;
-    u16 ds;
-    u16 _reserved8;
-    u16 fs;
-    u16 _reserved9;
-    u16 gs;
-    u16 _reserved10;
-    u16 ldtr;
-    u16 _reserved11;
-    u16 _reserved12;
-    u16 iopb;
-    u32 ssp;
+	u16 link;
+	u16 _reserved1;
+	u32 esp0;
+	u16 ss0;
+	u16 _reserved2;
+	u32 esp1;
+	u16 ss1;
+	u16 _reserved3;
+	u32 esp2;
+	u16 ss2;
+	u16 _reserved4;
+	u32 cr3;
+	u32 eip;
+	u32 eflags;
+	u32 eax;
+	u32 ecx;
+	u32 edx;
+	u32 ebx;
+	u32 esp;
+	u32 ebp;
+	u32 esi;
+	u32 edi;
+	u16 es;
+	u16 _reserved5;
+	u16 cs;
+	u16 _reserved6;
+	u16 ss;
+	u16 _reserved7;
+	u16 ds;
+	u16 _reserved8;
+	u16 fs;
+	u16 _reserved9;
+	u16 gs;
+	u16 _reserved10;
+	u16 ldtr;
+	u16 _reserved11;
+	u16 _reserved12;
+	u16 iopb;
+	u32 ssp;
 } tss_t;
 
 /**
@@ -122,12 +122,12 @@ typedef struct PACKED tss {
  * @see https://wiki.osdev.org/Segment_Selector
  */
 typedef union {
-    u16 raw;
-    struct {
-        u8 rpl : 2;
-        u8 ti : 1;
-        u16 index : 13;
-    } PACKED;
+	u16 raw;
+	struct {
+		u8 rpl : 2;
+		u8 ti : 1;
+		u16 index : 13;
+	} PACKED;
 } segment_selector;
 
 /**

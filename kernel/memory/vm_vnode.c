@@ -15,7 +15,7 @@
 /** @return whether a vm_vnode segment maps anonymous memory. */
 static inline bool vm_vnode_is_anon(struct vm_segment *segment)
 {
-    return segment->data == ANON_VNODE;
+	return segment->data == ANON_VNODE;
 }
 
 /*
@@ -23,16 +23,16 @@ static inline bool vm_vnode_is_anon(struct vm_segment *segment)
  */
 struct vm_vnode_mapping *vm_vnode_new_mapping(struct vnode *vnode, off_t offset)
 {
-    struct vm_vnode_mapping *mapping;
+	struct vm_vnode_mapping *mapping;
 
-    mapping = kmalloc(sizeof(*mapping), KMALLOC_KERNEL);
-    if (!mapping)
-        return PTR_ERR(E_NOMEM);
+	mapping = kmalloc(sizeof(*mapping), KMALLOC_KERNEL);
+	if (!mapping)
+		return PTR_ERR(E_NOMEM);
 
-    mapping->vnode = vnode_acquire(vnode, NULL);
-    mapping->offset = offset;
+	mapping->vnode = vnode_acquire(vnode, NULL);
+	mapping->offset = offset;
 
-    return mapping;
+	return mapping;
 }
 
 /*
@@ -40,226 +40,218 @@ struct vm_vnode_mapping *vm_vnode_new_mapping(struct vnode *vnode, off_t offset)
  */
 void vm_vnode_free_mapping(struct vm_vnode_mapping *mapping)
 {
-    if (!mapping)
-        return;
+	if (!mapping)
+		return;
 
-    vnode_release(mapping->vnode);
-    kfree(mapping);
+	vnode_release(mapping->vnode);
+	kfree(mapping);
 }
 
-static struct vm_segment *vm_vnode_alloc(struct address_space *as, vaddr_t addr,
-                                         size_t size, vm_flags_t flags,
-                                         void *data)
+static struct vm_segment *
+vm_vnode_alloc(struct address_space *as, vaddr_t addr, size_t size, vm_flags_t flags, void *data)
 {
-    static struct vm_segment *segment;
+	static struct vm_segment *segment;
 
-    segment = vmm_allocate(as->vmm, addr, size, flags);
-    if (IS_ERR(segment))
-        return segment;
+	segment = vmm_allocate(as->vmm, addr, size, flags);
+	if (IS_ERR(segment))
+		return segment;
 
-    segment->data = data;
+	segment->data = data;
 
-    return segment;
+	return segment;
 }
 
-static error_t vm_vnode_map(struct address_space *as,
-                            struct vm_segment *segment,
-                            vm_flags_t flags)
+static error_t vm_vnode_map(struct address_space *as, struct vm_segment *segment, vm_flags_t flags)
 {
-    size_t size = segment->size;
-    paddr_t phys;
-    error_t err;
+	size_t size = segment->size;
+	paddr_t phys;
+	error_t err;
 
-    AS_ASSERT_OWNED(as);
+	AS_ASSERT_OWNED(as);
 
-    for (size_t off = 0; off < size; off += PAGE_SIZE) {
+	for (size_t off = 0; off < size; off += PAGE_SIZE) {
 
-        /* If the address already contained a mapping keep it. */
-        if (mmu_is_mapped(segment->start + off))
-            continue;
+		/* If the address already contained a mapping keep it. */
+		if (mmu_is_mapped(segment->start + off))
+			continue;
 
-        phys = pmm_allocate();
-        if (phys == PMM_INVALID_PAGEFRAME) {
-            err = E_NOMEM;
-            goto exit_error;
-        }
+		phys = pmm_allocate();
+		if (phys == PMM_INVALID_PAGEFRAME) {
+			err = E_NOMEM;
+			goto exit_error;
+		}
 
-        mmu_map(segment->start + off, phys, flags);
-    }
+		mmu_map(segment->start + off, phys, flags);
+	}
 
-    return E_SUCCESS;
+	return E_SUCCESS;
 
 exit_error:
-    /* Don't free pages, they should be released by vm_free(). */
-    return err;
+	/* Don't free pages, they should be released by vm_free(). */
+	return err;
 }
 
-static struct vm_segment *vm_vnode_alloc_at(struct address_space *as,
-                                            paddr_t phys, size_t size,
-                                            vm_flags_t flags, void *data)
+static struct vm_segment *
+vm_vnode_alloc_at(struct address_space *as, paddr_t phys, size_t size, vm_flags_t flags, void *data)
 {
-    struct vm_segment *segment;
-    error_t err;
+	struct vm_segment *segment;
+	error_t err;
 
-    AS_ASSERT_OWNED(as);
+	AS_ASSERT_OWNED(as);
 
-    segment = vm_vnode_alloc(as, 0, size, flags, data);
-    if (IS_ERR(segment))
-        return segment;
+	segment = vm_vnode_alloc(as, 0, size, flags, data);
+	if (IS_ERR(segment))
+		return segment;
 
-    /* In case the caller did not get this physical address through the page
-     * allocator, we should mark these pages as currently in use. */
-    for (size_t off = 0; off < size; off += PAGE_SIZE)
-        page_get(address_to_page(phys + off));
+	/* In case the caller did not get this physical address through the page
+	 * allocator, we should mark these pages as currently in use. */
+	for (size_t off = 0; off < size; off += PAGE_SIZE)
+		page_get(address_to_page(phys + off));
 
-    err = E_EXIST;
-    if (!mmu_map_range(segment->start, phys, size, flags))
-        goto vm_allocate_release;
+	err = E_EXIST;
+	if (!mmu_map_range(segment->start, phys, size, flags))
+		goto vm_allocate_release;
 
-    return segment;
+	return segment;
 
 vm_allocate_release:
-    for (size_t off = 0; off < size; off += PAGE_SIZE)
-        page_put(address_to_page(phys + off));
-    vm_vnode_free_mapping(segment->data);
-    vmm_free(as->vmm, segment->start, segment->size);
-    return PTR_ERR(err);
+	for (size_t off = 0; off < size; off += PAGE_SIZE)
+		page_put(address_to_page(phys + off));
+	vm_vnode_free_mapping(segment->data);
+	vmm_free(as->vmm, segment->start, segment->size);
+	return PTR_ERR(err);
 }
 
 static void vm_vnode_free(struct address_space *as, struct vm_segment *segment)
 {
-    size_t size = segment->size;
-    paddr_t phys;
+	size_t size = segment->size;
+	paddr_t phys;
 
-    if (!IS_KERNEL_ADDRESS(segment->start))
-        AS_ASSERT_OWNED(as);
+	if (!IS_KERNEL_ADDRESS(segment->start))
+		AS_ASSERT_OWNED(as);
 
-    for (size_t off = 0; off < size; off += PAGE_SIZE) {
-        phys = mmu_unmap(segment->start + off);
-        if (phys != PMM_INVALID_PAGEFRAME)
-            pmm_free(phys);
-    }
+	for (size_t off = 0; off < size; off += PAGE_SIZE) {
+		phys = mmu_unmap(segment->start + off);
+		if (phys != PMM_INVALID_PAGEFRAME)
+			pmm_free(phys);
+	}
 
-    vm_vnode_free_mapping(segment->data);
-    vmm_free(as->vmm, segment->start, size);
+	vm_vnode_free_mapping(segment->data);
+	vmm_free(as->vmm, segment->start, size);
+}
+
+static error_t vm_vnode_fault(struct address_space *as, struct vm_segment *segment)
+{
+	struct vm_vnode_mapping *mapping = segment->data;
+	paddr_t phys = PMM_INVALID_PAGEFRAME;
+	struct page *page;
+	size_t off;
+	error_t err;
+
+	AS_ASSERT_OWNED(as);
+
+	/*
+	 * Perform lazy allocation of physical pages for anonymous memory.
+	 */
+	err = E_NOMEM;
+	for (off = 0; off < segment->size; off += PAGE_SIZE) {
+		/*
+		 * Part of the segment may already have been mapped in case the faulty
+		 * address is one resulting from a segment resizing.
+		 */
+		if (mmu_is_mapped(segment->start + off))
+			continue;
+
+		if (vm_vnode_is_anon(segment)) {
+			phys = pmm_allocate();
+			if (phys == PMM_INVALID_PAGEFRAME)
+				goto err_release_allocated;
+		} else {
+			/*
+			 * For vnode-backed pages the allocation of physical pages
+			 * is handled by the vnode layer so we can make use of the
+			 * page cache (TODO).
+			 */
+			page = vfs_vnode_get_page(mapping->vnode, mapping->offset);
+			if (IS_ERR(page)) {
+				log_err("thread %d: vnode_get_page() @ %p failed: %pE",
+					current->tid, (void *)segment->start + off, page);
+				goto err_release_allocated;
+			}
+			phys = page_address(page);
+		}
+
+		if (!mmu_map(segment->start + off, phys, segment->flags)) {
+			pmm_free(phys);
+			goto err_release_allocated;
+		}
+	}
+
+	if (segment->flags & VM_CLEAR)
+		memset((void *)segment->start, 0, segment->size);
+
+	return E_SUCCESS;
+
+err_release_allocated:
+	/*
+	 * Release the virtual addresses that were sucessfully mapped.
+	 */
+	for (size_t off_release = 0; off_release < off; off_release += PAGE_SIZE) {
+		phys = mmu_unmap(segment->start + off_release);
+		pmm_free(phys);
+	}
+
+	log_err("failed to map segment @ " FMT32 ": %pe", segment->start, &err);
+	vm_vnode_free(as, segment);
+
+	return err;
 }
 
 static error_t
-vm_vnode_fault(struct address_space *as, struct vm_segment *segment)
+vm_vnode_resize(struct address_space *as, struct vm_segment *segment, size_t new_size)
 {
-    struct vm_vnode_mapping *mapping = segment->data;
-    paddr_t phys = PMM_INVALID_PAGEFRAME;
-    struct page *page;
-    size_t off;
-    error_t err;
+	vaddr_t old_end = segment_end(segment);
+	paddr_t phys;
+	error_t ret;
 
-    AS_ASSERT_OWNED(as);
+	AS_ASSERT_OWNED(as);
 
-    /*
-     * Perform lazy allocation of physical pages for anonymous memory.
-     */
-    err = E_NOMEM;
-    for (off = 0; off < segment->size; off += PAGE_SIZE) {
-        /*
-         * Part of the segment may already have been mapped in case the faulty
-         * address is one resulting from a segment resizing.
-         */
-        if (mmu_is_mapped(segment->start + off))
-            continue;
+	ret = vmm_resize(as->vmm, to_vma(segment), new_size);
+	if (ret != E_SUCCESS)
+		return ret;
 
-        if (vm_vnode_is_anon(segment)) {
-            phys = pmm_allocate();
-            if (phys == PMM_INVALID_PAGEFRAME)
-                goto err_release_allocated;
-        } else {
-            /*
-             * For vnode-backed pages the allocation of physical pages
-             * is handled by the vnode layer so we can make use of the
-             * page cache (TODO).
-             */
-            page = vfs_vnode_get_page(mapping->vnode, mapping->offset);
-            if (IS_ERR(page)) {
-                log_err("thread %d: vnode_get_page() @ %p failed: %pE",
-                        current->tid, (void *)segment->start + off, page);
-                goto err_release_allocated;
-            }
-            phys = page_address(page);
-        }
+	/*
+	 * If the segment's size has been reduced free the allocated memory.
+	 */
+	if (segment_end(segment) < old_end) {
+		for (vaddr_t page = segment_end(segment); page < old_end; page += PAGE_SIZE) {
+			phys = mmu_unmap(page);
+			if (phys != PMM_INVALID_PAGEFRAME)
+				pmm_free(phys);
+		}
+	}
 
-        if (!mmu_map(segment->start + off, phys, segment->flags)) {
-            pmm_free(phys);
-            goto err_release_allocated;
-        }
-    }
-
-    if (segment->flags & VM_CLEAR)
-        memset((void *)segment->start, 0, segment->size);
-
-    return E_SUCCESS;
-
-err_release_allocated:
-    /*
-     * Release the virtual addresses that were sucessfully mapped.
-     */
-    for (size_t off_release = 0; off_release < off; off_release += PAGE_SIZE) {
-        phys = mmu_unmap(segment->start + off_release);
-        pmm_free(phys);
-    }
-
-    log_err("failed to map segment @ " FMT32 ": %pe", segment->start, &err);
-    vm_vnode_free(as, segment);
-
-    return err;
-}
-
-static error_t vm_vnode_resize(struct address_space *as,
-                               struct vm_segment *segment, size_t new_size)
-{
-    vaddr_t old_end = segment_end(segment);
-    paddr_t phys;
-    error_t ret;
-
-    AS_ASSERT_OWNED(as);
-
-    ret = vmm_resize(as->vmm, to_vma(segment), new_size);
-    if (ret != E_SUCCESS)
-        return ret;
-
-    /*
-     * If the segment's size has been reduced free the allocated memory.
-     */
-    if (segment_end(segment) < old_end) {
-        for (vaddr_t page = segment_end(segment); page < old_end;
-             page += PAGE_SIZE) {
-            phys = mmu_unmap(page);
-            if (phys != PMM_INVALID_PAGEFRAME)
-                pmm_free(phys);
-        }
-    }
-
-    return E_SUCCESS;
+	return E_SUCCESS;
 }
 
 /*
  *
  */
-static error_t vm_vnode_set_policy(struct address_space *as,
-                                   struct vm_segment *segment,
-                                   vm_flags_t policy)
+static error_t
+vm_vnode_set_policy(struct address_space *as, struct vm_segment *segment, vm_flags_t policy)
 {
-    AS_ASSERT_OWNED(as);
-    return mmu_set_policy_range(segment->start, segment->size, (int)policy);
+	AS_ASSERT_OWNED(as);
+	return mmu_set_policy_range(segment->start, segment->size, (int)policy);
 }
 
 /*
  *
  */
-static error_t vm_vnode_set_protection(struct address_space *as,
-                                        struct vm_segment *segment,
-                                        vm_flags_t prot)
+static error_t
+vm_vnode_set_protection(struct address_space *as, struct vm_segment *segment, vm_flags_t prot)
 {
-    AS_ASSERT_OWNED(as);
-    return mmu_set_protection_range(segment->start, segment->size, (int)prot);
+	AS_ASSERT_OWNED(as);
+	return mmu_set_protection_range(segment->start, segment->size, (int)prot);
 }
 
 const struct vm_segment_driver vm_vnode = {

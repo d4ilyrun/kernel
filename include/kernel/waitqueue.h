@@ -37,20 +37,21 @@
 
 /** Waiting Queue */
 struct waitqueue {
-    spinlock_t lock; /*<! Synchronization lock */
-    queue_t queue;   /*<! The queue of waiting threads */
+	spinlock_t lock; /*<! Synchronization lock */
+	queue_t queue;	 /*<! The queue of waiting threads */
 };
 
 /** Default init value */
-#define __WAITQUEUE_INIT(_queue)                                             \
-    {                                                                        \
-        __INIT_SPINLOCK(.lock), .queue = __QUEUE_INIT(&(_queue).queue.head), \
-    }
+#define __WAITQUEUE_INIT(_queue)                         \
+	{                                                \
+	    __INIT_SPINLOCK(.lock),                      \
+	    .queue = __QUEUE_INIT(&(_queue).queue.head), \
+	}
 #define WAITQUEUE_INIT(_queue) ((struct waitqueue)__WAITQUEUE_INIT(_queue))
 
 /** Initialize a waitqueue */
 #define __INIT_WAITQUEUE(_queue) _queue = __WAITQUEUE_INIT(_queue)
-#define INIT_WAITQUEUE(_queue) _queue = WAITQUEUE_INIT(_queue)
+#define INIT_WAITQUEUE(_queue)	 _queue = WAITQUEUE_INIT(_queue)
 
 /** Declare and initialize a waitqueue */
 #define DECLARE_WAITQUEUE(_queue) struct waitqueue INIT_WAITQUEUE(_queue)
@@ -69,14 +70,14 @@ void waitqueue_enqueue_locked(struct waitqueue *, struct thread *);
 
 static inline void waitqueue_lock(struct waitqueue *wq)
 {
-    spinlock_acquire(&wq->lock);
+	spinlock_acquire(&wq->lock);
 }
 
 /** Mark a thread as waiting for the event to finish */
 static inline void waitqueue_enqueue(struct waitqueue *wq, struct thread *t)
 {
-    waitqueue_lock(wq);
-    waitqueue_enqueue_locked(wq, t);
+	waitqueue_lock(wq);
+	waitqueue_enqueue_locked(wq, t);
 }
 
 /** @return The first thread inside the waitqueue */

@@ -19,22 +19,21 @@
 
 #include <utils/container_of.h>
 
-#define PCI_DEVICE_ID(_vendor, _device) \
-    ((pci_device_id_t){.vendor = _vendor, .device = _device})
+#define PCI_DEVICE_ID(_vendor, _device) ((pci_device_id_t){.vendor = _vendor, .device = _device})
 
 /** Per-bus driver struct for PCI drivers
  *  @see device_driver
  */
 struct pci_driver {
-    struct device_driver driver;
-    pci_device_id_t compatible;
+	struct device_driver driver;
+	pci_device_id_t compatible;
 };
 
 /** A PCI bus */
 struct pci_bus {
-    node_t this;            ///< Intrusive node list used to enumerate PCI buses
-    uint8_t number;         ///< The bus's number
-    struct pci_bus *parent; ///< The parent bus (NULL if this is the root bus)
+	node_t this;		///< Intrusive node list used to enumerate PCI buses
+	uint8_t number;		///< The bus's number
+	struct pci_bus *parent; ///< The parent bus (NULL if this is the root bus)
 };
 
 /** Per-bus device struct for PCI devices
@@ -42,29 +41,29 @@ struct pci_bus {
  */
 struct pci_device {
 
-    struct device device;
+	struct device device;
 
-    u8 number;           ///< The device number on its bus
-    struct pci_bus *bus; ///< The bus to which the device is connected
-    pci_device_id_t id;  ///< The PCI device's vendor/device ID
+	u8 number;	     ///< The device number on its bus
+	struct pci_bus *bus; ///< The bus to which the device is connected
+	pci_device_id_t id;  ///< The PCI device's vendor/device ID
 
-    u8 interrupt_line; ///< The PIC interrupt number used by the PCI device
-    interrupt_handler_func_t interrupt_handler; ///< The interrupt handler routine
-    void *interrupt_data; /// Data passed to the interrupt routine
+	u8 interrupt_line; ///< The PIC interrupt number used by the PCI device
+	interrupt_handler_func_t interrupt_handler; ///< The interrupt handler routine
+	void *interrupt_data;			    /// Data passed to the interrupt routine
 
 #define PCI_BAR_MAX_COUNT 6
 
-    /** PCI Base Address Registers */
-    struct pci_bar {
-        void *data;   ///< Addressable virtual address mapped to the register
-        paddr_t phys; ///< The BAR's "true" physical or IO address
-        size_t size;  ///< The address register's size
-        /** The type of the Address Register */
-        enum pci_bar_type {
-            PCI_BAR_MEMORY, ///< Physical memory (either 32 or 64b)
-            PCI_BAR_IO      ///< IO memory
-        } type;
-    } bars[PCI_BAR_MAX_COUNT];
+	/** PCI Base Address Registers */
+	struct pci_bar {
+		void *data;   ///< Addressable virtual address mapped to the register
+		paddr_t phys; ///< The BAR's "true" physical or IO address
+		size_t size;  ///< The address register's size
+		/** The type of the Address Register */
+		enum pci_bar_type {
+			PCI_BAR_MEMORY, ///< Physical memory (either 32 or 64b)
+			PCI_BAR_IO	///< IO memory
+		} type;
+	} bars[PCI_BAR_MAX_COUNT];
 };
 
 #define to_pci_drv(_this) container_of(_this, struct pci_driver, driver)
@@ -73,8 +72,7 @@ struct pci_device {
 
 void pci_driver_register(struct pci_driver *);
 
-#define DECLARE_PCI_DRIVER(_name, _driver) \
-    DECLARE_DRIVER(_name, _driver, pci_driver_register)
+#define DECLARE_PCI_DRIVER(_name, _driver) DECLARE_DRIVER(_name, _driver, pci_driver_register)
 
 /** Register a PCI device */
 error_t pci_device_register(struct pci_device *);
@@ -84,8 +82,8 @@ error_t pci_device_register(struct pci_device *);
  *  @param interrupt_handler The interrupt handler function
  *  @param data The data passed to the interrupt handler
  */
-error_t pci_device_install_interrupt_handler(struct pci_device *,
-                                              interrupt_handler_func_t, void *data);
+error_t
+pci_device_install_interrupt_handler(struct pci_device *, interrupt_handler_func_t, void *data);
 
 /** Enable/Disable a device's response to I/O space accesses */
 void pci_device_enable_io(struct pci_device *, bool);
@@ -96,17 +94,15 @@ void pci_device_enable_memory(struct pci_device *, bool);
 /** Enable/Disable a device's ability to perform bus-master operations */
 void pci_device_enable_bus_master(struct pci_device *, bool);
 
-static inline void pci_device_write_config(struct pci_device *pdev,
-                                           uint8_t offset, size_t size,
-                                           uint32_t value)
+static inline void
+pci_device_write_config(struct pci_device *pdev, uint8_t offset, size_t size, uint32_t value)
 {
-    pci_write_config(pdev->bus->number, pdev->number, offset, size, value);
+	pci_write_config(pdev->bus->number, pdev->number, offset, size, value);
 }
 
-static inline uint32_t
-pci_device_read_config(struct pci_device *dev, uint8_t offset, size_t size)
+static inline uint32_t pci_device_read_config(struct pci_device *dev, uint8_t offset, size_t size)
 {
-    return pci_read_config(dev->bus->number, dev->number, offset, size);
+	return pci_read_config(dev->bus->number, dev->number, offset, size);
 }
 
 #endif /* KERNEL_DEVICES_PCI_H */

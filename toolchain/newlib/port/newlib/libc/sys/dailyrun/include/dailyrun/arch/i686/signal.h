@@ -9,10 +9,10 @@
  * exiting the signal handler.
  */
 struct user_signal_context {
-    struct x86_regs             regs;
-    struct x86_interrupt_frame  interrupt_frame;
-    void                        *sa_handler;
-    sigset_t                    sig_blocked;
+	struct x86_regs regs;
+	struct x86_interrupt_frame interrupt_frame;
+	void *sa_handler;
+	sigset_t sig_blocked;
 };
 
 typedef struct user_signal_context ucontext_t;

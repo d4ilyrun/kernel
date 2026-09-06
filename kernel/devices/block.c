@@ -8,87 +8,83 @@
 
 #include <utils/constants.h>
 
-static inline ssize_t
-block_device_request(struct block_device *blkdev, void *buf, blkcnt_t count,
-                     off_t offset, enum block_io_request_type type)
+static inline ssize_t block_device_request(struct block_device *blkdev, void *buf, blkcnt_t count,
+					   off_t offset, enum block_io_request_type type)
 {
-    struct block_io_request request;
-    blkcnt_t start_block;
-    error_t err;
+	struct block_io_request request;
+	blkcnt_t start_block;
+	error_t err;
 
-    if (offset % blkdev->block_size)
-        return -E_INVAL;
+	if (offset % blkdev->block_size)
+		return -E_INVAL;
 
-    /*
-     * Request does not fit inside the device's addressable blocks.
-     */
-    start_block = offset / blkdev->block_size;
-    if (start_block > blkdev->block_count ||
-        count > (blkdev->block_count - start_block)) {
-        return -E_INVAL;
-    }
+	/*
+	 * Request does not fit inside the device's addressable blocks.
+	 */
+	start_block = offset / blkdev->block_size;
+	if (start_block > blkdev->block_count || count > (blkdev->block_count - start_block)) {
+		return -E_INVAL;
+	}
 
-    request.type = type;
-    request.buf = buf;
-    request.count = count;
-    request.offset = offset;
+	request.type = type;
+	request.buf = buf;
+	request.count = count;
+	request.offset = offset;
 
-    err = blkdev->ops->request(blkdev, &request);
-    if (err)
-        return -err;
+	err = blkdev->ops->request(blkdev, &request);
+	if (err)
+		return -err;
 
-    return count * (ssize_t)blkdev->block_size;
+	return count * (ssize_t)blkdev->block_size;
 }
 
 static ssize_t block_device_read(struct file *file, char *out, size_t size)
 {
-    struct block_device *blkdev = file->vnode->pdata;
-    ssize_t read;
+	struct block_device *blkdev = file->vnode->pdata;
+	ssize_t read;
 
-    if (size % blkdev->block_size)
-        return -E_INVAL;
+	if (size % blkdev->block_size)
+		return -E_INVAL;
 
-    /* TODO: Read from page cache */
-    read = block_device_request(blkdev, out, size / blkdev->block_size,
-                                file->pos, BLOCK_IO_REQUEST_READ);
-    if (read < 0)
-        return read;
+	/* TODO: Read from page cache */
+	read = block_device_request(blkdev, out, size / blkdev->block_size, file->pos,
+				    BLOCK_IO_REQUEST_READ);
+	if (read < 0)
+		return read;
 
-    file->pos += size;
+	file->pos += size;
 
-    return read;
+	return read;
 }
 
-static ssize_t
-block_device_write(struct file *file, const char *in, size_t size)
+static ssize_t block_device_write(struct file *file, const char *in, size_t size)
 {
-    struct block_device *blkdev = file->vnode->pdata;
-    ssize_t written;
+	struct block_device *blkdev = file->vnode->pdata;
+	ssize_t written;
 
-    if (size % blkdev->block_size)
-        return -E_INVAL;
+	if (size % blkdev->block_size)
+		return -E_INVAL;
 
-    /* TODO: Writeback mechanism */
-    written = block_device_request(blkdev, (char *)in,
-                                   size / blkdev->block_size, file->pos,
-                                   BLOCK_IO_REQUEST_WRITE);
-    if (written < 0)
-        return written;
+	/* TODO: Writeback mechanism */
+	written = block_device_request(blkdev, (char *)in, size / blkdev->block_size, file->pos,
+				       BLOCK_IO_REQUEST_WRITE);
+	if (written < 0)
+		return written;
 
-    file->pos += size;
+	file->pos += size;
 
-    return written;
+	return written;
 }
 
 static error_t block_device_open(struct file *file)
 {
-    struct device *dev = file->vnode->pdata;
-    struct block_device *blkdev = to_blkdev(dev);
+	struct device *dev = file->vnode->pdata;
+	struct block_device *blkdev = to_blkdev(dev);
 
-    file->vnode->stat.st_blksize = blkdev->block_size;
-    file->vnode->stat.st_blocks = blkdev->block_count;
+	file->vnode->stat.st_blksize = blkdev->block_size;
+	file->vnode->stat.st_blocks = blkdev->block_count;
 
-    return E_SUCCESS;
+	return E_SUCCESS;
 }
 
 static const struct file_operations block_device_fops = {
@@ -100,45 +96,43 @@ static const struct file_operations block_device_fops = {
 
 error_t block_device_register(struct block_device *blkdev)
 {
-    blkdev->dev.fops = &block_device_fops;
+	blkdev->dev.fops = &block_device_fops;
 
-    if (!blkdev->ops->request)
-        return E_INVAL;
+	if (!blkdev->ops->request)
+		return E_INVAL;
 
-    log_info("%s: new block device (size: %ldMB, block_size: %ldB)",
-             device_name(&blkdev->dev),
-             (blkdev->block_size * blkdev->block_count) / MB,
-             blkdev->block_size);
+	log_info("%s: new block device (size: %ldMB, block_size: %ldB)", device_name(&blkdev->dev),
+		 (blkdev->block_size * blkdev->block_count) / MB, blkdev->block_size);
 
-    return device_register(&blkdev->dev);
+	return device_register(&blkdev->dev);
 }
 
 void *block_read(struct block_device *blkdev, blkcnt_t index)
 {
-    void *buffer;
-    ssize_t size;
+	void *buffer;
+	ssize_t size;
 
-    buffer = kmalloc(blkdev->block_size, KMALLOC_KERNEL);
-    if (!buffer)
-        return buffer;
+	buffer = kmalloc(blkdev->block_size, KMALLOC_KERNEL);
+	if (!buffer)
+		return buffer;
 
-    /**
-     * TODO: Use page cache mechanism.
-     */
-    size = block_device_request(blkdev, buffer, 1, index * blkdev->block_size,
-                               BLOCK_IO_REQUEST_READ);
-    if (size < 0) {
-        log_err("%s: failed to read block %ld: %s", blkdev->dev.name, index,
-                err_to_str(-size));
-        kfree(buffer);
-        return PTR_ERR(-size);
-    }
+	/**
+	 * TODO: Use page cache mechanism.
+	 */
+	size = block_device_request(blkdev, buffer, 1, index * blkdev->block_size,
+				    BLOCK_IO_REQUEST_READ);
+	if (size < 0) {
+		log_err("%s: failed to read block %ld: %s", blkdev->dev.name, index,
+			err_to_str(-size));
+		kfree(buffer);
+		return PTR_ERR(-size);
+	}
 
-    return buffer;
+	return buffer;
 }
 
 void block_free(struct block_device *blkdev, void *block)
 {
-    UNUSED(blkdev);
-    kfree(block);
+	UNUSED(blkdev);
+	kfree(block);
 }

@@ -30,10 +30,10 @@
  * @info The structure is **ALWAYS** followed by the symbol's name's string.
  */
 typedef struct PACKED kernel_symbol {
-    /** Size of the symbol (sizeof(size) + sizeof(address) + strlen(name)) */
-    u32 size;
-    /** Address of the symbol */
-    u32 address;
+	/** Size of the symbol (sizeof(size) + sizeof(address) + strlen(name)) */
+	u32 size;
+	/** Address of the symbol */
+	u32 address;
 } kernel_symbol_t;
 
 /**
@@ -47,14 +47,14 @@ typedef struct PACKED kernel_symbol {
  * variables and other variables are ignored. This may change in the future.
  */
 typedef struct PACKED kernel_symbol_table {
-    u32 count;
-    const kernel_symbol_t symbols[];
+	u32 count;
+	const kernel_symbol_t symbols[];
 } kernel_symbol_table_t;
 
 /** Retrieve a kernel symbol's raw name */
 ALWAYS_INLINE const char *kernel_symbol_name(const kernel_symbol_t *sym)
 {
-    return ((const char *)sym + sizeof(kernel_symbol_t));
+	return ((const char *)sym + sizeof(kernel_symbol_t));
 }
 
 /** @brief Find the kernel symbol associated with a given address.

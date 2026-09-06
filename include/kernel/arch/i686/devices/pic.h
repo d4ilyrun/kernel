@@ -29,29 +29,29 @@
  * in protected mode.
  */
 #define PIC_MASTER_VECTOR 0x20
-#define PIC_SLAVE_VECTOR 0x28
+#define PIC_SLAVE_VECTOR  0x28
 
 /**
  * @brief All available PIC irqs, by vector index
  * @enum pic_irq
  */
 typedef enum pic_irq {
-    IRQ_TIMER = 0, ///< Raised by the \ref PIT
-    IRQ_KEYBOARD,  ///< Raised by the keyboard
-    IRQ_CASCADE,   ///< Used to access the second controller
-    IRQ_COM2,      ///< Raised by the serial port
-    IRQ_COM1,      ///< Raised by the serial port
-    IRQ_LPT2,
-    IRQ_FLOPPY,
-    IRQ_LPT1,
-    IRQ_CMOS,
-    IRQ_FREE1,
-    IRQ_FREE2,
-    IRQ_FREE3,
-    IRQ_PS2,
-    IRQ_FPU,
-    IRQ_ATA_PRIMARY,
-    IRQ_ATA_SECONDARY
+	IRQ_TIMER = 0, ///< Raised by the \ref PIT
+	IRQ_KEYBOARD,  ///< Raised by the keyboard
+	IRQ_CASCADE,   ///< Used to access the second controller
+	IRQ_COM2,      ///< Raised by the serial port
+	IRQ_COM1,      ///< Raised by the serial port
+	IRQ_LPT2,
+	IRQ_FLOPPY,
+	IRQ_LPT1,
+	IRQ_CMOS,
+	IRQ_FREE1,
+	IRQ_FREE2,
+	IRQ_FREE3,
+	IRQ_PS2,
+	IRQ_FPU,
+	IRQ_ATA_PRIMARY,
+	IRQ_ATA_SECONDARY
 } pic_irq;
 
 /** The total number of IRQ */
