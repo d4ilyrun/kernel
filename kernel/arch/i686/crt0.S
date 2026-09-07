@@ -1,6 +1,6 @@
 #include <kernel/memory.h>
 
-#include <multiboot.h>
+#include <specs/multiboot.h>
 
 /*
  * Define the multiboot_header, following the GNU multiboot specifications,

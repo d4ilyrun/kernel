@@ -34,7 +34,7 @@
 #include <kernel/devices/driver.h>
 #include <kernel/error.h>
 
-#include <multiboot.h>
+#include <specs/multiboot.h>
 
 /** Per-bus driver struct for ACPI drivers
  *  @see device_driver

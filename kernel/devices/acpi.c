@@ -13,7 +13,7 @@
 #include <uacpi/utilities.h>
 #include <utils/macro.h>
 
-#include <multiboot.h>
+#include <specs/multiboot.h>
 #include <string.h>
 
 static inline struct acpi_driver *to_acpi_drv(driver_t *drv)

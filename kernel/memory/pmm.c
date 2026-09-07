@@ -13,7 +13,7 @@
 #include <utils/macro.h>
 #include <utils/math.h>
 
-#include <multiboot.h>
+#include <specs/multiboot.h>
 #include <stddef.h>
 #include <string.h>
 

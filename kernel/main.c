@@ -33,7 +33,7 @@
 #include <utils/map.h>
 #include <utils/math.h>
 
-#include <multiboot.h>
+#include <specs/multiboot.h>
 #include <string.h>
 
 static struct multiboot_info *mbt_info;

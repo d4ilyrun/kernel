@@ -36,7 +36,7 @@
 
 #include <utils/bits.h>
 
-#include <multiboot.h>
+#include <specs/multiboot.h>
 #include <stdbool.h>
 
 /** Error value returned by the PMM in case of errors */

@@ -8,7 +8,7 @@
 #include <kernel/pmm.h>
 #include <kernel/vm.h>
 
-#include <multiboot.h>
+#include <specs/multiboot.h>
 
 void memory_init(struct multiboot_info *mbt)
 {

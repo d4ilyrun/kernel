@@ -9,7 +9,7 @@
 #include <kernel/error.h>
 #include <kernel/types.h>
 
-#include <elf32.h>
+#include <specs/elf32.h>
 
 error_t elf32_init(void);
 
