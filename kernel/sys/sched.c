@@ -85,26 +85,26 @@ static void schedule_locked(bool preempt, bool reschedule)
 
 void schedule(void)
 {
-	const bool old_if = scheduler_preempt_disable();
+	const bool old_if = sched_preempt_disable();
 	schedule_locked(false, true);
-	scheduler_preempt_enable(old_if);
+	sched_preempt_enable(old_if);
 }
 
 void schedule_preempt(void)
 {
-	const bool old_if = scheduler_preempt_disable();
+	const bool old_if = sched_preempt_disable();
 	schedule_locked(true, true);
-	scheduler_preempt_enable(old_if);
+	sched_preempt_enable(old_if);
 }
 
-bool scheduler_preempt_disable(void)
+bool sched_preempt_disable(void)
 {
 	bool if_flag = interrupts_test_and_disable();
 	atomic_inc(&scheduler.sync.preemption_level);
 	return if_flag;
 }
 
-void scheduler_preempt_enable(bool old_if_flag)
+void sched_preempt_enable(bool old_if_flag)
 {
 	if (atomic_read(&scheduler.sync.preemption_level))
 		atomic_dec(&scheduler.sync.preemption_level);
@@ -131,7 +131,7 @@ void sched_new_thread(thread_t *thread)
 
 void sched_block_thread(struct thread *thread)
 {
-	const bool old_if = scheduler_preempt_disable();
+	const bool old_if = sched_preempt_disable();
 
 	if (thread->state != SCHED_RUNNING)
 		goto block_thread_exit;
@@ -141,12 +141,12 @@ void sched_block_thread(struct thread *thread)
 		schedule_locked(true, true);
 
 block_thread_exit:
-	scheduler_preempt_enable(old_if);
+	sched_preempt_enable(old_if);
 }
 
 void sched_unblock_thread(thread_t *thread)
 {
-	const bool old_if = scheduler_preempt_disable();
+	const bool old_if = sched_preempt_disable();
 
 	// FIXME: This is not safe anymore on an SMP system where we could
 	//        be calling sched_block_thread() on another core.
@@ -168,7 +168,7 @@ void sched_unblock_thread(thread_t *thread)
 		schedule_locked(true, true);
 
 exit:
-	scheduler_preempt_enable(old_if);
+	sched_preempt_enable(old_if);
 }
 
 static int process_cmp_wakeup(const void *current_node, const void *cmp_node)
