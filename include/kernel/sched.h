@@ -82,6 +82,8 @@ bool sched_preempt_disable(void);
  */
 void sched_preempt_enable(bool old_if_flag);
 
+bool sched_preemptible(void);
+
 /** Add a new thread to be scheduled.
  *  When adding a new thread, its state will be set to @ref SCHED_RUNNING
  */
