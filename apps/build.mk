@@ -26,7 +26,7 @@ define ADD_USER_APP
 apps/$(1): apps/$(1)/.stamp-build apps/$(1)/.stamp-install
 
 $(call DEFINE_USER_APP_TARGET,$(1),build, | libs)
-$(call DEFINE_USER_APP_TARGET,$(1),install, apps/$(1)/.stamp-build)
+$(call DEFINE_USER_APP_TARGET,$(1),install, $(PWD)/$(BUILD_DIR)/$(APPS_DIR)/$(1)/.stamp-build)
 $(call DEFINE_USER_APP_TARGET,$(1),clean)
 endef
 
