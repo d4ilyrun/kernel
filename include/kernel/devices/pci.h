@@ -74,7 +74,8 @@ struct pci_device {
 	struct pci_device_class class; /// The PCI device's class code
 
 	u8 interrupt_line; ///< The PIC interrupt number used by the PCI device
-	interrupt_handler_func_t interrupt_handler; ///< The interrupt handler routine
+	interrupt_handler_func_t interrupt_handler;	     ///< The interrupt routine
+	interrupt_handler_func_t threaded_interrupt_handler; ///< The threaded interrupt routine
 	void *interrupt_data;			    /// Data passed to the interrupt routine
 
 #define PCI_BAR_MAX_COUNT 6
@@ -105,11 +106,19 @@ error_t pci_device_register(struct pci_device *);
 
 /** Register a custom interrupt handler function for this device
  *
- *  @param interrupt_handler The interrupt handler function
+ *  @param handler The interrupt handler function
+ *  @param threaded_handler The threaded interrupt handler function
  *  @param data The data passed to the interrupt handler
  */
-error_t
-pci_device_install_interrupt_handler(struct pci_device *, interrupt_handler_func_t, void *data);
+error_t pci_device_install_threaded_interrupt_handler(struct pci_device *, interrupt_handler_func_t,
+						      interrupt_handler_func_t, void *data);
+
+static inline error_t pci_device_install_interrupt_handler(struct pci_device *pdev,
+							   interrupt_handler_func_t handler,
+							   void *data)
+{
+	return pci_device_install_threaded_interrupt_handler(pdev, handler, NULL, data);
+}
 
 /** Enable/Disable a device's response to I/O space accesses */
 void pci_device_enable_io(struct pci_device *, bool);

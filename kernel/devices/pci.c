@@ -232,34 +232,54 @@ static interrupt_return_t __pci_device_handle_interrupt(void *device)
 {
 	struct pci_device *pdev = device;
 
+	ASSERT(pdev != NULL);
+
 	/*
 	 * NOTE: What if the interrupt line is shared with a non-pci interrupt?
 	 *       BIOS should configure the IRQ lines properly for this to never
 	 *       happen I guess...
 	 */
-	if (!pdev || !pdev->interrupt_handler)
-		return INTERRUPT_IGNORED;
+	if (!pdev->interrupt_handler)
+		return INTERRUPT_THREADED;
 
 	return pdev->interrupt_handler(pdev->interrupt_data);
+}
+
+static interrupt_return_t __pci_device_handle_threaded_interrupt(void *device)
+{
+	struct pci_device *pdev = device;
+
+	ASSERT(pdev != NULL);
+
+	if (!pdev->threaded_interrupt_handler)
+		return INTERRUPT_IGNORED;
+
+	return pdev->threaded_interrupt_handler(pdev->interrupt_data);
 }
 
 /*
  *
  */
-error_t pci_device_install_interrupt_handler(struct pci_device *pdev,
-					     interrupt_handler_func_t handler, void *data)
+error_t pci_device_install_threaded_interrupt_handler(struct pci_device *pdev,
+						      interrupt_handler_func_t handler,
+						      interrupt_handler_func_t threaded_handler,
+						      void *data)
 {
+	if (!handler && !threaded_handler)
+		return E_INVAL;
+
 	pdev->interrupt_line = pci_device_read_header(pdev, INTERRUPT_LINE);
 	if (!pdev->interrupt_line)
 		return E_SUCCESS;
 
 	pdev->interrupt_data = data;
 	pdev->interrupt_handler = handler;
+	pdev->threaded_interrupt_handler = threaded_handler;
 
 	/* TODO: Implement MSI + remove dependency on arch-specifi PIC IRQ. */
-	interrupts_install_handler(PIC_MASTER_VECTOR + pdev->interrupt_line,
-				   __pci_device_handle_interrupt, pdev);
-
+	interrupts_install_threaded_handler(PIC_MASTER_VECTOR + pdev->interrupt_line,
+					    __pci_device_handle_interrupt,
+					    __pci_device_handle_threaded_interrupt, pdev);
 	pci_device_enable_interrupts(pdev, true);
 
 	return E_SUCCESS;
