@@ -45,6 +45,8 @@ IncludeCategories:
       Priority: 3
     - Regex: '<(uacpi|utils|lib.*)/.*>'
       Priority: 5
+    - Regex: '<lib.*\.h>'
+      Priority: 5
     - Regex: '<.*>'
       Priority: 6
     - Regex: '.*'
