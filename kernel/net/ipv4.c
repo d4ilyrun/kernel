@@ -223,11 +223,11 @@ error_t inet_sock_connect(struct inet_sock *isock, const struct sockaddr_in *sin
 	if (ret)
 		return ret;
 
+	route.src.ip.sin_port = isock->port;
 	if (isock->addr != INADDR_ANY) {
 		/* use local address as source address when sending packets. */
 		route.src.ip.sin_family = AF_INET;
 		route.src.ip.sin_addr.s_addr = isock->addr;
-		route.src.ip.sin_port = isock->port;
 	}
 
 	memcpy(&isock->route, &route, sizeof(isock->route));
