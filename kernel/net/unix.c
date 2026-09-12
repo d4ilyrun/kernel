@@ -148,7 +148,12 @@ static ssize_t af_unix_send_one(struct socket *socket, const struct iovec *iov, 
 	packet_put(packet, iov->iov_base, iov->iov_len);
 
 	error = socket_enqueue_packet(peer->socket, packet);
-	return error ? -error : iov->iov_len;
+	if (error) {
+		packet_free(packet);
+		return -error;
+	}
+
+	return iov->iov_len;
 }
 
 /*
