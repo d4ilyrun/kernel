@@ -134,6 +134,11 @@ static error_t socket_connect(struct file *file, const struct sockaddr *addr, so
 	if (file->vnode->type != VNODE_SOCKET)
 		return E_NOT_SOCKET;
 
+	if (addr->sa_family == AF_UNSPEC) {
+		socket->state = SOCKET_DISCONNECTED;
+		return E_SUCCESS;
+	}
+
 	err = socket->domain->verify_addr(addr, addr_len);
 	if (err)
 		return -err;
