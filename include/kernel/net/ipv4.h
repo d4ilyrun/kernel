@@ -116,6 +116,8 @@ static inline __be ipv4_t IPV4(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 
 struct inet_sock {
 	struct net_route route;
+	/* local address (obtained via bind()) */
+	__be u32 addr;
 };
 
 error_t inet_sock_init(struct inet_sock *isock);

@@ -206,8 +206,7 @@ error_t inet_sock_bind(struct inet_sock *isock, const struct sockaddr_in *sin)
 			return E_ADDR_NOT_AVAILABLE;
 	}
 
-	isock->route.src.ip = *sin;
-	isock->route.netdev = iface->netdev;
+	isock->addr = sin->sin_addr.s_addr;
 
 	return E_SUCCESS;
 }
@@ -222,20 +221,9 @@ error_t inet_sock_connect(struct inet_sock *isock, const struct sockaddr_in *sin
 
 	ret = net_route_compute(&route, sin);
 	if (ret)
-		goto out;
-
-	/* The source address may already have been chosen by bind() */
-	if (isock->route.src.ip.sin_family != AF_UNSPEC) {
-		memcpy(&route.src, &isock->route.src, sizeof(route.src));
-		if (route.netdev != isock->route.netdev) {
-			ret = E_NET_UNREACHABLE;
-			goto out;
-		}
-	}
+		return ret;
 
 	memcpy(&isock->route, &route, sizeof(isock->route));
-
-out:
 	return ret;
 }
 
