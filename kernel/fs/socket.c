@@ -50,7 +50,6 @@ struct socket *socket_alloc(void)
 	struct socket_node *node;
 	struct socket *socket;
 	struct vnode *vnode;
-	struct file *file;
 	struct stat *stat;
 
 	node = kcalloc(1, sizeof(*node), KMALLOC_KERNEL);
@@ -71,16 +70,6 @@ struct socket *socket_alloc(void)
 	stat->st_ctim = stat->st_mtim;
 	stat->st_mode = S_IRWU | S_IRWG | S_IRWO;
 	stat->st_nlink = 1;
-
-	file = file_open(vnode, &socket_fops);
-	if (IS_ERR(file)) {
-		log_err("Failed to open socket file: %pE", file);
-		vnode_release(vnode);
-		return (void *)file;
-	}
-
-	socket->file = file;
-	file->priv = socket;
 
 	return socket;
 }
@@ -127,7 +116,7 @@ static error_t socket_bind(struct file *file, const struct sockaddr *addr, sockl
 	struct socket *socket = file->priv;
 	error_t err;
 
-	if (socket->file->vnode->type != VNODE_SOCKET)
+	if (file->vnode->type != VNODE_SOCKET)
 		return E_NOT_SOCKET;
 
 	err = socket->domain->verify_addr(addr, addr_len);
@@ -142,7 +131,7 @@ static error_t socket_connect(struct file *file, const struct sockaddr *addr, so
 	struct socket *socket = file->priv;
 	error_t err;
 
-	if (socket->file->vnode->type != VNODE_SOCKET)
+	if (file->vnode->type != VNODE_SOCKET)
 		return E_NOT_SOCKET;
 
 	err = socket->domain->verify_addr(addr, addr_len);
@@ -250,26 +239,41 @@ static struct file_operations socket_fops = {
 int sys_socket(int domain, int type, int proto)
 {
 	struct socket *socket;
+	struct file *file = NULL;
+	struct vnode *vnode = NULL;
 	error_t err;
 	int fd;
 
+	/* NOTE: socket_alloc() increments the socket's refcount to 1. */
 	socket = socket_alloc();
 	if (!socket)
 		return -E_NOMEM;
+	vnode = socket_vnode(socket);
 
 	err = socket_init(socket, domain, type, proto);
 	if (err)
 		goto fail;
 
-	fd = process_add_fd(current->process, socket->file, FD_RW);
+	file = file_open(vnode, &socket_fops);
+	if (IS_ERR(file)) {
+		log_err("Failed to open socket file: %pE", file);
+		err = ERR_FROM_PTR(file);
+		file = NULL;
+		goto fail;
+	}
+	file->priv = socket;
+
+	fd = process_add_fd(current->process, file, FD_RW);
 	if (fd < 0) {
-		err = fd;
+		err = -fd;
 		goto fail;
 	}
 
 	return fd;
 
 fail:
+	if (file)
+		file_put(file);
 	socket_put(socket);
 	return -err;
 }
