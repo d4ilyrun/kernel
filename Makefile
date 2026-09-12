@@ -55,6 +55,7 @@ DEBUG ?= y
 
 CFLAGS   := -std=gnu11 -Werror -Wall -Wextra -MMD -MP
 CFLAGS   += -fdiagnostics-color=always
+CFLAGS   += -Wno-unused-parameter
 CPPFLAGS += -I$(INC_DIR)
 
 FREESTANDING_CFLAGS    := -ffreestanding
