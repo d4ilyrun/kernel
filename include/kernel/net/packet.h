@@ -34,6 +34,7 @@ struct ethernet_header;
 struct ipv4_header;
 struct arp_header;
 /* L4 headers */
+struct udp_header;
 
 /** A network packet.
  *
@@ -73,6 +74,7 @@ struct packet {
 	/** The packet's transport layer header */
 	union {
 		void *raw;
+		struct udp_header *udp;
 	} l4;
 
 	/** Start of the packet's content (beyond L4) */
