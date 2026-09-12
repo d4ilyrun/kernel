@@ -47,6 +47,8 @@ static struct kmem_cache kmem_cache_cache;
 static struct kmem_cache kmem_slab_cache;
 static struct kmem_cache kmem_bufctl_cache;
 
+static_assert(offsetof(struct kmem_bufctl, obj) == offsetof(struct kmem_bufctl, hash.key));
+
 #define KMEM_SLAB_MIN_SIZE  sizeof(struct kmem_bufctl)
 #define KMEM_SLAB_MIN_ALIGN 1
 
@@ -508,7 +510,8 @@ int kmem_cache_api_init(void)
 	 */
 	static_assert(sizeof(struct kmem_cache) < KMEM_SLAB_LARGE_SIZE);
 
-	hashtable_init(&kmem_bufctl_hashmap);
+	/* key: pointer to the object. */
+	hashtable_init(&kmem_bufctl_hashmap, hash_address, compare_addresses);
 	INIT_SPINLOCK(kmem_bufctl_hashmap_lock);
 
 	kmem_cache_constructor(&kmem_cache_cache);

@@ -25,11 +25,25 @@
  * Structure used to store entries inside an hashtable.
  */
 struct hashtable_entry {
-	void *key;		      /*!< The entry's unique key. */
+	void *key;		      /*!< The entry's unique key.
+					   MUST be kept first to be used in unions. */
 	struct linked_list_node this; /*!< Used to build the hashtable's list. */
 };
 
-#define hashtable_fields size_t size;
+/** Hashing function. */
+typedef u32 (*hash_func_t)(const void *data_ptr);
+
+/* Default provided hashing functions. */
+u32 hash32(uint32_t a);
+u32 hash_address(const void *key);
+
+/* Default provided hashtable key comparison functions. */
+int compare_addresses(const void *entry_key, const void *key);
+
+#define hashtable_fields       \
+	size_t size;           \
+	hash_func_t hash_func; \
+	compare_t compare_key;
 
 /**
  *
@@ -49,7 +63,7 @@ struct hashtable {
 		};                             \
 	} name
 
-void __hashtable_init(struct hashtable *, size_t hashtable_size);
+void __hashtable_init(struct hashtable *, size_t hashtable_size, hash_func_t, compare_t);
 void __hashtable_insert(struct hashtable *, struct hashtable_entry *);
 struct hashtable_entry *__hashtable_remove(struct hashtable *, const void *key);
 struct hashtable_entry *__hashtable_find(struct hashtable *, const void *key);
@@ -58,9 +72,11 @@ struct hashtable_entry *__hashtable_find(struct hashtable *, const void *key);
  * Initialize an empty hashtable.
  *
  * @param hashtable The hashtable union declared using \c DECLARE_HASHTABLE().
+ * @param hash      The hashing function used by the table.
+ * @param compare   The comparison function used to differentiate keys.
  */
-#define hashtable_init(hashtable) \
-	__hashtable_init(&(hashtable)->table, ARRAY_SIZE((hashtable)->buckets))
+#define hashtable_init(hashtable, hash, compare) \
+	__hashtable_init(&(hashtable)->table, ARRAY_SIZE((hashtable)->buckets), hash, compare)
 
 /**
  * Add an entry into an hashtable.
