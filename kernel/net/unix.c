@@ -145,6 +145,7 @@ static ssize_t af_unix_send_one(struct socket *socket, const struct iovec *iov, 
 	/* unix packets don't contain a header */
 	packet_set_l2_size(packet, 0);
 	packet_set_l3_size(packet, 0);
+	packet_set_l4_size(packet, 0);
 	packet_put(packet, iov->iov_base, iov->iov_len);
 
 	error = socket_enqueue_packet(peer->socket, packet);
