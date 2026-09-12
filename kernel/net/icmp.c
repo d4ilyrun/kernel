@@ -17,10 +17,10 @@ DECLARE_LLIST(af_inet_icmp_sockets);
 DECLARE_SPINLOCK(af_inet_icmp_sockets_lock);
 
 struct icmp_sock {
-	u16 identifier; /** ICMP echo identifier */
-	struct net_route route;
-	node_t this;
+	struct inet_sock isock;
 	struct socket *socket;
+	u16 identifier; /** ICMP echo identifier */
+	node_t this;
 };
 
 /***/
@@ -118,19 +118,13 @@ invalid_packet:
 static error_t
 af_inet_ping_bind(struct socket *socket, const struct sockaddr *sockaddr, socklen_t len)
 {
-	struct icmp_sock *isock = socket->data;
-	struct sockaddr_in *src = (struct sockaddr_in *)sockaddr;
-	struct net_interface *iface;
-	error_t ret = E_SUCCESS;
+	struct icmp_sock *isock;
+	error_t ret;
 
-	UNUSED(len);
-
-	iface = net_interface_find(src->sin_addr.s_addr);
-	if (iface == NULL)
-		return E_ADDR_NOT_AVAILABLE;
-
-	isock->route.src.ip = *src;
-	isock->route.netdev = iface->netdev;
+	socket_lock(socket);
+	isock = socket->data;
+	ret = inet_sock_bind(&isock->isock, (const struct sockaddr_in *)sockaddr);
+	socket_unlock(socket);
 
 	return ret;
 }
@@ -138,42 +132,30 @@ af_inet_ping_bind(struct socket *socket, const struct sockaddr *sockaddr, sockle
 static error_t
 af_inet_ping_connect(struct socket *socket, const struct sockaddr *sockaddr, socklen_t len)
 {
-	struct icmp_sock *isock = socket->data;
+	struct icmp_sock *isock;
 	struct sockaddr_in *dst = (struct sockaddr_in *)sockaddr;
-	struct net_route route;
-	error_t ret = E_SUCCESS;
-
-	UNUSED(len);
+	error_t ret;
 
 	socket_lock(socket);
+	isock = socket->data;
 
-	ret = net_route_compute(&route, dst);
+	ret = inet_sock_connect(&isock->isock, dst);
 	if (ret)
-		goto exit_connect;
-
-	/* The source address may already have been chosen by bind() */
-	if (isock->route.src.ip.sin_family != AF_UNSPEC) {
-		route.src = isock->route.src;
-		if (route.netdev != isock->route.netdev)
-			return E_NET_UNREACHABLE;
-	}
-
-	isock->route = route;
+		goto out;
 	socket->state = SOCKET_CONNECTED;
 
-exit_connect:
+out:
 	socket_unlock(socket);
 	return ret;
 }
 
+/*
+ *
+ */
 static ssize_t af_inet_ping_send_one(struct socket *socket, const struct iovec *iov, int flags)
 {
 	struct icmp_sock *isock = socket->data;
 	struct icmp_echo_header *icmphdr = iov->iov_base;
-	struct packet *packet;
-	error_t error;
-
-	UNUSED(flags);
 
 	if (iov->iov_len < sizeof(struct icmp_echo_header))
 		return -E_INVAL;
@@ -185,15 +167,12 @@ static ssize_t af_inet_ping_send_one(struct socket *socket, const struct iovec *
 	icmphdr->icmp.checksum = 0;
 	icmphdr->icmp.checksum = net_internet_checksum(iov->iov_base, iov->iov_len);
 
-	packet = ipv4_build_packet(&isock->route, socket->proto->proto, iov->iov_base,
-				   iov->iov_len);
-	if (IS_ERR(packet))
-		return -ERR_FROM_PTR(packet);
-
-	error = packet_send(packet);
-	return error ? -error : iov->iov_len;
+	return inet_sock_send_one(&isock->isock, socket->proto->proto, iov, flags);
 }
 
+/*
+ *
+ */
 static ssize_t af_inet_ping_sendmsg(struct socket *socket, const struct msghdr *msg, int flags)
 {
 	if (msg->msg_name) {
@@ -204,6 +183,9 @@ static ssize_t af_inet_ping_sendmsg(struct socket *socket, const struct msghdr *
 	return socket_dgram_sendmsg(socket, msg, flags, af_inet_ping_send_one);
 }
 
+/*
+ *
+ */
 static error_t af_inet_ping_init(struct socket *socket)
 {
 	struct icmp_sock *isock;
@@ -212,6 +194,7 @@ static error_t af_inet_ping_init(struct socket *socket)
 	if (isock == NULL)
 		return E_NOMEM;
 
+	inet_sock_init(&isock->isock);
 	isock->identifier = icmp_last_identifier++;
 	isock->socket = socket;
 	socket->data = isock;
@@ -223,6 +206,9 @@ static error_t af_inet_ping_init(struct socket *socket)
 	return E_SUCCESS;
 }
 
+/*
+ *
+ */
 static void af_inet_ping_close(struct socket *socket)
 {
 	struct icmp_sock *isock = socket->data;

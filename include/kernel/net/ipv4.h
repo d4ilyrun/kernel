@@ -16,6 +16,7 @@
 
 #include <kernel/error.h>
 #include <kernel/net.h>
+#include <kernel/net/route.h>
 #include <kernel/types.h>
 
 #include <utils/compiler.h>
@@ -23,7 +24,6 @@
 #include <arch.h>
 
 struct packet;
-struct net_route;
 
 /** Version field inside the IP header */
 #define IPV4_VERSION 4
@@ -109,6 +109,20 @@ static inline __be ipv4_t IPV4(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 #define FMT_IP "%u.%u.%u.%u"
 #define LOG_IP(ip) \
 	((uint8_t *)&ip)[0], ((uint8_t *)&ip)[1], ((uint8_t *)&ip)[2], ((uint8_t *)&ip)[3]
+
+/*
+ * Helper functions for socket protocols over IPv4.
+ */
+
+struct inet_sock {
+	struct net_route route;
+};
+
+error_t inet_sock_init(struct inet_sock *isock);
+error_t inet_sock_bind(struct inet_sock *isock, const struct sockaddr_in *sin);
+error_t inet_sock_connect(struct inet_sock *isock, const struct sockaddr_in *sin);
+ssize_t inet_sock_send_one(struct inet_sock *isock, __be u16 proto,
+			   const struct iovec *iov, int flags);
 
 #endif /* KERNEL_NET_IPV4_H */
 

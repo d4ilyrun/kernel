@@ -19,8 +19,8 @@
 
 /** Domain specific data for AF_INET sockets */
 struct af_inet_sock {
+	struct inet_sock isock;
 	struct socket *socket;
-	struct net_route route; /** Routing configuration */
 	uint8_t proto;		/** Protocol number */
 	node_t this;		/** Used to list currently active sockets */
 };
@@ -62,7 +62,6 @@ static uint16_t ipv4_compute_checksum(struct ipv4_header *iphdr)
 error_t ipv4_receive_packet(struct packet *packet)
 {
 	const struct ipv4_header *iphdr = packet->l3.ipv4;
-	struct af_inet_sock *isock;
 	struct packet *clone;
 	size_t total_len;
 	size_t hdr_len;
@@ -104,13 +103,15 @@ error_t ipv4_receive_packet(struct packet *packet)
 	 */
 	spinlock_acquire(&af_inet_raw_sockets_lock);
 	FOREACH_LLIST (node, &af_inet_raw_sockets) {
+		struct af_inet_sock *isock;
+
 		isock = container_of(node, struct af_inet_sock, this);
 		socket_lock(isock->socket);
 		if (isock->proto != iphdr->protocol ||
-		    (isock->route.src.ip.sin_family != AF_UNSPEC &&
-		     isock->route.src.ip.sin_addr.s_addr != iphdr->daddr) ||
-		    (isock->route.dst.ip.sin_family != AF_UNSPEC &&
-		     isock->route.dst.ip.sin_addr.s_addr != iphdr->saddr)) {
+		    (isock->isock.route.src.ip.sin_family != AF_UNSPEC &&
+		     isock->isock.route.src.ip.sin_addr.s_addr != iphdr->daddr) ||
+		    (isock->isock.route.dst.ip.sin_family != AF_UNSPEC &&
+		     isock->isock.route.dst.ip.sin_addr.s_addr != iphdr->saddr)) {
 			socket_unlock(isock->socket);
 			continue;
 		}
@@ -190,74 +191,132 @@ release_packet:
 	return PTR_ERR(ret);
 }
 
+/*
+ * Common codepath when binding an AF_INET socket to a local address.
+ */
+error_t inet_sock_bind(struct inet_sock *isock, const struct sockaddr_in *sin)
+{
+
+	if (sin->sin_addr.s_addr != INADDR_ANY) {
+		struct net_interface *iface;
+
+		/* FIXME: What if we later remove this IP from the interface? */
+		iface = net_interface_find(sin->sin_addr.s_addr);
+		if (iface == NULL)
+			return E_ADDR_NOT_AVAILABLE;
+	}
+
+	isock->route.src.ip = *sin;
+	isock->route.netdev = iface->netdev;
+
+	return E_SUCCESS;
+}
+
+/*
+ *
+ */
+error_t inet_sock_connect(struct inet_sock *isock, const struct sockaddr_in *sin)
+{
+	struct net_route route;
+	error_t ret;
+
+	ret = net_route_compute(&route, sin);
+	if (ret)
+		goto out;
+
+	/* The source address may already have been chosen by bind() */
+	if (isock->route.src.ip.sin_family != AF_UNSPEC) {
+		memcpy(&route.src, &isock->route.src, sizeof(route.src));
+		if (route.netdev != isock->route.netdev) {
+			ret = E_NET_UNREACHABLE;
+			goto out;
+		}
+	}
+
+	memcpy(&isock->route, &route, sizeof(isock->route));
+
+out:
+	return ret;
+}
+
+/*
+ *
+ */
+ssize_t inet_sock_send_one(struct inet_sock *isock, __be u16 proto,
+			    const struct iovec *iov, int flags)
+{
+	struct packet *packet;
+	error_t err;
+
+	packet = ipv4_build_packet(&isock->route, proto, iov->iov_base, iov->iov_len);
+	if (IS_ERR(packet))
+		return -ERR_FROM_PTR(packet);
+
+	err = packet_send(packet);
+	return err ? -err : iov->iov_len;
+}
+
+/*
+ *
+ */
+error_t inet_sock_init(struct inet_sock *isock)
+{
+	memset(isock, 0, sizeof(&isock));
+	return E_SUCCESS;
+}
+
+/*
+ *
+ */
 static error_t
 af_inet_raw_bind(struct socket *socket, const struct sockaddr *sockaddr, socklen_t len)
 {
-	struct af_inet_sock *isock = socket->data;
-	struct sockaddr_in *src = (struct sockaddr_in *)sockaddr;
-	struct net_interface *iface;
-	error_t ret = E_SUCCESS;
+	struct af_inet_sock *isock;
+	error_t ret;
 
-	UNUSED(len);
-
-	iface = net_interface_find(src->sin_addr.s_addr);
-	if (iface == NULL)
-		return E_ADDR_NOT_AVAILABLE;
-
-	isock->route.src.ip = *src;
-	isock->route.netdev = iface->netdev;
+	socket_lock(socket);
+	isock = socket->data;
+	ret = inet_sock_bind(&isock->isock, (const struct sockaddr_in *)sockaddr);
+	socket_unlock(socket);
 
 	return ret;
 }
 
+/*
+ *
+ */
 static error_t
 af_inet_raw_connect(struct socket *socket, const struct sockaddr *sockaddr, socklen_t len)
 {
-	struct af_inet_sock *isock = socket->data;
+	struct af_inet_sock *isock;
 	struct sockaddr_in *dst = (struct sockaddr_in *)sockaddr;
-	struct net_route route;
-	error_t ret = E_SUCCESS;
-
-	UNUSED(len);
+	error_t ret;
 
 	socket_lock(socket);
+	isock = socket->data;
 
-	ret = net_route_compute(&route, dst);
+	ret = inet_sock_connect(&isock->isock, dst);
 	if (ret)
-		goto exit_connect;
-
-	/* The source address may already have been chosen by bind() */
-	if (isock->route.src.ip.sin_family != AF_UNSPEC) {
-		route.src = isock->route.src;
-		if (route.netdev != isock->route.netdev)
-			return E_NET_UNREACHABLE;
-	}
-
-	isock->route = route;
+		goto out;
 	socket->state = SOCKET_CONNECTED;
 
-exit_connect:
+out:
 	socket_unlock(socket);
 	return ret;
 }
 
+/*
+ *
+ */
 static ssize_t af_inet_raw_send_one(struct socket *socket, const struct iovec *iov, int flags)
 {
 	struct af_inet_sock *isock = socket->data;
-	struct packet *packet;
-	error_t error;
-
-	UNUSED(flags);
-
-	packet = ipv4_build_packet(&isock->route, isock->proto, iov->iov_base, iov->iov_len);
-	if (IS_ERR(packet))
-		return -ERR_FROM_PTR(packet);
-
-	error = packet_send(packet);
-
-	return error ? -error : iov->iov_len;
+	return inet_sock_send_one(&isock->isock, isock->proto, iov, flags);
 }
 
+/*
+ *
+ */
 static ssize_t af_inet_raw_sendmsg(struct socket *socket, const struct msghdr *msg, int flags)
 {
 	if (msg->msg_name) {
@@ -268,6 +327,9 @@ static ssize_t af_inet_raw_sendmsg(struct socket *socket, const struct msghdr *m
 	return socket_dgram_sendmsg(socket, msg, flags, af_inet_raw_send_one);
 }
 
+/*
+ *
+ */
 static error_t af_inet_raw_init(struct socket *socket)
 {
 	struct af_inet_sock *isock = NULL;
@@ -276,6 +338,7 @@ static error_t af_inet_raw_init(struct socket *socket)
 	if (isock == NULL)
 		return E_NOMEM;
 
+	inet_sock_init(&isock->isock);
 	isock->proto = socket->proto->proto;
 	isock->socket = socket;
 	socket->data = isock;
