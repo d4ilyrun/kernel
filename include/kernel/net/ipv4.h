@@ -97,8 +97,9 @@ error_t ipv4_receive_packet(struct packet *packet);
 /** Build an IP packet
  *  The L2/L3 headers are filled using the routing information.
  */
-struct packet *
-ipv4_build_packet(const struct net_route *, u8 protocol, const void *payload, size_t);
+struct packet *ipv4_build_packet(const struct net_route *route, u8 proto, const void *header,
+				 size_t header_size,			    /* L4 header */
+				 const void *payload, size_t payload_size); /* Payload */
 
 /** Helper to quickly generate an IPv4 address */
 static inline __be ipv4_t IPV4(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
@@ -124,6 +125,7 @@ error_t inet_sock_init(struct inet_sock *isock);
 error_t inet_sock_bind(struct inet_sock *isock, const struct sockaddr_in *sin);
 error_t inet_sock_connect(struct inet_sock *isock, const struct sockaddr_in *sin);
 ssize_t inet_sock_send_one(struct inet_sock *isock, __be u16 proto,
+			   const void *header, size_t header_size,
 			   const struct iovec *iov, int flags);
 
 #endif /* KERNEL_NET_IPV4_H */
