@@ -28,7 +28,6 @@ enum socket_state {
 
 /** A BSD socket */
 struct socket {
-	struct file *file;		     /*!< The socket's backing file */
 	const struct socket_domain *domain;  /*!< The socket's domain */
 	const struct socket_protocol *proto; /*!< Socket protocol type */
 	enum socket_state state;	     /*!< Socket connection state*/
