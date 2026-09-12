@@ -10,10 +10,12 @@
 #include <kernel/net/interface.h>
 #include <kernel/net/ipv4.h>
 #include <kernel/net/packet.h>
+#include <kernel/net/udp.h>
 #include <kernel/net/route.h>
 #include <kernel/socket.h>
 
 #include <utils/macro.h>
+#include <libalgo/hashtable.h>
 
 #include <string.h>
 
@@ -134,6 +136,8 @@ error_t ipv4_receive_packet(struct packet *packet)
 	switch (iphdr->protocol) {
 	case IPPROTO_ICMP:
 		return icmp_receive_packet(packet);
+	case IPPROTO_UDP:
+		return udp_receive_packet(packet);
 	default:
 		ret = E_NOT_SUPPORTED;
 		break;
@@ -201,6 +205,35 @@ release_packet:
 }
 
 /*
+ *
+ */
+int inet_sock_hash_compare(const void *entry_key, const void *key)
+{
+	const struct inet_sock *isock_entry = entry_key;
+	const struct inet_sock *isock = key;
+
+	if (isock->port != isock_entry->port)
+		return !COMPARE_EQ;
+
+	if (isock->addr == INADDR_ANY || isock_entry->addr == INADDR_ANY)
+		return COMPARE_EQ;
+	if (isock->addr == isock_entry->port)
+		return COMPARE_EQ;
+
+	return !COMPARE_EQ;
+}
+
+/*
+ *
+ */
+u32 inet_sock_hash(const void *key)
+{
+	const struct inet_sock *isock = key;
+
+	return hash32(isock->port << 16 | isock->port);
+}
+
+/*
  * Common codepath when binding an AF_INET socket to a local address.
  */
 error_t inet_sock_bind(struct inet_sock *isock, const struct sockaddr_in *sin)
@@ -216,6 +249,7 @@ error_t inet_sock_bind(struct inet_sock *isock, const struct sockaddr_in *sin)
 	}
 
 	isock->addr = sin->sin_addr.s_addr;
+	isock->port = sin->sin_port;
 
 	return E_SUCCESS;
 }
@@ -374,15 +408,25 @@ static const struct socket_protocol_ops af_inet_raw_ops = {
 };
 
 static const struct socket_protocol af_inet_protocols[] = {
-    {
-	.type = SOCK_DGRAM,
-	.proto = IPPROTO_ICMP,
-	.ops = &af_inet_icmp_ops,
-    },
-    {
-	.type = SOCK_RAW,
-	.ops = &af_inet_raw_ops,
-    },
+	{
+		/* default datagram protocol */
+		.type = SOCK_DGRAM,
+		.ops = &af_inet_udp_ops,
+	},
+	{
+		.type = SOCK_DGRAM,
+		.proto = IPPROTO_UDP,
+		.ops = &af_inet_udp_ops,
+	},
+	{
+		.type = SOCK_DGRAM,
+		.proto = IPPROTO_ICMP,
+		.ops = &af_inet_icmp_ops,
+	},
+	{
+		.type = SOCK_RAW,
+		.ops = &af_inet_raw_ops,
+	},
 };
 
 static error_t af_inet_socket_init(struct socket *socket, int type, int proto)

@@ -54,6 +54,17 @@ struct PACKED ALIGNED(sizeof(uint16_t)) ipv4_header {
 	__be ipv4_t daddr;
 };
 
+/*
+ * Pseudo IPv4 header prefixed to UDP and TCP packets during checksum computation.
+ */
+struct pseudo_ipv4_header {
+	__be u32 saddr;
+	__be u32 daddr;
+	u8 zero;
+	u8 proto;
+	__be u16 proto_len;
+};
+
 static_assert(sizeof(struct ipv4_header) == IPV4_MIN_LENGTH);
 
 #define IPV4_FRAG_MASK 0x1FFF
@@ -119,6 +130,7 @@ struct inet_sock {
 	struct net_route route;
 	/* local address (obtained via bind()) */
 	__be u32 addr;
+	__be u16 port;
 };
 
 error_t inet_sock_init(struct inet_sock *isock);
@@ -127,6 +139,10 @@ error_t inet_sock_connect(struct inet_sock *isock, const struct sockaddr_in *sin
 ssize_t inet_sock_send_one(struct inet_sock *isock, __be u16 proto,
 			   const void *header, size_t header_size,
 			   const struct iovec *iov, int flags);
+
+/* for storing sockets inside hashtables */
+u32 inet_sock_hash(const void *);
+int inet_sock_hash_compare(const void *, const void *);
 
 #endif /* KERNEL_NET_IPV4_H */
 

@@ -14,6 +14,10 @@ typedef uint32_t in_addr_t;
 #define INET_ADDRSTRLEN	 16
 #define INET6_ADDRSTRLEN 46
 
+#define INET_MIN_PORT 1
+#define INET_MAX_PRIVILEDGED_PORT 1023
+#define INET_MAX_PORT 65535
+
 struct in_addr {
 	in_addr_t s_addr;
 };
@@ -36,7 +40,8 @@ struct sockaddr_in6 {
 	uint32_t sin6_scope_id;	   // Set of interfaces for a scope.
 };
 
-#define IPPROTO_ICMP 1 /* Internet Control Message Protocol.  */
+#define IPPROTO_ICMP 1   /* Internet Control Message Protocol.  */
+#define IPPROTO_UDP  17  /* User Datagram Protocol.  */
 
 /* Address to accept any incoming messages.  */
 #define INADDR_ANY ((in_addr_t)0x00000000)
