@@ -52,7 +52,7 @@ static error_t icmp_handle_echo_request(struct packet *packet)
 	icmphdr->checksum = net_internet_checksum(packet_payload(packet),
 						  packet_payload_size(packet));
 
-	out_packet = ipv4_build_packet(&route, IPPROTO_ICMP, packet_payload(packet),
+	out_packet = ipv4_build_packet(&route, IPPROTO_ICMP, NULL, 0, packet_payload(packet),
 				       packet_payload_size(packet));
 	packet_free(packet);
 
@@ -94,6 +94,9 @@ error_t icmp_receive_packet(struct packet *packet)
 	struct icmp_header *icmphdr = packet_payload(packet);
 	error_t ret;
 
+	/* NOTE: ICMP is a special case amongst IP protocols: the ICMP header is part of the
+	 *       final payload (sent to and filled by the user). */
+	packet_set_l4_size(packet, 0);
 	if (net_internet_checksum(packet_payload(packet), packet_payload_size(packet))) {
 		log_warn("invalid checksum");
 		ret = E_INVAL;
@@ -167,7 +170,7 @@ static ssize_t af_inet_ping_send_one(struct socket *socket, const struct iovec *
 	icmphdr->icmp.checksum = 0;
 	icmphdr->icmp.checksum = net_internet_checksum(iov->iov_base, iov->iov_len);
 
-	return inet_sock_send_one(&isock->isock, socket->proto->proto, iov, flags);
+	return inet_sock_send_one(&isock->isock, socket->proto->proto, NULL, 0, iov, flags);
 }
 
 /*

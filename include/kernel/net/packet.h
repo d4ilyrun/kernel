@@ -33,6 +33,7 @@ struct ethernet_header;
 /* L3 headers */
 struct ipv4_header;
 struct arp_header;
+/* L4 headers */
 
 /** A network packet.
  *
@@ -69,7 +70,12 @@ struct packet {
 		struct arp_header *arp;
 	} l3;
 
-	/** Start of the packet's content (L4 and beyond) */
+	/** The packet's transport layer header */
+	union {
+		void *raw;
+	} l4;
+
+	/** Start of the packet's content (beyond L4) */
 	void *payload;
 
 	node_t rx_this; /*!< Used by socket to list received packets */
@@ -158,13 +164,25 @@ static inline void packet_mark_l3_start(struct packet *packet)
 	packet->l3.raw = packet_end(packet);
 }
 
-/** Set the start of the packet payload N bytes after the network layer */
+/** Set the start of the transport layter N bytes after the network layer */
 static inline void packet_set_l3_size(struct packet *packet, size_t size)
 {
-	packet->payload = packet->l3.raw + size;
+	packet->l4.raw = packet->l3.raw + size;
 }
 
-/** @return the sart of the packet's payload (L4) */
+/** Set the current end of the packet as the start of the transport layer */
+static inline void packet_mark_l4_start(struct packet *packet)
+{
+	packet->l4.raw = packet_end(packet);
+}
+
+/** Set the start of the packet payload N bytes after the transport layer */
+static inline void packet_set_l4_size(struct packet *packet, size_t size)
+{
+	packet->payload = packet->l4.raw + size;
+}
+
+/** @return the sart of the packet's payload (beyond L4) */
 static inline void *packet_payload(const struct packet *packet)
 {
 	return packet->payload;

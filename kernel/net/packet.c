@@ -43,6 +43,7 @@ struct packet *packet_clone(const struct packet *packet)
 
 	/* Recompute header offsets */
 	packet_set_l3_size(duplicate, packet->l3.raw - packet->l2.raw);
+	packet_set_l4_size(duplicate, packet->l4.raw - packet->l3.raw);
 	duplicate->payload = packet_start(duplicate) + packet_header_size(packet);
 
 	return duplicate;

@@ -144,14 +144,17 @@ invalid_packet:
 	return ret;
 }
 
-struct packet *
-ipv4_build_packet(const struct net_route *route, u8 proto, const void *payload, size_t size)
+struct packet *ipv4_build_packet(const struct net_route *route, u8 proto, const void *header,
+				 size_t header_size, const void *payload, size_t payload_size)
 {
 	struct packet *packet;
 	struct ipv4_header iphdr;
 	error_t ret;
 
-	packet = packet_new(size + sizeof(struct ipv4_header) + sizeof(struct ethernet_header));
+	packet = packet_new(payload_size +
+			    header_size +
+			    sizeof(struct ipv4_header) +
+			    sizeof(struct ethernet_header));
 	if (IS_ERR(packet)) {
 		log_err("failed to allocate packet: %pE", packet);
 		return packet;
@@ -163,7 +166,7 @@ ipv4_build_packet(const struct net_route *route, u8 proto, const void *payload, 
 	iphdr.saddr = route->src.ip.sin_addr.s_addr;
 	iphdr.daddr = route->dst.ip.sin_addr.s_addr;
 	iphdr.protocol = proto;
-	iphdr.tot_len = ntohs(size + sizeof(struct ipv4_header));
+	iphdr.tot_len = ntohs(payload_size + header_size + sizeof(struct ipv4_header));
 	iphdr.version = IPV4_VERSION;
 	iphdr.ihl = IPV4_MIN_LENGTH / sizeof(uint32_t);
 	iphdr.ttl = IPV4_DEFAULT_TTL;
@@ -180,7 +183,13 @@ ipv4_build_packet(const struct net_route *route, u8 proto, const void *payload, 
 	packet_put(packet, &iphdr, sizeof(iphdr));
 	packet_set_l3_size(packet, ipv4_header_size(&iphdr));
 
-	ret = packet_put(packet, payload, size);
+	/* i.e. raw sockets, icmp */
+	if (header_size)
+		packet_put(packet, header, header_size);
+	packet_set_l4_size(packet, header_size);
+
+	/* insert packet payload */
+	ret = packet_put(packet, payload, payload_size);
 	if (ret)
 		goto release_packet;
 
@@ -231,12 +240,14 @@ error_t inet_sock_connect(struct inet_sock *isock, const struct sockaddr_in *sin
  *
  */
 ssize_t inet_sock_send_one(struct inet_sock *isock, __be u16 proto,
-			    const struct iovec *iov, int flags)
+			   const void *header, size_t header_size,
+			   const struct iovec *iov, int flags)
 {
 	struct packet *packet;
 	error_t err;
 
-	packet = ipv4_build_packet(&isock->route, proto, iov->iov_base, iov->iov_len);
+	packet = ipv4_build_packet(&isock->route, proto, header, header_size, iov->iov_base,
+				   iov->iov_len);
 	if (IS_ERR(packet))
 		return -ERR_FROM_PTR(packet);
 
@@ -299,7 +310,7 @@ out:
 static ssize_t af_inet_raw_send_one(struct socket *socket, const struct iovec *iov, int flags)
 {
 	struct af_inet_sock *isock = socket->data;
-	return inet_sock_send_one(&isock->isock, isock->proto, iov, flags);
+	return inet_sock_send_one(&isock->isock, isock->proto, NULL, 0, iov, flags);
 }
 
 /*
