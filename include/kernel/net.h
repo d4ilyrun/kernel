@@ -71,6 +71,7 @@ struct sockaddr_mac {
  * @see RFC1071 - 4.1
  */
 u16 net_internet_checksum(const u16 *addr, size_t size);
+u16 net_internet_checksum_vec(const struct iovec *iov, size_t iov_len);
 
 #endif /* KERNEL_NET_H */
 
