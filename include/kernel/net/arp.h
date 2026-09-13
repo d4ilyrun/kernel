@@ -63,17 +63,27 @@ static inline size_t arp_header_size(struct arp_header *hdr)
  */
 error_t arp_add(__be ipv4_t, mac_address_t);
 
-/** Retreive the MAC address associated with an IPv4 address.
+/** Find the MAC address associated with an IPv4 address.
+ *
  *  @param ip The IP address (in **network** order)
  *  @return The MAC address, or NULL if the IP isn't inside the table
  */
 const mac_address_t *arp_get(__be ipv4_t);
 
+/** Find the MAC address associated with an IPv4 address.
+ *
+ *  An ARP request is sent to the network if no match was found inside
+ *  the local ARP table. This function must not be called with interrupts
+ *  disabled.
+ *
+ *  @param ip The IP address (in **network** order)
+ *
+ *  @return The MAC address, or NULL if the IP isn't inside the table
+ */
+const mac_address_t *arp_request(__be ipv4_t);
+
 /** Handle a received ARP packet */
 error_t arp_receive_packet(struct packet *);
-
-/** Send an ARP request/reply */
-error_t arp_send_packet(struct arp_header *);
 
 #endif /* KERNEL_NET_ARP_H */
 
