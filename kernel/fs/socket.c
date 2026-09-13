@@ -142,7 +142,7 @@ static error_t socket_connect(struct file *file, const struct sockaddr *addr, so
 		return E_NOT_SOCKET;
 
 	if (addr->sa_family == AF_UNSPEC) {
-		socket->state = SOCKET_DISCONNECTED;
+		socket->state &= ~SOCKET_CONNECTED;
 		return E_SUCCESS;
 	}
 
@@ -175,10 +175,10 @@ static ssize_t socket_sendmsg(struct file *file, const struct msghdr *msg, int f
 
 	// In connection-mode, specified address is ignored
 	if (socket_mode_is_connection(socket->proto->type)) {
-		if (socket->state != SOCKET_CONNECTED)
+		if (!socket_is_connected(socket))
 			return -E_NOT_CONNECTED;
 	} else {
-		if (socket->state != SOCKET_CONNECTED) {
+		if (!socket_is_connected(socket)) {
 			if (!msg->msg_name)
 				return -E_DEST_ADDR_REQUIRED;
 
@@ -204,10 +204,8 @@ static ssize_t socket_recvmsg(struct file *file, struct msghdr *msg, int flags)
 	if (msg->msg_iovlen <= 0 || msg->msg_iovlen > IOV_MAX)
 		return -E_MSG_SIZE;
 
-	if (socket_mode_is_connection(socket->proto->type)) {
-		if (socket->state != SOCKET_CONNECTED)
-			return -E_NOT_CONNECTED;
-	}
+	if (socket_mode_is_connection(socket->proto->type) && !socket_is_connected(socket))
+		return -E_NOT_CONNECTED;
 
 	return socket->proto->ops->recvmsg(socket, msg, flags);
 }
