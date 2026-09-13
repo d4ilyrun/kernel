@@ -9,7 +9,7 @@
 #include <libalgo/linked_list.h>
 #include <utils/bits.h>
 
-static DECLARE_LLIST(registered_net_interfaces);
+DECLARE_LLIST(registered_net_interfaces);
 
 struct net_interface *net_interface_new(struct ethernet_device *netdev, const char *name)
 {

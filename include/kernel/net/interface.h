@@ -51,6 +51,8 @@ struct subnet {
 	uint8_t cidr;			 /** subnet mask prefix length */
 };
 
+extern llist_t registered_net_interfaces;
+
 /** Create a new network interface */
 struct net_interface *net_interface_new(struct ethernet_device *, const char *);
 

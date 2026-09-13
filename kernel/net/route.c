@@ -14,9 +14,11 @@ error_t net_route_compute(struct net_route *route, const struct sockaddr_in *dst
 		return E_NET_UNREACHABLE;
 
 	daddr_mac = arp_get(dst->sin_addr.s_addr);
-	if (daddr_mac == NULL)
-		/* TODO: ARP request */
-		return E_NET_UNREACHABLE;
+	if (!daddr_mac) {
+		daddr_mac = arp_request(dst->sin_addr.s_addr);
+		if (!daddr_mac)
+			return E_NET_UNREACHABLE;
+	}
 
 	route->netdev = subnet->interface->netdev;
 

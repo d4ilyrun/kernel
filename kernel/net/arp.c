@@ -1,6 +1,7 @@
 #define LOG_DOMAIN "arp"
 
 #include <kernel/devices/ethernet.h>
+#include <kernel/net/interface.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/net.h>
@@ -8,6 +9,7 @@
 #include <kernel/net/arp.h>
 #include <kernel/net/packet.h>
 #include <kernel/spinlock.h>
+#include <kernel/waitqueue.h>
 
 #include <libalgo/hashtable.h>
 #include <utils/container_of.h>
@@ -25,6 +27,8 @@ struct arp_entry {
 	__be ipv4_t prot_addr;
 	mac_address_t hw_addr;
 	struct hashtable_entry hash;
+	bool active;
+	struct waitqueue waiters;
 };
 
 /** The ARP table.
@@ -55,6 +59,42 @@ static int arp_hash_compare(const void *left_key, const void *right_key)
 }
 
 /*
+ * Allocate and initialize a new ARP table entry.
+ */
+static struct arp_entry *arp_entry_new(__be ipv4_t ip)
+{
+	struct arp_entry *entry;
+
+	entry = kmalloc(sizeof(struct arp_header), KMALLOC_KERNEL);
+	if (entry == NULL) {
+		log_err("failed to allocate ARP table entry");
+		return NULL;
+	}
+
+	entry->active = false;
+	entry->prot_addr = ip;
+	entry->hash.key = &entry->prot_addr;
+	INIT_WAITQUEUE(entry->waiters);
+
+	return entry;
+}
+
+/*
+ * Free an ARP table entry.
+ */
+static void arp_entry_destroy(struct arp_entry *entry)
+{
+	locked_scope(&arp_table_lock) {
+		entry->active = false;
+		hashtable_remove(&arp_table, &entry->hash);
+	}
+
+	waitqueue_dequeue_all(&entry->waiters);
+
+	kfree(entry);
+}
+
+/*
  * Find an entry inside the ARP table while holding @arp_table_lock.
  */
 static struct arp_entry *arp_get_entry_locked(__be ipv4_t ip)
@@ -81,7 +121,7 @@ static struct arp_entry *arp_get_entry(__be ipv4_t ip)
 }
 
 /*
- * Find the hardware address associated with a given IP.
+ * Find the hardware address associated with a given IP from the local ARP table.
  */
 const mac_address_t *arp_get(__be ipv4_t ip)
 {
@@ -91,6 +131,9 @@ const mac_address_t *arp_get(__be ipv4_t ip)
 	spinlock_acquire(&arp_table_lock);
 	entry = arp_get_entry_locked(ip);
 	if (entry == NULL)
+		goto out;
+
+	if (!entry->active)
 		goto out;
 
 	mac = &entry->hw_addr;
@@ -112,9 +155,7 @@ error_t arp_add(__be ipv4_t ip, mac_address_t mac)
 	if (entry == NULL) {
 
 		spinlock_release(&arp_table_lock);
-		entry = kmalloc(sizeof(struct arp_header), KMALLOC_KERNEL);
-		if (entry == NULL)
-			return E_NOMEM;
+		entry = arp_entry_new(ip);
 
 		/*
 		 * If the same entry was added since calling arp_get() use this
@@ -124,19 +165,22 @@ error_t arp_add(__be ipv4_t ip, mac_address_t mac)
 		spinlock_acquire(&arp_table_lock);
 		duplicate = arp_get_entry_locked(ip);
 		if (!duplicate) {
-			entry->prot_addr = ip;
-			entry->hash.key = &ip;
 			hashtable_insert(&arp_table, &entry->hash);
 			log_dbg(FMT_IP " -> " FMT_MAC, LOG_IP(ip), LOG_MAC_ARG(mac));
 		} else
 			SWAP(entry, duplicate);
 	}
 
-	memcpy(entry->hw_addr, mac, sizeof(mac_address_t));
+	if (!entry->active) {
+		entry->active = true;
+		memcpy(entry->hw_addr, mac, sizeof(mac_address_t));
+		waitqueue_dequeue_all(&entry->waiters);
+	}
+
 	spinlock_release(&arp_table_lock);
 
 	if (duplicate)
-		kfree(duplicate);
+		arp_entry_destroy(duplicate);
 
 	return E_SUCCESS;
 }
@@ -144,24 +188,102 @@ error_t arp_add(__be ipv4_t ip, mac_address_t mac)
 /*
  * Send an ARP packet.
  */
-error_t arp_send_packet(struct arp_header *arp)
+static error_t arp_send_packet(struct ethernet_device *netdev,
+			       struct arp_header *arp,
+			       mac_address_t dst_mac)
 {
-	struct packet *packet = packet_new(ARP_PACKET_SIZE);
-	struct ethernet_device *netdev;
+	struct packet *packet;
 
+	packet = packet_new(ARP_PACKET_SIZE);
 	if (IS_ERR(packet))
 		return ERR_FROM_PTR(packet);
 
-	netdev = ethernet_device_find_by_mac(arp->src_mac);
-	if (IS_ERR(netdev))
-		return ERR_FROM_PTR(netdev);
 	packet->netdev = netdev;
-
-	ethernet_fill_packet(packet, ETH_PROTO_ARP, arp->dst_mac);
+	ethernet_fill_packet(packet, ETH_PROTO_ARP, dst_mac);
 	packet_mark_l3_start(packet);
 	packet_put(packet, arp, sizeof(*arp));
 
 	return packet_send(packet);
+}
+
+/*
+ * Broadcast an ARP request to all network interfaces.
+ */
+static void arp_broadcast_request(__be ipv4_t ip)
+{
+	struct net_interface *iface;
+	mac_address_t bcast_mac;
+	struct arp_header arp = {
+		.hw_type = htons(ARP_HW_ETHERNET),
+		.prot_type = htons(ETH_PROTO_IP),
+		.hw_length = sizeof(mac_address_t),
+		.prot_length = sizeof(ipv4_t),
+		.operation = htons(ARP_REQUEST),
+		.dst_ip = ip,
+	};
+
+	memset(bcast_mac, 0xff, sizeof(bcast_mac));
+
+	/* TODO: lock registered_net_interfaces !!! */
+	FOREACH_LLIST_ENTRY(iface, &registered_net_interfaces, this) {
+		struct subnet *subnet;
+
+		if (llist_is_empty(&iface->subnets))
+		    continue;
+
+		subnet = llist_first_entry(&iface->subnets, struct subnet, this);
+		memcpy(arp.src_mac, iface->netdev->mac, sizeof(arp.src_mac));
+		arp.src_ip = subnet->ip;
+		arp_send_packet(iface->netdev, &arp, bcast_mac);
+	}
+}
+
+/*
+ * Find the hardware address associated with an IP.
+ *
+ * An ARP request is sent to the network if the address is not present
+ * inside the local ARP table.
+ */
+const mac_address_t *arp_request(__be ipv4_t ip)
+{
+	mac_address_t *mac = NULL;
+	struct arp_entry *entry;
+	bool new_entry = false;
+
+	/* necessary to allocate memory */
+	ASSERT(interrupts_enabled());
+
+	spinlock_acquire(&arp_table_lock);
+	entry = arp_get_entry_locked(ip);
+	if (!entry) {
+		new_entry = true;
+		entry = arp_entry_new(ip);
+		if (!entry) {
+			spinlock_release(&arp_table_lock);
+			return NULL;
+		}
+		hashtable_insert(&arp_table, &entry->hash); /* insert inactive entry */
+	}
+
+	if (entry->active) {
+		mac = &entry->hw_addr;
+		spinlock_release(&arp_table_lock);
+		return mac;
+	}
+
+	/* TODO: ARP retry + request timeout */
+	spinlock_release(&arp_table_lock);
+	waitqueue_lock(&entry->waiters);
+	if (new_entry)
+		arp_broadcast_request(ip);
+	waitqueue_enqueue_locked(&entry->waiters, current);
+
+	/* must re-fetch in case waiters were woken up by arp_destroy(). */
+	entry = arp_get_entry(ip);
+	if (!entry)
+		return NULL;
+
+	return &entry->hw_addr;
 }
 
 /*
@@ -186,9 +308,16 @@ error_t arp_receive_packet(struct packet *packet)
 
 	switch (ntoh(arp->operation)) {
 	case ARP_REPLY:
-		return arp_add(arp->dst_ip, arp->dst_mac);
+		log_dbg("Reply " FMT_MAC " has " FMT_IP,
+			LOG_MAC_ARG(arp->src_mac),
+			LOG_IP(arp->src_ip));
+		return arp_add(arp->src_ip, arp->src_mac);
 
 	case ARP_REQUEST:
+		log_dbg("Request who has " FMT_IP "? tell " FMT_IP " (" FMT_MAC ")",
+			LOG_IP(arp->dst_ip),
+			LOG_IP(arp->src_ip),
+			LOG_MAC_ARG(arp->src_mac));
 		arp_add(arp->src_ip, arp->src_mac);
 
 		reply_mac = arp_get(arp->dst_ip);
@@ -204,7 +333,7 @@ error_t arp_receive_packet(struct packet *packet)
 		memcpy(reply.dst_mac, arp->src_mac, sizeof(mac_address_t));
 		memcpy(reply.src_mac, *reply_mac, sizeof(mac_address_t));
 
-		return arp_send_packet(&reply);
+		return arp_send_packet(packet->netdev, &reply, reply.dst_mac);
 	}
 
 	log_warn("Received invalid ARP operation: " FMT16, ntoh(arp->operation));
