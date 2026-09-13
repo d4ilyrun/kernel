@@ -89,6 +89,8 @@ static void socket_close(struct file *file)
 {
 	struct socket *socket = file->priv;
 
+	socket_lock(socket);
+
 	/*
 	 * Discard all previously received packets.
 	 */
@@ -106,6 +108,8 @@ static void socket_close(struct file *file)
 	 */
 	if (socket->proto->ops->close)
 		socket->proto->ops->close(socket);
+
+	socket_unlock(socket);
 }
 
 /*
@@ -123,7 +127,10 @@ static error_t socket_bind(struct file *file, const struct sockaddr *addr, sockl
 	if (err)
 		return -err;
 
-	return socket->proto->ops->bind(socket, addr, addr_len);
+	socket_lock(socket);
+	err = socket->proto->ops->bind(socket, addr, addr_len);
+	socket_unlock(socket);
+	return err;
 }
 
 static error_t socket_connect(struct file *file, const struct sockaddr *addr, socklen_t addr_len)
@@ -143,7 +150,10 @@ static error_t socket_connect(struct file *file, const struct sockaddr *addr, so
 	if (err)
 		return -err;
 
-	return socket->proto->ops->connect(socket, addr, addr_len);
+	socket_lock(socket);
+	err = socket->proto->ops->connect(socket, addr, addr_len);
+	socket_unlock(socket);
+	return err;
 }
 
 /*
