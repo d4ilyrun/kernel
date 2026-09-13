@@ -113,7 +113,7 @@ af_unix_connect(struct socket *socket, const struct sockaddr *addr, socklen_t ad
 
 	socket_lock(socket);
 	usock->peer = peer;
-	usock->socket->state = SOCKET_CONNECTED;
+	usock->socket->state |= SOCKET_CONNECTED;
 	socket_unlock(socket);
 
 	return E_SUCCESS;

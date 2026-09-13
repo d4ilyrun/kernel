@@ -268,8 +268,15 @@ static error_t
 af_inet_raw_bind(struct socket *socket, const struct sockaddr *sockaddr, socklen_t len)
 {
 	struct af_inet_sock *isock = socket->data;
+	error_t err;
 
-	return inet_sock_bind(&isock->isock, (const struct sockaddr_in *)sockaddr);
+	err = inet_sock_bind(&isock->isock, (const struct sockaddr_in *)sockaddr);
+	if (err)
+		return err;
+
+	socket->state |= SOCKET_BOUND;
+
+	return E_SUCCESS;
 }
 
 /*
@@ -286,7 +293,7 @@ af_inet_raw_connect(struct socket *socket, const struct sockaddr *sockaddr, sock
 	if (ret)
 		return ret;
 
-	socket->state = SOCKET_CONNECTED;
+	socket->state |= SOCKET_CONNECTED;
 
 	return E_SUCCESS;
 }

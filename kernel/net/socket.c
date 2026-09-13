@@ -32,7 +32,7 @@ error_t socket_init(struct socket *socket, int domain, int type, int proto)
 		return E_AF_NOT_SUPPORTED;
 
 	socket->domain = container_of(node, struct socket_domain, this);
-	socket->state = SOCKET_DISCONNECTED;
+	socket->state = 0;
 
 	INIT_QUEUE(socket->rx_packets);
 	INIT_SPINLOCK(socket->rx_lock);

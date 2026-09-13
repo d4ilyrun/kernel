@@ -22,15 +22,15 @@ struct packet;
 
 /** Socket connection state */
 enum socket_state {
-	SOCKET_DISCONNECTED, /*!< Connected to a partner */
-	SOCKET_CONNECTED,    /*!< Not connected to a remote partner */
+	SOCKET_CONNECTED = BIT(0), /*!< Is connected to a remote partner */
+	SOCKET_BOUND = BIT(1),	   /*!< Is bound to a local address */
 };
 
 /** A BSD socket */
 struct socket {
 	const struct socket_domain *domain;  /*!< The socket's domain */
 	const struct socket_protocol *proto; /*!< Socket protocol type */
-	enum socket_state state;	     /*!< Socket connection state*/
+	unsigned int state;		     /*!< Socket connection state flags */
 	spinlock_t lock;		     /*!< Socket wide synchronisation lock */
 	void *data;			     /*!< Domain-specific socket data */
 
@@ -43,6 +43,16 @@ struct socket {
 static inline bool socket_mode_is_connection(socket_type_t socket_type)
 {
 	return socket_type == SOCK_STREAM;
+}
+
+static inline bool socket_is_connected(const struct socket *socket)
+{
+	return socket->state & SOCKET_CONNECTED;
+}
+
+static inline bool socket_is_bound(const struct socket *socket)
+{
+	return socket->state & SOCKET_BOUND;
 }
 
 /** */
