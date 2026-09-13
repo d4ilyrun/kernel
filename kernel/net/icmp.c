@@ -115,38 +115,38 @@ invalid_packet:
 	return ret;
 }
 
+/*
+ * Set socket local address.
+ *
+ * Called under socket_lock().
+ */
 static error_t
 af_inet_ping_bind(struct socket *socket, const struct sockaddr *sockaddr, socklen_t len)
 {
-	struct icmp_sock *isock;
-	error_t ret;
+	struct icmp_sock *isock = socket->data;
 
-	socket_lock(socket);
-	isock = socket->data;
-	ret = inet_sock_bind(&isock->isock, (const struct sockaddr_in *)sockaddr);
-	socket_unlock(socket);
-
-	return ret;
+	return inet_sock_bind(&isock->isock, (const struct sockaddr_in *)sockaddr);
 }
 
+/*
+ * Set peer address.
+ *
+ * Called under socket_lock().
+ */
 static error_t
 af_inet_ping_connect(struct socket *socket, const struct sockaddr *sockaddr, socklen_t len)
 {
-	struct icmp_sock *isock;
+	struct icmp_sock *isock = socket->data;
 	struct sockaddr_in *dst = (struct sockaddr_in *)sockaddr;
 	error_t ret;
 
-	socket_lock(socket);
-	isock = socket->data;
-
 	ret = inet_sock_connect(&isock->isock, dst);
 	if (ret)
-		goto out;
+		return ret;
+
 	socket->state = SOCKET_CONNECTED;
 
-out:
-	socket_unlock(socket);
-	return ret;
+	return E_SUCCESS;
 }
 
 /*
