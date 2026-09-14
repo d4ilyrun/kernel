@@ -297,16 +297,16 @@ fail:
 int sys_connect(int fd, const struct sockaddr *addr, socklen_t addr_len)
 {
 	struct fd *fdp;
-	ssize_t count;
+	error_t err;
 
 	fdp = process_fd_get(current->process, fd);
 	if (!fdp)
 		return -E_BAD_FD;
 
-	count = socket_connect(fdp->file, addr, addr_len);
+	err = socket_connect(fdp->file, addr, addr_len);
 	process_fd_put(current->process, fdp);
 
-	return count;
+	return -err;
 }
 
 /*
@@ -315,16 +315,16 @@ int sys_connect(int fd, const struct sockaddr *addr, socklen_t addr_len)
 int sys_bind(int fd, const struct sockaddr *addr, socklen_t addr_len)
 {
 	struct fd *fdp;
-	ssize_t count;
+	error_t err;
 
 	fdp = process_fd_get(current->process, fd);
 	if (!fdp)
 		return -E_BAD_FD;
 
-	count = socket_bind(fdp->file, addr, addr_len);
+	err = socket_bind(fdp->file, addr, addr_len);
 	process_fd_put(current->process, fdp);
 
-	return count;
+	return -err;
 }
 
 /*
