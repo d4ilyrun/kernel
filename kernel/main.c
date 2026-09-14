@@ -204,7 +204,7 @@ void kernel_main(struct multiboot_info *mbt, unsigned int magic)
 			};
 
 			framebuffer_register(t->framebuffer_addr, &fb_params);
-			console_set_active("fb0");
+			// console_set_active("fb0");
 		}
 	}
 

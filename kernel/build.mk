@@ -151,7 +151,7 @@ endif
 qemu: $(ISO)
 	$(call LOG,QEMU,$^)
 	$(call ASSERT_EXE_EXISTS,$(QEMU))
-	$(SILENT)$(QEMU) -cdrom $(ISO) -serial stdio $(QEMU_ARGS)
+	$(SILENT)$(QEMU) -cdrom $(ISO) -nographic $(QEMU_ARGS)
 
 qemu-server: $(ISO)
 	$(call LOG,QEMU,$^)
