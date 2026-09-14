@@ -460,9 +460,6 @@ static void fd_init(struct fd *fdp, struct file *file, int flags)
  */
 void __fd_put(struct fd *fd)
 {
-	log_dbg("fd_put(%p)", fd);
-	stack_trace();
-
 	file_put(fd->file);
 	fd_free(fd);
 }
