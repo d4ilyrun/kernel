@@ -48,7 +48,7 @@ struct ethernet_operations {
  * after the ethernet_device structure.
  */
 struct ethernet_device {
-	struct device device;		 /** The underlying generic device */
+	struct device *device;		 /** The underlying generic device */
 	struct ethernet_operations *ops; /** The ethernet operation vtable */
 	mac_address_t mac;		 /** The device's mac address */
 
@@ -95,13 +95,13 @@ static inline void *ethernet_device_priv(struct ethernet_device *dev)
 /** Set the name of the device */
 static inline void ethernet_device_set_name(struct ethernet_device *dev, const char *name)
 {
-	device_set_name(&dev->device, "%s", name);
+	device_set_name(dev->device, "%s", name);
 }
 
 /** @return The name of the device */
 static inline const char *ethernet_device_name(struct ethernet_device *dev)
 {
-	return device_name(&dev->device);
+	return device_name(dev->device);
 }
 
 /** Process a packet received by an ethernet network device */

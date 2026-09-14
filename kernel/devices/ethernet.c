@@ -45,7 +45,7 @@ error_t ethernet_device_register(struct ethernet_device *device)
 	struct worker *worker;
 	error_t ret;
 
-	device_set_name(&device->device, "eth%u", atomic_inc(&ethernet_device_index));
+	device_set_name(device->device, "eth%u", atomic_inc(&ethernet_device_index));
 
 	worker = kcalloc(1, sizeof(*worker), KMALLOC_KERNEL);
 	if (worker == NULL)
@@ -74,9 +74,10 @@ error_t ethernet_device_register(struct ethernet_device *device)
 	spinlock_acquire(&ethernet_devices_lock);
 	llist_add(&ethernet_devices, &device->this);
 	spinlock_release(&ethernet_devices_lock);
-	device_register(&device->device);
 
 	log_info("registered new device: %s", ethernet_device_name(device));
+	log_info(" * mac: " FMT_MAC, LOG_MAC_ARG(device->mac));
+	log_info(" * mtu: %zu", device->mtu);
 
 	return E_SUCCESS;
 

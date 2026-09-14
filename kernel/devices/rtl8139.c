@@ -308,6 +308,7 @@ static error_t rtl8139_probe(struct device *dev)
 		return ERR_FROM_PTR(eth_dev);
 
 	eth_dev->mtu = RTL8139_MTU;
+	eth_dev->device = dev;
 
 	rtl8139 = ethernet_device_priv(eth_dev);
 	if (rtl8139 == NULL)
@@ -370,11 +371,11 @@ static error_t rtl8139_probe(struct device *dev)
 			       mmu_find_physical((vaddr_t)tx));
 	}
 
-	ret = pci_device_install_interrupt_handler(pdev, rtl8139_interrupt_handler, rtl8139);
+	ret = ethernet_device_register(eth_dev);
 	if (ret)
 		goto probe_failed;
 
-	ret = ethernet_device_register(eth_dev);
+	ret = pci_device_install_interrupt_handler(pdev, rtl8139_interrupt_handler, rtl8139);
 	if (ret)
 		goto probe_failed;
 
