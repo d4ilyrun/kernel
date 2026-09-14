@@ -17,8 +17,9 @@ void waitqueue_enqueue_locked(struct waitqueue *queue, struct thread *thread)
 {
 	/*
 	 * We MUST prevent rescheduling while performing this switch.
-	 * In the case where we are queueing the current thread, if the schedule()
-	 * event happens once the thread has been marked as waiting but before
+	 *
+	 * When queueing the current thread, if the schedule() event were to
+	 * happen once the thread has been marked as waiting but before
 	 * it has been enqueued, the thread will never be rescheduled again and
 	 * it will be forever lost.
 	 */
@@ -68,21 +69,22 @@ struct thread *waitqueue_dequeue(struct waitqueue *queue)
 
 size_t waitqueue_dequeue_all(struct waitqueue *queue)
 {
-	const bool old_if = scheduler_preempt_disable();
 	struct thread *thread = NULL;
 	size_t count = 0;
 	node_t *node;
 
 	locked_scope (&queue->lock) {
+		bool old_if;
+
+		old_if = scheduler_preempt_disable();
 		while (!queue_is_empty(&queue->queue)) {
 			node = queue_dequeue(&queue->queue);
 			thread = container_of(node, struct thread, this_sched);
 			sched_new_thread(thread);
 			count += 1;
 		}
+		scheduler_preempt_enable(old_if);
 	}
-
-	scheduler_preempt_enable(old_if);
 
 	return count;
 }
