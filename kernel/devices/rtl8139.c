@@ -239,7 +239,7 @@ static interrupt_return_t rtl8139_interrupt_handler(void *data)
 	struct rtl8139 *rtl8139 = data;
 	uint16_t isr = rtl8139_readw(rtl8139, INTERRUPT_STATUS);
 
-	isr &= ~RTL8139_SUPPORTED_INTERRUPTS;
+	isr &= RTL8139_SUPPORTED_INTERRUPTS;
 	if (isr == 0)
 		return INTERRUPT_IGNORED; /* not for us. */
 
