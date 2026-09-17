@@ -143,14 +143,14 @@ static inline const char *device_name(const struct device *dev)
 	static MAYBE_UNUSED inline _type _pfx##_read##_type_pfx(_device_type *device,        \
 								_offset_type offset)         \
 	{                                                                                    \
-		return *(_type *)(device->_device_reg_field + offset);                       \
+		return *(volatile _type *)(device->_device_reg_field + offset);              \
 	}
 
 #define __device_write(_type, _type_pfx, _pfx, _device_type, _device_reg_field, _offset_type)   \
 	static MAYBE_UNUSED inline void _pfx##_write##_type_pfx(_device_type *device,           \
 								_offset_type offset, _type val) \
 	{                                                                                       \
-		*(_type *)(device->_device_reg_field + offset) = val;                           \
+		*(volatile _type *)(device->_device_reg_field + offset) = val;                  \
 	}
 
 /** @} */
