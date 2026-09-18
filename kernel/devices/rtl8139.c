@@ -10,6 +10,7 @@
 #include <kernel/net/interface.h>
 #include <kernel/net/ipv4.h>
 #include <kernel/net/packet.h>
+#include <kernel/spinlock.h>
 
 #include <utils/bits.h>
 #include <utils/macro.h>
@@ -21,16 +22,31 @@
 #define RTL8139_RX_BUFFER_SIZE	    8192
 #define RTL8139_MTU		    1500
 
+struct rtl8139_txq_desc {
+	struct packet *packet;
+	u16 status_reg;
+	void *buffer;
+};
+
+struct rtl8139_txq {
+	struct rtl8139_txq_desc descs[RTL8139_TX_DESCRIPTOR_COUNT];
+	unsigned int desc_count;
+	unsigned int desc_wr_index;
+	unsigned int desc_rd_index;
+	unsigned int desc_free_count;
+	spinlock_t lock;
+};
+
 struct rtl8139 {
 	void *registers;
 	struct ethernet_device *netdev;
 	struct pci_device *pci;
-	void *tx_descriptors[RTL8139_TX_DESCRIPTOR_COUNT];
-	unsigned int tx_current_decriptor : 2;
+	struct rtl8139_txq txq;
 	void *rx_buffer;
 	size_t rx_buffer_size;
 	uint16_t rx_packet_offset;
 };
+
 
 /* 5.7 - Hardware revision ID */
 enum rtl8139_revision {
@@ -74,12 +90,10 @@ enum rtl8139_register {
 	TSD1 = 0x14,
 	TSD2 = 0x18,
 	TSD3 = 0x1C,
-	TX_STATUS_DESCRIPTOR = TSD0, /** TX buffers status */
 	TSAD0 = 0x20,
 	TSAD1 = 0x24,
 	TSAD2 = 0x28,
 	TSAD3 = 0x2C,
-	TX_START_ADDRESS = TSAD0, /** Physical start address of TX buffers */
 	RX_BUFFER_START = 0x30,
 	COMMAND = 0x37,
 	CURRENT_PACKET_READ = 0x38,
@@ -96,6 +110,7 @@ enum rtl8139_register {
 #define RTL8139_COMMAND_TX_ENABLE		BIT(3)
 #define RTL8139_COMMAND_RESET			BIT(4)
 #define RTL8139_TX_STATUS_OWN			BIT(13)
+#define RTL8139_TX_STATUS_TOK			BIT(15)
 #define RTL8139_RECEIVE_CFG_NO_WRAP		BIT(7)
 #define RTL8139_RECEIVE_CFG_PHYSICAL		BIT(1)
 #define RTL8139_RECEIVE_CFG_MULTICAST_OFFSET	2
@@ -114,7 +129,7 @@ enum rtl8139_interrupt_source {
 	INT_SYSTEM_ERR = BIT(15),
 };
 
-#define RTL8139_SUPPORTED_INTERRUPTS (INT_RX_OK | INT_TX_OK)
+#define RTL8139_SUPPORTED_INTERRUPTS (INT_RX_OK | INT_RX_ERR)
 
 #define RTL8139_REGISTERS_SIZE 256
 #define RTL8139_PCI_BAR_IO     0
@@ -128,16 +143,32 @@ struct PACKED rtl8139_rx_packet {
 
 generate_device_rw_functions(rtl8139, struct rtl8139, registers, enum rtl8139_register);
 
+/*
+ *
+ */
 static void rtl8139_soft_reset(struct rtl8139 *rtl8139)
 {
 	rtl8139_writeb(rtl8139, COMMAND, RTL8139_COMMAND_RESET);
 	WAIT_FOR(!(rtl8139_readb(rtl8139, COMMAND) & RTL8139_COMMAND_RESET));
 
-	rtl8139->tx_current_decriptor = 0;
-	rtl8139->rx_packet_offset = 0;
+	/*
+	 * Reinitializes the FIFOs, and set buffer pointers to their original values (0).
+	 */
 
-	kfree_dma(rtl8139->rx_buffer);
-	rtl8139->rx_buffer = NULL;
+	locked_scope(&rtl8139->txq.lock) {
+		for (unsigned int i = 0; i < rtl8139->txq.desc_count; ++i) {
+			struct rtl8139_txq_desc *desc = &rtl8139->txq.descs[i];
+			if (desc->packet)
+				packet_free(desc->packet);
+			desc->packet = NULL;
+		}
+
+		rtl8139->txq.desc_wr_index = 0;
+		rtl8139->txq.desc_rd_index = 0;
+		rtl8139->txq.desc_free_count = rtl8139->txq.desc_count;
+	}
+
+	rtl8139->rx_packet_offset = 0;
 }
 
 static void rtl8139_enable_transfer(struct rtl8139 *rtl8139, bool enable)
@@ -169,31 +200,78 @@ static void rtl8139_get_mac(struct ethernet_device *device, mac_address_t mac)
 	ethernet_fill_mac(mac, mac_raw);
 }
 
-static error_t rtl8139_send_packet_to_descriptor(struct rtl8139 *rtl8139, unsigned int descriptor,
-						 struct packet *packet)
+/*
+ * Free all packets that have been sent to the wire, and update software TXQ.
+ */
+static void rtl8139_txq_reclaim(struct rtl8139 *rtl8139)
 {
-	if (descriptor > RTL8139_TX_DESCRIPTOR_COUNT)
-		return E_INVAL;
+	struct rtl8139_txq *txq = &rtl8139->txq;
+	unsigned int i;
+	u32 val;
 
-	if (packet_size(packet) > RTL8139_TX_DESCRIPTOR_SIZE)
-		return E_INVAL;
+	i = txq->desc_rd_index;
+	while (txq->desc_free_count != txq->desc_count) {
+		struct rtl8139_txq_desc *txq_desc = &txq->descs[i];
 
-	memcpy(rtl8139->tx_descriptors[descriptor], packet_start(packet), packet_size(packet));
+		/* check if packet was sent successfully. */
+		val = rtl8139_readl(rtl8139, txq_desc->status_reg);
+		if (!(val & RTL8139_TX_STATUS_OWN) ||
+		    !(val & RTL8139_TX_STATUS_TOK))
+			break;
 
-	rtl8139_writel(rtl8139, TX_STATUS_DESCRIPTOR + (descriptor * sizeof(uint32_t)),
-		       packet_size(packet));
-
-	return E_SUCCESS;
+		packet_free(txq_desc->packet);
+		txq_desc->packet = NULL;
+		i = (i + 1) % txq->desc_count;
+		txq->desc_free_count += 1;
+	}
+	txq->desc_rd_index = i;
 }
 
+/*
+ *
+ */
 static error_t rtl8139_send_packet(struct ethernet_device *dev, struct packet *packet)
 {
-	/* TODO: Backpressure */
 	struct rtl8139 *rtl8139 = ethernet_device_priv(dev);
-	unsigned int descriptor = rtl8139->tx_current_decriptor++;
-	return rtl8139_send_packet_to_descriptor(rtl8139, descriptor, packet);
+	struct rtl8139_txq *txq = &rtl8139->txq;
+	struct rtl8139_txq_desc *txq_desc;
+	size_t data_size = packet_size(packet);
+
+	if (data_size > dev->mtu)
+		return E_INVAL;
+
+	spinlock_acquire(&txq->lock);
+
+	/* Try to free old descriptors. */
+	rtl8139_txq_reclaim(rtl8139);
+	if (txq->desc_free_count == 0) {
+		/* TODO: backpressure */
+		log_err("TX queue full");
+		goto discard;
+	}
+
+	/* Setup DMA descriptor. */
+	txq_desc = &rtl8139->txq.descs[txq->desc_wr_index];
+	txq_desc->packet = packet;
+	memcpy(txq_desc->buffer, packet_start(packet), data_size);
+	rtl8139_writel(rtl8139, txq_desc->status_reg, data_size);
+
+	/* update next descriptor index */
+	txq->desc_wr_index = (txq->desc_wr_index + 1) % txq->desc_count;
+	txq->desc_free_count -= 1;
+
+	spinlock_release(&txq->lock);
+	return E_SUCCESS;
+
+discard:
+	spinlock_release(&txq->lock);
+	packet_free(packet);
+	return E_INVAL;
 }
 
+/*
+ *
+ */
 static error_t rtl8139_receive_packet(struct rtl8139 *rtl8139)
 {
 	struct rtl8139_rx_packet *rx_packet;
@@ -212,10 +290,10 @@ static error_t rtl8139_receive_packet(struct rtl8139 *rtl8139)
 	if (IS_ERR(packet)) {
 		log_warn("failed to copy received packet's content");
 		ret = ERR_FROM_PTR(packet);
+		packet = NULL;
 	} else {
 		packet->netdev = rtl8139->netdev;
 		packet_put(packet, rx_packet->packet, packet_length);
-		ethernet_device_receive_packet(rtl8139->netdev, packet);
 	}
 
 	/* 4. Tell the NIC where to read the next packet
@@ -229,7 +307,11 @@ static error_t rtl8139_receive_packet(struct rtl8139 *rtl8139)
 	rtl8139->rx_packet_offset %= rtl8139->rx_buffer_size;
 
 	/* See developper's guide, packet reception */
+	log_info("rtl8139_writel(CURRENT_PACKET_READ, %d)", rtl8139->rx_packet_offset - 0x10);
 	rtl8139_writel(rtl8139, CURRENT_PACKET_READ, rtl8139->rx_packet_offset - 0x10);
+
+	if (packet)
+		ethernet_device_receive_packet(rtl8139->netdev, packet);
 
 	return ret;
 }
@@ -239,12 +321,17 @@ static interrupt_return_t rtl8139_interrupt_handler(void *data)
 	struct rtl8139 *rtl8139 = data;
 	uint16_t isr = rtl8139_readw(rtl8139, INTERRUPT_STATUS);
 
+	log_info("isr: %08x", isr);
 	isr &= RTL8139_SUPPORTED_INTERRUPTS;
 	if (isr == 0)
 		return INTERRUPT_IGNORED; /* not for us. */
 
-	if (isr & INT_RX_OK)
+	if (isr & INT_RX_ERR)
+		log_info("rx error");
+	if (isr & INT_RX_OK) {
+		log_info("rx ok");
 		rtl8139_receive_packet(rtl8139);
+	}
 
 	/* clear interrupt source bit by writing one to the ISR (6.7) */
 	rtl8139_writew(rtl8139, INTERRUPT_STATUS, isr);
@@ -283,6 +370,53 @@ static struct ethernet_operations rtl8139_operations = {
     .enable_capability = rtl8139_enable_capability,
 };
 
+/*
+ *
+ */
+static error_t rtl8139_init_txq(struct rtl8139 *rtl8139, struct rtl8139_txq *txq)
+{
+	memset(txq, 0, sizeof(*txq));
+	txq->desc_count = RTL8139_TX_DESCRIPTOR_COUNT;
+	txq->desc_free_count = txq->desc_count;
+
+	for (unsigned int i = 0; i < txq->desc_count; ++i) {
+		struct rtl8139_txq_desc *desc = &txq->descs[i];
+		void *buffer;
+
+		buffer = kmalloc_dma(RTL8139_TX_DESCRIPTOR_SIZE);
+		if (buffer == NULL)
+			return E_NOMEM;
+
+		desc->buffer = buffer;
+		desc->status_reg = TSD0 + i * sizeof(u32);
+		rtl8139_writel(rtl8139, TSAD0 + i * sizeof(uint32_t),
+			       mmu_find_physical((vaddr_t)buffer));
+	}
+
+	return E_SUCCESS;
+}
+
+/*
+ *
+ */
+static void rtl8139_destroy(struct rtl8139 *rtl8139)
+{
+	rtl8139_soft_reset(rtl8139);
+
+	if (rtl8139->rx_buffer)
+		kfree_dma(rtl8139->rx_buffer);
+
+	for (unsigned int i = 0; i < rtl8139->txq.desc_count; ++i) {
+		if (rtl8139->txq.descs[i].buffer)
+			kfree_dma(rtl8139->txq.descs[i].buffer);
+	}
+
+	ethernet_device_free(rtl8139->netdev);
+}
+
+/*
+ *
+ */
 static error_t rtl8139_probe(struct device *dev)
 {
 	struct pci_device *pdev = to_pci_dev(dev);
@@ -306,13 +440,11 @@ static error_t rtl8139_probe(struct device *dev)
 	eth_dev = ethernet_device_alloc(sizeof(*rtl8139));
 	if (IS_ERR(eth_dev))
 		return ERR_FROM_PTR(eth_dev);
+	rtl8139 = ethernet_device_priv(eth_dev);
 
 	eth_dev->mtu = RTL8139_MTU;
 	eth_dev->device = dev;
-
-	rtl8139 = ethernet_device_priv(eth_dev);
-	if (rtl8139 == NULL)
-		return E_NOMEM;
+	eth_dev->ops = &rtl8139_operations;
 
 	memset(rtl8139, 0, sizeof(*rtl8139));
 	rtl8139->registers = pdev->bars[RTL8139_PCI_BAR_MEM].data;
@@ -325,7 +457,12 @@ static error_t rtl8139_probe(struct device *dev)
 	/* set the LWAKE + LWPTN to active high, this should power on the device */
 	rtl8139_writeb(rtl8139, CONFIG1, 0);
 
-	/* soft reset */
+	ret = rtl8139_init_txq(rtl8139, &rtl8139->txq);
+	if (ret) {
+		log_err("failed to init TX queue");
+		goto probe_failed;
+	}
+
 	rtl8139_soft_reset(rtl8139);
 
 	tx_cfg = rtl8139_readl(rtl8139, TRANSMIT_CFG);
@@ -335,7 +472,6 @@ static error_t rtl8139_probe(struct device *dev)
 		return E_NOT_SUPPORTED;
 	}
 
-	eth_dev->ops = &rtl8139_operations;
 	rtl8139_get_mac(eth_dev, eth_dev->mac);
 
 	/** Configure RX: (@see 6.9)
@@ -360,17 +496,6 @@ static error_t rtl8139_probe(struct device *dev)
 	rtl8139_writel(rtl8139, RECEIVE_CFG, rx_cfg);
 	rtl8139_writel(rtl8139, RX_BUFFER_START, mmu_find_physical((vaddr_t)rx_buffer));
 
-	/* Configure TX */
-	ret = E_NOMEM;
-	for (int i = 0; i < RTL8139_TX_DESCRIPTOR_COUNT; ++i) {
-		void *tx = kmalloc_dma(RTL8139_TX_DESCRIPTOR_SIZE);
-		if (tx == NULL)
-			goto probe_failed;
-		rtl8139->tx_descriptors[i] = tx;
-		rtl8139_writel(rtl8139, TX_START_ADDRESS + i * sizeof(uint32_t),
-			       mmu_find_physical((vaddr_t)tx));
-	}
-
 	ret = ethernet_device_register(eth_dev);
 	if (ret)
 		goto probe_failed;
@@ -383,14 +508,13 @@ static error_t rtl8139_probe(struct device *dev)
 
 	/* enable interrupts */
 	rtl8139_writew(rtl8139, INTERRUPT_MASK, RTL8139_SUPPORTED_INTERRUPTS);
+
 	rtl8139_enable_transfer(rtl8139, true);
 
 	return E_SUCCESS;
 
 probe_failed:
-	if (rtl8139->rx_buffer)
-		kfree_dma(rtl8139->rx_buffer);
-	ethernet_device_free(eth_dev);
+	rtl8139_destroy(rtl8139);
 	return ret;
 }
 

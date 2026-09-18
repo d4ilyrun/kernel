@@ -49,7 +49,8 @@ static void schedule_locked(bool preempt, bool reschedule)
 
 	if (unlikely(!scheduler_initialized))
 		return;
-
+	if (WARN_ON(thread_in_irq(current)))
+		return;
 	if (atomic_read(&scheduler.sync.preemption_level) > 1 && !preempt)
 		return;
 
@@ -164,7 +165,7 @@ void sched_unblock_thread(thread_t *thread)
 	queue_enqueue(&scheduler.ready, &thread->this_sched);
 
 	// give the least time possible to the IDLE task
-	if (current == idle_thread)
+	if (current == idle_thread && !thread_in_irq(current))
 		schedule_locked(true, true);
 
 exit:

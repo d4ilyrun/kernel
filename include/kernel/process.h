@@ -200,12 +200,18 @@ extern spinlock_t threads_list_lock;
 typedef enum thread_flags {
 	THREAD_KERNEL = BIT(0),	 ///< This is a kernel thread
 	THREAD_RESCHED = BIT(1), ///< Reschedule when exiting interrupt
+	THREAD_HW_IRQ = BIT(2),	 ///< Inside an hardware IRQ
 } process_flags_t;
 
 /***/
 static ALWAYS_INLINE bool thread_is_kernel(thread_t *thread)
 {
 	return thread->flags & THREAD_KERNEL;
+}
+
+static ALWAYS_INLINE bool thread_in_irq(const thread_t *thread)
+{
+	return thread->flags & THREAD_HW_IRQ;
 }
 
 /** The initial thread is the thread created along with the process.

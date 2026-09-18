@@ -46,6 +46,7 @@ static error_t interrupt_chip_interrupt_handle(const struct interrupt_chip *chip
 	if (nr >= chip->interrupt_count || llist_is_empty(&chip->interrupts[nr].handlers))
 		return E_NOENT;
 
+	current->flags |= THREAD_HW_IRQ;
 	chip->irq_mask(chip, nr);
 
 	FOREACH_LLIST_ENTRY (handler, &chip->interrupts[nr].handlers, this) {
@@ -53,11 +54,13 @@ static error_t interrupt_chip_interrupt_handle(const struct interrupt_chip *chip
 		case INTERRUPT_IGNORED:
 			continue;
 		case INTERRUPT_HANDLED:
+			current->flags &= ~THREAD_HW_IRQ;
 			if (chip->irq_eoi)
 				chip->irq_eoi(chip, nr);
 			chip->irq_unmask(chip, nr);
 			goto end;
 		case INTERRUPT_THREADED:
+			current->flags &= ~THREAD_HW_IRQ;
 			if (chip->irq_eoi)
 				chip->irq_eoi(chip, handler->irq);
 			if (handler->thread) {
@@ -71,6 +74,7 @@ static error_t interrupt_chip_interrupt_handle(const struct interrupt_chip *chip
 		}
 	}
 
+	current->flags &= ~THREAD_HW_IRQ;
 end:
 	return E_SUCCESS;
 }

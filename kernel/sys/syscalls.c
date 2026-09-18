@@ -98,6 +98,7 @@ static interrupt_return_t syscall(void *data)
 	trace_syscall_entry(syscall);
 
 	/* syscalls are executed in a preemptible context. */
+	current->flags &= ~THREAD_HW_IRQ;
 	interrupts_enable();
 
 	switch (syscall->arg_count) {
