@@ -10,7 +10,6 @@
 #include <kernel/net/interface.h>
 #include <kernel/net/ipv4.h>
 #include <kernel/net/packet.h>
-#include <kernel/spinlock.h>
 
 #include <utils/bits.h>
 #include <utils/macro.h>
@@ -27,8 +26,6 @@ struct rtl8139 {
 	struct ethernet_device *netdev;
 	struct pci_device *pci;
 	void *tx_descriptors[RTL8139_TX_DESCRIPTOR_COUNT];
-	/** Serializes access to @ref tx_current_decriptor and the TX descriptors */
-	spinlock_t tx_lock;
 	unsigned int tx_current_decriptor : 2;
 	void *rx_buffer;
 	size_t rx_buffer_size;
@@ -95,7 +92,6 @@ enum rtl8139_register {
 
 #define RTL8139_CONFIG1_LWACT_OFFSET		4
 #define RTL8139_CONFIG1_LWACT			BIT(RTL8139_CONFIG1_LWACT_OFFSET)
-#define RTL8139_COMMAND_RX_BUFFER_EMPTY		BIT(0)
 #define RTL8139_COMMAND_RX_ENABLE		BIT(2)
 #define RTL8139_COMMAND_TX_ENABLE		BIT(3)
 #define RTL8139_COMMAND_RESET			BIT(4)
@@ -176,31 +172,14 @@ static void rtl8139_get_mac(struct ethernet_device *device, mac_address_t mac)
 static error_t rtl8139_send_packet_to_descriptor(struct rtl8139 *rtl8139, unsigned int descriptor,
 						 struct packet *packet)
 {
-	uint32_t tsd;
-
-	if (descriptor >= RTL8139_TX_DESCRIPTOR_COUNT)
+	if (descriptor > RTL8139_TX_DESCRIPTOR_COUNT)
 		return E_INVAL;
 
 	if (packet_size(packet) > RTL8139_TX_DESCRIPTOR_SIZE)
 		return E_INVAL;
 
-	/*
-	 * The NIC transmits its TX descriptors strictly in order: it only ever
-	 * looks at the descriptor following the last one it transmitted. If we
-	 * hand it a descriptor out of order (or one it has not finished with),
-	 * it stalls and the frame is only sent once the descriptor it *is*
-	 * waiting for gets written, i.e. one call late, forever.
-	 *
-	 * OWN is set by the NIC once it is done with the descriptor, and
-	 * cleared by us to start the transmission.
-	 */
-	tsd = rtl8139_readl(rtl8139, TX_STATUS_DESCRIPTOR + (descriptor * sizeof(uint32_t)));
-	if (!(tsd & RTL8139_TX_STATUS_OWN))
-		return E_BUSY; /* still owned by the NIC */
-
 	memcpy(rtl8139->tx_descriptors[descriptor], packet_start(packet), packet_size(packet));
 
-	/* Writing the TSD with OWN cleared starts the transmission. */
 	rtl8139_writel(rtl8139, TX_STATUS_DESCRIPTOR + (descriptor * sizeof(uint32_t)),
 		       packet_size(packet));
 
@@ -211,21 +190,8 @@ static error_t rtl8139_send_packet(struct ethernet_device *dev, struct packet *p
 {
 	/* TODO: Backpressure */
 	struct rtl8139 *rtl8139 = ethernet_device_priv(dev);
-	error_t ret;
-
-	locked_scope(&rtl8139->tx_lock) {
-		ret = rtl8139_send_packet_to_descriptor(rtl8139, rtl8139->tx_current_decriptor,
-							packet);
-		/*
-		 * Only move on to the next descriptor if this one was actually
-		 * submitted, otherwise we would skip it and desynchronize
-		 * ourselves from the NIC's internal descriptor counter.
-		 */
-		if (ret == E_SUCCESS)
-			rtl8139->tx_current_decriptor += 1;
-	}
-
-	return ret;
+	unsigned int descriptor = rtl8139->tx_current_decriptor++;
+	return rtl8139_send_packet_to_descriptor(rtl8139, descriptor, packet);
 }
 
 static error_t rtl8139_receive_packet(struct rtl8139 *rtl8139)
@@ -262,14 +228,8 @@ static error_t rtl8139_receive_packet(struct rtl8139 *rtl8139)
 	rtl8139->rx_packet_offset = align_up(rtl8139->rx_packet_offset, sizeof(uint32_t));
 	rtl8139->rx_packet_offset %= rtl8139->rx_buffer_size;
 
-	/*
-	 * See developper's guide, packet reception.
-	 *
-	 * CAPR is a 16-bit register, and CBR (read-only) lives right behind it:
-	 * a 32-bit access here is not a valid register access, and is simply
-	 * dropped by the NIC.
-	 */
-	rtl8139_writew(rtl8139, CURRENT_PACKET_READ, rtl8139->rx_packet_offset - 0x10);
+	/* See developper's guide, packet reception */
+	rtl8139_writel(rtl8139, CURRENT_PACKET_READ, rtl8139->rx_packet_offset - 0x10);
 
 	return ret;
 }
@@ -283,30 +243,11 @@ static interrupt_return_t rtl8139_interrupt_handler(void *data)
 	if (isr == 0)
 		return INTERRUPT_IGNORED; /* not for us. */
 
-	/*
-	 * Clear interrupt source bit by writing one to the ISR (6.7).
-	 *
-	 * This is done *before* processing the RX ring: a packet received while
-	 * we are draining it raises RX_OK again instead of having its
-	 * notification acknowledged here and lost.
-	 */
+	if (isr & INT_RX_OK)
+		rtl8139_receive_packet(rtl8139);
+
+	/* clear interrupt source bit by writing one to the ISR (6.7) */
 	rtl8139_writew(rtl8139, INTERRUPT_STATUS, isr);
-
-	/*
-	 * A single RX_OK covers every packet the NIC put inside the ring, not
-	 * one packet: the ring must be drained until it is empty. Processing a
-	 * single packet per interrupt leaves the remaining ones unnoticed until
-	 * the next packet arrives, which delays them by one reception, forever.
-	 */
-	if (isr & INT_RX_OK) {
-		while (!(rtl8139_readb(rtl8139, COMMAND) & RTL8139_COMMAND_RX_BUFFER_EMPTY))
-			rtl8139_receive_packet(rtl8139);
-	}
-
-	/*
-	 * INT_TX_OK needs no specific handling: the descriptor's OWN bit, which
-	 * we check before sending, already tells whether it is available again.
-	 */
 
 	return INTERRUPT_HANDLED;
 }
@@ -374,7 +315,6 @@ static error_t rtl8139_probe(struct device *dev)
 		return E_NOMEM;
 
 	memset(rtl8139, 0, sizeof(*rtl8139));
-	INIT_SPINLOCK(rtl8139->tx_lock);
 	rtl8139->registers = pdev->bars[RTL8139_PCI_BAR_MEM].data;
 	rtl8139->netdev = eth_dev;
 	rtl8139->pci = pdev;
@@ -431,24 +371,19 @@ static error_t rtl8139_probe(struct device *dev)
 			       mmu_find_physical((vaddr_t)tx));
 	}
 
-	ret = pci_device_install_interrupt_handler(pdev, rtl8139_interrupt_handler, rtl8139);
-	if (ret)
-		goto probe_failed;
-
-	/*
-	 * Enable interrupts and transfers before exposing the device to the
-	 * network stack: a frame submitted while the transmitter is disabled is
-	 * dropped by the NIC, which would leave our descriptor counter one
-	 * ahead of the NIC's for good.
-	 */
-	rtl8139_writew(rtl8139, INTERRUPT_MASK, RTL8139_SUPPORTED_INTERRUPTS);
-	rtl8139_enable_transfer(rtl8139, true);
-
 	ret = ethernet_device_register(eth_dev);
 	if (ret)
 		goto probe_failed;
 
+	ret = pci_device_install_interrupt_handler(pdev, rtl8139_interrupt_handler, rtl8139);
+	if (ret)
+		goto probe_failed;
+
 	net_interface_add_subnet(eth_dev->interface, IPV4(10, 1, 1, 2), 24);
+
+	/* enable interrupts */
+	rtl8139_writew(rtl8139, INTERRUPT_MASK, RTL8139_SUPPORTED_INTERRUPTS);
+	rtl8139_enable_transfer(rtl8139, true);
 
 	return E_SUCCESS;
 
