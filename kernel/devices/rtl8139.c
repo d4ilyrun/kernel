@@ -105,6 +105,7 @@ enum rtl8139_register {
 
 #define RTL8139_CONFIG1_LWACT_OFFSET		4
 #define RTL8139_CONFIG1_LWACT			BIT(RTL8139_CONFIG1_LWACT_OFFSET)
+#define RTL8139_COMMAND_RX_BUFFER_EMPTY		BIT(0)
 #define RTL8139_COMMAND_RX_ENABLE		BIT(2)
 #define RTL8139_COMMAND_TX_ENABLE		BIT(3)
 #define RTL8139_COMMAND_RESET			BIT(4)
@@ -288,7 +289,7 @@ static error_t rtl8139_receive_packet(struct rtl8139 *rtl8139)
 	rtl8139->rx_packet_offset %= rtl8139->rx_buffer_size;
 
 	/* See developper's guide, packet reception */
-	rtl8139_writel(rtl8139, CURRENT_PACKET_READ, rtl8139->rx_packet_offset - 0x10);
+	rtl8139_writew(rtl8139, CURRENT_PACKET_READ, rtl8139->rx_packet_offset - 0x10);
 
 	return ret;
 }
@@ -303,8 +304,14 @@ static interrupt_return_t rtl8139_interrupt_handler(void *data)
 		return INTERRUPT_IGNORED; /* not for us. */
 	rtl8139_writew(rtl8139, INTERRUPT_STATUS, isr);
 
-	if (isr & INT_RX_OK)
-		rtl8139_receive_packet(rtl8139);
+	if (isr & INT_RX_OK) {
+		/* FIXME: Use real RXQ inside a threaded function to avoid calling kmalloc()
+		 *        inside a hardware IRQ handler. Might be justified to remove/replace
+		 *        the network device RX thread.
+		 */
+		while (!(rtl8139_readb(rtl8139, COMMAND) & RTL8139_COMMAND_RX_BUFFER_EMPTY))
+			rtl8139_receive_packet(rtl8139);
+	}
 
 	return INTERRUPT_HANDLED;
 }
