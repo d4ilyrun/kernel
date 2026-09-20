@@ -26,17 +26,9 @@
 struct ethernet_device;
 struct net_interface;
 
-/** Ethernet device capabilities */
-enum ethernet_capability {
-	ETHERNET_CAP_BROADCAST, /** Device supports broadcast packets */
-	ETHERNET_CAP_MULTICAST, /** Device supports multicast packets */
-};
-
 /** Operations that can be performed on an ethernet device */
 struct ethernet_operations {
 	error_t (*send_packet)(struct ethernet_device *, struct packet *);
-	error_t (*enable_capability)(struct ethernet_device *, enum ethernet_capability,
-				     bool enable);
 };
 
 /** An ethernet device
@@ -53,9 +45,6 @@ struct ethernet_device {
 	mac_address_t mac;		 /** The device's mac address */
 
 	size_t mtu; /** Maximum transmittable packet size */
-
-	/** Device capability bitfields @see ethernet_device_capabilities*/
-	uint32_t capabilities;
 
 	struct net_interface *interface; /** The netdevice's interface */
 	LLIST_NODE(this);		 /** Node inside the linked list of registered devices */

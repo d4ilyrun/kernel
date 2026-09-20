@@ -252,35 +252,8 @@ static interrupt_return_t rtl8139_interrupt_handler(void *data)
 	return INTERRUPT_HANDLED;
 }
 
-static error_t
-rtl8139_enable_capability(struct ethernet_device *device, enum ethernet_capability cap, bool enable)
-{
-	struct rtl8139 *rtl8139 = ethernet_device_priv(device);
-	uint32_t cfg;
-
-	cfg = rtl8139_readl(rtl8139, RECEIVE_CFG);
-
-	switch (cap) {
-	case ETHERNET_CAP_BROADCAST:
-		cfg = BIT_ENABLE(cfg, RTL8139_RECEIVE_CFG_BROADCAST_OFFSET, enable);
-		break;
-	case ETHERNET_CAP_MULTICAST:
-		cfg = BIT_ENABLE(cfg, RTL8139_RECEIVE_CFG_MULTICAST_OFFSET, enable);
-		break;
-
-	default:
-		return E_NOT_SUPPORTED;
-	}
-
-	device->capabilities = BIT_ENABLE(device->capabilities, cap, enable);
-	rtl8139_writel(rtl8139, RECEIVE_CFG, cfg);
-
-	return E_SUCCESS;
-}
-
 static struct ethernet_operations rtl8139_operations = {
     .send_packet = rtl8139_send_packet,
-    .enable_capability = rtl8139_enable_capability,
 };
 
 static error_t rtl8139_probe(struct device *dev)
@@ -352,7 +325,6 @@ static error_t rtl8139_probe(struct device *dev)
 
 	rtl8139->rx_buffer = rx_buffer;
 	rtl8139->rx_buffer_size = RTL8139_RX_BUFFER_SIZE;
-	eth_dev->capabilities = ETHERNET_CAP_BROADCAST | ETHERNET_CAP_MULTICAST;
 	rx_cfg = RTL8139_RECEIVE_CFG_MULTICAST | RTL8139_RECEIVE_CFG_BROADCAST |
 		 RTL8139_RECEIVE_CFG_PHYSICAL | RTL8139_RECEIVE_CFG_NO_WRAP |
 		 RTL8139_RECEIVE_CFG_BUFFER_LENGTH(RTL8139_RX_BUFFER_SIZE);
