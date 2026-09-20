@@ -60,8 +60,6 @@ static error_t icmp_handle_echo_request(struct packet *packet)
 		return ERR_FROM_PTR(out_packet);
 
 	ret = packet_send(out_packet);
-
-	packet_free(out_packet);
 	return ret;
 }
 
