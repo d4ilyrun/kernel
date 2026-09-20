@@ -31,6 +31,11 @@
 
 static struct file_operations socket_fops;
 
+static bool file_is_socket(const struct file *file)
+{
+	return file->vnode->type == VNODE_SOCKET;
+}
+
 static void socket_vnode_release(struct vnode *vnode)
 {
 	struct socket *socket = socket_from_vnode(vnode);
@@ -46,6 +51,21 @@ static void socket_vnode_release(struct vnode *vnode)
 		packet_free(packet);
 	}
 	spinlock_release(&socket->rx_lock);
+
+	/*
+	 * Flush connection backlog.
+	 *
+	 * Do it on release to wait for all in-process connections.
+	 * They hold a reference to this socket and may insert entries
+	 * into the backlog after the socket was closed.
+	 */
+	while (socket->conn_backlog_free < socket->conn_backlog_size) {
+		struct socket_backlog_entry entry;
+
+		if (socket_backlog_pop(socket, &entry, false))
+			break;
+		socket_put(entry.socket);
+	}
 
 	if (socket->proto && socket->proto->ops->release)
 		socket->proto->ops->release(socket);
@@ -120,7 +140,7 @@ static error_t socket_bind(struct file *file, const struct sockaddr *addr, sockl
 	struct socket *socket = file->priv;
 	error_t err;
 
-	if (file->vnode->type != VNODE_SOCKET)
+	if (!file_is_socket(file))
 		return E_NOT_SOCKET;
 
 	err = socket->domain->verify_addr(addr, addr_len);
@@ -133,18 +153,24 @@ static error_t socket_bind(struct file *file, const struct sockaddr *addr, sockl
 	return err;
 }
 
+/*
+ *
+ */
 static error_t socket_connect(struct file *file, const struct sockaddr *addr, socklen_t addr_len)
 {
 	struct socket *socket = file->priv;
 	error_t err;
 
-	if (file->vnode->type != VNODE_SOCKET)
+	if (!file_is_socket(file))
 		return E_NOT_SOCKET;
 
 	if (addr->sa_family == AF_UNSPEC) {
 		socket->state &= ~SOCKET_CONNECTED;
 		return E_SUCCESS;
 	}
+
+	if (socket_mode_is_connection(socket->proto->type) && socket_is_connected(socket))
+		return E_IS_CONNECTED;
 
 	err = socket->domain->verify_addr(addr, addr_len);
 	if (err)
@@ -164,7 +190,7 @@ static ssize_t socket_sendmsg(struct file *file, const struct msghdr *msg, int f
 	struct socket *socket = file->priv;
 	error_t err;
 
-	if (file->vnode->type != VNODE_SOCKET)
+	if (!file_is_socket(file))
 		return -E_NOT_SOCKET;
 
 	if (msg->msg_namelen > NAME_MAX)
@@ -198,7 +224,7 @@ static ssize_t socket_recvmsg(struct file *file, struct msghdr *msg, int flags)
 {
 	struct socket *socket = file->priv;
 
-	if (file->vnode->type != VNODE_SOCKET)
+	if (!file_is_socket(file))
 		return -E_NOT_SOCKET;
 
 	if (msg->msg_iovlen <= 0 || msg->msg_iovlen > IOV_MAX)
@@ -210,6 +236,9 @@ static ssize_t socket_recvmsg(struct file *file, struct msghdr *msg, int flags)
 	return socket->proto->ops->recvmsg(socket, msg, flags);
 }
 
+/*
+ *
+ */
 static ssize_t socket_write(struct file *file, const char *data, size_t len)
 {
 	struct iovec iov = {
@@ -224,6 +253,9 @@ static ssize_t socket_write(struct file *file, const char *data, size_t len)
 	return socket_sendmsg(file, &msg, 0);
 }
 
+/*
+ *
+ */
 static ssize_t socket_read(struct file *file, char *data, size_t len)
 {
 	struct iovec iov = {
@@ -245,6 +277,79 @@ static struct file_operations socket_fops = {
     .read = socket_read,
     .close = socket_close,
 };
+
+/*
+ *
+ */
+static error_t socket_listen(struct socket *socket, int backlog_size)
+{
+	struct socket_backlog_entry *backlog;
+	error_t err;
+
+	backlog = kcalloc(backlog_size, sizeof(*backlog), KMALLOC_KERNEL);
+	if (!backlog)
+		return E_NOMEM;
+
+	socket_lock(socket);
+
+	if (!socket->proto->ops->listen) {
+		err = E_NOT_SUPPORTED;
+		goto out;
+	}
+	if (socket_is_listening(socket) || socket_is_connected(socket)) {
+		err = E_INVAL;
+		goto out;
+	}
+
+	ringbuffer_init(&socket->conn_backlog, backlog, backlog_size * sizeof(*backlog));
+	socket->conn_backlog_size = backlog_size;
+	socket->conn_backlog_free = backlog_size;
+
+	err = socket->proto->ops->listen(socket);
+	if (err)
+		goto out;
+
+	socket_unlock(socket);
+	return E_SUCCESS;
+out:
+	ringbuffer_init(&socket->conn_backlog, NULL, 0);
+	socket_unlock(socket);
+	kfree(backlog);
+	return err;
+}
+
+/*
+ *
+ */
+static struct socket *
+socket_accept(struct socket *socket, struct sockaddr *sockaddr, socklen_t *salen, bool nonblock)
+{
+	struct socket_backlog_entry entry;
+	error_t err = E_SUCCESS;
+
+	socket_lock(socket);
+
+	if (!socket_is_listening(socket)) {
+		err = E_INVAL;
+		goto fail;
+	}
+
+	err = socket_backlog_pop(socket, &entry, nonblock);
+	if (err)
+		goto fail;
+
+	if (sockaddr && salen) {
+		*salen = MIN(*salen, entry.salen);
+		memcpy(sockaddr, &entry.addr, *salen);
+	}
+
+	/* Reference to the socket inherited from the backlog. */
+	return entry.socket;
+
+fail:
+	socket_unlock(socket);
+	return PTR_ERR(err);
+}
 
 /*
  *
@@ -373,4 +478,92 @@ ssize_t sys_recvmsg(int fd, struct msghdr *msg_in, int flags)
 	msg_in->msg_flags = msg.msg_flags;
 
 	return count;
+}
+
+/*
+ * Listen syscall.
+ */
+int sys_listen(int fd, int backlog)
+{
+	struct fd *fdp;
+	struct socket *socket;
+	error_t err;
+
+	fdp = process_fd_get(current->process, fd);
+	if (!fdp)
+		return -E_BAD_FD;
+	if (!file_is_socket(fdp->file)) {
+		err = E_NOT_SOCKET;
+		goto out;
+	}
+
+	socket = fdp->file->priv;
+	err = socket_listen(socket, backlog);
+
+out:
+	process_fd_put(current->process, fdp);
+	return -err;
+}
+
+
+/*
+ * Accept syscall.
+ */
+int sys_accept(int fd, struct sockaddr *saddr, socklen_t *salen)
+{
+	struct process *proc = current->process;
+	int new_fd;
+	struct fd *fdp;
+	struct fd *new_fdp;
+	struct socket *socket;
+	struct socket *new_socket;
+	struct file *new_file;
+	error_t err;
+
+	fdp = process_fd_get(proc, fd);
+	if (!fdp)
+		return -E_BAD_FD;
+	if (!file_is_socket(fdp->file)) {
+		err = E_NOT_SOCKET;
+		goto out;
+	}
+
+	/* Reserve a file descriptor.
+	 *
+	 * FIXME: There is a slight race condition if a thread were to perform a syscall
+	 *        on the reserved FD while it still has no attached file. What would result
+	 *        in an EBADFD will now panic. We may want to rethink this.
+	 */
+	new_fd = process_add_fd(proc, NULL, 0);
+	if (new_fd < 0) {
+		err = -new_fd;
+		goto out;
+	}
+
+	socket = fdp->file->priv;
+	new_socket = socket_accept(socket, saddr, salen, false);
+	if (IS_ERR(new_socket)) {
+		err = ERR_FROM_PTR(new_socket);
+		process_remove_fd(proc, new_fd);
+		goto out;
+	}
+
+	new_file = file_open(socket_vnode(socket), &socket_fops);
+	if (IS_ERR(new_file)) {
+		log_err("Failed to open socket file: %pE", new_file);
+		err = ERR_FROM_PTR(new_file);
+		socket_put(new_socket); /* TODO: We should re-insert it instead. */
+		process_remove_fd(proc, new_fd);
+		goto out;
+	}
+
+	new_fdp = process_fd_get(proc, new_fd);
+	new_file->priv = socket;
+	new_fdp->file = new_file;
+	process_fd_put(proc, new_fdp);
+
+	err = E_SUCCESS;
+out:
+	process_fd_put(proc, fdp);
+	return -err;
 }

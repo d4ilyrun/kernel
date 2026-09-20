@@ -3,6 +3,8 @@
 
 #include <libalgo/linked_list.h>
 #include <utils/macro.h>
+#include "kernel/error.h"
+#include "libalgo/ringbuffer.h"
 
 DECLARE_LLIST(socket_domains);
 
@@ -27,17 +29,18 @@ error_t socket_init(struct socket *socket, int domain, int type, int proto)
 	struct socket_domain to_find = {.domain = domain};
 	node_t *node;
 
+	INIT_QUEUE(socket->rx_packets);
+	INIT_SPINLOCK(socket->rx_lock);
+	INIT_SPINLOCK(socket->lock);
+	INIT_WAITQUEUE(socket->rx_blocked);
+	INIT_WAITQUEUE(socket->conn_waiters);
+
 	node = llist_find_first(&socket_domains, &to_find.this, socket_domain_compare);
 	if (!node)
 		return E_AF_NOT_SUPPORTED;
 
 	socket->domain = container_of(node, struct socket_domain, this);
 	socket->state = 0;
-
-	INIT_QUEUE(socket->rx_packets);
-	INIT_SPINLOCK(socket->rx_lock);
-	INIT_SPINLOCK(socket->lock);
-	INIT_WAITQUEUE(socket->rx_blocked);
 
 	return socket->domain->socket_init(socket, type, proto);
 }
@@ -80,6 +83,84 @@ retry:
 
 	spinlock_release(&socket->rx_lock);
 	return packet;
+}
+
+/*
+ * Reserve a backlog slot for an in-progress connection.
+ *
+ * NOTE: The caller MUST hold the socket's lock.
+ */
+error_t socket_backlog_reserve(struct socket *socket)
+{
+	ASSERT(spinlock_is_held(&socket->lock));
+
+	if (!socket->conn_backlog_free)
+		return E_NO_BUFFER_SPACE;
+
+	socket->conn_backlog_free -= 1;
+
+	return E_SUCCESS;
+}
+
+/*
+ * Return a backlog slot that was reserved or occupied.
+ *
+ * NOTE: The caller MUST hold the socket's lock.
+ */
+error_t socket_backlog_release(struct socket *socket)
+{
+	ASSERT(spinlock_is_held(&socket->lock));
+	ASSERT(socket->conn_backlog_free < socket->conn_backlog_size);
+
+	socket->conn_backlog_free += 1;
+
+	return E_SUCCESS;
+}
+
+/*
+ * Append a new connection from the socket's connection backlog.
+ *
+ * NOTE: The caller MUST hold the socket's lock.
+ */
+error_t socket_backlog_push(struct socket *socket, const struct socket_backlog_entry *entry)
+{
+	ASSERT(spinlock_is_held(&socket->lock));
+
+	if (ringbuffer_available(&socket->conn_backlog) < sizeof(*entry))
+		return E_NO_BUFFER_SPACE;
+
+	ringbuffer_push(&socket->conn_backlog, (const void *)entry, sizeof(*entry));
+	waitqueue_dequeue(&socket->conn_waiters);
+
+	return E_SUCCESS;
+}
+
+/*
+ * Pop the first connection from the socket's connection backlog.
+ *
+ * If the connection backlog is empty, and nonblock is not set, this function
+ * blocks until a new connection is enqueued.
+ *
+ * NOTE: The caller MUST hold the socket's lock.
+ */
+error_t socket_backlog_pop(struct socket *socket, struct socket_backlog_entry *entry,
+			   bool nonblock)
+{
+	ASSERT(spinlock_is_held(&socket->lock));
+
+	while (ringbuffer_remaining(&socket->conn_backlog) < sizeof(*entry)) {
+		if (nonblock)
+			return E_WOULD_BLOCK;
+
+		waitqueue_lock(&socket->conn_waiters);
+		socket_unlock(socket);
+		waitqueue_enqueue_locked(&socket->conn_waiters, current);
+		socket_lock(socket);
+	}
+
+	ringbuffer_pop(&socket->conn_backlog, (void *)entry, sizeof(*entry));
+
+	return socket_backlog_release(socket);
 }
 
 /*

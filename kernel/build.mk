@@ -5,7 +5,7 @@ KERNEL_CPPFLAGS := -I$(KERNEL_BUILD_DIR)/$(INC_DIR)
 KERNEL_CPPFLAGS += -DARCH=$(ARCH) -DKERNEL -DUACPI_FORMATTED_LOGGING
 KERNEL_CFLAGS   :=
 KERNEL_LDFLAGS  := -L$(KERNEL_BUILD_DIR)/$(LIB_DIR)
-KERNEL_LDFLAGS  += -lk -lalgo -lpath -luacpi -lgcc
+KERNEL_LDFLAGS  += -lk -lalgo -lpath -luacpi -lfsm -lgcc
 
 KERNEL_LDSCRIPT := $(BUILD_DIR)/kernel/linker.ld
 KERNEL_LDFLAGS  += -T $(KERNEL_LDSCRIPT)
@@ -62,6 +62,9 @@ KERNEL_SRCS := 	\
 	net/ethernet.c \
 	net/ipv4.c \
 	net/udp.c \
+	net/tcp.c \
+	net/tcp_fsm.c \
+	net/tcp_window.c \
 	net/icmp.c \
 	net/arp.c \
 	net/interface.c \

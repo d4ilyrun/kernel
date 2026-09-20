@@ -50,7 +50,9 @@
 	F(sendmsg, 43, 3, default, ssize_t, int, const struct msghdr *, int)                 \
 	F(recvmsg, 44, 3, default, ssize_t, int, struct msghdr *, int)                       \
 	F(connect, 45, 3, default, int, int, const struct sockaddr *, socklen_t)             \
-	F(bind, 46, 3, default, int, int, const struct sockaddr *, socklen_t)
+	F(bind, 46, 3, default, int, int, const struct sockaddr *, socklen_t)                \
+	F(listen, 47, 2, default, int, int, int)                                             \
+	F(accept, 48, 3, default, int, int, struct sockaddr *, socklen_t *)
 
 /*
  * The list of available syscall vectors.

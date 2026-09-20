@@ -30,6 +30,14 @@ struct hashtable_entry {
 	struct linked_list_node this; /*!< Used to build the hashtable's list. */
 };
 
+#define INIT_HASHTABLE_ENTRY(_entry, _key)                  \
+	do {                                                \
+		_entry = (struct hashtable_entry){          \
+		    .key = (void *)_key,                    \
+		    .this = LLIST_NODE_INIT((_entry).this), \
+		};                                          \
+	} while (0)
+
 /** Hashing function. */
 typedef u32 (*hash_func_t)(const void *data_ptr);
 
@@ -45,23 +53,28 @@ int compare_addresses(const void *entry_key, const void *key);
 	hash_func_t hash_func; \
 	compare_t compare_key;
 
-/**
- *
- */
 struct hashtable {
 	hashtable_fields;
 	llist_t buckets[];
 };
 
-/** Declare a hashtable structure. */
-#define DECLARE_HASHTABLE(name, size)          \
+/*
+ * Declare a hashtable structure type.
+ *
+ * This is useful when wanting to declare a global hashtable
+ * inside a header file.
+ */
+#define HASHTABLE_TYPE(size)                   \
 	union {                                \
 		struct hashtable table;        \
 		struct {                       \
 			hashtable_fields;      \
 			llist_t buckets[size]; \
 		};                             \
-	} name
+	}
+
+/** Declare a hashtable structure. */
+#define DECLARE_HASHTABLE(name, size) HASHTABLE_TYPE(size) name;
 
 void __hashtable_init(struct hashtable *, size_t hashtable_size, hash_func_t, compare_t);
 void __hashtable_insert(struct hashtable *, struct hashtable_entry *);
@@ -86,7 +99,7 @@ struct hashtable_entry *__hashtable_find(struct hashtable *, const void *key);
  */
 #define hashtable_insert(hashtable, entry) __hashtable_insert(&(hashtable)->table, entry)
 
-/** Remove an entry from an hashtable.
+/** Find and remove an entry from an hashtable.
  *
  * @param hashtable The hashtable union declared using \c DECLARE_HASHTABLE().
  * @param entry     Key used to find the entry to remove.
@@ -94,6 +107,18 @@ struct hashtable_entry *__hashtable_find(struct hashtable *, const void *key);
  * @return The removed entry, or NULL if it did not exist.
  */
 #define hashtable_remove(hashtable, key) __hashtable_remove(&(hashtable)->table, key)
+
+/** Remove an entry from an hashtable.
+ *
+ * Same as @c hashtable_remove(), exceept that the actual entry to remove is passed
+ * as parameter. This is faster since we do not have to look for the entry.
+ *
+ * @param hashtable The hashtable union declared using \c DECLARE_HASHTABLE().
+ * @param entry     The entry to remove.
+ *
+ * @return The removed entry, or NULL if it did not exist.
+ */
+#define hashtable_remove_entry(key) llist_remove(&(key)->this)
 
 /** Find an entry inside an hastable.
  *

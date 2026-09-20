@@ -16,14 +16,17 @@
 #include <kernel/waitqueue.h>
 
 #include <libalgo/queue.h>
+#include <libalgo/ringbuffer.h>
 #include <utils/container_of.h>
 
 struct packet;
 
 /** Socket connection state */
 enum socket_state {
-	SOCKET_CONNECTED = BIT(0), /*!< Is connected to a remote partner */
-	SOCKET_BOUND = BIT(1),	   /*!< Is bound to a local address */
+	SOCKET_CONNECTING = BIT(0), /*!< Is in the process of connecting to a remote partner */
+	SOCKET_CONNECTED = BIT(1),  /*!< Is connected to a remote partner */
+	SOCKET_BOUND = BIT(2),	    /*!< Is bound to a local address */
+	SOCKET_LISTEN = BIT(3),	    /*!< Is listening for connection requests */
 };
 
 /** A BSD socket */
@@ -33,6 +36,12 @@ struct socket {
 	unsigned int state;		     /*!< Socket connection state flags */
 	spinlock_t lock;		     /*!< Socket wide synchronisation lock */
 	void *data;			     /*!< Domain-specific socket data */
+
+	/* listen()/accept() backlog, protected by @lock. */
+	struct ringbuffer conn_backlog;
+	unsigned int conn_backlog_size;
+	unsigned int conn_backlog_free;
+	struct waitqueue conn_waiters; /*!< Blocked processes waiting for a new connection. */
 
 	queue_t rx_packets;	     /*!< Packets received */
 	spinlock_t rx_lock;	     /*!< Synchronisation lock for rx_packets */
@@ -53,6 +62,11 @@ static inline bool socket_is_connected(const struct socket *socket)
 static inline bool socket_is_bound(const struct socket *socket)
 {
 	return socket->state & SOCKET_BOUND;
+}
+
+static inline bool socket_is_listening(const struct socket *socket)
+{
+	return socket->state & SOCKET_LISTEN;
 }
 
 /** */
@@ -91,6 +105,15 @@ static inline struct vnode *socket_vnode(struct socket *socket)
 	struct socket_node *socket_node = container_of(socket, struct socket_node, socket);
 	return &socket_node->vnode;
 }
+
+/*
+ * An entry inside a socket's connection backlog.
+ */
+struct socket_backlog_entry {
+	struct socket *socket;
+	struct sockaddr addr; /* Address of the connected peer. */
+	socklen_t salen;
+};
 
 /** Allocate and initialize a new socket.
  *
@@ -132,7 +155,13 @@ error_t socket_enqueue_packet(struct socket *socket, struct packet *packet);
 /** Retreive one packet from the socket's receive queue.
  *  If the queue is empty, return NULL.
  */
-struct packet *socket_dequeue_packet(struct socket *socket, bool block);
+struct packet *socket_dequeue_packet(struct socket *socket, bool nonblock);
+
+error_t socket_backlog_reserve(struct socket * socket);
+error_t socket_backlog_release(struct socket *socket);
+error_t socket_backlog_push(struct socket * socket, const struct socket_backlog_entry *);
+error_t socket_backlog_pop(struct socket *socket, struct socket_backlog_entry *,
+			   bool nonblock);
 
 /** Socket communication domain.
  *
@@ -168,6 +197,8 @@ struct socket_protocol_ops {
 	ssize_t (*sendmsg)(struct socket *, const struct msghdr *, int flags);
 	/** Read a message received by the socket */
 	ssize_t (*recvmsg)(struct socket *, struct msghdr *, int flags);
+	/** Start listening for new connection requests. */
+	error_t (*listen)(struct socket *);
 };
 
 /** */

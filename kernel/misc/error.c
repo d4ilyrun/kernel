@@ -43,6 +43,7 @@ static const char *const ERROR_DESCRIPTIONS[E_TOTAL_COUNT] = {
     [E_ADDR_NOT_AVAILABLE] = "Cannot assign requested address",
     [E_NET_DOWN] = "Network is down",
     [E_NET_UNREACHABLE] = "Network is unreachable",
+    [E_CONNEXION_RESET] = "Connexion reset by peer",
     [E_NO_BUFFER_SPACE] = "Not enough buffer space",
     [E_IS_CONNECTED] = "Endpoint is already connected",
     [E_NOT_CONNECTED] = "Endpoint is not connected",

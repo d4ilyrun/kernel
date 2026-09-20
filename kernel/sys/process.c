@@ -460,7 +460,8 @@ static void fd_init(struct fd *fdp, struct file *file, int flags)
  */
 void __fd_put(struct fd *fd)
 {
-	file_put(fd->file);
+	if (fd->file)
+		file_put(fd->file);
 	fd_free(fd);
 }
 

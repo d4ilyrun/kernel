@@ -84,6 +84,11 @@ size_t ringbuffer_pop(struct ringbuffer *rb, uint8_t *data, size_t size);
  */
 size_t ringbuffer_peek(const struct ringbuffer *rb, uint8_t *data, size_t size);
 
+/**
+ * Remove data from the beginning of a rb's buffer.
+ */
+size_t ringbuffer_drop(struct ringbuffer *rb, size_t size);
+
 #endif /* _LIBALGO_RINGBUFFER_H */
 
 /* @} */

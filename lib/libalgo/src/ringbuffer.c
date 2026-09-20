@@ -1,7 +1,7 @@
 #include <libalgo/ringbuffer.h>
 
 /*
- * Append data to the end of a pipe's buffer.
+ * Append data to the end of a ringbuffer.
  */
 size_t ringbuffer_push(struct ringbuffer *rb, const uint8_t *data, size_t size)
 {
@@ -15,7 +15,7 @@ size_t ringbuffer_push(struct ringbuffer *rb, const uint8_t *data, size_t size)
 }
 
 /*
- * Read and remove data from the beginning of a pipe's buffer.
+ * Read and remove data from the beginning of a ringbuffer.
  */
 size_t ringbuffer_pop(struct ringbuffer *rb, uint8_t *data, size_t size)
 {
@@ -29,7 +29,7 @@ size_t ringbuffer_pop(struct ringbuffer *rb, uint8_t *data, size_t size)
 }
 
 /*
- * Read data from the beginning of a pipe's buffer.
+ * Read data from the beginning of a ringbuffer.
  */
 size_t ringbuffer_peek(const struct ringbuffer *rb, uint8_t *data, size_t size)
 {
@@ -39,6 +39,24 @@ size_t ringbuffer_peek(const struct ringbuffer *rb, uint8_t *data, size_t size)
 		data[i] = *(ptr++);
 		if (ptr == rb->buf_end)
 			ptr = rb->buf_start;
+	}
+
+	return size;
+}
+
+/*
+ * Remove data from the ringbuffer.
+ */
+size_t ringbuffer_drop(struct ringbuffer *rb, size_t size)
+{
+	size_t i;
+
+	for (i = 0; i < size; ++i) {
+		if (rb->buf_read_pos == rb->buf_end)
+			rb->buf_read_pos = rb->buf_start;
+		if (rb->buf_read_pos == rb->buf_write_pos)
+			break;
+		rb->buf_read_pos++;
 	}
 
 	return size;

@@ -35,6 +35,7 @@ struct ipv4_header;
 struct arp_header;
 /* L4 headers */
 struct udp_header;
+struct tcp_header;
 
 /** A network packet.
  *
@@ -75,12 +76,14 @@ struct packet {
 	union {
 		void *raw;
 		struct udp_header *udp;
+		struct tcp_header *tcp;
 	} l4;
 
 	/** Start of the packet's content (beyond L4) */
 	void *payload;
 
 	node_t rx_this; /*!< Used by socket to list received packets */
+	node_t tx_this;
 };
 
 #define PACKET_ALIGN (sizeof(uint64_t))
@@ -128,6 +131,15 @@ static inline void *packet_end(const struct packet *packet)
 /** Append new data to the packet */
 error_t packet_put(struct packet *packet, const void *data, size_t size);
 
+/** Reserve the specified number of bytes in the packet.
+ *
+ *  This is similar to @c packet_put() except that no data is copied
+ *  into these bytes.
+ *
+ *  @return The start of the reserved area, or a pointer encoded error.
+ */
+void *packet_push(struct packet *packet, size_t size);
+
 /** Read data from the packet.
  *  @return The number of bytes actually read.
  */
@@ -138,6 +150,11 @@ size_t packet_peek(struct packet *packet, void *data, size_t size);
  *  @return The number of bytes actually read.
  */
 size_t packet_pop(struct packet *packet, void *data, size_t size);
+
+/** Remove data from the end of the packet.
+ *  @return The new packet_read_size()
+ */
+size_t packet_pull(struct packet *packet, size_t size);
 
 /** Append new data of literal type to the packet (e.g. integers) */
 #define packet_put_literal(packet, data) packet_put(packet, &data, sizeof(data))

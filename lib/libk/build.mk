@@ -7,5 +7,6 @@ LIB_SOURCES := \
   string.c \
   memcpy.c \
   memset.c \
+  memmove.c \
 
 include $(REPO_ROOT)/lib/lib.mk

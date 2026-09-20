@@ -50,7 +50,7 @@ static inline node_t *queue_dequeue(queue_t *queue)
 }
 
 /** @return the current head of the queue */
-static inline const node_t *queue_peek(const queue_t *queue)
+static inline node_t *queue_peek(const queue_t *queue)
 {
 	return llist_first(queue);
 }

@@ -10,6 +10,7 @@
 #include <kernel/net/interface.h>
 #include <kernel/net/ipv4.h>
 #include <kernel/net/packet.h>
+#include <kernel/net/tcp.h>
 #include <kernel/net/udp.h>
 #include <kernel/net/route.h>
 #include <kernel/socket.h>
@@ -29,11 +30,6 @@ struct af_inet_sock {
 
 static DECLARE_LLIST(af_inet_raw_sockets);
 static DECLARE_SPINLOCK(af_inet_raw_sockets_lock);
-
-static size_t ipv4_header_size(const struct ipv4_header *iphdr)
-{
-	return iphdr->ihl * sizeof(uint32_t);
-}
 
 bool ipv4_validate_header(const struct ipv4_header *iphdr)
 {
@@ -136,6 +132,8 @@ error_t ipv4_receive_packet(struct packet *packet)
 	switch (iphdr->protocol) {
 	case IPPROTO_ICMP:
 		return icmp_receive_packet(packet);
+	case IPPROTO_TCP:
+		return tcp_receive_packet(packet);
 	case IPPROTO_UDP:
 		return udp_receive_packet(packet);
 	default:
@@ -192,10 +190,12 @@ struct packet *ipv4_build_packet(const struct net_route *route, u8 proto, const 
 		packet_put(packet, header, header_size);
 	packet_set_l4_size(packet, header_size);
 
-	/* insert packet payload */
-	ret = packet_put(packet, payload, payload_size);
-	if (ret)
-		goto release_packet;
+	if (payload) {
+		/* insert packet payload */
+		ret = packet_put(packet, payload, payload_size);
+		if (ret)
+			goto release_packet;
+	}
 
 	return packet;
 
@@ -385,9 +385,19 @@ static const struct socket_protocol_ops af_inet_raw_ops = {
 
 static const struct socket_protocol af_inet_protocols[] = {
 	{
+		/* default stream protocol */
+		.type = SOCK_STREAM,
+		.ops = &af_inet_tcp_ops,
+	},
+	{
 		/* default datagram protocol */
 		.type = SOCK_DGRAM,
 		.ops = &af_inet_udp_ops,
+	},
+	{
+		.type = SOCK_STREAM,
+		.proto = IPPROTO_TCP,
+		.ops = &af_inet_tcp_ops,
 	},
 	{
 		.type = SOCK_DGRAM,
