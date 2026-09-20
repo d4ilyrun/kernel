@@ -19,10 +19,10 @@
 #undef static_assert
 #define static_assert(cond, ...) _Static_assert(cond, stringify(cond) __VA_OPT__(": ") __VA_ARGS__)
 
-#define assert_not_reached()                                                     \
-	do {                                                                     \
-		log_warn("unreachable code reached: %s:%d", __FILE__, __LINE__); \
-		__builtin_unreachable();                                         \
+#define assert_not_reached()                                                 \
+	do {                                                                 \
+		WARN("unreachable code reached: %s:%d", __FILE__, __LINE__); \
+		__builtin_unreachable();                                     \
 	} while (0)
 
 #define ASM __asm__ volatile

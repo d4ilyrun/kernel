@@ -22,8 +22,9 @@ struct packet;
 
 /** Socket connection state */
 enum socket_state {
-	SOCKET_CONNECTED = BIT(0), /*!< Is connected to a remote partner */
-	SOCKET_BOUND = BIT(1),	   /*!< Is bound to a local address */
+	SOCKET_CONNECTING = BIT(0), /*!< Is in the process of connecting to a remote partner */
+	SOCKET_CONNECTED = BIT(1),  /*!< Is connected to a remote partner */
+	SOCKET_BOUND = BIT(2),	    /*!< Is bound to a local address */
 };
 
 /** A BSD socket */

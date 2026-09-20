@@ -41,6 +41,7 @@ struct sockaddr_in6 {
 };
 
 #define IPPROTO_ICMP 1   /* Internet Control Message Protocol.  */
+#define IPPROTO_TCP  6   /* Transmission Control Protocol.  */
 #define IPPROTO_UDP  17  /* User Datagram Protocol.  */
 
 /* Address to accept any incoming messages.  */

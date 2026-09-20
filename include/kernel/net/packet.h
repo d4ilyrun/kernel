@@ -35,6 +35,7 @@ struct ipv4_header;
 struct arp_header;
 /* L4 headers */
 struct udp_header;
+struct tcp_header;
 
 /** A network packet.
  *
@@ -75,12 +76,14 @@ struct packet {
 	union {
 		void *raw;
 		struct udp_header *udp;
+		struct tcp_header *tcp;
 	} l4;
 
 	/** Start of the packet's content (beyond L4) */
 	void *payload;
 
 	node_t rx_this; /*!< Used by socket to list received packets */
+	node_t tx_this;
 };
 
 #define PACKET_ALIGN (sizeof(uint64_t))

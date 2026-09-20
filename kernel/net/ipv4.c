@@ -30,11 +30,6 @@ struct af_inet_sock {
 static DECLARE_LLIST(af_inet_raw_sockets);
 static DECLARE_SPINLOCK(af_inet_raw_sockets_lock);
 
-static size_t ipv4_header_size(const struct ipv4_header *iphdr)
-{
-	return iphdr->ihl * sizeof(uint32_t);
-}
-
 bool ipv4_validate_header(const struct ipv4_header *iphdr)
 {
 	if (iphdr->version != IPV4_VERSION)

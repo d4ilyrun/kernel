@@ -19,88 +19,13 @@
 #include <kernel/net/route.h>
 #include <kernel/types.h>
 
+#include <dailyrun/net/ipv4.h>
+
 #include <utils/compiler.h>
 
 #include <arch.h>
 
 struct packet;
-
-/** Version field inside the IP header */
-#define IPV4_VERSION 4
-/** Minimum size of an IP header */
-#define IPV4_MIN_LENGTH 20
-/** TTL value used when creating packets */
-#define IPV4_DEFAULT_TTL 64
-
-/** An IPv4 header
- *  @note All fields are in big endian
- */
-struct PACKED ALIGNED(sizeof(uint16_t)) ipv4_header {
-#if defined(ARCH_LITTLE_ENDIAN)
-	uint8_t ihl : 4;
-	uint8_t version : 4;
-#else
-	uint8_t version : 4;
-	uint8_t ihl : 4;
-#endif
-	uint8_t tos;
-	__be uint16_t tot_len;
-	__be uint16_t id;
-	__be uint16_t frag_off;
-	uint8_t ttl;
-	uint8_t protocol;
-	__be uint16_t check;
-	__be ipv4_t saddr;
-	__be ipv4_t daddr;
-};
-
-/*
- * Pseudo IPv4 header prefixed to UDP and TCP packets during checksum computation.
- */
-struct PACKED pseudo_ipv4_header {
-	__be u32 saddr;
-	__be u32 daddr;
-	u8 zero;
-	u8 proto;
-	__be u16 proto_len;
-};
-
-static_assert(sizeof(struct ipv4_header) == IPV4_MIN_LENGTH);
-
-#define IPV4_FRAG_MASK 0x1FFF
-#define IPV4_RESERVED  (0x4 << 13)
-#define IPV4_NOFRAG    (0x2 << 13)
-#define IPV4_MORE_FRAG (0x1 << 13)
-
-/** @return An IPv4 fragment's offset */
-static inline uint16_t ipv4_fragment_offset(const struct ipv4_header *iphdr)
-{
-	return ntohs(iphdr->frag_off) & IPV4_FRAG_MASK;
-}
-
-/** @return Whether this header's packet has more fragments remaining */
-static inline bool ipv4_more_framents(const struct ipv4_header *iphdr)
-{
-	return ntohs(iphdr->frag_off) & IPV4_MORE_FRAG;
-}
-
-/** @return Whether this header's packet is fragmented */
-static inline bool ipv4_is_fragmented(const struct ipv4_header *iphdr)
-{
-	return ntohs(iphdr->frag_off) & (IPV4_MORE_FRAG | IPV4_FRAG_MASK);
-}
-
-/***/
-static inline bool ipv4_is_multicast(__be ipv4_t addr)
-{
-	return (ntohl(addr) >> 28) == 0xE;
-}
-
-/***/
-static inline bool ipv4_is_broadcast(__be ipv4_t addr)
-{
-	return addr == 0XFFFFFFFF;
-}
 
 /** Process a newly received IP packet */
 error_t ipv4_receive_packet(struct packet *packet);

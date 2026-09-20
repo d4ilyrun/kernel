@@ -66,6 +66,7 @@ typedef enum error {
 	E_ADDR_NOT_AVAILABLE = 99,   ///< Cannot assign requested address
 	E_NET_DOWN = 100,	     ///< Network is down
 	E_NET_UNREACHABLE = 101,     ///< Network is unreachable
+	E_CONNEXION_RESET = 104,     ///< Connection reset by peer
 	E_NO_BUFFER_SPACE = 105,     ///< Not enough buffer space
 	E_IS_CONNECTED = 106,	     ///< Transport endpoint is already connected
 	E_NOT_CONNECTED = 107,	     ///< Transport endpoint is not connected

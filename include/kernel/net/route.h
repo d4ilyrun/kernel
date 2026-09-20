@@ -8,6 +8,7 @@
 struct routing_point {
 	__be struct sockaddr_in ip; /** IP address */
 	struct sockaddr_mac mac;    /** MAC address*/
+	unsigned int mtu;
 };
 
 /** Routing structure */

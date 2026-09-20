@@ -146,6 +146,9 @@ static error_t socket_connect(struct file *file, const struct sockaddr *addr, so
 		return E_SUCCESS;
 	}
 
+	if (socket_mode_is_connection(socket->proto->type) && socket_is_connected(socket))
+		return E_IS_CONNECTED;
+
 	err = socket->domain->verify_addr(addr, addr_len);
 	if (err)
 		return -err;

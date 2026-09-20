@@ -27,6 +27,7 @@ error_t net_route_compute(struct net_route *route, const struct sockaddr_in *dst
 
 	memcpy(&route->dst.ip, dst, sizeof(route->dst.ip));
 	memcpy(route->dst.mac.mac_addr, daddr_mac, sizeof(mac_address_t));
+	route->dst.mtu = route->netdev->mtu;
 
 	route->src.ip.sin_family = dst->sin_family;
 	route->src.ip.sin_addr.s_addr = subnet->ip;
