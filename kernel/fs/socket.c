@@ -34,6 +34,18 @@ static struct file_operations socket_fops;
 static void socket_vnode_release(struct vnode *vnode)
 {
 	struct socket *socket = socket_from_vnode(vnode);
+	struct packet *packet;
+	struct packet *next;
+
+	/*
+	 * Discard any remaining received packet.
+	 */
+	spinlock_acquire(&socket->rx_lock);
+	FOREACH_LLIST_ENTRY_SAFE(packet, next, &socket->rx_packets, rx_this) {
+		llist_remove(&packet->rx_this);
+		packet_free(packet);
+	}
+	spinlock_release(&socket->rx_lock);
 
 	if (socket->proto && socket->proto->ops->release)
 		socket->proto->ops->release(socket);
@@ -90,18 +102,6 @@ static void socket_close(struct file *file)
 	struct socket *socket = file->priv;
 
 	socket_lock(socket);
-
-	/*
-	 * Discard all previously received packets.
-	 */
-	spinlock_acquire(&socket->rx_lock);
-	while (!queue_is_empty(&socket->rx_packets)) {
-		struct packet *pkt;
-
-		pkt = queue_dequeue_entry(&socket->rx_packets, struct packet, rx_this);
-		packet_free(pkt);
-	}
-	spinlock_release(&socket->rx_lock);
 
 	/*
 	 * Close connection and make socket unreachable.
