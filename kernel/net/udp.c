@@ -32,6 +32,37 @@ struct udp_sock {
 };
 
 /*
+ * Hash comparison function for UDP sockets.
+ *
+ * Datagrams are identified by their local address/port tuple.
+ */
+static int udp_hash_compare(const void *entry_key, const void *key)
+{
+	const struct inet_sock *isock_entry = entry_key;
+	const struct inet_sock *isock = key;
+
+	if (isock->port != isock_entry->port)
+		return !COMPARE_EQ;
+
+	if (isock->addr == INADDR_ANY || isock_entry->addr == INADDR_ANY)
+		return COMPARE_EQ;
+	if (isock->addr == isock_entry->addr)
+		return COMPARE_EQ;
+
+	return !COMPARE_EQ;
+}
+
+/*
+ * Hash functions for UDP sockets.
+ */
+static u32 udp_hash(const void *key)
+{
+	const struct inet_sock *isock = key;
+
+	return hash32(isock->port << 16 | isock->port);
+}
+
+/*
  * Compute a UDP packet's checksum.
  */
 static __be u16 udp_checksum(__be u32 daddr, __be u32 saddr,
@@ -292,7 +323,8 @@ struct socket_protocol_ops af_inet_udp_ops = {
 
 static error_t udp_init(void)
 {
-	hashtable_init(&udp_sockets, inet_sock_hash, inet_sock_hash_compare);
+	hashtable_init(&udp_sockets, udp_hash, udp_hash_compare);
+
 	return E_SUCCESS;
 }
 
