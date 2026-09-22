@@ -205,35 +205,6 @@ release_packet:
 }
 
 /*
- *
- */
-int inet_sock_hash_compare(const void *entry_key, const void *key)
-{
-	const struct inet_sock *isock_entry = entry_key;
-	const struct inet_sock *isock = key;
-
-	if (isock->port != isock_entry->port)
-		return !COMPARE_EQ;
-
-	if (isock->addr == INADDR_ANY || isock_entry->addr == INADDR_ANY)
-		return COMPARE_EQ;
-	if (isock->addr == isock_entry->addr)
-		return COMPARE_EQ;
-
-	return !COMPARE_EQ;
-}
-
-/*
- *
- */
-u32 inet_sock_hash(const void *key)
-{
-	const struct inet_sock *isock = key;
-
-	return hash32(isock->port << 16 | isock->port);
-}
-
-/*
  * Common codepath when binding an AF_INET socket to a local address.
  */
 error_t inet_sock_bind(struct inet_sock *isock, const struct sockaddr_in *sin)

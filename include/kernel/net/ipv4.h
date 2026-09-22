@@ -140,10 +140,6 @@ ssize_t inet_sock_send_one(struct inet_sock *isock, __be u16 proto,
 			   const void *header, size_t header_size,
 			   const struct iovec *iov, int flags);
 
-/* for storing sockets inside hashtables */
-u32 inet_sock_hash(const void *);
-int inet_sock_hash_compare(const void *, const void *);
-
 #endif /* KERNEL_NET_IPV4_H */
 
 /** @} */
