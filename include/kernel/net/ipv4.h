@@ -118,10 +118,6 @@ static inline __be ipv4_t IPV4(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 	return htonl(a << 24 | b << 16 | c << 8 | d);
 }
 
-#define FMT_IP "%u.%u.%u.%u"
-#define LOG_IP(ip) \
-	((uint8_t *)&ip)[0], ((uint8_t *)&ip)[1], ((uint8_t *)&ip)[2], ((uint8_t *)&ip)[3]
-
 /*
  * Helper functions for socket protocols over IPv4.
  */

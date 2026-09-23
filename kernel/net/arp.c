@@ -166,7 +166,7 @@ error_t arp_add(__be ipv4_t ip, mac_address_t mac)
 		duplicate = arp_get_entry_locked(ip);
 		if (!duplicate) {
 			hashtable_insert(&arp_table, &entry->hash);
-			log_dbg(FMT_IP " -> " FMT_MAC, LOG_IP(ip), LOG_MAC_ARG(mac));
+			log_dbg("%p4 -> %pm", &ip, mac);
 		} else
 			SWAP(entry, duplicate);
 	}
@@ -308,16 +308,14 @@ error_t arp_receive_packet(struct packet *packet)
 
 	switch (ntoh(arp->operation)) {
 	case ARP_REPLY:
-		log_dbg("Reply " FMT_MAC " has " FMT_IP,
-			LOG_MAC_ARG(arp->src_mac),
-			LOG_IP(arp->src_ip));
+		log_dbg("Reply %pm has %p4", arp->src_mac, &arp->src_ip);
 		return arp_add(arp->src_ip, arp->src_mac);
 
 	case ARP_REQUEST:
-		log_dbg("Request who has " FMT_IP "? tell " FMT_IP " (" FMT_MAC ")",
-			LOG_IP(arp->dst_ip),
-			LOG_IP(arp->src_ip),
-			LOG_MAC_ARG(arp->src_mac));
+		log_dbg("Request who has %p4? tell %p4 (%pm)",
+			&arp->dst_ip,
+			&arp->src_ip,
+			arp->src_mac);
 		arp_add(arp->src_ip, arp->src_mac);
 
 		reply_mac = arp_get(arp->dst_ip);

@@ -184,8 +184,8 @@ static error_t af_inet_udp_bind(struct socket *socket, const struct sockaddr *ad
 
 		hashtable_insert(&udp_sockets, &usock->hash);
 		socket->state |= SOCKET_BOUND;
-		log_dbg("socket bound to " FMT_IP " port %d",
-			 LOG_IP(usock->isock.addr),
+		log_dbg("socket bound to %p4 port %d",
+			 &usock->isock.addr,
 			 htons(usock->isock.port));
 		break;
 	}
@@ -222,8 +222,8 @@ static error_t af_inet_udp_connect(struct socket *socket, const struct sockaddr 
 		return err;
 
 	socket->state |= SOCKET_CONNECTED;
-	log_dbg("socket connected to " FMT_IP " port %d",
-		 LOG_IP(usock->isock.route.dst.ip.sin_addr.s_addr),
+	log_dbg("socket connected to %p4 port %d",
+		 &usock->isock.route.dst.ip.sin_addr.s_addr,
 		 htons(usock->isock.route.dst.ip.sin_port));
 
 	return E_SUCCESS;
