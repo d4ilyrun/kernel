@@ -76,7 +76,7 @@ error_t ethernet_device_register(struct ethernet_device *device)
 	spinlock_release(&ethernet_devices_lock);
 
 	log_info("registered new device: %s", ethernet_device_name(device));
-	log_info(" * mac: " FMT_MAC, LOG_MAC_ARG(device->mac));
+	log_info(" * mac: %pm", device->mac);
 	log_info(" * mtu: %zu", device->mtu);
 
 	return E_SUCCESS;

@@ -87,7 +87,7 @@ error_t ipv4_receive_packet(struct packet *packet)
 	}
 
 	if (ipv4_is_multicast(iphdr->daddr) || ipv4_is_broadcast(iphdr->daddr)) {
-		not_implemented("Broadcast/Multicast: " FMT_IP, LOG_IP(iphdr->daddr));
+		not_implemented("Broadcast/Multicast: %p4", &iphdr->daddr);
 		ret = E_NOT_IMPLEMENTED;
 		goto invalid_packet;
 	}

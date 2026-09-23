@@ -3,6 +3,7 @@
 #include <kernel/printk.h>
 #include <kernel/symbols.h>
 #include <kernel/types.h>
+#include <kernel/net/ethernet.h>
 
 #include <utils/compiler.h>
 
@@ -42,11 +43,15 @@ static size_t printk_buffer_index = 0;
  * * %pS: kernel_symbol+0xoffset
  * * %pe: err_to_str(*(error_t *)ptr)
  * * %pE: err_to_str(ERR_FROM_PTR(ptr))
+ * * %p4: ipv4 (big endian format)
+ * * %pm: mac address
  */
 #define TOK_POINTER_SYMBOL	  's'
 #define TOK_POINTER_SYMBOL_OFFSET 'S'
 #define TOK_POINTER_ERROR	  'e'
 #define TOK_POINTER_ERROR_POINTER 'E'
+#define TOK_POINTER_IPV4	  '4'
+#define TOK_POINTER_MAC		  'm'
 
 #define TOK_LEN_ELL	  'l'
 #define TOK_LEN_SHORT	  'h'
@@ -295,6 +300,29 @@ static void printk_err_to_str(void *ptr, bool raw_error, printk_ctx_t *ctx, int 
 	printk_puts(err_to_str(err), ctx, written);
 }
 
+static void printk_ipv4(__be ipv4_t *ip, printk_ctx_t *ctx, int *written)
+{
+	uint8_t *ip_fields = (void *)ip;
+
+	for (size_t i = 0; i < sizeof(ipv4_t); ++i) {
+		if (i != 0)
+			printk_char('.', ctx, written);
+		printk_utoa_base(ip_fields[i], 10, ctx, written);
+	}
+}
+
+static void printk_mac(mac_address_t *mac, printk_ctx_t *ctx, int *written)
+{
+	ctx->field_width = 2;
+	ctx->flags.pad_char = PADDING_ZERO;
+
+	for (size_t i = 0; i < sizeof(mac_address_t); ++i) {
+		if (i != 0)
+			printk_char(':', ctx, written);
+		printk_utoa_base((*mac)[i], 16, ctx, written);
+	}
+}
+
 /// PARSERS
 ///
 /// These functions are used to parse the printing context from the
@@ -485,6 +513,13 @@ static int printk_step_pointer(const char *c, int *written, va_list *parameters,
 		printk_err_to_str(va_arg(*parameters, void *), *c == TOK_POINTER_ERROR, ctx,
 				  written);
 		break;
+	case TOK_POINTER_IPV4:
+		printk_ipv4(va_arg(*parameters, ipv4_t *), ctx, written);
+		break;
+	case TOK_POINTER_MAC:
+		printk_mac(va_arg(*parameters, mac_address_t *), ctx, written);
+		break;
+
 	default:
 		ctx->flags.alternate_form = true;
 		printk_utoa_base((unsigned int)va_arg(*parameters, void *), 16, ctx, written);
