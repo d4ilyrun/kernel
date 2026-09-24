@@ -29,7 +29,9 @@ typedef struct scheduler {
 
 } scheduler_t;
 
-static scheduler_t scheduler;
+static scheduler_t scheduler = {
+	.ready = QUEUE_INIT(scheduler.ready),
+};
 
 /** IDLE task running when there are no other task ready */
 static thread_t *idle_thread;
@@ -206,7 +208,6 @@ void sched_unblock_waiting_before(clock_t deadline)
 static error_t scheduler_init(void)
 {
 	atomic_write(&scheduler.sync.preemption_level, 0);
-	INIT_QUEUE(scheduler.ready);
 
 	idle_thread = thread_spawn(&kernel_process, idle_task, NULL, NULL, NULL, THREAD_KERNEL);
 	sched_new_thread(idle_thread);
