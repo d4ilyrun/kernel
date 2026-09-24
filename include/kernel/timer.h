@@ -63,12 +63,7 @@ static inline clock_t timer_gettick(void)
  * Increment the timekeeping timer's tick count.
  * @return \c true if an overflow occured.
  */
-static inline bool timer_tick(void)
-{
-	clock_t old_ticks = timer_ticks_counter;
-	timer_ticks_counter += 1;
-	return old_ticks > timer_ticks_counter;
-}
+bool timer_tick(void);
 
 /** @return the number of miliseconds elapsed since startup. */
 static inline time_t timer_get_ms(void)
@@ -116,5 +111,20 @@ void timer_wait_ms(time_t);
  *       and using this instead.
  */
 void timer_delay_ms(time_t);
+
+/*
+ * Timeout callback API.
+ */
+
+struct timeout;
+
+typedef void (*timeout_cb_t)(void *);
+
+struct timeout *timeout_new(timeout_cb_t, void *data);
+void timeout_destroy(struct timeout *);
+void timeout_arm(struct timeout *, u32 ms);
+void timeout_cancel(struct timeout *);
+bool timeout_is_pending(const struct timeout *);
+u32 timeout_remaining(const struct timeout *);
 
 #endif /* KERNEL_DEVICES_TIMER_H */

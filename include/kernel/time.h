@@ -9,7 +9,7 @@
 #define KERNEL_TIME_H
 
 /*
- * The number of clock ticks in a second (100Hz, 1 tick = 100ms).
+ * The number of clock ticks in a second (100Hz, 1 tick = 10ms).
  *
  * This is also used as the maximum time a thread is allowed to run for
  * before being rescheduled (thread will be forcefully rescheduled
