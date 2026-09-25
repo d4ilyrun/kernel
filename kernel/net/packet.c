@@ -4,6 +4,7 @@
 #include <kernel/net/packet.h>
 
 #include <string.h>
+#include "kernel/error.h"
 
 struct packet *packet_new(size_t packet_size)
 {
@@ -60,13 +61,28 @@ error_t packet_send(struct packet *packet)
 	return ethernet->ops->send_packet(ethernet, packet);
 }
 
+void *packet_push(struct packet *skb, size_t size)
+{
+	void *start;
+
+	if (skb->allocated_size - skb->packet_size < size)
+		return PTR_ERR(E_NO_BUFFER_SPACE);
+
+	start = packet_end(skb);
+	skb->packet_size += size;
+
+	return start;
+}
+
 error_t packet_put(struct packet *skb, const void *data, size_t size)
 {
-	if (skb->allocated_size - skb->packet_size < size)
-		return E_NO_BUFFER_SPACE;
+	void *start;
 
-	memcpy(packet_end(skb), data, size);
-	skb->packet_size += size;
+	start = packet_push(skb, size);
+	if (IS_ERR(start))
+		return ERR_FROM_PTR(start);
+
+	memcpy(start, data, size);
 
 	return E_SUCCESS;
 }

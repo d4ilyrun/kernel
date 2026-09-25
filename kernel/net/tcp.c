@@ -14,8 +14,9 @@
  * - RFC 9293 - Transmission Control Protocol (TCP)
  */
 
-#include <dailyrun/net/ipv4.h>
-#include <stddef.h>
+#include <string.h>
+#include "kernel/error.h"
+#include "kernel/net/route.h"
 #define LOG_DOMAIN "tcp"
 
 #include <kernel/init.h>
@@ -24,6 +25,7 @@
 #include <kernel/net/tcp.h>
 #include <kernel/net/packet.h>
 #include <kernel/socket.h>
+#include <kernel/timer.h>
 
 #include <libalgo/hashtable.h>
 #include <libfsm.h>
@@ -127,120 +129,56 @@ u32 tcp_compute_isn(void)
 }
 
 /*
- * Append a segment to the transmitter's list of pending segments.
- */
-static void tcp_add_pending_segment(struct tcp_sock *tsock, struct packet *packet)
-{
-	llist_add(&tsock->pending, &packet->tx_this);
-	tsock->pending_bytes += tcp_segment_len(packet->l4.tcp, packet_payload_size(packet));
-}
-
-/*
- * Try and send as many pending segments as allowed by the current window.
- *
- * This function should be called when:
- * - Trying to send a new segment
- * - Moving the send window's right edge
- */
-void tcp_send_pending_segments(struct tcp_sock *tsock)
-{
-	struct packet *packet;
-
-	FOREACH_LLIST_ENTRY(packet, &tsock->pending, tx_this) {
-		struct tcp_header *tcp = packet->l4.tcp;
-		size_t seg_len = tcp_segment_len(tcp, packet_payload_size(packet));
-		u32 seq;
-
-		/* Check whether this segment can be transmitted inside
-		 * the current window, and update the window if so.
-		 *
-		 * NOTE: Since we currently do not support packet segmentation
-		 *       all segments inside the pending queue have the PSH
-		 *       flag set. Because of this the SWS algorithm is reduced
-		 *       to:
-		 *           PUSHed and D <= U
-		 *       D being the size of the current segment in our case.
-		 *
-		 * TODO: SWS algorithm once segmentation support is added.
-		 */
-		ASSERT(tcp->psh);
-		if (tcp_window_send(&tsock->tcb, &seq, seg_len))
-			break;
-		tsock->pending_bytes -= seg_len;
-
-		tcp->seq_num = htonl(seq);
-		tcp->checksum = tcp_checksum(packet->l3.ipv4->daddr, packet->l3.ipv4->saddr, tcp,
-					     packet_payload(packet), packet_payload_size(packet),
-					     0);
-
-		packet_send(packet);
-	}
-}
-
-/*
- * Build a TCP segment.
+ * Build a TCP segment and add it to the transmit queue.
  *
  * The control bits must be set inside the header prior to calling this function.
  */
-static struct packet *tcp_build_segment(struct tcp_sock *tsock, struct tcp_header *tcp,
-					void *payload, size_t payload_size)
+static bool
+tcp_transmit_segment(struct tcp_sock *tsock, struct net_route *route, struct packet *packet)
 {
 	struct net_route *route;
+	struct packet *packet;
+	u32 seq;
 
-	/* NOTE: The sequence number cannot be determined at this stage since SND.NXT
-	 *       is only updated when it was deemed that the packet could be transmitted
-	 *       (which is checked after building the packet). This field is thus filled
-	 *       later by tcp_send_pending_segments(). The checksum also cannot be computed
-	 *       either because of this.
-	 */
-	route = &tsock->isock.route;
-	tcp->dport = route->dst.ip.sin_port;
-	tcp->sport = route->src.ip.sin_port;
-	tcp->data_offset = sizeof(*tcp) / sizeof(u32);
+	llist_add_tail(&tsock->xmit_queue, &packet->tx_this);
+	/* TODO: xmit_queue_kick() */
 
-	return ipv4_build_packet(route, IPPROTO_TCP, tcp, tcp_header_size(tcp), payload,
-				 payload_size);
+	return true;
 }
 
 /*
  *
  */
-static error_t
-tcp_send_segment(struct tcp_sock *tsock, struct tcp_header *tcp, void *payload, size_t payload_size)
+static error_t tcp_send_control(struct tcp_sock *tsock, struct tcp_header *tcphdr)
 {
-	struct tcb *tcb = &tsock->tcb;
-	struct net_route *route = &tsock->isock.route;
+	struct net_route *route;
 	struct packet *packet;
-	size_t seg_len;
-	size_t mss;
+	u32 seq;
 
-	/* No route to the remote peer. */
+	/* No route to the peer. */
 	if (WARN_ON(!(tsock->socket->state & (SOCKET_CONNECTING | SOCKET_CONNECTED))))
 		return E_NOT_CONNECTED;
 
-	packet = tcp_build_segment(tsock, tcp, payload, payload_size);
+	/* no TCP option */
+	tcphdr->data_offset = sizeof(*tcphdr) / sizeof(u32);
+
+	route = &tsock->isock.route;
+	packet = ipv4_build_packet(route, IPPROTO_TCP, tcphdr, tcp_header_size(tcphdr), NULL, 0);
 	if (IS_ERR(packet))
 		return ERR_FROM_PTR(packet);
 
-	seg_len = tcp_segment_len(tcp, packet_payload_size(packet));
-	mss = MIN(tcb->send.mss + 20, route->dst.mtu);
-	mss -= tcp_header_size(packet->l4.tcp);
-	mss -= ipv4_header_option_size(packet->l3.ipv4);
-
-	if (seg_len > mss) {
-		/* TODO: TCP fragmentation */
-		not_implemented("TCP fragmentation on TX path");
+	if (tcp_window_send(&tsock->tcb, &seq, tcp_segment_len(tcphdr, 0))) {
 		packet_free(packet);
-		return E_NOT_SUPPORTED;
-	} else {
-		/* PSH flag only set on the last packet */
-		packet->l4.tcp->psh = true;
+		return E_NOMEM;
 	}
 
-	tcp_add_pending_segment(tsock, packet);
-	tcp_send_pending_segments(tsock);
-
-	return E_SUCCESS;
+	tcphdr = packet->l4.tcp;
+	tcphdr->seq_num = htonl(seq);
+	tcphdr->dport = route->dst.ip.sin_port;
+	tcphdr->sport = route->src.ip.sin_port;
+	tcphdr->window = htons(tsock->tcb.recv.window_size);
+	tcphdr->checksum = tcp_checksum(packet->l3.ipv4->daddr, packet->l3.ipv4->saddr, tcphdr,
+					packet_payload(packet), packet_payload_size(packet), 0);
 }
 
 /*
@@ -254,7 +192,7 @@ error_t tcp_send_ack(struct tcp_sock *tsock)
 	tcp.ack = true;
 	tcp.ack_num = htonl(tsock->tcb.recv.next);
 
-	return tcp_send_segment(tsock, &tcp, NULL, 0);
+	return tcp_transmit_segment(tsock, &tcp, NULL, 0);
 }
 
 /*
@@ -268,7 +206,7 @@ error_t tcp_send_rst(struct tcp_sock *tsock, unsigned int seq)
 	tcp.rst = true;
 	tcp.ack_num = htonl(seq);
 
-	return tcp_send_segment(tsock, &tcp, NULL, 0);
+	return tcp_transmit_segment(tsock, &tcp, NULL, 0);
 }
 
 /*
@@ -283,8 +221,62 @@ error_t tcp_send_syn(struct tcp_sock *tsock, bool ack)
 	tcp.ack = ack;
 	tcp.ack_num = htonl(tsock->tcb.recv.next);
 
-	return tcp_send_segment(tsock, &tcp, NULL, 0);
+	return tcp_transmit_segment(tsock, &tcp, NULL, 0);
 }
+
+/*
+ *
+ */
+static error_t tcp_send_pending(struct tcp_sock *tsock)
+{
+	struct tcb *tcb = &tsock->tcb;
+	struct net_route *route = &tsock->isock.route;
+	size_t pending = ringbuffer_remaining(&tsock->buffer);
+	size_t usable;
+	size_t payload_size;
+	void *payload;
+	size_t mss;
+	struct {
+		struct tcp_header hdr;
+		uint8_t options[256]; /* TODO: Send mandatory TCP options. */
+	} tcp;
+
+	tcp.hdr.ack = true;
+	tcp.hdr.ack_num = tcb->recv.next;
+	tcp.hdr.data_offset = sizeof(tcp.hdr) / sizeof(u32);
+
+	mss = MIN(tcb->send.mss + 20, route->dst.mtu);
+	mss -= tcp_header_size(&tcp.hdr);
+	mss -= 0; /* TODO: IP options */
+
+	/*
+	 * Avoid sending tinygram when the peer moves its window's righe edge
+	 * in small increments (Silly Window Syndrom).
+	 *
+	 * @see 3.8.6.2.1 - SWS: Sender's Algorithm
+	 */
+	usable = tcb->send.unack + tcb->send.window_size - tcb->send.next;
+	payload_size = MIN(pending, usable);
+	if (payload_size >= mss) {
+		payload_size = mss;
+	} else if (tcb->send.next == tcb->send.unack) {
+		if (pending <= usable) {
+			payload_size = pending;
+		} else if (payload_size >= (tcb->send.max_window_size / 2)) {
+			payload_size = pending;
+		} else
+			goto out;
+	} else
+		goto out;
+
+	packet_push(packet, size_t size)
+	payload = ringbuffer_pop(struct ringbuffer *rb, uint8_t *data, size_t size)
+	// tcp_transmit_segment(tsock, &tcp.hdr,
+
+out:
+	return E_SUCCESS;
+}
+
 
 /*
  * Receive a TCP segment from the IP layer.
@@ -531,6 +523,8 @@ static void af_inet_tcp_release(struct socket *socket)
 		return;
 	if (tsock->time_wait_timeout)
 		timeout_destroy(tsock->time_wait_timeout);
+	if (tsock->buffer.buf_start)
+		kfree(tsock->buffer.buf_start);
 	kfree(tsock);
 }
 
@@ -540,11 +534,17 @@ static void af_inet_tcp_release(struct socket *socket)
 static error_t af_inet_tcp_init(struct socket *socket)
 {
 	struct tcp_sock *tsock;
+	void *buffer;
 
 	tsock = kcalloc(1, sizeof(*tsock), KMALLOC_KERNEL);
 	if (!tsock)
 		return E_NOMEM;
 	socket->data = tsock;
+
+	buffer = kmalloc(TCP_DEFAULT_BUFFER_SIZE, KMALLOC_KERNEL);
+	if (buffer)
+		return E_NOMEM;
+	ringbuffer_init(&tsock->buffer, buffer, TCP_DEFAULT_BUFFER_SIZE);
 
 	tsock->time_wait_timeout = timeout_new(tcp_timeout, tsock);
 	if (!tsock->time_wait_timeout)

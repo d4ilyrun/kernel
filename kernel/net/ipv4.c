@@ -187,10 +187,12 @@ struct packet *ipv4_build_packet(const struct net_route *route, u8 proto, const 
 		packet_put(packet, header, header_size);
 	packet_set_l4_size(packet, header_size);
 
-	/* insert packet payload */
-	ret = packet_put(packet, payload, payload_size);
-	if (ret)
-		goto release_packet;
+	if (payload) {
+		/* insert packet payload */
+		ret = packet_put(packet, payload, payload_size);
+		if (ret)
+			goto release_packet;
+	}
 
 	return packet;
 

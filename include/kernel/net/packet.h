@@ -131,6 +131,15 @@ static inline void *packet_end(const struct packet *packet)
 /** Append new data to the packet */
 error_t packet_put(struct packet *packet, const void *data, size_t size);
 
+/** Reserve the specified number of bytes in the packet.
+ *
+ *  This is similar to @c packet_put() except that no data is copied
+ *  into these bytes.
+ *
+ *  @return The start of the reserved area, or a pointer encoded error.
+ */
+void *packet_push(struct packet *packet, size_t size);
+
 /** Read data from the packet.
  *  @return The number of bytes actually read.
  */

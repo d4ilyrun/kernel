@@ -8,7 +8,9 @@
 #include <dailyrun/net/tcp.h>
 
 #include <libalgo/hashtable.h>
+#include <libalgo/ringbuffer.h>
 #include <libfsm.h>
+#include <utils/constants.h>
 
 /* Use the Maximum Segment Lifetime value defined in RFC9293. */
 #define TCP_MSL 120
@@ -72,6 +74,9 @@ struct tcb {
 
 		/* Maximum segment size supported by the peer. */
 		unsigned int mss;
+
+		/**/
+		u32 max_window_size;
 	} send;
 
 	struct {
@@ -98,6 +103,8 @@ bool tcp_window_ack_is_duplicate(struct tcb *, u32 seq);
 bool tcp_window_ack(struct tcb *, u32 seq);
 bool tcp_window_update_send(struct tcb *, size_t window, u32 seq, u32 ack);
 
+#define TCP_DEFAULT_BUFFER_SIZE (32 * KB)
+
 /*
  * Private TCP socket data.
  */
@@ -107,9 +114,10 @@ struct tcp_sock {
 	struct fsm fsm;
 	struct tcb tcb;
 	struct hashtable_entry hash;
-	llist_t pending;
-	size_t pending_bytes;
 	struct timeout *time_wait_timeout;
+	struct ringbuffer buffer;
+	size_t buffered_bytes;
+	llist_t xmit_queue;
 };
 
 void tcp_send_pending_segments(struct tcp_sock *tsock);
