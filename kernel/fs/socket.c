@@ -125,7 +125,7 @@ static error_t socket_bind(struct file *file, const struct sockaddr *addr, sockl
 
 	err = socket->domain->verify_addr(addr, addr_len);
 	if (err)
-		return -err;
+		return err;
 
 	socket_lock(socket);
 	err = socket->proto->ops->bind(socket, addr, addr_len);
@@ -151,7 +151,7 @@ static error_t socket_connect(struct file *file, const struct sockaddr *addr, so
 
 	err = socket->domain->verify_addr(addr, addr_len);
 	if (err)
-		return -err;
+		return err;
 
 	socket_lock(socket);
 	err = socket->proto->ops->connect(socket, addr, addr_len);
@@ -187,7 +187,7 @@ static ssize_t socket_sendmsg(struct file *file, const struct msghdr *msg, int f
 
 			err = socket->domain->verify_addr(msg->msg_name, msg->msg_namelen);
 			if (err)
-				return -err;
+				return err;
 		}
 	}
 
