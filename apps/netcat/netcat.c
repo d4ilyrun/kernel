@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <errno.h>
 
 /*
  * Server: echo back everything the client sends.
@@ -17,11 +18,22 @@ static void server_echo(int sock)
 	ssize_t bytes;
 
 	while (true) {
-		bytes = read(sock, buffer, sizeof(buffer));
-		if (bytes < 0)
-			continue;
+		bytes = recv(sock, buffer, sizeof(buffer), 0);
+		if (bytes == 0)
+			break;
+		if (bytes < 0) {
+			switch (errno) {
+			default:
+				/* ignore error */
+				continue;
+			}
+		}
+
 		write(STDOUT_FILENO, buffer, bytes);
 	}
+
+out:
+	return;
 }
 
 /*
@@ -52,13 +64,69 @@ static void udp_server(unsigned int port)
 	}
 
 	server_echo(sock);
+	close(sock);
 }
 
-#define GETOP_OPTS "ul"
+/*
+ *
+ */
+static void tcp_server(unsigned int port)
+{
+	struct sockaddr_in sin;
+	int sock;
+	int client_sock;
+	int ret;
+
+	memset(&sin, 0, sizeof(sin));
+	sin.sin_family = AF_INET;
+	sin.sin_addr.s_addr = INADDR_ANY;
+	sin.sin_port = htons(port);
+
+	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sock < 0) {
+		perror("socket()");
+		return;
+	}
+
+	ret = bind(sock, (void *)&sin, sizeof(sin));
+	if (ret < 0) {
+		perror("bind()");
+		close(sock);
+		return;
+	}
+
+	ret = listen(sock, 16);
+	if (ret < 0) {
+		perror("listen");
+		close(sock);
+		return;
+	}
+
+	while (true) {
+		client_sock = accept(sock, NULL, NULL);
+		if (client_sock < 0) {
+			perror("accept");
+			continue;
+		}
+
+		/* Only accept one connection. */
+		close(sock);
+		break;
+	}
+
+	server_echo(client_sock);
+	close(client_sock);
+}
+
+#define GETOP_OPTS "utl"
 
 static void usage(const char *exe)
 {
-	printf("Usage: %s [-u] [-l] port", exe);
+	printf("Usage: %s [-u|-t] [-l] port\n", exe);
+	printf("Options:");
+	printf("\t-l\tAct as a server\n");
+	printf("\t-t\tUse TCP (default)\n");
+	printf("\t-u\tUse UDP\n");
 }
 
 int main(int argc, char *argv[])
@@ -102,19 +170,17 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	if (is_tcp) {
-		puts("TCP not supported yet");
-		usage(argv[0]);
-		exit(1);
-	}
-
-	if (!is_server) {
+	if (is_server) {
+		if (is_tcp) {
+			tcp_server(port);
+		} else {
+			udp_server(port);
+		}
+	} else {
 		puts("Client not supported yet");
 		usage(argv[0]);
 		exit(1);
 	}
-
-	udp_server(port);
 
 	return EXIT_SUCCESS;
 }
