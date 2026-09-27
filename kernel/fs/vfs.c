@@ -450,9 +450,17 @@ vnode_t *vnode_release(vnode_t *node)
 		return NULL;
 
 	if (node->refcount <= 1) {
+		bool is_socket = node->type == VNODE_SOCKET;
+
 		if (node->operations->release)
 			node->operations->release(node);
-		vnode_free(node);
+
+		/* NOTE: A socket's vnode is not allocated via vnode_alloc() but allocated
+		 *       alongside struct socket and released by vn_ops->release().
+		 *       Avoid double-free (not the cleanest way to do so). */
+		if (!is_socket)
+			vnode_free(node);
+
 		return NULL;
 	}
 
