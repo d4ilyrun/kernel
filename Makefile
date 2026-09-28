@@ -82,7 +82,7 @@ compile_commands.json:
 	$(call ASSERT_EXE_EXISTS,bear)
 	$(SILENT)bear -- $(MAKE) -B kernel apps
 
-$(INITRAMFS): apps/install
+$(INITRAMFS): $(BUILD_DIR)/apps/.stamp-install
 	$(call INSTALL,$(ROOT_DIR)/,$(BUILD_ROOT_DIR))
 	$(call COMPILE,INITRAMFS,$@)
 	$(SILENT)cd $(BUILD_ROOT_DIR) && tar -cf $(REPO_ROOT)/$@ *
