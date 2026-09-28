@@ -23,7 +23,7 @@ for symbol in "$@"; do
 done
 
 echo "[INFO] Starting a debugging session"
-make qemu-server || exit
+make -j$(nproc) qemu-server || exit
 gdb --symbol ./build/kernel/kernel.sym \
     -iex "set pagination of" \
     -iex "target remote localhost:1234" \

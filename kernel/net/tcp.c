@@ -206,6 +206,26 @@ void tcp_transmit_queue_flush(struct tcp_sock *tsock)
 	}
 }
 
+static void tcp_log_tcb(const struct tcb *tcb)
+{
+	struct tcp_sock *tsock = container_of(tcb, struct tcp_sock, tcb);
+
+	log_dbg("TCB {%p4:%u}", &tsock->isock.addr, ntohs(tsock->isock.port));
+	log_dbg("- SND -");
+	log_dbg(" SND.UNA \t%u", tcb->send.unack);
+	log_dbg(" SND.NXT \t%u", tcb->send.next);
+	log_dbg(" SND.WND \t%u", tcb->send.window_size);
+	log_dbg(" SND.WL1 \t%u", tcb->send.window_l1);
+	log_dbg(" SND.WL2 \t%u", tcb->send.window_l2);
+	log_dbg(" SND.MSS \t%u", tcb->send.mss);
+	log_dbg("- RCV -");
+	log_dbg(" RCV.NXT \t%u", tcb->recv.next);
+	log_dbg(" RCV.WND \t%u", tcb->recv.window_size);
+	log_dbg(" RCV.BUFF \t%u", tcb->recv.buff);
+	log_dbg(" RCV.USER \t%u", tcb->recv.user);
+	log_dbg("---");
+}
+
 /*
  * Build a TCP segment and add it to the transmit queue.
  *
@@ -222,7 +242,7 @@ tcp_transmit_segment(struct tcp_sock *tsock, struct net_route *route, struct pac
 	if (!seg->rst) {
 		/* SEQ holds a special meaning in the case of RST segments. */
 		if (!tcp_window_send(&tsock->tcb, &seq, seg_len)) {
-			packet_free(packet);
+			tcp_log_tcb(&tsock->tcb);
 			return false;
 		}
 	} else
@@ -442,13 +462,17 @@ error_t tcp_receive_packet(struct packet *packet)
 
 	/* A TCP implementation MUST silently discard an incoming SYN segment
 	 * that is addressed to a broadcast or multicast address. */
-	if (seg->syn && (ipv4_is_broadcast(ip->daddr) || ipv4_is_multicast(ip->daddr)))
+	if (seg->syn && (ipv4_is_broadcast(ip->daddr) || ipv4_is_multicast(ip->daddr))) {
+		log_info("broadcast/mcast");
 		goto discard;
+	}
 
 	/* Discard segments containing an invalid checksum. */
 	if (tcp_checksum(ip->daddr, ip->saddr, seg, packet_payload(packet),
-			 packet_payload_size(packet)))
+			 packet_payload_size(packet))) {
+		log_info("invalid checksum");
 		goto discard;
+	}
 
 	spinlock_acquire(&tcp_sockets_lock);
 

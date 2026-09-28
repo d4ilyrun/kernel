@@ -1,5 +1,5 @@
 APP_NAME       := netcat
-APP_EXECUTABLE := usr/bin/nc
+APP_EXECUTABLE := init
 APP_SOURCES    := netcat.c
 APP_CFLAGS     := -g3
 APP_CPPFLAGS   := -DDEBUG

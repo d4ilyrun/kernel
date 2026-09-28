@@ -106,10 +106,9 @@ static void tcp_exit_closed(struct fsm *fsm, unsigned int state)
 	 */
 	tcb->initial_state = state;
 	tcb->iss = tcp_compute_isn();
-	tcb->recv.buff = TCP_DEFAULT_BUFFER_SIZE;
-	tcb->recv.window_size = TCP_DEFAULT_BUFFER_SIZE;
 	tcb->send.unack = tcb->iss;
 	tcb->send.next = tcb->iss;
+	tcp_window_update_send(tcb, TCP_DEFAULT_BUFFER_SIZE, tcb->recv.next, tcb->send.unack);
 }
 
 /*
@@ -137,20 +136,10 @@ static void tcp_exit_listen(struct fsm *fsm, unsigned int next_state)
 static void tcp_enter_syn_sent(struct fsm *fsm, unsigned int prev_state)
 {
 	struct tcp_sock *tsock = fsm_to_tsock(fsm);
-	struct tcb *tcb = &tsock->tcb;
 
 	tsock->socket->state |= SOCKET_CONNECTING;
 	locked_scope(&tcp_sockets_lock)
 		hashtable_insert(&tcp_sockets, &tsock->hash);
-
-	/*
-	 * Configure a default send window size large enough for a singlge SYN.
-	 *
-	 * In a normal situation the receiver is in the LISTEN state, which does
-	 * not have a properly configured window, and does not check the sequence
-	 * number's validity. In any other case
-	 */
-	tcp_window_update_send(tcb, 1, tcb->recv.next, tcb->send.unack);
 
 	tcp_send_syn(tsock, false);
 }

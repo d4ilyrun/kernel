@@ -154,16 +154,18 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	/* no port argument */
-	if (argc <= optind) {
-		usage(argv[0]);
-		exit(1);
-	}
+	// /* no port argument */
+	// if (argc <= optind) {
+	// 	usage(argv[0]);
+	// 	exit(1);
+	// }
 
 	argc -= optind;
 	argv += optind;
 
-	port_str = argv[0];
+	is_server = true;
+	port_str = "12345";
+
 	port = strtoul(port_str, &end, 10);
 	if (port < INET_MIN_PORT || port > INET_MAX_PORT || *end != '\0') {
 		printf("invalid port: %s\n", port_str);
