@@ -64,20 +64,14 @@ error_t ipv4_receive_packet(struct packet *packet)
 	size_t total_len;
 	size_t hdr_len;
 	error_t ret = E_SUCCESS;
+	ssize_t padding;
 
 	total_len = ntohs(packet->l3.ipv4->tot_len);
 	hdr_len = ipv4_header_size(packet->l3.ipv4);
 	packet_set_l3_size(packet, hdr_len);
 
-	if (packet_payload_size(packet) < total_len - hdr_len) {
-		log_err("ERROR: payload size < actual size: %ld != %ld",
-			packet_payload_size(packet), total_len - hdr_len);
-		ret = E_INVAL;
-		goto invalid_packet;
-	}
-
 	if (ipv4_is_fragmented(iphdr)) {
-		not_implemented("IP segmentation");
+		not_implemented("IP fragmentation");
 		ret = E_NOT_IMPLEMENTED;
 		goto invalid_packet;
 	}
@@ -93,6 +87,19 @@ error_t ipv4_receive_packet(struct packet *packet)
 		ret = E_INVAL;
 		goto invalid_packet;
 	}
+
+	/*
+	 * Remove any eventual padding at the end of the frame.
+	 */
+	padding = packet_end(packet) - packet->l4.raw;
+	padding -= total_len - hdr_len;
+	if (padding < 0) {
+		log_err("payload size < actual size: %zu != %zu",
+			packet_end(packet) - packet->l4.raw, total_len - hdr_len);
+		ret = E_INVAL;
+		goto invalid_packet;
+	}
+	packet_pull(packet, padding);
 
 	/* All incoming traffic is intercepted by RAW sockets:
 	 * - If protocol is the same
