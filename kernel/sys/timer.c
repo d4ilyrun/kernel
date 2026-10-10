@@ -6,6 +6,8 @@
 
 #include <libalgo/linked_list.h>
 
+#include <sys/time.h>
+
 /*
  *
  */
@@ -43,4 +45,31 @@ void timer_start(u32 frequency)
 	err = arch_timer_start(frequency);
 	if (err)
 		PANIC("Failed to start kernel timer.");
+}
+
+/*
+ * alarm() syscall - TODO: remove stub.
+ */
+unsigned sys_alarm(unsigned seconds)
+{
+	(void)seconds;
+
+	return 0;
+}
+
+/*
+ * gettimeofday() syscall - get current date and time.
+ */
+int sys_gettimeofday(struct timeval *tv, void *tz)
+{
+	struct timespec now;
+
+	UNUSED(tz);
+
+	clock_get_time(&now);
+
+	tv->tv_sec = now.tv_sec;
+	tv->tv_usec = now.tv_nsec / 1000;
+
+	return 0;
 }

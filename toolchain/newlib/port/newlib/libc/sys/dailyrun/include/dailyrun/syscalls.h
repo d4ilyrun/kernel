@@ -20,6 +20,8 @@
     F(lseek,				10,		3,		default,		int,		int, int, int)                                                               \
     F(waitpid,				11,		3,		default,		pid_t,		pid_t, int *, int)                                                           \
     F(getpid,				12,		0,		default,		int,		void)                                                                        \
+    F(getppid,				13,		0,		default,		pid_t,		void)                                                                        \
+    F(alarm,				14,		1,		default,		unsigned,	unsigned)                                                                    \
     F(setuid,				15,		1,		default,		int,		uid_t)                                                                       \
     F(seteuid,				16,		1,		default,		int,		uid_t)                                                                       \
     F(setreuid,				17,		2,		default,		int,		uid_t, uid_t)                                                                \
@@ -53,6 +55,8 @@
     F(connect,				45, 	3,		default,		int,		int, const struct sockaddr *, socklen_t)                                     \
     F(bind,					46, 	3,		default,		int,		int, const struct sockaddr *, socklen_t)                                     \
     F(ioctl,				47, 	3,		manual,			int,		int, unsigned long, void *)                                                  \
+    F(gettimeofday,			48, 	2,		default,		int,		struct timeval *, void *)                                                    \
+    F(sigsuspend,			49, 	1,		default,		int,		const sigset_t *)                                                            \
 
 /*
  * The list of available syscall vectors.

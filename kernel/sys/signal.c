@@ -713,6 +713,15 @@ int sys_sigpending(sigset_t *set)
 	return 0;
 }
 
+
+/*
+ * sigsuspend() syscall - STUB.
+ */
+int sys_sigsuspend(const sigset_t *sigmask)
+{
+	return -E_NOT_IMPLEMENTED;
+}
+
 /*
  * Configure the stub signal handler.
  *

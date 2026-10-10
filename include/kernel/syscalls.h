@@ -28,6 +28,7 @@
 #include <stddef.h>
 #include <sys/signal.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 typedef struct syscall_args {
 	u32 nr;

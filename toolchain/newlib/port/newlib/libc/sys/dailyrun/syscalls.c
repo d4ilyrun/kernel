@@ -10,9 +10,6 @@
 #include <sys/times.h>
 #include <sys/types.h>
 
-char **environ; /* pointer to array of char * strings that define the current
-		   environment variables */
-
 #define alias(f)      __attribute__((__alias__(f)))
 #define weak_alias(f) __attribute__((__weak__)) alias(f)
 

@@ -875,9 +875,22 @@ void sys_exit(int status)
 	process_kill(current->process, status << 8);
 }
 
+/*
+ * getpid() syscall - get current process ID.
+ */
 pid_t sys_getpid(void)
 {
 	return current->process->pid;
+}
+
+/*
+ * getppid() syscall - get parent process ID.
+ */
+pid_t sys_getppid(void)
+{
+	struct process *parent = current->process->parent;
+
+	return parent ? parent->pid : 0;
 }
 
 /*
