@@ -7,6 +7,7 @@
 #include <kernel/process.h>
 #include <kernel/timer.h>
 #include <kernel/vfs.h>
+#include <kernel/semaphore.h>
 
 #include <utils/container_of.h>
 
@@ -14,16 +15,13 @@
 #include <unistd.h>
 
 DECLARE_LLIST(vfs_mountpoints);
+DECLARE_MUTEX(vfs_mountpoints_lock);
 
 static struct kmem_cache *kmem_cache_vnode;
 
-// Defined inside our linkerscript
-// These symbols are placed around the '.data.vfs.filesystems' section
 extern u32 _kernel_filesystems_start;
 extern u32 _kernel_filesystems_end;
-
 static const vfs_fs_t *kernel_filesystems_start = (const vfs_fs_t *)&_kernel_filesystems_start;
-
 static const vfs_fs_t *kernel_filesystems_end = (const vfs_fs_t *)&_kernel_filesystems_end;
 
 static const vfs_fs_t *vfs_find_fs(const char *fs_type)
@@ -38,12 +36,21 @@ static const vfs_fs_t *vfs_find_fs(const char *fs_type)
 
 static vfs_t *vfs_root_fs()
 {
-	if (llist_is_empty(&vfs_mountpoints))
-		return NULL;
+	struct vfs *rootfs = NULL;
 
-	return container_of(llist_first(&vfs_mountpoints), vfs_t, this);
+	/* FIXME: Reference count vfs to protect against a simultaneous
+	 *        unmount operation. */
+	semaphore_acquire(&vfs_mountpoints_lock);
+	if (!llist_is_empty(&vfs_mountpoints))
+		rootfs = llist_first_entry(&vfs_mountpoints, vfs_t, this);
+	semaphore_release(&vfs_mountpoints_lock);
+
+	return rootfs;
 }
 
+/*
+ * Mount a filesystem onto a vnode.
+ */
 static error_t vfs_mount_at(vnode_t *mountpoint, const char *fs_type, struct block_device *blkdev)
 {
 	const vfs_fs_t *fs;
@@ -67,19 +74,38 @@ static error_t vfs_mount_at(vnode_t *mountpoint, const char *fs_type, struct blo
 		new->node = NULL; /* root filesystem. */
 	}
 
+	semaphore_acquire(&vfs_mountpoints_lock);
 	llist_add_tail(&vfs_mountpoints, &new->this);
+	semaphore_release(&vfs_mountpoints_lock);
+
 	return E_SUCCESS;
 }
 
+/*
+ * Mount the root filesystem.
+ */
 error_t vfs_mount_root(const char *fs_type, struct block_device *blkdev)
 {
-	// Mounting a new root is not supported for the time being
-	if (!llist_is_empty(&vfs_mountpoints))
-		return E_INVAL;
+	error_t err;
 
-	return vfs_mount_at(NULL, fs_type, blkdev);
+	/* Mounting a new root is not supported. */
+	semaphore_acquire(&vfs_mountpoints_lock);
+	if (!llist_is_empty(&vfs_mountpoints)) {
+		semaphore_release(&vfs_mountpoints_lock);
+		return E_BUSY;
+	}
+	semaphore_release(&vfs_mountpoints_lock);
+
+	err = vfs_mount_at(NULL, fs_type, blkdev);
+	if (err)
+		return err;
+
+	return E_SUCCESS;
 }
 
+/*
+ * Mount a file system onto the given path.
+ */
 error_t vfs_mount(const char *mount_path, const char *fs_type, struct block_device *blkdev)
 {
 	vnode_t *mountpoint;
@@ -97,35 +123,53 @@ error_t vfs_mount(const char *mount_path, const char *fs_type, struct block_devi
 	return err;
 }
 
+/*
+ * Unmount the filesystem mounted on a vnode.
+ */
 static error_t vfs_unmount_at(struct vnode *vnode)
 {
-	llist_remove(&vnode->mounted_here->this);
-	vnode->mounted_here->operations->delete(vnode->mounted_here);
+	struct vfs *fs;
 
-	/* A mounted FS keeps a reference to the vnode it is mounted on */
-	vnode_release(vnode->mounted_here->node);
-	vnode_release(vnode);
+	/*
+	 * Unmount filesystem from the vnode.
+	 */
+	spinlock_acquire(&vnode->lock);
+	fs = vnode->mounted_here;
+	if (!vnode->mounted_here) {
+		spinlock_release(&vnode->lock);
+		return E_INVAL;
+	}
+	vnode_release(fs->node);
+	vnode->mounted_here = NULL;
+	spinlock_release(&vnode->lock);
+
+	/*
+	 * Destroy filesystem.
+	 */
+	semaphore_acquire(&vfs_mountpoints_lock);
+	llist_remove(&fs->this);
+	semaphore_release(&vfs_mountpoints_lock);
+	fs->operations->delete(fs);
 
 	return E_SUCCESS;
 }
 
+/*
+ * Unmount a filesystem.
+ */
 error_t vfs_unmount(const char *path)
 {
-	vnode_t *vnode = vfs_find_by_path(path);
+	vnode_t *vnode;
+	error_t err;
+
+	vnode = vfs_find_by_path(path);
 	if (IS_ERR(vnode))
 		return ERR_FROM_PTR(vnode);
 
-	if (vnode->mounted_here == NULL) {
-		vnode_release(vnode);
-		return E_INVAL;
-	}
-
-	vfs_unmount_at(vnode);
-
-	/* Release the reference acquired by vfs_find_by_path(). */
+	err = vfs_unmount_at(vnode);
 	vnode_release(vnode);
 
-	return E_SUCCESS;
+	return err;
 }
 
 /*
