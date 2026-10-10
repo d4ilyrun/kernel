@@ -28,6 +28,7 @@
 #include <limits.h>
 #include <sys/errno.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
 
 #define PTY_BUFFER_SIZE PAGE_SIZE
 #define PTS_FORMAT "pts%d"
@@ -153,6 +154,21 @@ static char pty_apply_line_discipline(struct pty_end *dst, char c)
 /*
  *
  */
+static int pty_ioctl(struct file *file, unsigned long request, void *params)
+{
+	switch (request) {
+	case TCISATTY:
+		return 1;
+
+	default:
+		log_warn("invaild ioctl: %#lx", request);
+		return -E_INVAL;
+	}
+}
+
+/*
+ *
+ */
 static ssize_t pty_write(struct file *file, const char *buffer, size_t size)
 {
 	struct vnode *vnode = file->vnode;
@@ -220,6 +236,7 @@ static struct file_operations pty_fops = {
 	.read = pty_read,
 	.write = pty_write,
 	.seek = default_file_seek,
+	.ioctl = pty_ioctl,
 };
 
 /*
