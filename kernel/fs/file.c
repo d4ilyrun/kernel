@@ -306,3 +306,36 @@ int sys_ioctl(int fd, unsigned long request, void *param)
     process_fd_put(process, fdp);
     return ret;
 }
+
+/*
+ * access() syscall - check whether the current user has the required
+ *                    permissions to access the specified path.
+ */
+int sys_access(const char *path, int amode)
+{
+	struct user_creds *creds;
+	struct user_creds access_creds;
+	struct vnode *vnode;
+	int ret;
+
+	vnode = vfs_find_by_path(path);
+	if (IS_ERR(vnode))
+		return -ERR_FROM_PTR(vnode);
+
+	/* Accessibility check is performed using the readl UID and GID. */
+	creds = creds_get(current->process->creds);;
+	memcpy(&access_creds, creds, sizeof(access_creds));
+	creds_put(creds);
+	access_creds.euid = access_creds.ruid;
+	access_creds.egid = access_creds.rgid;
+
+	if (!vnode_check_access(vnode, &access_creds, amode)) {
+		ret = -E_ACCESS;
+		goto out;
+	}
+
+	ret = E_SUCCESS;
+out:
+	vnode_release(vnode);
+	return ret;
+}

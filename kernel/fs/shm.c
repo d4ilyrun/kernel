@@ -288,7 +288,7 @@ static struct file *shm_open(const char *name, int oflags, mode_t mode)
 	}
 
 	locked_scope (&shm->vnode->lock) {
-		if (!vnode_check_creds(shm->vnode, creds, oflags)) {
+		if (!vnode_check_access(shm->vnode, creds, access_mode(oflags))) {
 			err = E_ACCESS;
 			goto fail;
 		}

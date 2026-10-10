@@ -165,7 +165,7 @@ static inline struct vnode *vfs_find_child_at(struct vnode **parent, const path_
 
 	/* Make sure that the user can search for files inside this directory. */
 	child = PTR_ERR(E_ACCESS);
-	if (!vnode_check_creds(node, creds, O_SEARCH))
+	if (!vnode_check_access(node, creds, access_mode(O_SEARCH)))
 		goto out;
 
 	child = node->operations->lookup(node, segment);
@@ -374,7 +374,7 @@ static struct file *vfs_open_at(struct vnode *vnode, int oflags)
 			goto out;
 
 		file = PTR_ERR(E_PERM);
-		if (!vnode_check_creds(vnode, creds, oflags))
+		if (!vnode_check_access(vnode, creds, access_mode(oflags)))
 			goto out;
 
 		file = vnode->operations->open(vnode, oflags);
@@ -499,9 +499,36 @@ void vfs_vnode_put_page(struct page *page)
 }
 
 /*
- *
+ * Compute vnode access mode.
  */
-bool vnode_check_creds(const struct vnode *vnode, const struct user_creds *creds, int oflags)
+int access_mode(unsigned int oflags)
+{
+	int amode = 0;
+
+	if (O_READABLE(oflags))
+		amode |= R_OK;
+	if (O_WRITABLE(oflags) || (oflags & O_TRUNC))
+		amode |= W_OK;
+
+	if (oflags & O_WRONLY)
+		amode = W_OK;
+	else if (oflags & O_RDONLY)
+		amode = R_OK;
+	else
+		amode = R_OK | W_OK;
+
+	if (oflags & (O_SEARCH | O_EXEC))
+		amode |= X_OK;
+
+	return amode;
+}
+
+/*
+ * Perform permission checks on a vnode.
+ *
+ * TODO: EROFS for WRITE request on a read-only filesystem.
+ */
+bool vnode_check_access(const struct vnode *vnode, const struct user_creds *creds, int amode)
 {
 	const struct stat *stat;
 
@@ -523,14 +550,14 @@ bool vnode_check_creds(const struct vnode *vnode, const struct user_creds *creds
 	} while (0)
 
 	if (!creds_is_root(creds)) {
-		if (O_READABLE(oflags))
+		if (amode & R_OK)
 			check_creds_type(stat, S_IR);
-		if (O_WRITABLE(oflags) || (oflags & O_TRUNC))
+		if (amode & W_OK)
 			check_creds_type(stat, S_IW);
 	}
 
 	/* Root still requires rights over the vnode when executing. */
-	if (oflags & (O_EXEC | O_SEARCH))
+	if (amode & X_OK)
 		check_creds_type(stat, S_IX);
 
 #undef check_creds_type

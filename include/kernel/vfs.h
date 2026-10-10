@@ -282,11 +282,17 @@ void vnode_free(struct vnode *vnode);
  *
  *  @param vnode  The vnode to access
  *  @param creds  The user credentials used by the accessor
- *  @param oflags The flag combination used when opening the vnode
+ *  @param amode  The access mode value returned by @ref access_mode()
  *
  *  @return \c true if the vnode can be accessed.
  */
-bool vnode_check_creds(const struct vnode *, const struct user_creds *, int oflags);
+bool vnode_check_access(const struct vnode *, const struct user_creds *, int oflags);
+
+/** Compute acess mode value.
+ *
+ * @param oflag file open mode (e.g. O_RDONLY | O_EXEC).
+ */
+int access_mode(unsigned int oflag);
 
 /** Get a page for vnode-backed memory.
  *
