@@ -86,6 +86,14 @@ static ALWAYS_INLINE __atomic_t atomic_exchange(atomic_t *atomic, __atomic_t val
 	return stdatomic_exchange(&atomic->val, val);
 }
 
+/** Atomically exchange a pointer value, returning the old one. */
+#define atomic_ptr_exchange(pptr, new_val)                                                 \
+	({                                                                                 \
+		typeof(*(pptr)) __new = (new_val);                                         \
+		(typeof(*(pptr)))(uintptr_t)atomic_exchange(atomic_cast(pptr),             \
+							    (__atomic_t)(uintptr_t)__new); \
+	})
+
 /** Increment the value of an atomic variable
  *
  * @return The value @ref atomic held previously.

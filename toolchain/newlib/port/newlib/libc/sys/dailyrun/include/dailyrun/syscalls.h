@@ -57,6 +57,8 @@
     F(ioctl,				47, 	3,		manual,			int,		int, unsigned long, void *)                                                  \
     F(gettimeofday,			48, 	2,		default,		int,		struct timeval *, void *)                                                    \
     F(sigsuspend,			49, 	1,		default,		int,		const sigset_t *)                                                            \
+    F(chdir,				50, 	1,		default,		int,		const char *)                                                                \
+    F(getcwd,				51, 	2,		noalias,	    int,		char *, size_t)                                                              \
 
 /*
  * The list of available syscall vectors.

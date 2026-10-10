@@ -47,6 +47,7 @@
 #include <utils/stringify.h>
 
 #include <fcntl.h>
+#include <limits.h>
 #include <sys/stat.h>
 
 struct block_device;
@@ -233,6 +234,15 @@ struct vnode {
 	vfs_t *mounted_here;	 ///< Potential filesystem mounted over this node
 	struct stat stat;	 ///< File statistics
 	spinlock_t lock;	 ///< Must be held when accessing the node's data.
+
+	/* For simple path computation.
+	 *
+	 * TODO: This is an absolutely inefficient way to go about things
+	 *       as it makes it impossible to cache vnodes. Replace with
+	 *       BSD's namecache, which will be necessary when adding symlinks
+	 *       and hardlinks anyway. */
+	vnode_t *parent;
+	char path[PATH_MAX];
 };
 
 /** Increment the refcount of a vnode

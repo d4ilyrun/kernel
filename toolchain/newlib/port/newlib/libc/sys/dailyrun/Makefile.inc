@@ -4,6 +4,7 @@ libc_a_SOURCES += %D%/killpg.c
 libc_a_SOURCES += %D%/vfork.c
 libc_a_SOURCES += %D%/wait3.c
 libc_a_SOURCES += %D%/getgroups.c
+libc_a_SOURCES += %D%/getcwd.c
 
 libc_a_SOURCES += %D%/isatty.c
 

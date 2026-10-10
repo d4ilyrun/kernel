@@ -124,6 +124,9 @@ struct process {
 
 	mode_t cmask; /* file mode creation mask */
 
+	/* process' current working directory. */
+	struct vnode *working_directory;
+
 	spinlock_t lock;
 };
 

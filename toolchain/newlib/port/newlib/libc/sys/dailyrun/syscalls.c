@@ -153,12 +153,25 @@
 #define DEFINE_SYSCALL_4_manual(...)
 
 /*
+ * Syscalls with no direct userland alias.
+ */
+
+#define DEFINE_SYSCALL_ALIAS_noalias(...)
+#define DEFINE_SYSCALL_0_noalias DEFINE_SYSCALL_0_default
+#define DEFINE_SYSCALL_1_noalias DEFINE_SYSCALL_1_default
+#define DEFINE_SYSCALL_2_noalias DEFINE_SYSCALL_2_default
+#define DEFINE_SYSCALL_3_noalias DEFINE_SYSCALL_3_default
+#define DEFINE_SYSCALL_4_noalias DEFINE_SYSCALL_4_default
+#define DEFINE_SYSCALL_5_noalias DEFINE_SYSCALL_5_default
+#define DEFINE_SYSCALL_6_noalias DEFINE_SYSCALL_6_default
+
+/*
  * Userland syscall wrappers
  */
 
 #define DEFINE_SYSCALL(name, nr, argc, syscall_type, ret_type, ...) \
-	DEFINE_SYSCALL_ALIAS_##syscall_type(ret_type, name)         \
-	    DEFINE_SYSCALL_##argc##_##syscall_type(ret_type, name, nr, __VA_ARGS__)
+	DEFINE_SYSCALL_ALIAS_##syscall_type(ret_type, name);        \
+	DEFINE_SYSCALL_##argc##_##syscall_type(ret_type, name, nr, __VA_ARGS__);
 
 DEFINE_SYSCALLS(DEFINE_SYSCALL)
 

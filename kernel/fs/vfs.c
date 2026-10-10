@@ -223,6 +223,8 @@ static inline struct vnode *vfs_find_child_at(struct vnode **parent, const path_
 	child = PTR_ERR(E_ACCESS);
 	if (!vnode_check_access(node, creds, access_mode(O_SEARCH)))
 		goto out;
+	if (!node->operations->lookup)
+		goto out;
 
 	child = node->operations->lookup(node, segment);
 
@@ -241,26 +243,50 @@ out:
 vnode_t *vfs_find_by_path(const char *raw_path)
 {
 	path_t path = NEW_DYNAMIC_PATH(raw_path);
+	char node_path[PATH_MAX];
+	char node_name[NAME_MAX];
 	vnode_t *node;
 	vfs_t *fs;
 
-	fs = vfs_get_root_fs();
-	if (fs == NULL)
-		return PTR_ERR(E_NOENT);
+	if (strnlen(raw_path, PATH_MAX) >= PATH_MAX)
+		return PTR_ERR(E_NAME_TOO_LONG);
 
-	node = fs->operations->root(fs);
+	if (path_is_absolute(&path)) {
+		node = vfs_get_root();
+	} else {
+		spinlock_acquire(&current->process->lock);
+		node = vnode_acquire(current->process->working_directory, NULL);
+		spinlock_release(&current->process->lock);
+
+		spinlock_acquire(&node->lock);
+		if (strcmp("/", node->path))
+			strlcpy(node_path, node->path, PATH_MAX);
+		spinlock_release(&node->lock);
+	}
+
+	memset(node_path, 0, sizeof(node_path));
 	DO_FOREACH_SEGMENT(segment, &path, {
-		vnode_t *parent = node;
+		size_t namelen;
+		vnode_t *parent;
+
+		namelen = path_segment_length(&segment);
+		if (namelen >= NAME_MAX) {
+			vnode_release(node);
+			return PTR_ERR(E_NAME_TOO_LONG);
+		}
+
+		parent = node;
 		node = vfs_find_child_at(&parent, &segment);
-
-		// NOTE: vnode_acquire() is called inside the `lookup` and `root`
-		//       operations, this is why we must release the vnode.
-		//       This looks a bit weird, or 'hidden', and should
-		//       maybe be refactored.
 		vnode_release(parent);
-
 		if (IS_ERR(node))
 			return node;
+
+		strlcpy(node_name, segment.start, namelen + 1);
+		snprintk(node_path, PATH_MAX, "%s/%s", node_path, node_name);
+		spinlock_acquire(&node->lock);
+		if (!node->path[0]) /* Lazily compute vnode's full path. */
+			strlcpy(node->path, node_path, sizeof(node->path));
+		spinlock_release(&node->lock);
 	});
 
 	/* If path resolves to the directoy onto which a filesystem is mounted
@@ -274,6 +300,9 @@ vnode_t *vfs_find_by_path(const char *raw_path)
 		node = fs->operations->root(fs);
 		if (IS_ERR(node))
 			return node;
+		spinlock_acquire(&node->lock);
+		strlcpy(node->path, old->path, sizeof(node_path));
+		spinlock_release(&node->lock);
 		vnode_release(old);
 	}
 
@@ -310,13 +339,28 @@ static vnode_t *vfs_create_at(struct vnode *parent, const char *name, vnode_type
 {
 	struct vnode *vnode;
 	struct user_creds *creds;
+	char path[PATH_MAX];
+	size_t path_size;
 
 	if (parent->operations->create == NULL)
 		return PTR_ERR(E_NOT_SUPPORTED);
 
+	/* reject empty filenames */
+	if (!strnlen(name, 1))
+		return PTR_ERR(E_INVAL);
+
+	/* pre-compute and check vnode full path */
+	path_size = snprintk(path, sizeof(path), "%s/%s", parent->path, name);
+	if (path_size >= sizeof(path))
+		return PTR_ERR(E_NAME_TOO_LONG);
+
 	vnode = parent->operations->create(parent, name, type, mode);
 	if (IS_ERR(vnode))
 		return vnode;
+
+	/* WARNING: This only stands as long as we do not support symlinks. */
+	vnode->parent = vnode_acquire(parent, NULL);
+	strlcpy(vnode->path, path, sizeof(vnode->path));
 
 	creds = creds_get(current->process->creds);
 	vnode_fill_stats(vnode, mode, creds);
@@ -472,7 +516,9 @@ struct vnode *vnode_alloc(void)
 }
 
 /*
- *
+ * TODO: Remove this new parameter and make the caller perform this check.
+ *       This is just a plain bad design decision that does more than it
+ *       is supposed to and makes the API worse.
  */
 vnode_t *vnode_acquire(vnode_t *node, bool *new)
 {
@@ -738,6 +784,30 @@ int sys_stat(const char *path, struct stat *buf)
 }
 
 /*
+ * getcwd() syscall - get the absolute path to the current working directory.
+ */
+int sys_getcwd(char *buf, size_t bufsize)
+{
+	struct vnode *vnode;
+	size_t size;
+
+	if (!buf || bufsize == 0)
+		return -E_INVAL;
+
+	spinlock_acquire(&current->process->lock);
+	vnode = vnode_acquire(current->process->working_directory, NULL);
+	spinlock_release(&current->process->lock);
+
+	/* copy vnode's full path */
+	spinlock_acquire(&vnode->lock);
+	size = strlcpy(buf, vnode->path, bufsize);
+	spinlock_release(&vnode->lock);
+	vnode_release(vnode);
+
+	return (size >= bufsize) ? -E_RANGE : 0;
+}
+
+/*
  * Used by the cache to intialize newly allocated vnodes.
  */
 static void vnode_constructor(void *obj)
@@ -779,7 +849,13 @@ error_t vfs_init(void)
 	ASSERT(root_vnode != NULL);
 	root_vnode->type = VNODE_DIRECTORY;
 	root_vnode->operations = &root_vnode_ops;
+	strlcpy(root_vnode->path, "/", PATH_MAX);
 	vnode_fill_stats(root_vnode, 0, kernel_process.creds);
+
+	/*
+	 * Kernel's working directoru is always set to '/'.
+	 */
+	kernel_process.working_directory = vfs_get_root();
 
 	return E_SUCCESS;
 }

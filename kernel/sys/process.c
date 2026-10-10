@@ -223,6 +223,7 @@ static void process_make_zombie(struct process *process)
 
 	signal_queue_flush(&process->sig_pending);
 	address_space_destroy(process->as);
+	vnode_release(process->working_directory);
 
 	/*
 	 * Attach all orphans to the init process.
@@ -757,6 +758,7 @@ struct thread *process_execute_in_userland(const char *exec_path)
 
 struct thread *thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
 {
+	struct process *process = current->process;
 	struct process *new_process;
 	void *esp;
 	void *ebp;
@@ -789,13 +791,14 @@ struct thread *thread_fork(struct thread *thread, thread_entry_t entrypoint, voi
 		return (void *)new_process;
 
 	/* Duplicate the current process' state. */
-	locked_scope (&current->process->lock) {
-		process_set_name(new_process, current->process->name, PROCESS_NAME_MAX_LEN);
+	locked_scope (&process->lock) {
+		process_set_name(new_process, process->name, PROCESS_NAME_MAX_LEN);
 		address_space_copy_current(new_process->as);
-		new_process->creds = creds_get(current->process->creds);
-		new_process->flags = current->process->flags & PROC_FLAGS_INHERITED;
-		new_process->sig_set = signal_set_clone(current->process->sig_set);
-		new_process->cmask = current->process->cmask;
+		new_process->creds = creds_get(process->creds);
+		new_process->flags = process->flags & PROC_FLAGS_INHERITED;
+		new_process->sig_set = signal_set_clone(process->sig_set);
+		new_process->cmask = process->cmask;
+		new_process->working_directory = vnode_acquire(process->working_directory, NULL);
 		if (new_process->sig_set == NULL) {
 			err = E_NOMEM;
 			goto process_destroy;
@@ -803,10 +806,10 @@ struct thread *thread_fork(struct thread *thread, thread_entry_t entrypoint, voi
 	}
 
 	/* Duplicate the current process' open files. */
-	locked_scope (&current->process->fds_lock) {
+	locked_scope (&process->fds_lock) {
 		for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
-			if (current->process->fds[i])
-				new_process->fds[i] = fd_get(current->process->fds[i]);
+			if (process->fds[i])
+				new_process->fds[i] = fd_get(process->fds[i]);
 		}
 	}
 
@@ -816,9 +819,9 @@ struct thread *thread_fork(struct thread *thread, thread_entry_t entrypoint, voi
 		goto process_destroy;
 	}
 
-	new_process->parent = current->process;
-	locked_scope (&current->process->lock)
-		llist_add(&current->process->children, &new_process->this);
+	new_process->parent = process;
+	locked_scope (&process->lock)
+		llist_add(&process->children, &new_process->this);
 
 	locked_scope (&processes_list_lock)
 		llist_add(&processes_list, &new_process->this_global);
@@ -1132,4 +1135,33 @@ mode_t sys_umask(mode_t cmask)
 	cmask &= S_ISUID | S_ISGID | S_IRWXU | S_IRWXG | S_IRWXO;
 
 	return atomic_exchange(atomic_cast(&process->cmask), cmask);
+}
+
+/*
+ *
+ */
+int sys_chdir(const char *path)
+{
+	struct process *process = current->process;
+	struct vnode *working_directory;
+	int ret;
+
+	working_directory = vfs_find_by_path(path);
+	if (IS_ERR(working_directory))
+		return ERR_FROM_PTR(working_directory);
+
+	if (working_directory->type != VNODE_DIRECTORY) {
+		ret = -E_NOT_DIRECTORY;
+		goto out;
+	}
+
+	locked_scope(&process->lock) {
+		working_directory = atomic_ptr_exchange(&process->working_directory,
+							working_directory);
+	}
+
+	ret = E_SUCCESS;
+out:
+	vnode_release(working_directory);
+	return ret;
 }

@@ -50,6 +50,7 @@ typedef enum error {
 	E_PIPE = 32,		     ///< Broken pipe
 	E_NAME_TOO_LONG = 36,	     ///< File name too long
 	E_NOT_IMPLEMENTED = 38,	     ///< Function not implemented
+	E_RANGE = 34,		     ///< Numerical result out of range
 	E_OVERFLOW = 75,	     ///< Value too large for defined data type
 	E_BAD_FD = 77,		     ///< File descriptor in bad state
 	E_NOT_SOCKET = 88,	     ///< Socket operation on non-socket
