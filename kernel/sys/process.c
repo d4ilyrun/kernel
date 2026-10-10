@@ -1011,27 +1011,80 @@ void thread_deliver_pending_signal(struct thread *thread)
 }
 
 /*
- *
+ * Duplicate an open file description.
  */
-int sys_dup(int fd)
+static int fd_dup(struct process *process, struct fd *fdp, int first)
 {
-	struct process *process = current->process;
-	struct fd *fdp;
-
-	fdp = process_fd_get(process, fd);
-	if (!fdp)
-		return -E_BAD_FD;
+	if (first < 0 || first > OPEN_MAX)
+		return -E_INVAL;
 
 	locked_scope (&process->fds_lock) {
-		for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
+		for (size_t i = first; i < PROCESS_FD_COUNT; ++i) {
 			if (process->fds[i] == NULL) {
-				process->fds[i] = fdp; /* reference already acquired */
+				process->fds[i] = fd_get(fdp);
 				return i;
 			}
 		}
 	}
 
 	return -E_MFILE;
+}
+
+/*
+ * Set file descriptor flags.
+ */
+static int fd_set_flags(struct fd *fdp, int flags)
+{
+	int creat_mask;
+
+	/* clear file creation flags. */
+	creat_mask = O_CLOEXEC | O_CREAT | O_DIRECTORY | O_EXCL | O_NOCTTY | O_TRUNC;
+	flags &= ~creat_mask;
+	flags |= fdp->file->flags & creat_mask;
+	fdp->file->flags = flags;
+
+	return 0;
+}
+
+/*
+ * Get file descriptor flags.
+ */
+static int fd_get_flags(struct fd *fdp)
+{
+	return fdp->file->flags;
+}
+
+/*
+ * fcntl() syscall.
+ */
+int sys_fcntl(int fd, int op, void *arg)
+{
+	struct process *process = current->process;
+	struct fd *fdp;
+	int ret;
+
+	fdp = process_fd_get(process, fd);
+	if (!fdp)
+		return -E_BAD_FD;
+
+	switch (op) {
+	case F_DUPFD:
+		ret = fd_dup(process, fdp, (int)arg);
+		break;
+	case F_SETFD:
+		ret = fd_set_flags(fdp, (int)arg);
+		break;
+	case F_GETFD:
+		ret = fd_get_flags(fdp);
+		break;
+	default:
+		ret = -E_INVAL;
+		break;
+	}
+
+	process_fd_put(process, fdp);
+
+	return ret;
 }
 
 /*

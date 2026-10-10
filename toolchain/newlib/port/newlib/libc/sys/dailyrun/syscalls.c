@@ -214,6 +214,28 @@ int ioctl(int fd, unsigned long request, ...)
     return ret;
 }
 
+int _fcntl(int fd, int cmd, ...)
+{
+    va_list args;
+    void *arg;
+    int ret;
+
+    va_start(args, cmd);
+    arg = va_arg(args, void *);
+    va_end(args);
+
+    __asm__ volatile("int $0x80"
+                     : "=a"(ret)
+                     : "a"(SYS_fcntl), "b"(fd), "c"(cmd), "d"(arg)
+                     : "memory");
+    if (ret < 0) {
+        errno = -ret;
+        ret = -1;
+    }
+
+    return ret;
+}
+
 /*
  * signal() should not be used for anything else than setting the handler
  * to SIGDFL or SIGIGN. For other values follow the BSD semantics: the signal
@@ -294,4 +316,12 @@ recvfrom(int fd, void *data, size_t len, int flags, struct sockaddr *addr, sockl
 ssize_t recv(int fd, void *data, size_t len, int flags)
 {
 	return recvfrom(fd, data, len, flags, NULL, NULL);
+}
+
+/*
+ *
+ */
+int dup(int fd)
+{
+	return fcntl(fd, F_DUPFD, 0);
 }

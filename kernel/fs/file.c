@@ -17,8 +17,7 @@ struct file *file_open(struct vnode *vnode,
 	error_t ret = E_SUCCESS;
 
 	/* clear file creation flags. */
-	oflags &= ~(O_CLOEXEC | O_CREAT | O_DIRECTORY | O_EXCL |
-		    O_NOCTTY  | O_TRUNC);
+	oflags &= ~(O_CLOEXEC | O_CREAT | O_DIRECTORY | O_EXCL | O_NOCTTY | O_TRUNC);
 
 	if (fops == NULL)
 		return PTR_ERR(E_NOT_SUPPORTED);
