@@ -19,6 +19,13 @@ DECLARE_MUTEX(vfs_mountpoints_lock);
 
 static struct kmem_cache *kmem_cache_vnode;
 
+/*
+ * Vnode at the root of the entire virtual filesystem.
+ *
+ * This is the vnode the rootfs is mounted onto.
+ */
+static struct vnode *root_vnode;
+
 extern u32 _kernel_filesystems_start;
 extern u32 _kernel_filesystems_end;
 static const vfs_fs_t *kernel_filesystems_start = (const vfs_fs_t *)&_kernel_filesystems_start;
@@ -34,18 +41,22 @@ static const vfs_fs_t *vfs_find_fs(const char *fs_type)
 	return NULL;
 }
 
-static vfs_t *vfs_root_fs()
+/*
+ * Get a reference to the VFS's root vnode.
+ */
+static struct vnode *vfs_get_root(void)
 {
-	struct vfs *rootfs = NULL;
+	/* must not be called before vfs was initialized. */
+	ASSERT(root_vnode);
+	return vnode_acquire(root_vnode, NULL);
+}
 
-	/* FIXME: Reference count vfs to protect against a simultaneous
-	 *        unmount operation. */
-	semaphore_acquire(&vfs_mountpoints_lock);
-	if (!llist_is_empty(&vfs_mountpoints))
-		rootfs = llist_first_entry(&vfs_mountpoints, vfs_t, this);
-	semaphore_release(&vfs_mountpoints_lock);
-
-	return rootfs;
+/*
+ * Retreive the root filesystem.
+ */
+static vfs_t *vfs_get_root_fs(void)
+{
+	return root_vnode->mounted_here;
 }
 
 /*
@@ -56,7 +67,11 @@ static error_t vfs_mount_at(vnode_t *mountpoint, const char *fs_type, struct blo
 	const vfs_fs_t *fs;
 	vfs_t *new;
 
-	if (mountpoint && (mountpoint->mounted_here || mountpoint->type != VNODE_DIRECTORY))
+	if (!mountpoint)
+		return E_NOENT;
+	if (IS_ERR(mountpoint))
+		return ERR_FROM_PTR(mountpoint);
+	if (mountpoint->mounted_here || mountpoint->type != VNODE_DIRECTORY)
 		return E_INVAL;
 
 	fs = vfs_find_fs(fs_type);
@@ -67,12 +82,9 @@ static error_t vfs_mount_at(vnode_t *mountpoint, const char *fs_type, struct blo
 	if (IS_ERR(new))
 		return ERR_FROM_PTR(new);
 
-	if (mountpoint) {
-		new->node = vnode_acquire(mountpoint, NULL);
-		mountpoint->mounted_here = new;
-	} else {
-		new->node = NULL; /* root filesystem. */
-	}
+	/* link mountpoint and mounted filesystem */
+	new->node = vnode_acquire(mountpoint, NULL);
+	mountpoint->mounted_here = new;
 
 	semaphore_acquire(&vfs_mountpoints_lock);
 	llist_add_tail(&vfs_mountpoints, &new->this);
@@ -89,14 +101,10 @@ error_t vfs_mount_root(const char *fs_type, struct block_device *blkdev)
 	error_t err;
 
 	/* Mounting a new root is not supported. */
-	semaphore_acquire(&vfs_mountpoints_lock);
-	if (!llist_is_empty(&vfs_mountpoints)) {
-		semaphore_release(&vfs_mountpoints_lock);
+	if (vfs_get_root_fs())
 		return E_BUSY;
-	}
-	semaphore_release(&vfs_mountpoints_lock);
 
-	err = vfs_mount_at(NULL, fs_type, blkdev);
+	err = vfs_mount_at(root_vnode, fs_type, blkdev);
 	if (err)
 		return err;
 
@@ -129,6 +137,10 @@ error_t vfs_mount(const char *mount_path, const char *fs_type, struct block_devi
 static error_t vfs_unmount_at(struct vnode *vnode)
 {
 	struct vfs *fs;
+
+	/* Unmounting the rootfs is not supported. */
+	if (vnode == root_vnode)
+		return E_PERM;
 
 	/*
 	 * Unmount filesystem from the vnode.
@@ -232,7 +244,7 @@ vnode_t *vfs_find_by_path(const char *raw_path)
 	vnode_t *node;
 	vfs_t *fs;
 
-	fs = vfs_root_fs();
+	fs = vfs_get_root_fs();
 	if (fs == NULL)
 		return PTR_ERR(E_NOENT);
 
@@ -741,6 +753,21 @@ static void vnode_constructor(void *obj)
 }
 
 /*
+ * Releasing the root vnode should never ever happen.
+ *
+ * This vnode is meant to serve as a mounting point for the rootfs
+ * and should never be accessed directly.
+ */
+static void root_vnode_release(struct vnode *vnode)
+{
+	PANIC("releasing root vnode");
+}
+
+static struct vnode_operations root_vnode_ops = {
+	.release = root_vnode_release,
+};
+
+/*
  * Initialize the virtual filesystem API.
  */
 error_t vfs_init(void)
@@ -749,6 +776,15 @@ error_t vfs_init(void)
 					     NULL);
 	if (!kmem_cache_vnode)
 		return E_NOMEM;
+
+	/*
+	 * Create root vnode.
+	 */
+	root_vnode = vnode_alloc();
+	ASSERT(root_vnode != NULL);
+	root_vnode->type = VNODE_DIRECTORY;
+	root_vnode->operations = &root_vnode_ops;
+	vnode_fill_stats(root_vnode, 0, kernel_process.creds);
 
 	return E_SUCCESS;
 }
