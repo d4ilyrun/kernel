@@ -294,7 +294,8 @@ static struct file *shm_open(const char *name, int oflags, mode_t mode)
 		}
 	}
 
-	file = file_open(shm->vnode, &shm_fops);
+	destroy_on_error = false;
+	file = file_open(shm->vnode, &shm_fops, oflags);
 	if (IS_ERR(file)) {
 		log_warn("failed to create file for shm object: %s", shm_name(shm));
 		err = ERR_FROM_PTR(file);

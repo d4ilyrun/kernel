@@ -67,7 +67,7 @@ execfmt_execute_executable(struct executable *executable, void *stack_pointer, v
 	 */
 	locked_scope (&current->process->fds_lock) {
 		for (size_t i = 0; i < PROCESS_FD_COUNT; ++i) {
-			if (process->fds[i] && process->fds[i]->flags & FD_NOINHERIT) {
+			if (process->fds[i] && process->fds[i]->flags & FD_CLOEXEC) {
 				fd_put(process->fds[i]);
 				process->fds[i] = NULL;
 			}

@@ -242,7 +242,7 @@ static struct file_operations pty_fops = {
 /*
  *
  */
-static struct file *pty_vnode_open(struct vnode *vnode)
+static struct file *pty_vnode_open(struct vnode *vnode, int oflags)
 {
 	struct pty_end *end = vnode->pdata;
 
@@ -250,7 +250,7 @@ static struct file *pty_vnode_open(struct vnode *vnode)
 	if (WARN_ON_MSG(pty_end_is_master(end), "trying to open master end of pty"))
 		return PTR_ERR(E_NOT_SUPPORTED);
 
-	return file_open(vnode, &pty_fops);
+	return file_open(vnode, &pty_fops, oflags);
 }
 
 /*

@@ -45,7 +45,7 @@ static struct vnode_operations socket_vnode_ops = {
     .release = socket_vnode_release,
 };
 
-struct socket *socket_alloc(void)
+struct socket *socket_alloc()
 {
 	struct socket_node *node;
 	struct socket *socket;
@@ -157,9 +157,9 @@ static error_t socket_connect(struct file *file, const struct sockaddr *addr, so
 }
 
 /*
- * https://pubs.opengroup.org/onlinepubs/9699919799/functions/sendmsg.html
+ *
  */
-static ssize_t socket_sendmsg(struct file *file, const struct msghdr *msg, int flags)
+static ssize_t socket_sendmsg(struct file *file, const struct msghdr *msg)
 {
 	struct socket *socket = file->priv;
 	error_t err;
@@ -188,13 +188,13 @@ static ssize_t socket_sendmsg(struct file *file, const struct msghdr *msg, int f
 		}
 	}
 
-	return socket->proto->ops->sendmsg(socket, msg, flags);
+	return socket->proto->ops->sendmsg(socket, msg, file->flags);
 }
 
 /*
- * https://pubs.opengroup.org/onlinepubs/9699919799/functions/recvmsg.html
+ *
  */
-static ssize_t socket_recvmsg(struct file *file, struct msghdr *msg, int flags)
+static ssize_t socket_recvmsg(struct file *file, struct msghdr *msg)
 {
 	struct socket *socket = file->priv;
 
@@ -207,7 +207,7 @@ static ssize_t socket_recvmsg(struct file *file, struct msghdr *msg, int flags)
 	if (socket_mode_is_connection(socket->proto->type) && !socket_is_connected(socket))
 		return -E_NOT_CONNECTED;
 
-	return socket->proto->ops->recvmsg(socket, msg, flags);
+	return socket->proto->ops->recvmsg(socket, msg, file->flags);
 }
 
 static ssize_t socket_write(struct file *file, const char *data, size_t len)
@@ -221,7 +221,7 @@ static ssize_t socket_write(struct file *file, const char *data, size_t len)
 	    .msg_iovlen = 1,
 	};
 
-	return socket_sendmsg(file, &msg, 0);
+	return socket_sendmsg(file, &msg);
 }
 
 static ssize_t socket_read(struct file *file, char *data, size_t len)
@@ -235,7 +235,7 @@ static ssize_t socket_read(struct file *file, char *data, size_t len)
 	    .msg_iovlen = 1,
 	};
 
-	return socket_recvmsg(file, &msg, 0);
+	return socket_recvmsg(file, &msg);
 }
 
 static struct file_operations socket_fops = {
@@ -267,7 +267,7 @@ int sys_socket(int domain, int type, int proto)
 	if (err)
 		goto fail;
 
-	file = file_open(vnode, &socket_fops);
+	file = file_open(vnode, &socket_fops, O_RDWR);
 	if (IS_ERR(file)) {
 		log_err("Failed to open socket file: %pE", file);
 		err = ERR_FROM_PTR(file);
@@ -276,7 +276,7 @@ int sys_socket(int domain, int type, int proto)
 	}
 	file->priv = socket;
 
-	fd = process_add_fd(current->process, file, FD_RW);
+	fd = process_add_fd(current->process, file, 0);
 	if (fd < 0) {
 		err = -fd;
 		goto fail;
@@ -344,7 +344,7 @@ ssize_t sys_sendmsg(int fd, const struct msghdr *msg_in, int flags)
 	msg.msg_flags = flags;
 	flags = fdp->flags;
 
-	count = socket_sendmsg(fdp->file, &msg, flags);
+	count = socket_sendmsg(fdp->file, &msg);
 	process_fd_put(current->process, fdp);
 
 	return count;
@@ -367,7 +367,7 @@ ssize_t sys_recvmsg(int fd, struct msghdr *msg_in, int flags)
 	msg.msg_flags = flags;
 	flags = fdp->flags;
 
-	count = socket_recvmsg(fdp->file, &msg, flags);
+	count = socket_recvmsg(fdp->file, &msg);
 	process_fd_put(current->process, fdp);
 
 	msg_in->msg_flags = msg.msg_flags;
