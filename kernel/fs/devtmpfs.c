@@ -36,6 +36,7 @@ static inline struct vnode *device_acquire_vnode(struct device *dev)
 	if (!new)
 		return dev->vnode;
 
+	dev->vnode->type = VNODE_CHARDEVICE;
 	dev->vnode->operations = &devtmpfs_vnode_ops;
 	dev->vnode->pdata = dev;
 

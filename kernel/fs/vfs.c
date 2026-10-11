@@ -765,6 +765,36 @@ int sys_lstat(const char *path, struct stat *buf)
 
 	*buf = vnode->stat;
 
+	/*
+	 * Insert type information inside stat structure.
+	 */
+	buf->st_mode &= ~S_IFMT;
+	switch (vnode->type) {
+	case VNODE_FIFO:
+		buf->st_mode |= S_IFIFO;
+		break;
+	case VNODE_CHARDEVICE:
+		buf->st_mode |= S_IFCHR;
+		break;
+	case VNODE_DIRECTORY:
+		buf->st_mode |= S_IFDIR;
+		break;
+	case VNODE_BLOCKDEVICE:
+		buf->st_mode |= S_IFBLK;
+		break;
+	case VNODE_FILE:
+		buf->st_mode |= S_IFREG;
+		break;
+	case VNODE_SYMLINK:
+		buf->st_mode |= S_IFLNK;
+		break;
+	case VNODE_SOCKET:
+		buf->st_mode |= S_IFSOCK;
+		break;
+	default:
+		break;
+	}
+
 	vnode_release(vnode);
 
 	return E_SUCCESS;
