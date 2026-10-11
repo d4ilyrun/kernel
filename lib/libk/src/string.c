@@ -32,17 +32,20 @@ char *strncpy(char *dst, const char *src, size_t n)
 	return dst;
 }
 
+/*
+ * Copy @src into @dst.
+ *
+ * @return the number of bytes inside the original string.
+ */
 size_t strlcpy(char *dst, const char *src, size_t n)
 {
 	size_t i;
 
-	for (i = 0; i < n - 1; ++i) {
-		dst[i] = src[i];
-		if (dst[i] == '\0')
-			break;
+	for (i = 0; src[i]; ++i) {
+		if (i < n)
+			dst[i] = src[i];
 	}
-
-	dst[i] = 0;
+	dst[(i < n) ? i : n - 1] = 0;
 
 	return i;
 }
