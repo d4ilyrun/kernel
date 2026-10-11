@@ -93,12 +93,12 @@ export CONFIG_GRAPHICS_WIDTH  ?= 1280
 export CONFIG_GRAPHICS_HEIGHT ?= 720
 export CONFIG_GRAPHICS_DEPTH  ?= 32
 
-$(ISO): $(KERNEL_BIN) $(INITRAMFS)
+$(ISO): $(KERNEL_STRIPPED_BIN) $(INITRAMFS)
 	$(call COMPILE,ISO,$@)
 	$(call ASSERT_EXE_EXISTS,grub-mkrescue mformat)
-	$(SILENT)$(SCRIPTS_DIR)/generate_iso.sh $@ $(KERNEL_BIN) $(INITRAMFS)
+	$(SILENT)$(SCRIPTS_DIR)/generate_iso.sh $@ $(KERNEL_STRIPPED_BIN) $(INITRAMFS)
 
-TO_CLEAN += $(ISO) $(BUILD_DIR)/kernel.map $(BUILD_DIR)/kernel.sym
+TO_CLEAN += $(ISO)
 TO_CLEAN += $(INITRAMFS)
 
 .PHONY: initramfs iso

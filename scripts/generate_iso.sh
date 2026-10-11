@@ -7,8 +7,6 @@ if [ $# -lt 3 ]; then
     exit 1
 fi
 
-SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-
 ISO="$1"
 KERNEL_BIN="$2"
 INITRAMFS="$3"
@@ -56,11 +54,6 @@ EOF
 
     grub-mkrescue -o "$ISO" "$iso_dir"
 }
-
-if ! "$SCRIPT_DIR"/extract_kernel_symbols.py "$KERNEL_BIN" 131072; then
-    echo "Failed to process kernel binary files. Stopping"
-    exit 1
-fi
 
 check_multiboot "$KERNEL_BIN"
 generate_iso

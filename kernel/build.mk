@@ -96,6 +96,14 @@ $(KERNEL_BIN): $(KERNEL_LDSCRIPT) $(KERNEL_OBJS)
 	$(call COMPILE,LD,$@)
 	$(SILENT)$(CC) $(KERNEL_OBJS) -o "$@" $(KERNEL_LDFLAGS) $(LDFLAGS)
 
+# Stripped copy embedding the runtime symbol table, used only for the ISO.
+KERNEL_STRIPPED_BIN := $(KERNEL_BUILD_DIR)/kernel.stripped.bin
+
+$(KERNEL_STRIPPED_BIN): $(KERNEL_BIN)
+	$(call COMPILE,STRIP,$@)
+	$(SILENT)cp $(KERNEL_BIN) $@
+	$(SILENT)$(SCRIPTS_DIR)/extract_kernel_symbols.py $@ 131072
+
 $(KERNEL_BUILD_DIR)/%.c.o: $(KERNEL_DIR)/%.c $(KERNEL_CONFIG_HEADER) | libs
 	$(call COMPILE,CC,$@)
 	$(SILENT)$(CC) $(KERNEL_CPPFLAGS) $(CPPFLAGS) $(KERNEL_ASFLAGS) $(ASFLAGS) $(KERNEL_CFLAGS) $(CFLAGS) -c "$<" -o "$@"
