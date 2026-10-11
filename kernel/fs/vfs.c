@@ -319,12 +319,7 @@ static vnode_t *vfs_create_at(struct vnode *parent, const char *name, vnode_type
 		return vnode;
 
 	creds = creds_get(current->process->creds);
-
-	/* TODO: set file access mode (see opengroup's description of O_CREAT). */
-	vnode->stat.st_nlink = 1;
-	vnode->stat.st_gid = creds->egid;
-	vnode->stat.st_uid = creds->euid;
-
+	vnode_fill_stats(vnode, mode, creds);
 	creds_put(creds);
 
 	return vnode;
