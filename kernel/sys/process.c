@@ -924,8 +924,9 @@ pid_t sys_waitpid(pid_t pid, int *stat_loc, int options)
 	while (true) {
 		spinlock_acquire(&process->lock);
 		found = false;
+		exists = false;
 		FOREACH_LLIST_ENTRY (child, &process->children, this) {
-			if (child->pid == pid)
+			if (pid <= 0 || child->pid == pid)
 				exists = true;
 			if (READ_ONCE(child->state) != SCHED_ZOMBIE)
 				continue;
@@ -939,7 +940,7 @@ pid_t sys_waitpid(pid_t pid, int *stat_loc, int options)
 		if (found)
 			break;
 
-		if (pid > 0 && !exists)
+		if (!exists)
 			return -E_CHILD;
 
 		if (options & WNOHANG)
