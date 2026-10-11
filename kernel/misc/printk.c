@@ -55,12 +55,19 @@ static size_t printk_buffer_index = 0;
 
 #define MAXBUF (sizeof(long) * 8) // 32B max (times 8 bits)
 
+struct printk_ctx;
+
+struct printk_result {
+	int written;
+	int would_write;
+};
+
 struct printk_params {
 	char *buffer;
 	size_t buffer_size;
 	const char *format;
 	va_list *parameters;
-	void (*putchar)(struct printk_params *, char c, int *written);
+	void (*putchar)(struct printk_ctx *, char c);
 };
 
 /// man 3 printf: Flag characters
@@ -99,8 +106,9 @@ typedef struct {
 	unsigned char t;   // Following conversion corresponds to a ptrdiff_t
 } length_modifier_t;
 
-typedef struct {
+typedef struct printk_ctx {
 	struct printk_params *params;
+	struct printk_result *res;
 	bool invalid;
 	flags_t flags;
 	length_modifier_t length;
@@ -131,27 +139,30 @@ static void printk_buffer_put(char c)
 /*
  * Used by the default printk/vprintk functions.
  */
-static void printk_default_putchar(struct printk_params *params, char c, int *written)
+static void printk_default_putchar(struct printk_ctx *ctx, char c)
 {
-	(void)params; // shush
-
 	printk_buffer_put(c);
 	if (c == '\n' || c == '\r')
 		printk_buffer_flush();
 
-	*written += 1;
+	ctx->res->written += 1;
+	ctx->res->would_write += 1;
 }
 
 /*
  * Used by snprintk.
  */
-static void printk_buffer_putchar(struct printk_params *params, char c, int *written)
+static void printk_buffer_putchar(struct printk_ctx *ctx, char c)
 {
-	if ((size_t)*written == params->buffer_size)
+	struct printk_params *params = ctx->params;
+	struct printk_result *res = ctx->res;
+
+	res->would_write += 1;
+	if ((size_t)res->written == params->buffer_size)
 		return;
 
-	params->buffer[*written] = c;
-	*written += 1;
+	params->buffer[res->written] = c;
+	res->written += 1;
 }
 
 /// PRINTERS
@@ -163,16 +174,16 @@ static void printk_buffer_putchar(struct printk_params *params, char c, int *wri
 /// after we are done with the PARSERS functions.
 
 static inline void __attribute__((always_inline))
-printk_char(register char c, const printk_ctx_t *ctx, int *written)
+printk_char(register char c, printk_ctx_t *ctx)
 {
-	ctx->params->putchar(ctx->params, c, written);
+	ctx->params->putchar(ctx, c);
 }
 
 // NOLINTNEXTLINE(misc-no-recursion)
-static void printk_puts(register const char *str, printk_ctx_t *ctx, int *written)
+static void printk_puts(register const char *str, printk_ctx_t *ctx)
 {
 	if (str == NULL) {
-		printk_puts("(null)", ctx, written);
+		printk_puts("(null)", ctx);
 		return;
 	}
 
@@ -180,12 +191,11 @@ static void printk_puts(register const char *str, printk_ctx_t *ctx, int *writte
 		// precision: the maximum number of character to be printed
 		if (ctx && ctx->precision.present && ctx->precision.precision-- == 0)
 			break;
-		printk_char(*str++, ctx, written);
+		printk_char(*str++, ctx);
 	}
 }
 
-static void printk_utoa_base(register unsigned long long x, register unsigned int base,
-			     printk_ctx_t *ctx, int *written)
+static void printk_utoa_base(unsigned long long x, unsigned int base, printk_ctx_t *ctx)
 {
 	static const char *digits[2] = {
 	    "0123456789abcdef",
@@ -213,7 +223,7 @@ static void printk_utoa_base(register unsigned long long x, register unsigned in
 	if (ctx->flags.alternate_form) {
 		switch (base) {
 		case 2:
-			printk_char('b', ctx, written);
+			printk_char('b', ctx);
 			break;
 		case 8:
 			// For o conversions, the first character of the output string
@@ -223,13 +233,13 @@ static void printk_utoa_base(register unsigned long long x, register unsigned in
 			if (ctx->flags.pad_side == PADDING_LEFT &&
 			    ctx->flags.pad_char == PADDING_ZERO && total_length < ctx->field_width)
 				break;
-			printk_char('0', ctx, written);
+			printk_char('0', ctx);
 			break;
 		case 16:
 			if (ctx->capitalize)
-				printk_puts("0X", ctx, written);
+				printk_puts("0X", ctx);
 			else
-				printk_puts("0x", ctx, written);
+				printk_puts("0x", ctx);
 			break;
 		default:
 			break;
@@ -239,60 +249,60 @@ static void printk_utoa_base(register unsigned long long x, register unsigned in
 	if (ctx->flags.pad_side == PADDING_RIGHT) {
 		// prepend enough '0' to match minimum precision
 		while (length++ < total_length)
-			printk_char('0', ctx, written);
+			printk_char('0', ctx);
 		while (++c != &buf[MAXBUF])
-			printk_char(*c, ctx, written);
+			printk_char(*c, ctx);
 	}
 
 	if (total_length < ctx->field_width) {
 		for (unsigned int i = total_length; i < ctx->field_width; ++i)
-			printk_char(ctx->flags.pad_char, ctx, written);
+			printk_char(ctx->flags.pad_char, ctx);
 	}
 
 	if (ctx->flags.pad_side == PADDING_LEFT) {
 		// prepend enough '0' to match minimum precision
 		while (length++ < total_length)
-			printk_char('0', ctx, written);
+			printk_char('0', ctx);
 		while (++c != &buf[MAXBUF])
-			printk_char(*c, ctx, written);
+			printk_char(*c, ctx);
 	}
 }
 
-static void printk_itoa(register int x, printk_ctx_t *ctx, int *written)
+static void printk_itoa(register int x, printk_ctx_t *ctx)
 {
 	if (x < 0) {
-		printk_char('-', ctx, written);
-		printk_utoa_base(-x, 10, ctx, written);
+		printk_char('-', ctx);
+		printk_utoa_base(-x, 10, ctx);
 	} else {
 		if (ctx->flags.sign_character != SIGN_MINUS_ONLY)
-			printk_char(ctx->flags.sign_character, ctx, written);
-		printk_utoa_base(x, 10, ctx, written);
+			printk_char(ctx->flags.sign_character, ctx);
+		printk_utoa_base(x, 10, ctx);
 	}
 }
 
-static void printk_kernel_symbol(vaddr_t addr, bool print_offset, printk_ctx_t *ctx, int *written)
+static void printk_kernel_symbol(vaddr_t addr, bool print_offset, printk_ctx_t *ctx)
 {
 	const kernel_symbol_t *symbol = kernel_symbol_from_address(addr);
 	off_t offset = addr - symbol->address;
 
 	ctx->precision.present = false;
-	printk_puts(kernel_symbol_name(symbol), ctx, written);
+	printk_puts(kernel_symbol_name(symbol), ctx);
 
 	if (print_offset) {
 		ctx->flags.alternate_form = true;
-		printk_char('+', ctx, written);
-		printk_utoa_base(offset, 16, ctx, written);
+		printk_char('+', ctx);
+		printk_utoa_base(offset, 16, ctx);
 	}
 }
 
-static void printk_err_to_str(void *ptr, bool raw_error, printk_ctx_t *ctx, int *written)
+static void printk_err_to_str(void *ptr, bool raw_error, printk_ctx_t *ctx)
 {
 	error_t err;
 
 	err = (raw_error) ? *(error_t *)ptr : ERR_FROM_PTR(ptr);
 
 	ctx->precision.present = false;
-	printk_puts(err_to_str(err), ctx, written);
+	printk_puts(err_to_str(err), ctx);
 }
 
 /// PARSERS
@@ -450,27 +460,25 @@ static length_modifier_t printk_length_modifiers(const char *format, int *index)
 	return length;
 }
 
-static void printk_unsigned(register int base, va_list *parameters, printk_ctx_t *ctx, int *written)
+static void printk_unsigned(register int base, va_list *parameters, printk_ctx_t *ctx)
 {
 	// Here we know that sizeof(int) == sizeof(long) anyway and skip the
 	// case were we only have a single 'l' modifier (cf. static_assert)
 	if (ctx->length.ell >= 2)
-		printk_utoa_base(va_arg(*parameters, unsigned long long), base, ctx, written);
+		printk_utoa_base(va_arg(*parameters, unsigned long long), base, ctx);
 	else if (ctx->length.h == 1)
-		printk_utoa_base((unsigned short)va_arg(*parameters, unsigned int), base, ctx,
-				 written);
+		printk_utoa_base((unsigned short)va_arg(*parameters, unsigned int), base, ctx);
 	else if (ctx->length.h >= 2)
-		printk_utoa_base((unsigned char)va_arg(*parameters, unsigned int), base, ctx,
-				 written);
+		printk_utoa_base((unsigned char)va_arg(*parameters, unsigned int), base, ctx);
 	else if (ctx->length.z)
-		printk_utoa_base(va_arg(*parameters, size_t), base, ctx, written);
+		printk_utoa_base(va_arg(*parameters, size_t), base, ctx);
 	else if (ctx->length.t)
-		printk_utoa_base(va_arg(*parameters, ptrdiff_t), base, ctx, written);
+		printk_utoa_base(va_arg(*parameters, ptrdiff_t), base, ctx);
 	else
-		printk_utoa_base(va_arg(*parameters, unsigned int), base, ctx, written);
+		printk_utoa_base(va_arg(*parameters, unsigned int), base, ctx);
 }
 
-static int printk_step_pointer(const char *c, int *written, va_list *parameters, printk_ctx_t *ctx)
+static int printk_step_pointer(const char *c, va_list *parameters, printk_ctx_t *ctx)
 {
 	int step_size = 1;
 
@@ -478,23 +486,22 @@ static int printk_step_pointer(const char *c, int *written, va_list *parameters,
 	case TOK_POINTER_SYMBOL:
 	case TOK_POINTER_SYMBOL_OFFSET:
 		printk_kernel_symbol(va_arg(*parameters, vaddr_t), *c == TOK_POINTER_SYMBOL_OFFSET,
-				     ctx, written);
+				     ctx);
 		break;
 	case TOK_POINTER_ERROR_POINTER:
 	case TOK_POINTER_ERROR:
-		printk_err_to_str(va_arg(*parameters, void *), *c == TOK_POINTER_ERROR, ctx,
-				  written);
+		printk_err_to_str(va_arg(*parameters, void *), *c == TOK_POINTER_ERROR, ctx);
 		break;
 	default:
 		ctx->flags.alternate_form = true;
-		printk_utoa_base((unsigned int)va_arg(*parameters, void *), 16, ctx, written);
+		printk_utoa_base((unsigned int)va_arg(*parameters, void *), 16, ctx);
 		step_size = 0;
 	}
 
 	return step_size;
 }
 
-static int printk_step(const char *c, int *written, va_list *parameters, printk_ctx_t *ctx)
+static int printk_step(const char *c, va_list *parameters, printk_ctx_t *ctx)
 {
 	int step_size = 1;
 
@@ -505,21 +512,21 @@ static int printk_step(const char *c, int *written, va_list *parameters, printk_
 	// static_assert)
 	case TOK_DECIMAL:
 		if (ctx->length.ell < 2)
-			printk_itoa(va_arg(*parameters, int), ctx, written);
+			printk_itoa(va_arg(*parameters, int), ctx);
 		else if (ctx->length.z)
-			printk_itoa(va_arg(*parameters, ssize_t), ctx, written);
+			printk_itoa(va_arg(*parameters, ssize_t), ctx);
 		else if (ctx->length.t)
-			printk_itoa(va_arg(*parameters, ptrdiff_t), ctx, written);
+			printk_itoa(va_arg(*parameters, ptrdiff_t), ctx);
 		else
-			printk_itoa(va_arg(*parameters, long long), ctx, written);
+			printk_itoa(va_arg(*parameters, long long), ctx);
 		break;
 
 	case TOK_UNSIGNED:
-		printk_unsigned(10, parameters, ctx, written);
+		printk_unsigned(10, parameters, ctx);
 		break;
 
 	case TOK_OCTAL:
-		printk_unsigned(8, parameters, ctx, written);
+		printk_unsigned(8, parameters, ctx);
 		break;
 
 	case TOK_HEX_CAPITALIZED:
@@ -527,27 +534,27 @@ static int printk_step(const char *c, int *written, va_list *parameters, printk_
 		fallthrough;
 
 	case TOK_HEX:
-		printk_unsigned(16, parameters, ctx, written);
+		printk_unsigned(16, parameters, ctx);
 		break;
 
 	case TOK_BINARY:
-		printk_unsigned(2, parameters, ctx, written);
+		printk_unsigned(2, parameters, ctx);
 		break;
 
 	case TOK_POINTER:
-		step_size += printk_step_pointer(&c[1], written, parameters, ctx);
+		step_size += printk_step_pointer(&c[1], parameters, ctx);
 		break;
 
 	case TOK_STR:
-		printk_puts(va_arg(*parameters, char *), ctx, written);
+		printk_puts(va_arg(*parameters, char *), ctx);
 		break;
 
 	case TOK_ASCII:
-		printk_char(va_arg(*parameters, int), ctx, written);
+		printk_char(va_arg(*parameters, int), ctx);
 		break;
 
 	case TOK_ESCAPE:
-		printk_char(TOK_DELIMITER, ctx, written);
+		printk_char(TOK_DELIMITER, ctx);
 		break;
 
 	default:
@@ -564,22 +571,23 @@ static int printk_step(const char *c, int *written, va_list *parameters, printk_
 /// They use both the PARSERS and the PRINTERS to print the final
 /// result.
 
-static int do_vprintk(struct printk_params *params)
+static int do_vprintk(struct printk_params *params, struct printk_result *res)
 {
 	const char *format = params->format;
 	printk_ctx_t ctx = {0};
-	int written = 0;
 	int error = 0;
 	int i = 0;
 
+	memset(res, 0, sizeof(*res));
 	ctx.params = params;
+	ctx.res = res;
 
 	while (format[i] != '\0') {
 		char c = format[i++];
 
 		// Also print in case we reached the end of the format string
 		if (c != TOK_DELIMITER) {
-			printk_char(c, &ctx, &written);
+			printk_char(c, &ctx);
 			continue;
 		}
 
@@ -601,9 +609,9 @@ static int do_vprintk(struct printk_params *params)
 			continue;
 		}
 
-		int step_size = printk_step(&format[i], &written, params->parameters, &ctx);
+		int step_size = printk_step(&format[i], params->parameters, &ctx);
 		if (step_size < 0) {
-			printk_char(format[i], &ctx, &written);
+			printk_char(format[i], &ctx);
 			step_size = 1;
 			error = 1;
 			continue;
@@ -612,25 +620,26 @@ static int do_vprintk(struct printk_params *params)
 		i += step_size;
 	}
 
-	return error ? -1 : written;
+	return error ? -1 : res->written;
 }
 
 int vprintk(const char *format, va_list parameters)
 {
 	struct printk_params params;
+	struct printk_result res;
 
 	params.format = format;
 	params.parameters = &parameters;
 	params.putchar = printk_default_putchar;
 
-	return do_vprintk(&params);
+	return do_vprintk(&params, &res);
 }
 
 int printk(const char *format, ...)
 {
 	struct printk_params params;
+	struct printk_result res;
 	va_list parameters;
-	int res;
 
 	va_start(parameters, format);
 
@@ -638,17 +647,17 @@ int printk(const char *format, ...)
 	params.parameters = &parameters;
 	params.putchar = printk_default_putchar;
 
-	res = do_vprintk(&params);
+	do_vprintk(&params, &res);
 	va_end(parameters);
 
-	return res;
+	return res.written;
 }
 
 int snprintk(char *buffer, size_t buffsize, const char *format, ...)
 {
 	struct printk_params params;
+	struct printk_result res;
 	va_list parameters;
-	int res;
 
 	va_start(parameters, format);
 
@@ -658,11 +667,11 @@ int snprintk(char *buffer, size_t buffsize, const char *format, ...)
 	params.buffer = buffer;
 	params.buffer_size = buffsize - 1;
 
-	res = do_vprintk(&params);
+	do_vprintk(&params, &res);
 	va_end(parameters);
 
 	// null terminate string
-	buffer[res] = '\0';
+	buffer[res.written] = '\0';
 
-	return res;
+	return res.would_write;
 }
