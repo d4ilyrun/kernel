@@ -1,11 +1,13 @@
 #define LOG_DOMAIN "input"
 
+#include <kernel/console.h>
 #include <kernel/devices/input.h>
 #include <kernel/file.h>
 #include <kernel/kmalloc.h>
 #include <kernel/logger.h>
 #include <kernel/vfs.h>
 
+#include <utils/macro.h>
 #include <utils/math.h>
 
 #include <string.h>
@@ -182,6 +184,59 @@ static inline void input_event_dump(const struct input_device *dev, const struct
 #define input_event_dump(...)
 #endif
 
+static bool input_key_code_translate(enum key_code code, char *c)
+{
+	static const char key_code_to_ascii[] = {
+		[KEY_A] = 'a', [KEY_B] = 'b', [KEY_C] = 'c', [KEY_D] = 'd', [KEY_E] = 'e',
+		[KEY_F] = 'f', [KEY_G] = 'g', [KEY_H] = 'h', [KEY_I] = 'i', [KEY_J] = 'j',
+		[KEY_K] = 'k', [KEY_L] = 'l', [KEY_M] = 'm', [KEY_N] = 'n', [KEY_O] = 'o',
+		[KEY_P] = 'p', [KEY_Q] = 'q', [KEY_R] = 'r', [KEY_S] = 's', [KEY_T] = 't',
+		[KEY_U] = 'u', [KEY_V] = 'v', [KEY_W] = 'w', [KEY_X] = 'x', [KEY_Y] = 'y',
+		[KEY_Z] = 'z',
+
+		[KEY_0] = '0', [KEY_1] = '1', [KEY_2] = '2', [KEY_3] = '3', [KEY_4] = '4',
+		[KEY_5] = '5', [KEY_6] = '6', [KEY_7] = '7', [KEY_8] = '8', [KEY_9] = '9',
+
+		[KEY_KP_0] = '0', [KEY_KP_1] = '1', [KEY_KP_2] = '2', [KEY_KP_3] = '3',
+		[KEY_KP_4] = '4', [KEY_KP_5] = '5', [KEY_KP_6] = '6', [KEY_KP_7] = '7',
+		[KEY_KP_8] = '8', [KEY_KP_9] = '9',
+		[KEY_KP_DOT] = '.',
+		[KEY_KP_PLUS] = '+',
+		[KEY_KP_MINUS] = '-',
+		[KEY_KP_ASTERISK] = '*',
+		[KEY_KP_SLASH] = '/',
+		[KEY_KP_ENTER] = '\n',
+
+		[KEY_ENTER] = '\n',
+		[KEY_TAB] = '\t',
+		[KEY_BACKSPACE] = '\b',
+		[KEY_SPACE] = ' ',
+
+		[KEY_DOT] = '.',
+		[KEY_COMMA] = ',',
+		[KEY_SLASH] = '/',
+		[KEY_STAR] = '*',
+		[KEY_MINUS] = '-',
+		[KEY_PLUS] = '+',
+		[KEY_EQUAL] = '=',
+		[KEY_SEMICOLON] = ';',
+		[KEY_BACKSLASH] = '\\',
+		[KEY_BACKTICK] = '`',
+		[KEY_APOSTROPHE] = '\'',
+
+		[KEY_LEFT_BRACE] = '[',
+		[KEY_RIGHT_BRACE] = ']',
+		[KEY_LEFT_PARENTHESIS] = '(',
+		[KEY_RIGHT_PARENTHESIS] = ')',
+	};
+
+	if ((size_t)code >= ARRAY_SIZE(key_code_to_ascii) || !key_code_to_ascii[code])
+		return false;
+
+	*c = key_code_to_ascii[code];
+	return true;
+}
+
 /*
  * Insert a new event inside the queue of pending events.
  */
@@ -195,6 +250,19 @@ void input_device_push_event(struct input_device *dev, const struct input_event 
 	} else
 		log_warn("%s: event buffer full", device_name(&dev->dev));
 	spinlock_release(&dev->ev_lock);
+
+	switch (ev->ev_type) {
+	case INPUT_EV_KEY_PRESS: {
+		char c;
+
+		if (input_key_code_translate(ev->ev_data.key_code, &c))
+			console_input(&c, 1);
+		break;
+	}
+
+	default:
+		break;
+	}
 }
 
 /*

@@ -74,9 +74,7 @@ ssize_t console_write(const char *buffer, size_t size);
 
 #define console_write_string(str) console_write(str, strlen(str))
 
-/*
- *
- */
+void console_input(const char *buf, size_t len);
 void console_set_color(enum console_color fg, enum console_color bg);
 
 static inline void console_set_fg_color(enum console_color color)

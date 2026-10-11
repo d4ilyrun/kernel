@@ -5,6 +5,9 @@
 #include <kernel/init.h>
 #include <kernel/process.h>
 #include <kernel/vfs.h>
+#include <kernel/waitqueue.h>
+
+#include <libalgo/ringbuffer.h>
 
 #include <string.h>
 
@@ -12,6 +15,11 @@ static const struct console *active_console = NULL;
 
 static DECLARE_LLIST(consoles);
 static DECLARE_SPINLOCK(consoles_lock);
+
+static DECLARE_SPINLOCK(console_input_lock);
+static char __console_input_buffer[4 * PAGE_SIZE];
+static struct ringbuffer console_input_buffer;
+static DECLARE_WAITQUEUE(console_input_waiters);
 
 /*
  *
@@ -82,13 +90,73 @@ ssize_t console_write(const char *buf, size_t count)
 	return console->write(console, buf, count);
 }
 
+/*
+ *
+ */
+static ssize_t console_read(const char *buf, size_t count, bool nonblock)
+{
+	if (count == 0)
+		return 0;
+
+again:
+	spinlock_acquire(&console_input_lock);
+	if (ringbuffer_is_empty(&console_input_buffer)) {
+		if (nonblock) {
+			count = -E_WOULD_BLOCK;
+			goto out;
+		}
+
+		waitqueue_lock(&console_input_waiters);
+		spinlock_release(&console_input_lock);
+		waitqueue_enqueue_locked(&console_input_waiters, current);
+		goto again;
+	}
+
+	count = MIN(count, ringbuffer_remaining(&console_input_buffer));
+	ringbuffer_pop(&console_input_buffer, (u8 *)buf, count);
+
+out:
+	spinlock_release(&console_input_lock);
+	return count;
+}
+
+/*
+ *
+ */
+void console_input(const char *buf, size_t len)
+{
+	if (len == 0)
+		return;
+
+	/* NOTE: for debugging */
+	console_write(buf, len);
+
+	spinlock_acquire(&console_input_lock);
+	ringbuffer_push(&console_input_buffer, (const u8 *)buf,
+			MIN(len, ringbuffer_available(&console_input_buffer)));
+	spinlock_release(&console_input_lock);
+	waitqueue_dequeue(&console_input_waiters);
+}
+
+/*
+ * Write to the console device.
+ */
 static ssize_t console_device_write(struct file *file, const char *buf, size_t size)
 {
 	UNUSED(file);
 	return console_write(buf, size);
 }
 
+/*
+ * Read from the console device.
+ */
+static ssize_t console_device_read(struct file *file, char *buf, size_t size)
+{
+	return console_read(buf, size, file->flags & O_NONBLOCK);
+}
+
 static const struct file_operations console_device_fops = {
+    .read = console_device_read,
     .write = console_device_write,
 };
 
@@ -97,6 +165,18 @@ static struct device console_device = {
     .driver = NULL,
     .fops = &console_device_fops,
 };
+
+/*
+ * Initialize console input ringbuffer.
+ */
+static error_t console_init(void)
+{
+	ringbuffer_init(&console_input_buffer, __console_input_buffer,
+			sizeof(__console_input_buffer));
+
+	return E_SUCCESS;
+}
+DECLARE_INITCALL(INIT_EARLY, console_init);
 
 /*
  * Configure the default standard file descriptors to write to
