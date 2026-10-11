@@ -648,6 +648,9 @@ int sys_sigaction(int sig, const struct sigaction *act, struct sigaction *oact)
 	struct signal_action old_sig_action;
 	error_t err;
 
+	if (!act)
+		goto out;
+
 	memset(&sig_action, 0, sizeof(sig_action));
 	sig_action.sa_action = *act;
 
@@ -655,9 +658,9 @@ int sys_sigaction(int sig, const struct sigaction *act, struct sigaction *oact)
 	if (err)
 		return err;
 
+out:
 	if (oact)
 		*oact = old_sig_action.sa_action;
-
 	return E_SUCCESS;
 }
 
@@ -669,27 +672,29 @@ int sys_sigaction(int sig, const struct sigaction *act, struct sigaction *oact)
  */
 int sys_sigprocmask(int how, const sigset_t *set, sigset_t *old, size_t getsize)
 {
+	sigset_t mask = current->sig_blocked;
+
 	if (old) {
 		if (getsize != sizeof(*old))
 			return -E_INVAL;
-		*old = current->sig_blocked;
+		*old = mask;
 	}
 
 	if (!set)
 		return 0;
 
 	/* Clear out unmaskable signals. */
-	*old = signal_compute_mask(*old);
+	mask = signal_compute_mask(mask);
 
 	switch (how) {
 	case SIG_BLOCK:
-		current->sig_blocked |= *old;
+		current->sig_blocked |= mask;
 		break;
 	case SIG_UNBLOCK:
-		current->sig_blocked &= ~(*old);
+		current->sig_blocked &= ~(mask);
 		break;
 	case SIG_SETMASK:
-		current->sig_blocked = *old;
+		current->sig_blocked = mask;
 		break;
 	default:
 		return -E_INVAL;
