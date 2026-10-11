@@ -203,7 +203,7 @@ framebuffer_console_write(const struct console *console, const char *buffer, siz
 	if (interrupts)
 		interrupts_enable();
 
-	return 0;
+	return bytes;
 }
 
 /*
