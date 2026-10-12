@@ -738,28 +738,11 @@ static void __process_execute_in_userland(void *data)
 	assert_not_reached();
 }
 
-struct thread *process_execute_in_userland(const char *exec_path)
-{
-	struct thread *thread;
-
-	if (!vfs_exist(exec_path))
-		return PTR_ERR(E_NOENT);
-
-	thread = thread_fork(current, __process_execute_in_userland, (void *)exec_path);
-	if (IS_ERR(thread))
-		return thread;
-
-	sched_new_thread(thread);
-
-	return thread;
-}
-
-struct thread *thread_fork(struct thread *thread, thread_entry_t entrypoint, void *arg)
+static struct thread *thread_fork(struct thread *thread, void *stack_pointer,
+				  void *stack_base_pointer, thread_entry_t entrypoint, void *arg)
 {
 	struct process *process = current->process;
 	struct process *new_process;
-	void *esp;
-	void *ebp;
 	struct thread *new;
 	int flags;
 	error_t err;
@@ -772,9 +755,6 @@ struct thread *thread_fork(struct thread *thread, thread_entry_t entrypoint, voi
 		WARN("Cannot fork a non-running thread.");
 		return PTR_ERR(E_INVAL);
 	}
-
-	esp = thread_get_stack_pointer(thread);
-	ebp = thread_get_base_pointer(thread);
 
 	/*
 	 * Forked processes can only be usermode processes.
@@ -811,7 +791,7 @@ struct thread *thread_fork(struct thread *thread, thread_entry_t entrypoint, voi
 		}
 	}
 
-	new = thread_spawn(new_process, entrypoint, arg, esp, ebp, flags);
+	new = thread_spawn(new_process, entrypoint, arg, stack_pointer, stack_base_pointer, flags);
 	if (new == NULL) {
 		err = E_NOMEM;
 		goto process_destroy;
@@ -846,11 +826,32 @@ process_destroy:
 	return PTR_ERR(err);
 }
 
+struct thread *process_execute_in_userland(const char *exec_path)
+{
+	struct thread *thread;
+
+	if (!vfs_exist(exec_path))
+		return PTR_ERR(E_NOENT);
+
+	thread = thread_fork(current, thread_get_stack_pointer(current),
+			     thread_get_interrupt_base_pointer(current),
+			     __process_execute_in_userland, (void *)exec_path);
+	if (IS_ERR(thread))
+		return thread;
+
+	sched_new_thread(thread);
+
+	return thread;
+}
+
 pid_t sys_fork(void)
 {
 	struct thread *fork;
 
-	fork = thread_fork(current, thread_get_interrupt_return_address(current), NULL);
+	fork = thread_fork(current,
+			   (void *)arch_interrupt_frame_get_stack_pointer(&current->syscall_frame),
+			   thread_get_syscall_base_pointer(current),
+			   thread_get_syscall_return_address(current), NULL);
 	if (IS_ERR(fork))
 		return -ERR_FROM_PTR(fork);
 

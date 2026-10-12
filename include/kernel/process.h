@@ -167,7 +167,8 @@ typedef struct thread {
 	vaddr_t stack_pointer;
 
 	/** Interrupt frame pushed during the last userland -> kernel switch. */
-	struct interrupt_frame frame;
+	struct interrupt_frame interrupt_frame;
+	struct interrupt_frame syscall_frame;
 
 	/*
 	 * Software state.
@@ -255,30 +256,50 @@ static inline void *thread_get_kernel_stack_top(const struct thread *thread)
 	return (void *)thread->kernel_stack_top;
 }
 
+/** Set a thread's curent interrupt frame. */
+static inline void thread_set_interrupt_frame(thread_t *thread, const struct interrupt_frame *frame)
+{
+	memcpy(&thread->interrupt_frame, frame, sizeof(thread->interrupt_frame));
+}
+
 /**
  * Read the thread's return address when exiting the current interrupt context.
  */
 static inline void *thread_get_interrupt_return_address(const struct thread *thread)
 {
-	return (void *)arch_interrupt_frame_get_return_address(&thread->frame);
+	return (void *)arch_interrupt_frame_get_return_address(&thread->interrupt_frame);
 }
 
 /** Get the thread's current base pointer */
-static inline void *thread_get_base_pointer(struct thread *thread)
+static inline void *thread_get_interrupt_base_pointer(struct thread *thread)
 {
-	return (void *)arch_interrupt_frame_get_base_pointer(&thread->frame);
+	return (void *)arch_interrupt_frame_get_base_pointer(&thread->interrupt_frame);
 }
 
 /** Set a thread's curent interrupt frame. */
-static inline void thread_set_interrupt_frame(thread_t *thread, const struct interrupt_frame *frame)
+static inline void thread_set_syscall_frame(thread_t *thread, const struct interrupt_frame *frame)
 {
-	memcpy(&thread->frame, frame, sizeof(thread->frame));
+	memcpy(&thread->syscall_frame, frame, sizeof(thread->syscall_frame));
+}
+
+/**
+ * Read the thread's return address when exiting the current interrupt context.
+ */
+static inline void *thread_get_syscall_return_address(const struct thread *thread)
+{
+	return (void *)arch_interrupt_frame_get_return_address(&thread->syscall_frame);
+}
+
+/** Get the thread's current base pointer */
+static inline void *thread_get_syscall_base_pointer(struct thread *thread)
+{
+	return (void *)arch_interrupt_frame_get_base_pointer(&thread->syscall_frame);
 }
 
 /** Get a thread's current interrupt frame. */
 static inline struct interrupt_frame *thread_get_interrupt_frame(struct thread *thread)
 {
-	return &thread->frame;
+	return &thread->interrupt_frame;
 }
 
 /** Get the thread's kernel stack bottom address */
@@ -418,19 +439,6 @@ void thread_set_mmu(struct thread *thread, paddr_t mmu);
  *  * Synchronize resources (write to files, ...)
  */
 void thread_kill(thread_t *);
-
-/** Create a new fork of the given thread.
- *
- * A new process is created to execute the forked thread.
- * The address space of the original thread's process is duplicated
- * inside the newly created process.
- *
- * If the duplicated process had multiple threads, only the one that
- * called this function is replicated.
- *
- * @return The newly created thread
- */
-struct thread *thread_fork(struct thread *, thread_entry_t, void *);
 
 /** Try and deliver the first non-blocked pending signal.
  *

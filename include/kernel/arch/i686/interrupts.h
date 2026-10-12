@@ -140,6 +140,12 @@ static inline vaddr_t arch_interrupt_frame_get_base_pointer(const struct interru
 	return frame->regs.ebp;
 }
 
+static inline vaddr_t arch_interrupt_frame_get_stack_pointer(const struct interrupt_frame *frame)
+{
+	/* NOTE: Only valid for the syscall interrupt frame. */
+	return frame->frame.esp;
+}
+
 static ALWAYS_INLINE void arch_interrupts_disable(void)
 {
 	ASM("cli");

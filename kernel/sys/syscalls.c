@@ -86,6 +86,7 @@ static interrupt_return_t syscall(void *data)
 	UNUSED(data);
 
 	frame = thread_get_interrupt_frame(current);
+	thread_set_syscall_frame(current, frame);
 	arch_syscall_get_args(frame, &args);
 
 	if (args.nr >= SYSCALL_COUNT || !syscalls[args.nr].handler) {
