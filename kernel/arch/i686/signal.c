@@ -25,7 +25,7 @@ error_t arch_signal_deliver_catch(struct thread *thread, const struct signal_act
 	if (!handler)
 		return E_INVAL;
 
-	interrupt_frame = ((void *)thread->context.esp0) - sizeof(struct interrupt_frame);
+	interrupt_frame = thread_get_kernel_stack_top(thread) - sizeof(struct interrupt_frame);
 	stack = (void *)interrupt_frame->frame.esp;
 
 	stack -= sizeof(*signal_frame);
@@ -82,7 +82,7 @@ int sys_sigreturn(struct user_signal_context *sig_uctx)
 	/*
 	 * Restore the original interrupt frame (pre-signal) and signal mask.
 	 */
-	interrupt_frame = ((struct interrupt_frame *)current->context.esp0) - 1;
+	interrupt_frame = thread_get_kernel_stack_top(current) - sizeof(*interrupt_frame);
 	interrupt_frame->regs = sig_uctx->regs;
 	interrupt_frame->frame = sig_uctx->interrupt_frame;
 	current->sig_blocked = sig_uctx->sig_blocked;

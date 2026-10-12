@@ -130,6 +130,16 @@ struct interrupt_frame {
 	struct x86_interrupt_frame frame;
 };
 
+static inline vaddr_t arch_interrupt_frame_get_return_address(const struct interrupt_frame *frame)
+{
+	return frame->frame.eip;
+}
+
+static inline vaddr_t arch_interrupt_frame_get_base_pointer(const struct interrupt_frame *frame)
+{
+	return frame->regs.ebp;
+}
+
 static ALWAYS_INLINE void arch_interrupts_disable(void)
 {
 	ASM("cli");

@@ -56,8 +56,10 @@ void stack_trace(void)
 static void panic_dump_process(void)
 {
 	log_err("%s (TID: %d)", current->process->name, current->tid);
-	log_err("ESP0=" FMT32 " ESP=" FMT32 " CR3=" FMT32, current->context.esp0,
-		current->context.esp_user, current->context.cr3);
+	log_err("ESP0=" FMT32 " ESP=" FMT32 " CR3=" FMT32,
+		current->kernel_stack_top,
+		current->stack_pointer,
+		current->mmu);
 }
 
 #undef LOG_DOMAIN

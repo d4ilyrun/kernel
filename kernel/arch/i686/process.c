@@ -165,8 +165,3 @@ void arch_process_clear(struct process *process)
 {
 	UNUSED(process);
 }
-
-void arch_thread_set_mmu(struct thread *thread, paddr_t mmu)
-{
-	thread->context.cr3 = mmu;
-}

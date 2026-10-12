@@ -120,7 +120,7 @@ DECLARE_SPINLOCK(threads_list_lock);
  *
  * @param context The next thread's hardware context
  */
-extern void arch_thread_switch(thread_context_t *);
+extern void arch_thread_switch(struct thread *);
 
 /** Arch specific, initialize the thread's arch specific context
  *
@@ -140,8 +140,6 @@ extern void arch_thread_clear(thread_t *thread);
 
 NO_RETURN void arch_thread_jump_to_userland(void *stack_pointer, void *base_pointer,
 					    thread_entry_t entrypoint, void *data);
-
-extern void arch_thread_set_mmu(struct thread *thread, paddr_t mmu);
 
 static void thread_free(thread_t *thread);
 static void thread_kill_locked(thread_t *thread);
@@ -668,7 +666,7 @@ bool thread_switch(thread_t *thread)
 		return false;
 	}
 
-	arch_thread_switch(&thread->context);
+	arch_thread_switch(thread);
 	return true;
 }
 
@@ -870,7 +868,7 @@ NO_RETURN void thread_jump_to_userland(void *stack_pointer, void *base_pointer,
 
 void thread_set_mmu(struct thread *thread, paddr_t mmu)
 {
-	arch_thread_set_mmu(thread, mmu);
+	thread->mmu = mmu;
 }
 
 void sys_exit(int status)

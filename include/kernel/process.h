@@ -36,18 +36,13 @@
 #include <kernel/types.h>
 #include <kernel/user.h>
 #include <kernel/vmm.h>
+#include <kernel/interrupts.h>
 
 #include <libalgo/linked_list.h>
 #include <utils/compiler.h>
 
 #include <limits.h>
 #include <string.h>
-
-#if ARCH == i686
-#include <kernel/arch/i686/process.h>
-#else
-#error Unsupported arcihtecture
-#endif
 
 /** The max length of a process's name */
 #define PROCESS_NAME_MAX_LEN 32U
@@ -144,9 +139,6 @@ enum process_flags {
  * @brief A single thread.
  *
  * The struct contains information about the thread's execution state.
- * This state is architecture dependant, so its actual definition is present
- * inside the arch specific process header file.
- *
  * Generic information about a thread include its current state (used by the
  * scheduler), information about its containing process and feature flags.
  *
@@ -154,13 +146,33 @@ enum process_flags {
  */
 typedef struct thread {
 
-	/**
-	 * Arch specific thread context
+	/*
+	 * Hardware state.
 	 *
-	 * This includes registers, and information that must be kept for when
-	 * switching back into the thread.
+	 * The assembly routines for context switching depend on the order
+	 * of these fields. We must update them when reordering these.
 	 */
-	thread_context_t context;
+
+	paddr_t mmu; /* Hardware MMU root structure. */
+
+	vaddr_t kernel_stack_top; /* Top of the thread's kernel stack. */
+	vaddr_t user_stack_top;   /* Top of the thread's user stack (invalid for kernel threads). */
+
+	/* Thread's current stack pointer.
+	 *
+	 * This value is updated when:
+	 * - An interrupt occurs while the thread is running
+	 * - The thread is rescheduled
+	 */
+	vaddr_t stack_pointer;
+
+	/** Interrupt frame pushed during the last userland -> kernel switch. */
+	struct interrupt_frame frame;
+
+	/*
+	 * Software state.
+	 */
+
 	thread_state_t state; /*!< Thread's current state, used by the scheduler */
 
 	pid_t tid; /*!< Thread ID */
@@ -222,81 +234,25 @@ static ALWAYS_INLINE bool thread_is_initial(thread_t *thread)
 /** Set the thread's current stack pointer */
 static inline void thread_set_stack_pointer(struct thread *thread, void *stack)
 {
-	arch_thread_set_stack_pointer(&thread->context, stack);
+	thread->stack_pointer = (vaddr_t)stack;
 }
 
 /** Get the thread's current stack pointer */
 static inline void *thread_get_stack_pointer(struct thread *thread)
 {
-	return arch_thread_get_stack_pointer(&thread->context);
-}
-
-/** Set the thread's current base pointer */
-static inline void thread_set_base_pointer(struct thread *thread, void *ptr)
-{
-	arch_thread_set_base_pointer(&thread->context, ptr);
-}
-
-/** Get the thread's current base pointer */
-static inline void *thread_get_base_pointer(struct thread *thread)
-{
-	return arch_thread_get_base_pointer(&thread->context);
-}
-
-/** Set a thread's curent interrupt frame. */
-static inline void thread_set_interrupt_frame(thread_t *thread, const struct interrupt_frame *frame)
-{
-	arch_thread_set_interrupt_frame(&thread->context, frame);
-}
-
-/** Get a thread's current interrupt frame. */
-static inline struct interrupt_frame *thread_get_interrupt_frame(struct thread *thread)
-{
-	return arch_thread_get_interrupt_frame(&thread->context);
+	return (void *)thread->stack_pointer;
 }
 
 /** Set the thread's kernel stack bottom address */
 static inline void thread_set_kernel_stack(struct thread *thread, void *stack)
 {
-	arch_thread_set_kernel_stack_top(&thread->context, stack + KERNEL_STACK_SIZE);
+	thread->kernel_stack_top = (vaddr_t)stack + KERNEL_STACK_SIZE;
 }
 
 /** Get the thread's kernel stack top address */
 static inline void *thread_get_kernel_stack_top(const struct thread *thread)
 {
-	return arch_thread_get_kernel_stack_top(&thread->context);
-}
-
-/** Get the thread's kernel stack bottom address */
-static inline void *thread_get_kernel_stack(const struct thread *thread)
-{
-	void *top = thread_get_kernel_stack_top(thread);
-	if (!top)
-		return NULL;
-
-	return top - KERNEL_STACK_SIZE;
-}
-
-/** Set the thread's user stack bottom address */
-static inline void thread_set_user_stack(struct thread *thread, void *stack)
-{
-	arch_thread_set_user_stack_top(&thread->context, stack + USER_STACK_SIZE);
-}
-
-/** Get the thread's user stack top address */
-static inline void *thread_get_user_stack_top(const struct thread *thread)
-{
-	return arch_thread_get_user_stack_top(&thread->context);
-}
-
-/** Get the thread's user stack bottom address */
-static inline void *thread_get_user_stack(const struct thread *thread)
-{
-	void *top = thread_get_user_stack_top(thread);
-	if (!top)
-		return NULL;
-
-	return top - USER_STACK_SIZE;
+	return (void *)thread->kernel_stack_top;
 }
 
 /**
@@ -304,7 +260,55 @@ static inline void *thread_get_user_stack(const struct thread *thread)
  */
 static inline void *thread_get_interrupt_return_address(const struct thread *thread)
 {
-	return arch_thread_get_interrupt_return_address(&thread->context);
+	return (void *)arch_interrupt_frame_get_return_address(&thread->frame);
+}
+
+/** Get the thread's current base pointer */
+static inline void *thread_get_base_pointer(struct thread *thread)
+{
+	return (void *)arch_interrupt_frame_get_base_pointer(&thread->frame);
+}
+
+/** Set a thread's curent interrupt frame. */
+static inline void thread_set_interrupt_frame(thread_t *thread, const struct interrupt_frame *frame)
+{
+	memcpy(&thread->frame, frame, sizeof(thread->frame));
+}
+
+/** Get a thread's current interrupt frame. */
+static inline struct interrupt_frame *thread_get_interrupt_frame(struct thread *thread)
+{
+	return &thread->frame;
+}
+
+/** Get the thread's kernel stack bottom address */
+static inline void *thread_get_kernel_stack(const struct thread *thread)
+{
+	if (!thread->kernel_stack_top)
+		return NULL;
+
+	return (void *)thread->kernel_stack_top - KERNEL_STACK_SIZE;
+}
+
+/** Set the thread's user stack bottom address */
+static inline void thread_set_user_stack(struct thread *thread, void *stack)
+{
+	thread->user_stack_top = (vaddr_t)stack + USER_STACK_SIZE;
+}
+
+/** Get the thread's user stack top address */
+static inline void *thread_get_user_stack_top(const struct thread *thread)
+{
+	return (void *)thread->user_stack_top;
+}
+
+/** Get the thread's user stack bottom address */
+static inline void *thread_get_user_stack(const struct thread *thread)
+{
+	if (!thread->user_stack_top)
+		return NULL;
+
+	return (void *)thread->user_stack_top - USER_STACK_SIZE;
 }
 
 /** Process used when starting up the kernel.

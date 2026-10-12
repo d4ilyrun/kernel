@@ -9,7 +9,7 @@
 
 .section .text
 
-/* void arch_thread_switch(struct x86_thread *) */
+/* void arch_thread_switch(struct thread *) */
 .type arch_thread_switch, @function
 arch_thread_switch:
 

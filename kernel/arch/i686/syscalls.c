@@ -27,6 +27,6 @@ void arch_syscall_set_return_value(u32 value)
 	 * Update the value inside the **actual** interrupt frame used when
 	 * returning to userland.
 	 */
-	frame = (void *)current->context.esp0 - sizeof(struct interrupt_frame);
+	frame = thread_get_kernel_stack_top(current) - sizeof(struct interrupt_frame);
 	frame->regs.eax = value;
 }
