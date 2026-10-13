@@ -167,8 +167,8 @@ framebuffer_console_write(const struct console *console, const char *buffer, siz
 
 	fb = container_of(console, struct framebuffer, console);
 
-	interrupts = interrupts_test_and_disable();
 	spinlock_acquire(&fb->console_lock);
+	interrupts = interrupts_test_and_disable();
 
 	for (size_t i = 0; i < bytes; ++i) {
 		unsigned char c = buffer[i];
