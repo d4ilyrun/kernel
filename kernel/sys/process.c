@@ -198,8 +198,6 @@ static void process_make_zombie(struct process *process)
 	struct process *parent;
 	siginfo_t sigchld;
 
-	log_info("freeing process: %s", process->name);
-
 	if (process == init_process)
 		PANIC("Trying to kill the init process.");
 
@@ -628,8 +626,6 @@ static void thread_free(thread_t *thread)
 {
 	struct process *process = thread->process;
 
-	log_info("terminating thread %d (%s)", thread->tid, process->name);
-
 	/*
 	 * A thread cannot be free'd if it is currently running since it would
 	 * need to release the kernel stack it depends on.
@@ -855,7 +851,6 @@ pid_t sys_fork(void)
 	if (IS_ERR(fork))
 		return -ERR_FROM_PTR(fork);
 
-	log_dbg("forked new process: %s (%d)", fork->process->name, fork->tid);
 	sched_new_thread(fork);
 
 	return fork->tid;
