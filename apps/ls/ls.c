@@ -43,14 +43,12 @@ int main(int argc, const char **argv)
 {
 	bool one_per_line = false;
 	int ret;
+	int i;
 
 	/* parse options */
-	for (int i = 1; i < argc; ++i) {
-		if (argv[i][0] != '-') {
-			argv = &argv[i];
-			argc -= i;
+	for (i = 1; i < argc; ++i) {
+		if (argv[i][0] != '-')
 			break;
-		}
 		if (!strcmp(argv[i], "-h")) {
 			usage();
 			exit(EXIT_FAILURE);
@@ -59,8 +57,10 @@ int main(int argc, const char **argv)
 			one_per_line = true;
 	}
 
-	/* TODO: getcwd() */
-	if (argc < 2)
+	argv = &argv[i];
+	argc -= i;
+
+	if (argc == 0)
 		return do_ls("", one_per_line);
 
 	for (int i = 0; i < argc; ++i) {
